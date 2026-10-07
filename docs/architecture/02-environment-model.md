@@ -12,7 +12,8 @@ and its **knob**. Calibration inputs live in `configs/calibration/*.yaml` and ar
 | `tier` | 0/1/2 with mix e.g. 70/25/5 (sweep) | Tier 1 declares `window` (daily hours) |
 | `hw_class` | Discrete classes (e.g., 6) with `speed` (lognormal around class), `cores`, `mem_mb`, `disk_gb`, `cpu_model` (for snapshot compat class) | Tier-1 envelope caps what the platform may use |
 | `link` | Down/up Mbps lognormal, asymmetric (up ≈ 0.1–0.3× down), last-mile RTT | Residential profile |
-| `behavior` | `honest` / `lazy(q)` / `malicious` (returns wrong result w.p. q) | Trust experiments only |
+| `behavior` | `honest` (default; crash-only threat model). `lazy(q)` only under the `crash_plus_lazy` extension | 04 §2 |
+| `roles` | Control roles hosted (scheduler replica, orchestrator replica, validator); hosting reserves `sched_cores` | 07 §4 |
 | `failure_domain` | `(asn, region)`; peers in a city share a few ASNs | Used by anti-affinity and control-plane placement |
 | `benchmark` | Noisy measurement of true speed/bandwidth at onboarding | The predictor's prior sees this, never the truth |
 
@@ -47,6 +48,8 @@ types, each with its own generator parameters:
 - **Transfer(bytes, src, dst)** = `RTT + bytes / rate`, where `rate = min(src.up, dst.down, share)` and `share`
   is processor-sharing on each peer's access link (fluid fair share, recomputed on start/finish of flows).
   The core network is assumed uncontended (documented simplification).
+- **Every message** (heartbeats, dispatch, replication, ledger, bulk data) uses `net.send` (01 §6), so geography
+  affects control-plane latency (quorum RTT, election, spillover) as well as data transfer.
 - NAT/relay: peers flagged `relayed` add a fixed RTT penalty and bandwidth factor.
 - **Validation:** RTT model vs. RIPE Atlas/M-Lab-derived city-pair distributions (verify datasets); report error.
 

@@ -54,3 +54,40 @@ to validity.
 sweeps (reproducible and fast). Both logged.
 
 **ADR-015 Workflows (SeBS-Flow) parked.** Secondary evaluation; add only after core results.
+
+## Added after design review
+
+**ADR-016 Fault model is crash-fault tolerant, not Byzantine, for all nodes.** Workers, schedulers, routers,
+orchestrators and validators may crash, be preempted, drain, or be partitioned; none is assumed to lie (a scheduler
+never writes false records to the chain). Consequences: CFT consensus for validators, term/fencing for safety, no
+signature-verification cost. **This narrows spec §3.1 #7 / §4.5:** lazy-worker verification becomes an optional
+extension (`threat_model: crash_plus_lazy`, off by default, reported separately), and reputation measures
+commitment-keeping/timeliness. *Revisit if* reviewers require a Byzantine-worker evaluation; the extension exists for
+that.
+
+**ADR-017 Scheduler = replicated state machine per cluster; single active leader with hot standbys (Raft-lite).**
+Replicated entries: `ENQUEUE`, `ASSIGN`, `OUTCOME`, `EPOCH_CLOSE`, `CONFIG`. Followers apply entries, never re-solve
+the ILP; heartbeats go to all replicas. `dispatch: committed` default, `speculative` for idempotent functions.
+Safety via terms + fencing at peers. *Rejected:* active-active sharding of invocations (duplicates slot accounting,
+needs conflict resolution; small clusters already bound the work); chain-based election (puts finality on the
+critical path); timer-only failure model (hides geography and quorum cost). See 07.
+
+**ADR-018 Scheduler work is recorded on the ledger and credited.** Epoch records (assignment Merkle root, leader
+terms, counts) are log entries so a new leader resubmits unacked batches; chain dedupes by
+`(cluster, term, epoch_id)`. The ledger is audit and reward only, never election or fencing.
+
+**ADR-019 Reproducibility contract.** Lockfile + Dockerfile, run manifests with result hashes, `voss repro`
+asserting hash equality, `replay` decision-clock mode to reproduce `measured` solver experiments, deterministic
+single-threaded solver settings, no unseeded randomness. See 01 §9.
+
+**ADR-020 Actor model with a single `net.send` for all cross-node interaction.** Geo-derived delay applies to
+control messages (heartbeats, replication, election, ledger) and data alike; actors cannot call each other, which
+prevents spaghetti and unrealistic zero-latency shortcuts.
+
+**ADR-021 Clusters are small by design (tens of peers; target from E02).** ILP cost grows quickly with window ×
+cluster size, scheduler hosts are slow volunteers, and a small cluster keeps quorum RTT low. Control-role overhead
+(`r` of `N` peers) is reported and tuned jointly with `N_target` (E21).
+
+*Amends:* **ADR-007** (validators run a CFT group on `ReplicationGroup`; finality derives from quorum RTT);
+**ADR-008** (control plane = replica groups per 07; bootstrap root remains the one named SPOF); **ADR-014**
+(adds `replay` mode).

@@ -1,117 +1,102 @@
-# 04 · Trust, Incentives and Control Plane (C5, §4.4–4.6, §5.5)
+# 04 · Reputation, Ledger, Rewards, Drain (C5, §4.4–4.6)
 
-These are **models inside the simulator**, deliberately thin, with calibrated delays and capacities. They are
-evaluated as separate axes from scheduling quality (spec §9).
+Control-plane fault tolerance (scheduler replication, failover) is in **07**. These are **models inside the
+simulator**, deliberately thin, with calibrated delays and capacities, evaluated as separate axes from scheduling
+quality (spec §9).
+
+**Threat model (ADR-016):** crash-fault only. Workers and schedulers crash, get preempted or drain; none lies.
+Result verification for lazy/cheating workers is an **optional extension** (§2), off by default
+(`threat_model: crash_only`; the extension is `crash_plus_lazy`).
 
 ## 1. Reputation (`policy/reputation.py`, pure)
 
-State per peer: `(alpha, beta, last_update, probation_left, tier)`.
+State per peer: `(alpha, beta, last_update, probation_left, tier)`. Under the crash-only model reputation measures
+**commitment-keeping and timeliness**, not honesty.
 
-**Default rule: Beta-Bernoulli with time decay.** Events (all from *verified* outcomes):
+**Default rule: Beta-Bernoulli with time decay.**
 
 | Event | Effect | Notes |
 |---|---|---|
-| Verified-correct completion | `alpha += w_ok` (+ timeliness bonus) | Weighted by invocation cost class to resist farming only trivially short, safe work |
-| Verification mismatch | `beta += w_bad` (large) | Dominant penalty |
-| Broken commitment (Tier 1/2 leaves inside declared window, abrupt) | `beta += w_commit` | |
+| On-time completion | `alpha += w_ok` (+ timeliness bonus) | Weighted by invocation cost class to resist farming trivially short work |
+| Broken commitment (Tier 1/2 leaves or goes dark inside declared window, abrupt) | `beta += w_commit` | The case reputation exists to catch |
+| Delivered envelope far below declared (sustained) | `beta += w_env` | Declared cores/bandwidth vs. measured |
 | Clean graceful drain | no penalty; small `alpha` bonus | |
-| Tier 0 owner preemption, crash | **no effect** | Behaving as declared; failure is the survival model's job (03 §6) |
+| Tier 0 owner preemption, crash | **no effect** | Behaving as declared; the survival model handles it (03 §6) |
+| *(extension)* verification mismatch | `beta += w_bad` (large) | Only with `crash_plus_lazy` |
 
 - `score = lower credible bound (e.g. 20th pct) of Beta(alpha, beta)`; decay: `alpha, beta` shrink toward the prior
   with half-life `H` (recovery path, avoids permanent starvation).
-- **Newcomer / whitewashing:** prior `Beta(a0, b0)` is pessimistic; punished score is **floored at the
-  newcomer score**, so rejoining never beats staying punished. New identities start in **probation** (replicated or
-  low-stakes work; also forces exploration for predictors). Sybil cost is modeled as identity-creation rate limit.
-- **Starvation/concentration guards:** exploration quota `ε` routes a small share of low-stakes work to
-  low-score peers; per-peer load cap (share of cluster work) in the placer limits rich-get-richer.
-- Registered variants: `beta_decay` (default), `success_rate`, `ewma`, `survival_informed`,
-  `eigentrust_lite`, `static`, `none`, `no_decay`, `no_fair_punishment`.
+- **Newcomer / whitewashing:** prior `Beta(a0, b0)` is pessimistic; punished score is **floored at the newcomer
+  score**, so rejoining never beats staying punished. New identities start in **probation** (low-stakes work;
+  also forces exploration for predictors). Sybil cost is modeled as an identity-creation rate limit.
+- **Starvation/concentration guards:** exploration quota `ε` routes a small share of low-stakes work to low-score
+  peers; per-peer load cap (share of cluster work) limits rich-get-richer.
+- Registered variants: `beta_decay` (default), `success_rate`, `ewma`, `survival_informed`, `eigentrust_lite`,
+  `static`, `none`, `no_decay`, `no_fair_punishment`.
 
 Metrics: score distribution, recovery time, starvation incidents, Lorenz/Jain of work and rewards.
 
-## 2. Verification (`policy/verify.py` decision, `runtime/verifier.py` execution)
+## 2. Optional extension: lazy-worker verification (`crash_plus_lazy`)
 
-Immutability is not correctness, so records are verified **before** anchoring:
+Off by default. Kept because spec §4.5 notes immutability is not correctness, and so the paper can report what
+verification costs *if* rational/lazy workers exist. It is a separate axis, never mixed into main results.
 
-- Policy `verify(inv, peer_rep, cluster) → {none | spot_check(p) | replicate(r)}`. Default is BOINC-like adaptive:
-  probation peers → replicate (r=2, quorum compare); trusted peers → spot-check with probability
-  `p = clip(p0·(1−score))`; critical invocations → replicate regardless.
-- Simulated correctness is a bit: honest peers always correct; `lazy(q)` / `malicious` wrong w.p. `q`. A replicated
-  mismatch (or failed spot check) flags the peer; the **extra work consumes real capacity** (replica placed through
-  the normal placer on a different domain), so verification cost shows up in latency and utilization metrics.
-- Outputs: verified receipts to the ledger; mismatches to reputation; detected-cheating and missed-cheating counts.
+- `VerifyPolicy.decide(inv, peer_score) → none | spot_check(p) | replicate(r)` (BOINC-like adaptive: probation →
+  replicate, trusted → spot-check with probability `p = clip(p0·(1−score))`).
+- `lazy(q)` workers return a wrong result with probability `q`. Replicas go through the normal placer on a different
+  failure domain, so the extra work consumes real capacity and shows up in latency and utilization.
+- Outputs: verified receipts, mismatches to reputation, detected/missed cheating counts.
 
 ## 3. Verifiable work ledger (`runtime/ledger.py`)
 
-A **service model**, not a chain implementation. Receipts flow off the critical path:
+A **service model**, not a chain implementation. Everything is off the critical path:
 
 ```
-verified receipt → per-cluster epoch buffer → close epoch (interval Δ_a) → Merkle root + batch submit
-   → validator/consensus delay → finality → settlement (reward credit applied)
+worker receipt ─┐
+                ├─▶ per-cluster epoch buffer ─▶ EPOCH_CLOSE (interval Δ_a) ─▶ Merkle roots + batch submit
+scheduler epoch ┘                                  ─▶ validator quorum commit ─▶ finality ─▶ settlement
+record (07 §6)
 ```
 
 | Mode (`ledger.mode`) | Model |
 |---|---|
 | `none` | No recording (reference) |
-| `signed_log` | Centralized operator appends and signs: ~0 consensus delay, trust-the-operator (the honest baseline) |
+| `signed_log` | Centralized operator appends and signs; no consensus delay; trust-the-operator (the honest baseline) |
 | `per_invocation_chain` | One tx per receipt: throughput cap, finality delay, tx cost |
-| `batched_merkle` (**default**) | One tx per cluster-epoch; params: `epoch_s`, `submit_delay`, `finality_s`, `tx_cost`, `max_tps` |
+| `batched_merkle` (**default**) | One tx per cluster-epoch; `epoch_s`, `tx_cost`, `max_tps` |
 
-- **Permissioned**: validators are cluster orchestrators / a small federation (ADR-007). Public chain/rollup is
-  represented by a different parameter set, not different code. Optional: measure a local dev chain once to
-  calibrate `finality_s`, `tx_cost`.
-- Outputs: settlement latency CDF, receipts/s, queue backlog, bytes stored (growth), tx count/cost, and verification
-  overhead. **Invocation latency is never gated by the ledger** (asserted by a test: invocation records are
-  identical across ledger modes when verification is held constant).
-- Dispute window: configurable delay before rewards finalize; reputation updates apply at verification time (fast),
-  rewards at settlement (slow).
+- **Records:** worker execution receipts (peer, fn, outcome, duration, resources, term/assignment id) **and
+  scheduler epoch records** (assignments, leader terms, counts; 07 §6). Because nodes are not Byzantine, nothing
+  needs to be re-verified before anchoring; the ledger is an audit and reward substrate.
+- **Validators** are a small federation (cluster orchestrators / Tier 2 hosts) running a **CFT** consensus group using
+  the same `ReplicationGroup` component as schedulers (07 §3.2). **Finality = batching delay + quorum RTT among
+  validators**, derived from geography rather than a fixed constant. A public chain or rollup is a different
+  parameter set (longer finality, tx fee), not different code.
+- **Audit joins** (done in analysis from the recorded tables): every executed invocation has an assignment under a
+  valid term; every assignment has an outcome or is flagged lost; fencing violations must be zero.
+- **Outputs:** settlement latency CDF, receipts/s, backlog, bytes stored, tx count/cost, unanchored work lost
+  when a whole scheduler group dies (≤ one epoch), and audit completeness. **Invocation latency is never gated by
+  the ledger** (test: invocation records are identical across ledger modes).
+- **The honest question** the paper answers: what does decentralized immutability buy over a trusted operator's
+  signed log, given CFT-only participants? Compare `signed_log` vs. `batched_merkle` on cost and on what the audit can
+  and cannot detect.
+- Dispute window: configurable delay before rewards finalize; reputation applies on event (fast), rewards at
+  settlement (slow).
 
 ## 4. Rewards (accounting only)
 
-`reward = base_credit(cpu_s, mem, bytes) × reliability/timeliness multiplier × verified`; credits accounted per peer,
-never converted to money. Give-to-get/free-rider rules and tier-0 vs tier-1 rates are config. Output for fairness
-metrics only.
+`reward = base_credit(cpu_s, mem, bytes) × timeliness multiplier` for **workers**; **schedulers** earn credit
+for committed assignments (leader) and replica-uptime (followers) (07 §6). Credits are accounted per node and never
+converted to money. Give-to-get/free-rider rules, tier rates and the scheduler/worker credit ratio are config.
+Output is for fairness metrics (Lorenz/Jain) and for checking that scheduler duty is not a net loss to hosts.
 
-## 5. Departure handling and graceful drain (`world.availability` events + policy reactions)
+## 5. Departure handling and graceful drain
 
-- World emits `DRAIN_NOTICE(t_notice, deadline)`; the observe layer delivers it as a push event (delay = network).
-- Cluster scheduler reaction: add `deadline` as a hard constraint (only invocations with predicted completion
-  `< deadline − margin`), stop new work after notice if configured, trigger orchestrator rebalance, optionally
-  hand over state (`handover=seed_images|none`: seed images to a cluster peer using the peer's uplink during drain).
-- Reputation: clean drain unpenalized, drain beyond `D_max` is capped and counted (abuse model: a peer declaring
-  drain to dodge work or draining indefinitely is bounded by `D_max` and a per-day drain quota).
+- World emits `DRAIN_NOTICE(t_notice, deadline)`; delivered as a message (`net.send` delay).
+- **Worker drain:** scheduler adds `deadline` as a hard constraint (only invocations predicted to finish before
+  `deadline − margin`), stops new work after notice if configured, triggers an orchestrator rebalance, optionally
+  hands over state (`handover=seed_images|none`: seed images to a cluster peer using the draining peer's uplink).
+- **Scheduler/orchestrator drain:** planned leadership transfer before leaving, then replica replacement (07 §3.5, §4).
+- Reputation: clean drain unpenalized; drain beyond `D_max` is capped and counted (abuse bounded by `D_max` and a
+  per-day quota).
 - Sweeps: `graceful_frac`, notice lead time, deadline distribution (spec §4.6).
-
-## 6. Control-plane fault tolerance (`runtime/controlplane.py`, `runtime/faults.py`)
-
-**Components modeled:** per cluster a `ClusterControl` group (scheduler + state store), the global `Router`, the
-`Orchestrator`, `Ledger submitters`, `Image seeds`. Each is a **replica group** hosted on peers.
-
-**Model (kept simple, no Raft implementation):**
-
-```python
-class ReplicaGroup:
-    mode: "none" | "active_passive" | "replicated"; r: int     # replication factor
-    hosts: list[PeerId]                                         # chosen across failure domains, high tier/reputation
-    leader: PeerId | None
-    def available(t) -> bool                                    # leader up, or failover completed
-    def decision_overhead() -> float                            # quorum RTT among replicas (replicated mode)
-```
-
-- A host failing (from the peer availability trace, or a `ControlFaultTrace` injection) triggers:
-  `none` → component down until a new host is provisioned and state rebuilt from heartbeats (long);
-  `active_passive` → failover after `detect + takeover` with state age = replication lag;
-  `replicated` → leader election `detect + election` (fast; loses a quorum if `> r/2` hosts die).
-- Host selection: reliability-ranked (tier, reputation, uptime), at most one replica per `failure_domain`/timezone
-  where possible; `dedicated_tier2` option places control planes only on Tier 2.
-- **Data plane vs. control plane:** `DataPlane` owns in-flight invocations; they finish and report even while the
-  scheduler is down; reports are buffered until a leader exists. **Lost on scheduler failover:** unflushed local
-  bookkeeping (queued, not-yet-dispatched invocations unless replicated), scheduler's optimistic reservations.
-  During outage new arrivals for that cluster wait at the router, then **spill over** to other clusters after
-  `T_spill`. A cluster whose group is wholly lost is declared orphaned; the orchestrator reassigns its peers.
-- **Bootstrap root:** a single small provider-owned root (peer discovery + ledger genesis + orchestrator seed
-  list) is the one named residual SPOF; it is stateless-ish and costed (ADR-008).
-- **FaultInjector** drives scenarios: random leader loss, loss during a burst, loss correlated with regional churn,
-  whole-cluster control loss. Metrics: failover time, invocations delayed/lost/duplicated, P99 during failover,
-  staleness after recovery, split-brain risk (modeled as concurrent leaders in `active_passive` with false
-  suspicion), replication traffic and added decision latency.

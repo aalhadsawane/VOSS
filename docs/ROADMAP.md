@@ -2,7 +2,7 @@
 
 Each phase ends with a demo command and **exit criteria**. Do not start phase *n+1* until *n* passes. Sizes are
 relative (S/M/L). Critical path for the paper's headline (C1–C4, C6): P0 → P1 → P2 → P3 → P4 → P5 → P8 → P10.
-P6 and P7 (trust, control plane) are model-light and run after P5; P9 is a parallel track.
+P6 and P7 (ledger, scheduler replication) run after P5; P9 is a parallel track.
 
 ```
 P0 ─ P1 ─ P2 ─ P3 ─ P4 ─ P5 ─┬─ P6 ──┐
@@ -11,21 +11,26 @@ P0 ─ P1 ─ P2 ─ P3 ─ P4 ─ P5 ─┬─ P6 ──┐
 ```
 
 ## P0 · Scaffold (S)
-- `pyproject.toml`, `Makefile`, ruff/mypy/pytest, `.importlinter` encoding the layer rules, CI workflow.
-- `core`: kernel, rng streams, config (pydantic), registry, `types.py`, `DecisionClock`, `metrics.Recorder`.
+- `pyproject.toml` + committed `uv.lock`, `Dockerfile`, `Makefile`, ruff/mypy/pytest, `.importlinter` encoding the
+  layer rules and the actor-isolation rule, CI workflow (incl. `make repro-smoke`).
+- `core`: kernel, rng streams, config (pydantic), registry, `types.py`, `DecisionClock` (all three modes stubbed),
+  `metrics.Recorder`, run manifest, `voss run` and `voss repro` CLIs.
 - **Exit:** `make check` green; kernel determinism test; RNG stream independence test; import-linter fails if
-  `policy` imports `world`.
+  `policy` imports `world`; `voss repro` reproduces a toy run's result hash.
 
 ## P1 · World and scenarios (M)
-- `geo` (city table), `peer`, `network`, `availability` (Weibull + diurnal + regional shocks + drain events),
+- `geo` (city table), `peer`, `network` with `net.send` (geo RTT, bulk transfer, loss/partition hooks), `availability` (Weibull + diurnal + regional shocks + drain events),
   `workload` (functions yaml, Zipf/MMPP arrivals, SLO classes), `scenario` (generate, hash, store).
-- **Exit:** `voss gen-scenario` produces a hashed scenario; statistical sanity tests (session-length tail,
+- **Exit:** `voss gen-scenario` produces a hashed scenario; message delay grows with great-circle distance and
+  messages to down hosts are lost (tests); statistical sanity tests (session-length tail,
   timezone-shifted supply waves, regional correlation > independent baseline, arrival rate/Zipf fit); sanity plots.
 - Start **P9 in parallel** now (wall-clock measurements are slow).
 
 ## P2 · Data-plane vertical slice (L)
-- `lifecycle` (S0–S4, memory/disk accounting), `execution`, `observe` (heartbeats, views), `dataplane`,
-  single global cluster with `random` and `least_loaded` placers, basic retry, recorder, invariants.
+- `lifecycle` (S0–S4, memory/disk accounting), `execution`, `observe` (heartbeats as messages, views), `Actor`
+  base and `PeerAgent`, **scheduler behind the `SchedulerReplicaGroup` interface with `r=1`** (single replica, no
+  consensus yet, but already an actor reached only by `net.send`, with term/token fields in dispatch), single
+  global cluster with `random` and `least_loaded` placers, basic retry, recorder, invariants.
 - **Exit:** `voss run configs/smoke.yaml` (1k peers, 1 h) finishes in <5 min; all invariants in 05 §6 pass;
   latency components sum to end-to-end; cold-start state shares and failure counts plausible; deterministic rerun.
 
@@ -48,15 +53,23 @@ P0 ─ P1 ─ P2 ─ P3 ─ P4 ─ P5 ─┬─ P6 ──┐
   graceful drain handling and handover.
 - **Exit:** pilots of E08, E09, E14, E16; double-counting ablation works; no starvation in long-horizon test.
 
-## P6 · Verification and ledger models (M)
-- Cheating peers, verification policy and replicas through the placer, ledger modes with epoch batching, settlement
-  metrics, rewards accounting.
-- **Exit:** E13/E12 pilots; test that invocation records are invariant to ledger mode.
+## P6 · Ledger and rewards (M)
+- Ledger modes with epoch batching (worker receipts + **scheduler epoch records**), validator group on
+  `ReplicationGroup` (use a fixed finality parameter until P7 lands), settlement metrics, audit-join analysis,
+  rewards accounting incl. scheduler credit.
+- Optional extension (`crash_plus_lazy`): lazy workers, verification policy and replicas through the placer.
+- **Exit:** E13/E12 pilots; test that invocation records are invariant to ledger mode; audit join finds zero
+  unassigned executions in fault-free runs.
 
-## P7 · Control-plane faults (M)
-- `ReplicaGroup` model, host selection across domains, `FaultInjector`, failover/spillover/orphan reassignment,
-  buffered outcomes in the data plane.
-- **Exit:** E15 pilot with failover timeline; invariant: in-flight invocations survive scheduler failure.
+## P7 · Scheduler replication and control-plane faults (L)
+- `ReplicationGroup` (Raft-lite: terms, election, majority commit, snapshot, single-server config change) over
+  `net.send`; scheduler as replicated state machine (`ENQUEUE/ASSIGN/OUTCOME/EPOCH_CLOSE/CONFIG`), fencing by term,
+  token dedupe, committed vs. speculative dispatch, planned leader transfer on drain; replicated orchestrator group;
+  replica host selection and replacement; orphan-group handling; `FaultInjector` (crash, preempt, partition);
+  buffered outcomes and leader-hint/retry in peers and router.
+- **Exit:** property tests on the replication group (07 §3.2) pass under random fault schedules; E15/E21 pilots with
+  failover timeline; invariants: in-flight invocations survive scheduler failure, zero execution from stale terms,
+  no lost/duplicate invocation under `dispatch: committed`.
 
 ## P8 · Baselines, reference clouds, runner, analysis (L)
 - Remaining baselines; `ref_lambda_like`/`ref_azure_like`; sweep runner with multiprocessing; analysis library,

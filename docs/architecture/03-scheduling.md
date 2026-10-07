@@ -16,7 +16,7 @@ decision latency.
 
 **State:** membership map `peer → cluster`, per-cluster medoid (RTT space).
 
-**Initial clustering:** k-medoids on peer RTT embedding (lat/lon + last-mile), `k = ceil(N / N_target)`,
+**Initial clustering:** (also picks scheduler hosts per cluster, 07 §4); k-medoids on peer RTT embedding (lat/lon + last-mile), `k = ceil(N / N_target)`,
 `N_target` from the §8.6 knee (config).
 
 **Triggers (all rule-based, each individually switchable for ablation):**
@@ -29,6 +29,7 @@ decision latency.
 | Demand imbalance | Utilization gap between neighbours > δ | Lend peers to the busy one |
 | Diurnal/forecast | Forecast demand next hour (EWMA of same-hour history) exceeds capacity | Pre-move peers |
 | Drain notice | Peer announces departure | Rebalance before it leaves |
+| Scheduler-group loss | A cluster's group lost quorum or has no leader for `T_orphan` | Reassign its peers to neighbors, create a replacement group (07 §5) |
 
 **Stability:** per-peer cooldown (`min_dwell`), hysteresis deadband on thresholds, max moves per period, and a
 **migration cost** (moved peer loses warm state in old cluster; image cache relevance) subtracted from benefit. Peer
@@ -49,6 +50,12 @@ the best cluster is saturated (utilization > ρ or SLO-health degraded); an orph
 see 04) is excluded after its summary expires. The router adds a small calibrated decision delay.
 
 ## 4. Cluster scheduler pipeline
+
+The cluster scheduler is a **replica group** (`r=3` by default, `r=1` allowed) on volunteer hosts: the **leader**
+runs this pipeline, followers hold the replicated state and take over on failure (07). A decision is only
+dispatched after it is replicated (default `dispatch: committed`), so decision latency includes one quorum RTT.
+Solve time on the leader scales with the host's speed (01 §7). Clusters are kept **small** (tens of peers,
+`N_target` from E02) because ILP cost grows quickly with window size × cluster size; this also keeps quorum RTT low.
 
 ```
 arrival ─▶ admission ─▶ ┬─ fast path (sync SLO):  immediate greedy over CostMatrix row(s)
@@ -100,7 +107,7 @@ Two signals with **disjoint inputs**, which is how double counting is avoided:
 | Signal | Answers | Built from | Enters cost via |
 |---|---|---|---|
 | **Survival model** `S(τ ∣ age, tier, local_hour, declared window, drain deadline)` | P(peer stays available over `[now, now+T]`) | Observed session lengths, owner-busy/crash events, declared windows; Weibull per (tier, region) with time-of-day hazard; Kaplan–Meier as comparison | `pFail`, i.e. inside `pMiss` and the failure term |
-| **Reputation** | Honesty and commitment-keeping | **Only** verification mismatches, broken Tier-1/2 commitments (leaving inside declared window), timeliness bonus. **Never** owner preemption of Tier 0, crashes, or ordinary failures | `repPenalty` and eligibility threshold |
+| **Reputation** | Commitment-keeping and timeliness (honesty only under the optional `crash_plus_lazy` extension) | **Only** broken Tier-1/2 commitments (leaving inside declared window), envelope shortfall, timeliness bonus (plus verification mismatches in the extension). **Never** owner preemption of Tier 0, crashes, or ordinary failures | `repPenalty` and eligibility threshold |
 
 Hard constraints from known information: a drain deadline `D` removes any placement with predicted completion past
 `D`; declared windows are constraints for Tier 1. Ablations: `no_survival`, `no_reputation`, and
