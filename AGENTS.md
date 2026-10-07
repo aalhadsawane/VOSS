@@ -21,4 +21,7 @@
     other's methods or import each other (`docs/architecture/01-simulation-core.md` §6).
 12. **Reproducibility is a feature:** committed lockfile, run manifest, `voss repro` must reproduce the result hash,
     no unseeded randomness, sorted iteration where order matters (`01` §9).
-13. Numbers from the spec (citations, trace names) are unverified. Mark them `# TODO verify` in code and docs.
+13. **Threat model: vetted honest crash-prone volunteers; no blockchain** (`docs/architecture/09-threat-model.md`).
+    The operational DB is private to the orchestrator tier; the invocation hot path never touches it; routers write
+    the work log (`docs/architecture/08-state-and-protocols.md`).
+14. Numbers from the spec (citations, trace names) are unverified. Mark them `# TODO verify` in code and docs.

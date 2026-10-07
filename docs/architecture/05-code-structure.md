@@ -23,11 +23,11 @@ VOSS/
 │  ├─ observe/     statestore.py views.py            # only layer allowed to read world
 │  ├─ policy/
 │  │   predict/    base.py blr.py ewma.py means.py gbq.py knn.py conformal.py
-│  │   survival.py reputation.py verify.py keepalive.py retry.py route.py orchestrate.py
+│  │   survival.py reputation.py keepalive.py retry.py route.py orchestrate.py
 │  │   cost.py scalarize.py
 │  │   place/      base.py greedy.py matching.py lp_round.py ilp.py baselines/*.py
 │  ├─ runtime/     system.py actor.py succession.py scheduler.py router.py orchestrator.py opdb.py
-│  │               worker_agent.py ledger.py faults.py verifier.py(optional ext)
+│  │               worker_agent.py accounting.py faults.py canary.py(optional ext)
 │  └─ metrics/     schema.py recorder.py
 ├─ experiments/    runner.py sweep.py analysis/*.py figures/*.py
 ├─ tools/          calibrate/ (firecracker, sebs profiling), fit/ (trace fitting)
@@ -80,7 +80,6 @@ Router:      route(inv, summaries) -> ClusterId
 OrchestratorPolicy: step(summaries, membership, events) -> list[MoveOp]
 KeepAlive:   ttl(worker, fn, view) -> float ;  Prewarm: plan(forecast, view) -> list[PrewarmOp]
 RetryPolicy: on_failure(inv, outcome, view) -> RetryDecision
-VerifyPolicy: decide(inv, worker_score) -> VerifyDecision
 ```
 
 Registry: `@register("placer", "ilp")`; config `placer: {name: ilp, time_limit: 0.5, K: 20}`;
@@ -102,8 +101,9 @@ voss:     # (the VOSS system under test)
   reputation:  {name: beta_decay}
   lifecycle:   {keepalive: churn_aware, prewarm: ewma_hour}
   retry:       {name: other_lowest_cost, max_attempts: 3, hedge: null}
-  threat_model: crash_only          # crash_plus_lazy enables verification (04 §2)
-  ledger:      {mode: batched_merkle, epoch_s: 30}
+  threat_model: vetted_honest_crash_only   # 09; no blockchain
+  accounting:  {mode: db_log, flush_s: 1, credit_period_s: 3600}
+  canary_audit: {enabled: false, fraction: 0.01}   # optional extension (09 §5)
   succession:    {ha: succession, warm_standbys: 1, ckpt_s: 30, retain_s: 90, failover: fast, lease_s: 5,
                   keepalive_s: 0.5, proactive_handover: {theta: 0.2, margin: 2.0}, sched_cores: 1,
                   rank: survival_x_speed_x_centrality, min_domains: 2}

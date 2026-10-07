@@ -83,9 +83,8 @@ class Network:                       # world/network.py
   the orchestrator tier and cloud DB are nodes with cloud-region locations; workers are nodes with their own locations.
 - **Failure behavior:** a message to a down host is silently lost (senders detect via timeout); optional per-link
   loss probability and **partitions** (from `ControlFaultTrace`) drop messages in a window.
-- **Actors:** every runtime entity (`WorkerAgent`, `SchedulerRole`, `Router`, `Orchestrator`,
-  `LedgerGateway`) is an `Actor` with a `host: WorkerId` and `on_message(msg)`. When the host crashes, leaves or is
-  preempted the actor dies (memory lost; disk state survives a crash-recover). The orchestrator tier (orchestrator, routers, operational DB, ledger gateway) runs on provider-hosted nodes that never crash (07 §1). Actors may call
+- **Actors:** every runtime entity (`WorkerAgent`, `SchedulerRole`, `Router`, `Orchestrator`) is an `Actor` with a `host: WorkerId` and `on_message(msg)`. When the host crashes, leaves or is
+  preempted the actor dies (memory lost; disk state survives a crash-recover). The orchestrator tier (orchestrator, routers, operational DB) runs on provider-hosted nodes that never crash (07 §1). Actors may call
   `kernel.after` for timers and `net.send` for communication, **never another actor's methods**.
 - Message counts and bytes per `kind` are logged for overhead metrics.
 

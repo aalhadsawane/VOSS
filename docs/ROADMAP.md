@@ -2,7 +2,7 @@
 
 Each phase ends with a demo command and **exit criteria**. Do not start phase *n+1* until *n* passes. Sizes are
 relative (S/M/L). Critical path for the paper's headline (C1–C4, C6): P0 → P1 → P2 → P3 → P4 → P5 → P8 → P10.
-P6 and P7 (ledger, succession) run after P5; P9 is a parallel track.
+P6 and P7 (accounting, succession) run after P5; P9 is a parallel track.
 
 ```
 P0 ─ P1 ─ P2 ─ P3 ─ P4 ─ P5 ─┬─ P6 ──┐
@@ -38,7 +38,7 @@ P0 ─ P1 ─ P2 ─ P3 ─ P4 ─ P5 ─┬─ P6 ──┐
 ## P3 · Prediction, cost and placers (L)
 - `policy/predict` (means, ewma, blr+conformal), `survival`, `cost` + scalarizers, placers (`greedy`, `matching`,
   `lp_round`, `ilp` with HiGHS; CP-SAT optional), fast/window/hybrid modes, decision clock in both modes, baseline
-  placers (first six in 06 §3).
+  placers (first six in 06 §3), **worker readiness `ready_at` / time-to-start from `WorkerState` (08 §5) as an explicit cost input**.
 - **Exit:** `mcf == ilp` on uncoupled random instances (property test); online predictor eval harness with coverage
   report; **pilot of E02/E03/E04** on a single cluster; placers respect all constraints.
 
@@ -54,13 +54,12 @@ P0 ─ P1 ─ P2 ─ P3 ─ P4 ─ P5 ─┬─ P6 ──┐
   graceful drain handling and handover.
 - **Exit:** pilots of E08, E09, E14, E16; double-counting ablation works; no starvation in long-horizon test.
 
-## P6 · Ledger and rewards (M)
-- Ledger modes with epoch batching (worker receipts + **scheduler epoch records**), provider-run validator
-  group behind the orchestrator's ledger gateway (geography-derived commit latency), settlement metrics, audit-join analysis,
-  rewards accounting incl. scheduler credit.
-- Optional extension (`crash_plus_lazy`): lazy workers, verification policy and replicas through the placer.
-- **Exit:** E13/E12 pilots; test that invocation records are invariant to ledger mode; audit join finds zero
-  unassigned executions in fault-free runs.
+## P6 · Work log, credits and reputation updates (S)
+- Routers append `invocation_log` (batched, async); orchestrator `worker_events`, reputation update and credit batch
+  job; scheduler credits from `scheduler_roles`; completeness assertion against simulator ground truth.
+- Optional: `canary_audit` extension.
+- **Exit:** E13/E12 pilots; invocation records identical with accounting on or off; work log complete under random
+  scheduler crashes.
 
 ## P7 · Succession and crash tolerance (L)
 - `Succession`: appointment by epoch CAS in `OperationalDB`, ranked succession list (survival × speed × centrality,
@@ -94,4 +93,4 @@ P0 ─ P1 ─ P2 ─ P3 ─ P4 ─ P5 ─┬─ P6 ──┐
 
 ## Parked (do not build unless a result demands it)
 Workflows (SeBS-Flow), real trace loaders beyond Azure/FTA, SimGrid backend, ML-heavy predictors beyond
-`gbq/knn`, EigenTrust full, scenario-based stochastic program, real local chain calibration, real testbed.
+`gbq/knn`, EigenTrust full, scenario-based stochastic program, transparency log (09 §4), real testbed.

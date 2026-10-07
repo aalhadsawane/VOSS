@@ -16,20 +16,21 @@ context. The design is already written; your job is to implement it faithfully, 
 1. README.md  (index of everything; follow its links)
 2. AGENTS.md  (binding rules for you)
 3. docs/ROADMAP.md
-4. docs/architecture/00-overview.md through 07-fault-tolerance.md, in numeric order
+4. docs/architecture/00-overview.md through 09-threat-model.md, in numeric order
 5. docs/DECISIONS.md and docs/TRACEABILITY.md
 6. VOSS_research_spec.md only when a doc cites a spec section and you need the original wording.
 
 ## 3. Non-negotiable design rules (details in the docs)
-- Lingo: **orchestrator** (provider-run cloud tier, assumed reliable, owns the cloud operational DB, routers, ledger
-  gateway), **scheduler** (a role hosted by a worker, one per cluster), **workers** (volunteers). Not "peers".
+- Lingo: **orchestrator** (provider-run cloud tier, assumed reliable, owns the cloud operational DB, routers), **scheduler** (a role hosted by a worker, one per cluster), **workers** (volunteers). Not "peers".
 - Layering: core <- world <- observe <- policy <- runtime <- experiments. `voss.policy` never imports `voss.world`
   (the information boundary: no future knowledge). Enforced by import-linter.
 - Fault model: crash-fault only. Workers and schedulers crash, get preempted, drain; nobody is Byzantine or lies.
   Scheduler failover is succession with soft state (doc 07): orchestrator-issued epochs, worker-side fencing, roll
   call, router retention until worker ACCEPTED, checkpoints in the cloud DB. No consensus among volunteers.
-- Geo network lag: every cross-node interaction (heartbeats, dispatch, appointment, roll call, ledger, data transfer)
+- Geo network lag: every cross-node interaction (heartbeats, dispatch, appointment, roll call, data transfer)
   is a message through `net.send` with delay derived from geographic distance. Actors never call or import each other.
+- Threat model: volunteers are vetted and honest but crash-prone; **no blockchain**. The cloud DB is private to the
+  orchestrator tier and never on the invocation hot path; routers write the work log (docs 08, 09).
 - Reproducibility: committed lockfile, Dockerfile, run manifest with result hash, `voss repro` must reproduce results
   bit-for-bit in modeled/replay mode, all randomness via `core.rng.stream`, no global `random`/`np.random`.
 - Every simulated delay is explicit, including solver/router/orchestrator decision latency.
