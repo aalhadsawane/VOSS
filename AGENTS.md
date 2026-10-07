@@ -14,8 +14,9 @@
 8. No feature outside the current phase. If something seems needed, add it to `docs/ROADMAP.md` under "Parked".
 9. Keep modules small (<400 lines) and typed. Tests: pytest, deterministic seeds. `make check` must pass
    (ruff, mypy, import-linter, pytest).
-10. **Fault model is crash-only** (ADR-016): nodes crash, get preempted or drain; nothing is Byzantine. Schedulers are
-    replica groups (`docs/architecture/07-scheduler-replication.md`).
+10. **Fault model is crash-only** (ADR-016): nodes crash, get preempted or drain; nothing is Byzantine. Lingo: orchestrator (provider-run,
+    reliable), scheduler (a role on a worker), worker. Scheduler failure is handled by succession with soft state
+    (`docs/architecture/07-fault-tolerance.md`).
 11. **Every cross-node interaction is a message through `net.send`** with geo-derived delay. Actors never call each
     other's methods or import each other (`docs/architecture/01-simulation-core.md` §6).
 12. **Reproducibility is a feature:** committed lockfile, run manifest, `voss repro` must reproduce the result hash,

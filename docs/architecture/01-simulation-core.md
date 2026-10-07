@@ -5,7 +5,7 @@
 A **custom Python discrete-event kernel** (`heapq` of timestamped callbacks), not SimGrid. Reasons: (a) the
 spec's key physics for FaaS is network transfer, disk read, CPU slots and fixed delays, which are small to model
 directly; (b) real solver wall-time must be injected into simulated time, which is trivial in-process; (c) 10⁴–10⁵
-peers need cheap per-peer state; (d) the team ships faster. The resource models sit behind narrow interfaces
+workers need cheap per-worker state; (d) the team ships faster. The resource models sit behind narrow interfaces
 (`Network.send`, `Disk.read`, `Cpu.run`) so a SimGrid backend can be validated against them on micro-scenarios
 (Roadmap P9, optional). The paper reports this as a stated threat to validity plus that validation.
 
@@ -27,7 +27,7 @@ class Kernel:
 ## 3. Determinism and RNG
 
 - `core.rng.stream(name, *keys)` returns a `numpy.random.Generator` seeded by `hash(master_seed, name, keys)`.
-  Example: `stream("avail", peer_id)`, `stream("exec", inv_id)`. Adding a component never perturbs another's stream.
+  Example: `stream("avail", worker_id)`, `stream("exec", inv_id)`. Adding a component never perturbs another's stream.
 - **True runtime of an invocation is drawn from its own stream at dispatch**, independent of the scheduling
   decision, so every compared system sees the same underlying randomness (common random numbers).
 - Iterate dicts/sets only in sorted order wherever the order affects behavior.
@@ -38,10 +38,10 @@ A `Scenario` is generated once from `(config, seed)` and hashed; all systems in 
 
 | Trace | Content | Generator (see 02) |
 |---|---|---|
-| `PeerTable` | Peers with static attributes, location, tier, hardware class, failure domain | `world.peer` |
-| `AvailabilityTrace` | Per-peer events: `JOIN, OWNER_BUSY(grace), OWNER_IDLE, DRAIN_NOTICE(deadline), LEAVE, CRASH, RECOVER` | `world.availability` |
+| `WorkerTable` | Workers with static attributes, location, tier, hardware class, failure domain | `world.worker` |
+| `AvailabilityTrace` | Per-worker events: `JOIN, OWNER_BUSY(grace), OWNER_IDLE, DRAIN_NOTICE(deadline), LEAVE, CRASH, RECOVER` | `world.availability` |
 | `ArrivalTrace` | `(t, fn, origin_city, payload_in, slo_class)` | `world.workload` |
-| `LinkTable` | Per-peer access bandwidth up/down, last-mile RTT; city-pair base RTT | `world.network` |
+| `LinkTable` | Per-worker access bandwidth up/down, last-mile RTT; city-pair base RTT | `world.network` |
 | `ControlFaultTrace` | Extra control-plane faults and partitions, separate so it can be swept independently | `runtime.faults` |
 
 Storage: Parquet/npz under `runs/scenarios/<hash>/`. Real traces (Azure arrivals, Failure Trace Archive) enter by
@@ -54,15 +54,15 @@ world.*  (true state)  ──heartbeat messages──▶  observe.StateStore  �
                                                                     └─▶  ClusterSummary (router/orchestrator)
 ```
 
-- Peers emit heartbeats every `heartbeat_s` (config) to **every scheduler replica of their cluster**, carrying: free
+- Workers emit heartbeats every `heartbeat_s` (config) to **the active scheduler of their cluster (and its warm standbys, 07 §4.2)**, carrying: free
   cores, free memory, per-function lifecycle states, queue length, load. Heartbeats are `net.send` messages, so
-  network delay (and optional loss) applies. Each replica keeps its own `StateStore`.
+  network delay (and optional loss) applies. Each recipient keeps its own `StateStore`.
 - **Push events** also use `net.send`: drain notices, owner-busy-with-grace, outcomes. Abrupt crashes are only
   observed via missed heartbeats (timeout `3×heartbeat_s`).
-- A `ClusterView` is a frozen dataclass of numpy arrays plus `as_of` time and per-peer age. Policies receive views
+- A `ClusterView` is a frozen dataclass of numpy arrays plus `as_of` time and per-worker age. Policies receive views
   only; they have no reference to `world`. This is the enforcement point for the information boundary.
 - A scheduler's own dispatch decisions update its **local optimistic bookkeeping** (slots it has committed) so it
-  does not double-assign between heartbeats; this is part of the replicated state machine (07), not the world.
+  does not double-assign between heartbeats; this is soft scheduler state, rebuilt by roll call after a failover (07 §4.3), not the world.
 - Heartbeat/monitoring traffic is counted (messages, bytes) as scheduling overhead.
 
 ## 6. Network lag and the actor model
@@ -80,12 +80,12 @@ class Network:                       # world/network.py
 - **Delay** = `RTT/2 + size / effective_rate` for bulk data (with access-link sharing, 02 §3) or `RTT/2 + jitter` for
   small control messages. RTT comes from the geographic model:
   `last_mile_a + last_mile_b + great_circle_km / c_eff × route_factor`, plus jitter. Registry, storage and
-  validators are nodes with locations like any peer.
+  the orchestrator tier and cloud DB are nodes with cloud-region locations; workers are nodes with their own locations.
 - **Failure behavior:** a message to a down host is silently lost (senders detect via timeout); optional per-link
   loss probability and **partitions** (from `ControlFaultTrace`) drop messages in a window.
-- **Actors:** every runtime entity (`PeerAgent`, `SchedulerReplica`, `Router`, `OrchestratorReplica`,
-  `LedgerValidator`) is an `Actor` with a `host: PeerId` and `on_message(msg)`. When the host crashes, leaves or is
-  preempted the actor dies (memory lost; its persistent log survives a crash-recover). Actors may call
+- **Actors:** every runtime entity (`WorkerAgent`, `SchedulerRole`, `Router`, `Orchestrator`,
+  `LedgerGateway`) is an `Actor` with a `host: WorkerId` and `on_message(msg)`. When the host crashes, leaves or is
+  preempted the actor dies (memory lost; disk state survives a crash-recover). The orchestrator tier (orchestrator, routers, operational DB, ledger gateway) runs on provider-hosted nodes that never crash (07 §1). Actors may call
   `kernel.after` for timers and `net.send` for communication, **never another actor's methods**.
 - Message counts and bytes per `kind` are logged for overhead metrics.
 
@@ -99,7 +99,7 @@ the decision takes effect at `now + charge`.
 | `solve` (ILP/MCF/greedy) | wall-clock of the solver call × `cpu_scale` ÷ `host.speed` | fitted `a + b·W·K` per placer ÷ `host.speed` | read logged solve times from a previous run's `solver.parquet` |
 | `cost_matrix` | wall-clock of the build, same scaling | fitted `a + b·W·N` | logged |
 | `router`, `orchestrator` | constant + per-cluster term | same | same |
-| `coordination` | emerges from `net.send` (quorum RTT among replicas, 07) | same | same |
+| `coordination` | emerges from `net.send` (appointment, roll call, checkpoint RTTs to the orchestrator/cloud DB, 07) | same | same |
 
 - The **scheduler host's speed** scales solver time (a slow volunteer schedules slowly), tying scheduler placement
   (07 §4) to decision latency.
@@ -111,9 +111,9 @@ the decision takes effect at `now + charge`.
 
 ## 8. Performance budget
 
-Target: 1k peers × 1 simulated hour × ~100 invocations/s in < 5 wall-minutes on a laptop; 10⁵ peers for the
+Target: 1k workers × 1 simulated hour × ~100 invocations/s in < 5 wall-minutes on a laptop; 10⁵ workers for the
 scalability experiment using fast-path placement, coarser heartbeats and a shorter horizon. Rules: vectorize cost
-matrices in numpy; keep per-peer state in struct-of-arrays inside `PeerPool`; avoid per-event object churn in hot
+matrices in numpy; keep per-worker state in struct-of-arrays inside `WorkerPool`; avoid per-event object churn in hot
 paths. Profile before optimizing.
 
 ## 9. Reproducibility contract (ADR-019)

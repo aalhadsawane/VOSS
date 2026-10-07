@@ -3,20 +3,20 @@
 | Spec | Requirement | Module(s) | Doc | Phase |
 |---|---|---|---|---|
 | §3.1 #1–3 | Owner preemption, diurnal/correlated, heavy-tailed availability | `world/availability` | 02 §2 | P1 |
-| §3.1 #4 | Heterogeneity, microVM variance | `world/peer`, `lifecycle` | 02 §1, §5 | P1–P2 |
+| §3.1 #4 | Heterogeneity, microVM variance | `world/worker`, `lifecycle` | 02 §1, §5 | P1–P2 |
 | §3.1 #5 | Stale state | `observe/statestore` | 01 §5 | P2 |
 | §3.1 #6 | Donor costs | `world/lifecycle` accounting, `cost.donorCost` | 02 §5, 03 §7 | P2–P3 |
-| §3.1 #7 | Untrusted peers | `peer.behavior`, `verify`, `reputation` | 04 §1–2 | P6 |
+| §3.1 #7 | Untrusted workers | `worker.behavior`, `verify`, `reputation` | 04 §1–2 | P6 |
 | §3.1 #8 | Newcomers | probation, predictor priors | 03 §5, 04 §1 | P3, P5 |
-| §3.2 | Serverless concerns (all items; see notes below) | `world/*`, `policy/keepalive`, `policy/cost`, `runtime/peer_agent` | 02 §4–6, 03 §4, §10 | P2–P8 |
-| §4.2 | Tiers, filler | `peer.tier`, scheduler filler | 02 §1, 03 §4 | P5 |
-| §4.3 | Onboarding, probation, calibration | `peer.benchmark`, reputation | 02 §1, 04 §1 | P1, P5 |
+| §3.2 | Serverless concerns (all items; see notes below) | `world/*`, `policy/keepalive`, `policy/cost`, `runtime/worker_agent` | 02 §4–6, 03 §4, §10 | P2–P8 |
+| §4.2 | Tiers, filler | `worker.tier`, scheduler filler | 02 §1, 03 §4 | P5 |
+| §4.3 | Onboarding, probation, calibration | `worker.benchmark`, reputation | 02 §1, 04 §1 | P1, P5 |
 | §4.4 | Reputation vs. reliability | `reputation`, `survival` | 03 §6, 04 §1 | P5 |
 | §4.5 | Verification, ledger | `verify`, `ledger` | 04 §2–3 | P6 |
 | §4.6 | Departure modes, drain | `availability`, scheduler reaction | 02 §2, 04 §5 | P1, P5 |
 | §5.1–5.4 | Hierarchy, dynamic clusters | `route`, `orchestrate`, `runtime/*` | 03 §1–4 | P4 |
-| §5.5 | Control-plane FT; scheduler as volunteer-hosted SPOF | `replication`, `scheduler`, `faults` | 07 | P2 (r=1 interface), P7 |
-| §4.5 | Scheduler work on ledger (added) | `ledger`, `scheduler` EPOCH_CLOSE | 07 §6, 04 §3 | P6–P7 |
+| §5.5 | Control-plane FT; scheduler as volunteer-hosted SPOF | `succession`, `scheduler`, `opdb`, `faults` | 07 | P2 (appointment, no failover), P7 |
+| §4.5 | Scheduler work on ledger (added) | `ledger`, `scheduler` epoch records | 07 §7, 04 §3 | P6–P7 |
 | §3.1 #7 / §4.5 | Untrusted participants **narrowed to optional extension** (ADR-016) | `verifier` (ext) | 04 §2 | P6 (optional) |
 | §9 | Reproducibility | manifest, `voss repro`, lockfile, Docker | 01 §9 | P0 |
 | §7 | MicroVM lifecycle, snapshot compat, P2P images | `world/lifecycle` | 02 §5 | P2, P5, P9 |

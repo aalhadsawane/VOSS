@@ -22,8 +22,8 @@ runs/…  ──▶  experiments/analysis/*.py (pandas; CI via bootstrap over se
 | Table | One row per | Key fields |
 |---|---|---|
 | `messages` | per kind (aggregated per interval) | `kind`, count, bytes, drops; control-plane overhead |
-| `invocations` | invocation (final) | ids, fn, origin, cluster, peer(s), slo_class, deadline, **t_arrive, t_response**, outcome, attempts, **components**: `route_s, batch_wait_s, decide_s, queue_s, startup_s(by state), net_in_s, exec_s, net_out_s, retry_s`, `start_state` (S0–S3), wasted_s, replicas, verified, settle_t |
-| `events` | state change | peer join/leave/drain/crash, cluster move/split/merge, control failover, spillover, reputation update, ledger epoch |
+| `invocations` | invocation (final) | ids, fn, origin, cluster, worker(s), slo_class, deadline, **t_arrive, t_response**, outcome, attempts, **components**: `route_s, batch_wait_s, decide_s, queue_s, startup_s(by state), net_in_s, exec_s, net_out_s, retry_s`, `start_state` (S0–S3), wasted_s, replicas, verified, settle_t |
+| `events` | state change | worker join/leave/drain/crash, cluster move/split/merge, control failover, spillover, reputation update, ledger epoch |
 | `samples` | periodic (e.g., 10 s) | per-cluster size/util/queue/SLO health, donor mem/disk, heartbeat msgs/bytes |
 | `solver` | placer call | placer, W, N, K, build_s, solve_wall_s, status, gap, timeout |
 | `predictions` | completed invocation (sampled) | predicted dist params vs. realized, for calibration/regret |
@@ -44,7 +44,7 @@ All §13 metrics are derived from these tables.
 | Scalarizer | `expected, mean_spread, quantile, cvar, slo_miss, tardiness` | 3 |
 | Reputation | see 04 §1 | 5 |
 | Ledger | `none, signed_log, per_invocation, batched(Δ)` | 6 |
-| Control plane | `r=1` (no redundancy), `r=3`, `r=5`; `dispatch committed/speculative`; `replica_spread`; volunteer vs `dedicated_tier2` hosts | 7 |
+| Scheduler HA | `ha: none`, `succession` (K=0/1/2 warm standbys), `raft_group(r)` baseline; failover fast/lease_safe; proactive handover on/off; Tier-2-only hosts | 7 |
 | Departure | `abrupt_only, graceful(adoption%), drain+handover` | 5 |
 
 **Ablations (MUST, spec §11)** are `voss_full` with one switch off: `geo_clustering, dynamic_orchestration,
@@ -58,7 +58,7 @@ and are excluded from main figures by a lint check.
 |---|---|---|---|---|---|
 | E01 | Is the simulator sane? | — | Validation report (network, cold start, e2e vs. real/published) | §9 | 9 |
 | E02 | **Cluster size × solve time × e2e latency (MUST)** | N, W, K, time_limit, load, churn, formulation | Solve-time dist, decision-share stacked latency, knee | RQ16, H8 | 3–4 |
-| E03 | Predictors × scalarizations, cold-start peers/functions | predictor, scalarizer, churn | Accuracy+calibration, P99, regret | RQ7, RQ15, H6, H9 | 3 |
+| E03 | Predictors × scalarizations, cold-start workers/functions | predictor, scalarizer, churn | Accuracy+calibration, P99, regret | RQ7, RQ15, H6, H9 | 3 |
 | E04 | MCF vs ILP vs greedy | constraint set on/off, N | Quality gap, solve time | RQ9, RQ16 | 3 |
 | E05 | Geo-clustering vs. global | clustering, dispersion, N | P50/P99, optimality gap vs. global ILP (small) | RQ2, H1 | 4 |
 | E06 | Dynamic vs. static clusters | churn, demand skew, diurnal | P99, migrations, stability | RQ3, H2 | 4 |
@@ -70,11 +70,11 @@ and are excluded from main figures by a lint check.
 | E12 | Reputation dynamics | long horizon, commitment-breaking Tier 1/2 fraction, whitewash, Sybil (lazy workers only in the extension) | Trajectories, starvation, Jain | RQ5 | 5–6 |
 | E13 | Ledger (and optional verification) | anchor interval, validator count/placement; verification rate (extension only) | Overhead, settlement latency, unanchored loss, audit completeness, signed-log comparison; capacity cost of verification (extension) | RQ10, H7 | 6 |
 | E14 | Graceful drain adoption | graceful_frac, lead time, deadline, abuse | Failure rate, P99 vs. adoption | RQ18, H10 | 5 |
-| E15 | Scheduler/control-plane failure | r, injection pattern (random, during burst, correlated with regional churn, whole-group loss, partition) | Failover time, delayed/lost/duplicated, P99 timeline, fencing rejections | RQ17, H10, H11 | 7 |
-| E21 | Scheduler replication design space | r, election timeout, dispatch mode, replica spread/`R_max`, `sched_cores`, cluster size N | Quorum-RTT share of decision time, control-role overhead (% peers/cores), failover time vs. overhead Pareto | RQ17, H11 | 7 |
+| E15 | Scheduler and worker failure | injection pattern (random scheduler loss, during burst, correlated with regional churn, scheduler + standby together, partition/zombie, whole-cluster loss), worker churn level | Failover time, delayed/lost/duplicated, P99 timeline, fencing rejections, learned-state loss | RQ17, H10, H11 | 7 |
+| E21 | Scheduler HA design space and baselines | `ha` (none / succession / raft_group), K, `T_ckpt`, failover mode, proactive handover, watchdog/hedge quantiles, cluster size N, churn | Failover time vs. steady-state overhead Pareto, cluster unavailability, planned-vs-crash handover ratio | RQ17, H11, H12, H13 | 7 |
 | E16 | Tiers, committed fraction, filler | tier mix, reserved core, filler on/off | SLO-vs-utilization Pareto | RQ11 | 5 |
 | E17 | Commercial comparison | workload, load, region | Latency, success, cost per M invocations | RQ12 | 8 |
-| E18 | Scalability | peers 10→100k, clusters | Overhead and quality scaling | RQ13 | 8 |
+| E18 | Scalability | workers 10→100k, clusters | Overhead and quality scaling | RQ13 | 8 |
 | E19 | Ablation study | each switch | Bars with CIs, tornado | RQ14 | 8 |
 | E20 | Viability map (headline C6) | churn × heterogeneity × load × cluster size × committed fraction | Regime maps vs. best baseline | RQ1 | 8–10 |
 

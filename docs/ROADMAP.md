@@ -2,7 +2,7 @@
 
 Each phase ends with a demo command and **exit criteria**. Do not start phase *n+1* until *n* passes. Sizes are
 relative (S/M/L). Critical path for the paper's headline (C1–C4, C6): P0 → P1 → P2 → P3 → P4 → P5 → P8 → P10.
-P6 and P7 (ledger, scheduler replication) run after P5; P9 is a parallel track.
+P6 and P7 (ledger, succession) run after P5; P9 is a parallel track.
 
 ```
 P0 ─ P1 ─ P2 ─ P3 ─ P4 ─ P5 ─┬─ P6 ──┐
@@ -19,7 +19,7 @@ P0 ─ P1 ─ P2 ─ P3 ─ P4 ─ P5 ─┬─ P6 ──┐
   `policy` imports `world`; `voss repro` reproduces a toy run's result hash.
 
 ## P1 · World and scenarios (M)
-- `geo` (city table), `peer`, `network` with `net.send` (geo RTT, bulk transfer, loss/partition hooks), `availability` (Weibull + diurnal + regional shocks + drain events),
+- `geo` (city table), `worker`, `network` with `net.send` (geo RTT, bulk transfer, loss/partition hooks), `availability` (Weibull + diurnal + regional shocks + drain events),
   `workload` (functions yaml, Zipf/MMPP arrivals, SLO classes), `scenario` (generate, hash, store).
 - **Exit:** `voss gen-scenario` produces a hashed scenario; message delay grows with great-circle distance and
   messages to down hosts are lost (tests); statistical sanity tests (session-length tail,
@@ -28,10 +28,11 @@ P0 ─ P1 ─ P2 ─ P3 ─ P4 ─ P5 ─┬─ P6 ──┐
 
 ## P2 · Data-plane vertical slice (L)
 - `lifecycle` (S0–S4, memory/disk accounting), `execution`, `observe` (heartbeats as messages, views), `Actor`
-  base and `PeerAgent`, **scheduler behind the `SchedulerReplicaGroup` interface with `r=1`** (single replica, no
-  consensus yet, but already an actor reached only by `net.send`, with term/token fields in dispatch), single
+  base and `WorkerAgent`, **`Orchestrator` + `OperationalDB` actors that appoint the scheduler with an epoch, and the scheduler as a
+  `SchedulerRole` actor** reached only by `net.send` (epoch/token fields in dispatch, router pending table and
+  `ACCEPTED`/direct-result path already in place; no failover logic yet), single
   global cluster with `random` and `least_loaded` placers, basic retry, recorder, invariants.
-- **Exit:** `voss run configs/smoke.yaml` (1k peers, 1 h) finishes in <5 min; all invariants in 05 §6 pass;
+- **Exit:** `voss run configs/smoke.yaml` (1k workers, 1 h) finishes in <5 min; all invariants in 05 §6 pass;
   latency components sum to end-to-end; cold-start state shares and failure counts plausible; deterministic rerun.
 
 ## P3 · Prediction, cost and placers (L)
@@ -44,7 +45,7 @@ P0 ─ P1 ─ P2 ─ P3 ─ P4 ─ P5 ─┬─ P6 ──┐
 ## P4 · Hierarchy (L)
 - Initial clustering (k-medoids), `router` (score + baselines), `orchestrator` (triggers, stability controls),
   per-cluster scheduler instances, cluster summaries, spillover; static/random/global baselines.
-- **Exit:** pilots of E05, E06, E10; no thrashing (moves/peer/hour bounded in test); global-ILP gap measured at
+- **Exit:** pilots of E05, E06, E10; no thrashing (moves/worker/hour bounded in test); global-ILP gap measured at
   small scale.
 
 ## P5 · Risk, reputation, lifecycle policies, drain, tiers (L)
@@ -54,26 +55,30 @@ P0 ─ P1 ─ P2 ─ P3 ─ P4 ─ P5 ─┬─ P6 ──┐
 - **Exit:** pilots of E08, E09, E14, E16; double-counting ablation works; no starvation in long-horizon test.
 
 ## P6 · Ledger and rewards (M)
-- Ledger modes with epoch batching (worker receipts + **scheduler epoch records**), validator group on
-  `ReplicationGroup` (use a fixed finality parameter until P7 lands), settlement metrics, audit-join analysis,
+- Ledger modes with epoch batching (worker receipts + **scheduler epoch records**), provider-run validator
+  group behind the orchestrator's ledger gateway (geography-derived commit latency), settlement metrics, audit-join analysis,
   rewards accounting incl. scheduler credit.
 - Optional extension (`crash_plus_lazy`): lazy workers, verification policy and replicas through the placer.
 - **Exit:** E13/E12 pilots; test that invocation records are invariant to ledger mode; audit join finds zero
   unassigned executions in fault-free runs.
 
-## P7 · Scheduler replication and control-plane faults (L)
-- `ReplicationGroup` (Raft-lite: terms, election, majority commit, snapshot, single-server config change) over
-  `net.send`; scheduler as replicated state machine (`ENQUEUE/ASSIGN/OUTCOME/EPOCH_CLOSE/CONFIG`), fencing by term,
-  token dedupe, committed vs. speculative dispatch, planned leader transfer on drain; replicated orchestrator group;
-  replica host selection and replacement; orphan-group handling; `FaultInjector` (crash, preempt, partition);
-  buffered outcomes and leader-hint/retry in peers and router.
-- **Exit:** property tests on the replication group (07 §3.2) pass under random fault schedules; E15/E21 pilots with
-  failover timeline; invariants: in-flight invocations survive scheduler failure, zero execution from stale terms,
-  no lost/duplicate invocation under `dispatch: committed`.
+## P7 · Succession and crash tolerance (L)
+- `Succession`: appointment by epoch CAS in `OperationalDB`, ranked succession list (survival × speed × centrality,
+  failure-domain diversity, hysteresis), keepalive + accrual failure detector, worker `SUSPECT`, `EPOCH_INSTALL`,
+  **roll call**, router pending retention with `T_dispatch`/spill-first, worker-side epoch fencing and token dedupe,
+  scheduler checkpoints + worker outcome retention + replay, warm standbys (`K`), self-fence lease, planned handover
+  (drain, owner-preempt grace, hazard-triggered).
+- Worker crash tolerance: predictor-driven watchdogs, accrual detector, push-signal handling, risk-proportional
+  hedging with budget, retry storm control, crash-recover rejoin.
+- `FaultInjector` (scheduler/worker crash patterns, partitions). Baselines `ha: none`.
+- **Exit:** property tests (05 §6) pass under random fault schedules; E15/E21 pilots with failover timeline;
+  invariants: in-flight invocations survive scheduler failure, zero execution from a stale epoch after install,
+  no invocation lost.
+- **P7b (only if E21 needs the comparison):** `raft_group(r)` baseline (replicated-log scheduler).
 
 ## P8 · Baselines, reference clouds, runner, analysis (L)
 - Remaining baselines; `ref_lambda_like`/`ref_azure_like`; sweep runner with multiprocessing; analysis library,
-  figure registry; scalability mode (10⁵ peers); ablation switches.
+  figure registry; scalability mode (10⁵ workers); ablation switches.
 - **Exit:** `make sweep EXP=E19` and `make figs` reproduce tables/figures from a clean checkout.
 
 ## P9 · Calibration and validation (M, parallel track)
