@@ -6,7 +6,7 @@ invocations on heterogeneous, geo-distributed, owner-preemptible volunteer machi
 > Paper: *A Scheduling Framework for Serverless Computing over Heterogeneous, Geo-Distributed, Unreliable
 > Volunteer-Based Edge Resources.*
 
-This is **not a real platform**. No frontend, no real networking, no real blockchain. The deliverable is a
+This is **not a real platform**. No frontend, no real networking, no blockchain (see 09). The deliverable is a
 deterministic simulator, the VOSS scheduler running inside it, baselines, and experiment results.
 
 ## Read in this order
@@ -18,10 +18,12 @@ deterministic simulator, the VOSS scheduler running inside it, baselines, and ex
 | [`docs/architecture/01-simulation-core.md`](docs/architecture/01-simulation-core.md) | Kernel, determinism, ground truth vs. observed state, decision latency |
 | [`docs/architecture/02-environment-model.md`](docs/architecture/02-environment-model.md) | Workers, churn, network, microVM lifecycle, workloads |
 | [`docs/architecture/03-scheduling.md`](docs/architecture/03-scheduling.md) | Router, orchestrator, cluster scheduler, prediction, cost, ILP/flow/greedy |
-| [`docs/architecture/04-trust-and-control-plane.md`](docs/architecture/04-trust-and-control-plane.md) | Reputation, ledger (incl. scheduler work), rewards, drain; optional verification extension |
+| [`docs/architecture/04-reputation-and-accounting.md`](docs/architecture/04-reputation-and-accounting.md) | Reputation, router-written work log, credits, drain |
 | [`docs/architecture/05-code-structure.md`](docs/architecture/05-code-structure.md) | Package layout, dependency rules, interfaces, config |
 | [`docs/architecture/06-experiments.md`](docs/architecture/06-experiments.md) | Metrics, runner, baselines, experiment catalogue, validation |
-| [`docs/architecture/07-fault-tolerance.md`](docs/architecture/07-fault-tolerance.md) | Scheduler succession, worker crash tolerance, cloud operational DB, scheduler work on-chain |
+| [`docs/architecture/07-fault-tolerance.md`](docs/architecture/07-fault-tolerance.md) | Scheduler succession, worker crash tolerance |
+| [`docs/architecture/08-state-and-protocols.md`](docs/architecture/08-state-and-protocols.md) | What the cloud DB stores and who accesses it, message catalogue, worker readiness (time-to-start) for the ILP |
+| [`docs/architecture/09-threat-model.md`](docs/architecture/09-threat-model.md) | Vetted honest volunteers, why no blockchain, critique, deviations from the spec |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Build phases with exit criteria (start here to code) |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Design decisions and why (cite in the paper) |
 | [`docs/TRACEABILITY.md`](docs/TRACEABILITY.md) | Spec section → module → phase |

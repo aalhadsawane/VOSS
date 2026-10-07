@@ -3,11 +3,11 @@
 ## 1. Scope
 
 **In scope:** a discrete-event simulator of a volunteer FaaS pool; the VOSS hierarchy (orchestrator, per-cluster
-schedulers, workers); prediction, risk and reputation models; microVM lifecycle model; an asynchronous ledger *model*
-that also records scheduler work; crash-fault injection and succession-based fault tolerance; baselines; an experiment
+schedulers, workers); prediction, risk and reputation models; microVM lifecycle model; a router-written work log
+with credit accounting (no blockchain); crash-fault injection and succession-based fault tolerance; baselines; an experiment
 pipeline.
 
-**Out of scope (POC):** UI/frontend, real networking/agents, real chain, real Firecracker orchestration (only a
+**Out of scope (POC):** UI/frontend, real networking/agents, blockchain of any kind (09), real Firecracker orchestration (only a
 calibration microbenchmark), confidentiality/TEE, Byzantine behavior, billing UI, failure of the orchestrator tier.
 Replaced by calibrated models or stated assumptions.
 
@@ -15,15 +15,15 @@ Replaced by calibrated models or stated assumptions.
 
 | Role | Who | Responsibility |
 |---|---|---|
-| **Orchestrator** | Provider-run cloud tier, **not a volunteer**, assumed reliable | Arranges clusters; appoints and fences schedulers (epochs); front-door routers; **operational DB on cloud**; ledger gateway |
+| **Orchestrator** | Provider-run cloud tier, **not a volunteer**, assumed reliable | Arranges clusters; appoints and fences schedulers (epochs); front-door routers; **operational DB on cloud** (private to this tier, 08) |
 | **Scheduler** | A worker hosting an extra role; one active per cluster | Placement inside its cluster (cost matrix, ILP/greedy), dispatch, retries, lifecycle actions |
 | **Worker** | Volunteer machine | Executes invocations; any eligible worker can be promoted to scheduler |
 
 **Fault model (ADR-016): crash-fault tolerant, not Byzantine.** Workers and schedulers can crash (disk survives), be
-preempted by their owner, drain, and suffer network delay (optionally loss/partition). Nobody lies. The orchestrator
+preempted by their owner, drain, and suffer network delay (optionally loss/partition). Nobody lies: volunteers are **vetted at admission and honest but unreliable** (09), which
+is also why no blockchain is needed. The orchestrator
 tier is assumed reliable and is the one named, costed centralized component. Schedulers are made crash-tolerant by
-**succession with soft state** (07): no consensus among volunteers. Optional lazy-worker verification is an
-off-by-default extension (04 §2).
+**succession with soft state** (07): no consensus among volunteers. An optional known-answer canary audit is the only integrity extension (09 §5).
 
 ## 3. Design principles
 
@@ -38,7 +38,7 @@ off-by-default extension (04 §2).
 6. **Precompute exogenous inputs.** Churn, arrivals and network are *traces* generated before the run.
 7. **Reproducible by default.** Pinned environment, manifest per run, one-command rerun, deterministic decision clock
    (01 §9).
-8. **Nothing is free.** Decision latency, heartbeats, checkpoints, ledger costs are simulated.
+8. **Nothing is free.** Decision latency, heartbeats, checkpoints, accounting costs are simulated.
 9. **Plug-in by name.** Every variant in spec §11 is a registered class selected by config.
 10. **Log raw, analyze offline.** Simulation emits event logs; metrics and plots come from logs.
 
@@ -47,7 +47,7 @@ off-by-default extension (04 §2).
 ```mermaid
 flowchart TD
     E[experiments: runner, sweeps, analysis, figures] --> RT
-    RT[runtime: actors on simulated hosts<br/>WorkerAgent, SchedulerRole, Router, Orchestrator, OperationalDB, LedgerGateway<br/>Succession, FaultInjector]
+    RT[runtime: actors on simulated hosts<br/>WorkerAgent, SchedulerRole, Router, Orchestrator, OperationalDB<br/>Succession, FaultInjector]
     RT --> POL[policy: predict, survival, reputation, cost, place, route, orchestrate, succession-ranking, keepalive, retry<br/>PURE functions of views]
     RT --> OBS[observe: StateStore, heartbeats, ClusterView, ClusterSummary]
     RT --> W[world: workers, availability, network + net.send, lifecycle, execution, workload, reference cloud<br/>GROUND TRUTH]
@@ -72,16 +72,16 @@ flowchart TD
 | Workload | world | Functions (SeBS profiles), arrivals, SLO classes | §9 |
 | StateStore | observe | Heartbeat-fed stale cluster state; produces views and summaries | §3.1 #5 |
 | Predictor, Survival | policy | Completion-time distributions; residual availability (also ranks succession) | §8.2–8.3 |
-| Reputation | policy | Commitment/timeliness score (optionally verification) | §4.4 |
+| Reputation | policy | Commitment/timeliness score | §4.4 |
 | CostModel, Placers | policy | Cost matrix, scalarizers; ILP, min-cost-flow, greedy, baselines | §8, §11 |
 | Route / Orchestrate / Succession ranking | policy | Cluster choice; membership moves; successor ranking and handover triggers | §5 |
 | KeepAlive/Prewarm, Retry/Hedge | policy | Lifecycle and failure handling | §7.1, §11 |
-| **Orchestrator + OperationalDB** | runtime | Cluster arrangement; epoch CAS appointments; membership, checkpoints, reputation store (cloud) | §5 |
-| Routers | runtime | Front door (orchestrator tier): choose cluster, hold pending invocations until worker `ACCEPTED`, spill over | §5 |
+| **Orchestrator + OperationalDB** | runtime | Cluster arrangement; epoch CAS appointments; membership, checkpoints, reputation, work log (cloud, 08) | §5 |
+| Routers | runtime | Front door (orchestrator tier): choose cluster, hold pending invocations and payloads until worker `ACCEPTED`, forward input, spill over, write the work log | §5 |
 | **SchedulerRole** | runtime | Active scheduler on a worker: runs the placer, dispatches, checkpoints, steps down on `STALE` | §5.5 |
 | **Succession** | runtime | Appointment, failover, roll call, planned handover, fencing protocol | §5.5 |
 | WorkerAgent | runtime | Executes (epoch-fenced, token-dedup), retains outcomes, direct result path, buffers | §5.5 |
-| LedgerGateway | runtime | Async batched anchoring of work receipts and **scheduler epoch records** (provider-run validators) | §4.5 |
+| Accounting | runtime | Credit batch job over the router-written work log; reputation updates (orchestrator) | §4.4–4.5 |
 | FaultInjector | runtime | Partitions and extra crash patterns (worker faults come from traces) | §5.5, §9 |
 | Recorder | metrics | Raw event log to Parquet | §13 |
 
@@ -93,7 +93,7 @@ sequenceDiagram
     participant R as Router (orchestrator tier)
     participant S as Scheduler (a worker + role)
     participant K as Worker
-    participant CH as Ledger gateway (async)
+    participant DB as Operational DB (orchestrator tier)
     W->>R: arrival (t, fn, origin, SLO)
     R->>R: choose cluster from stale summaries (+router decision delay); keep pending copy
     R->>S: ENQUEUE (net delay = geo RTT)
@@ -103,11 +103,13 @@ sequenceDiagram
     K->>K: transfer in → start-up ladder (S0..S3) → execute → transfer out
     K-->>R: RESULT direct (invocation latency ends here)
     K-->>S: OUTCOME (failure → retry policy re-places; watchdog from predictor catches silent crashes)
-    S-->>CH: epoch record; workers' receipts (off critical path)
+    R-->>DB: invocation_log row (batched, async, off critical path)
 ```
 
 End-to-end latency = router delay + batching wait + decision time + queue + start-up + network + execution +
 retries. Each term is a separate field in the invocation record (spec §8.6). Scheduler crash timeline: 07 §4.3.
+
+**Where to read next:** state, DB and message formats: 08; threat model and why there is no blockchain: 09.
 
 ## 7. Delivery strategy
 

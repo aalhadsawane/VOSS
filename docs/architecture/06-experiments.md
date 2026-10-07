@@ -23,7 +23,7 @@ runs/…  ──▶  experiments/analysis/*.py (pandas; CI via bootstrap over se
 |---|---|---|
 | `messages` | per kind (aggregated per interval) | `kind`, count, bytes, drops; control-plane overhead |
 | `invocations` | invocation (final) | ids, fn, origin, cluster, worker(s), slo_class, deadline, **t_arrive, t_response**, outcome, attempts, **components**: `route_s, batch_wait_s, decide_s, queue_s, startup_s(by state), net_in_s, exec_s, net_out_s, retry_s`, `start_state` (S0–S3), wasted_s, replicas, verified, settle_t |
-| `events` | state change | worker join/leave/drain/crash, cluster move/split/merge, control failover, spillover, reputation update, ledger epoch |
+| `events` | state change | worker join/leave/drain/crash, cluster move/split/merge, control failover, spillover, reputation update, scheduler appointment/epoch |
 | `samples` | periodic (e.g., 10 s) | per-cluster size/util/queue/SLO health, donor mem/disk, heartbeat msgs/bytes |
 | `solver` | placer call | placer, W, N, K, build_s, solve_wall_s, status, gap, timeout |
 | `predictions` | completed invocation (sampled) | predicted dist params vs. realized, for calibration/regret |
@@ -43,7 +43,7 @@ All §13 metrics are derived from these tables.
 | Placer algo | `greedy, mcf, lp_round, ilp(HiGHS), ilp(CP-SAT), ±warm_start, K, time_limit, fast_vs_batch` | 3 |
 | Scalarizer | `expected, mean_spread, quantile, cvar, slo_miss, tardiness` | 3 |
 | Reputation | see 04 §1 | 5 |
-| Ledger | `none, signed_log, per_invocation, batched(Δ)` | 6 |
+| Accounting | `none`, `db_log` (router-written); `canary_audit` on/off | 6 |
 | Scheduler HA | `ha: none`, `succession` (K=0/1/2 warm standbys), `raft_group(r)` baseline; failover fast/lease_safe; proactive handover on/off; Tier-2-only hosts | 7 |
 | Departure | `abrupt_only, graceful(adoption%), drain+handover` | 5 |
 
@@ -67,8 +67,8 @@ and are excluded from main figures by a lint check.
 | E09 | Cold-start ladder | keep-alive, memory budget, prewarm, snapshots, image size, registry dist, P2P | State shares, warm-hit, P99, memory-P99 Pareto | RQ6, H4 | 5 |
 | E10 | Heterogeneity and homogeneous null | speed spread, churn | Where simple wins | RQ4, H5 | 4 |
 | E11 | Error injection and staleness | noise/bias/staleness, heartbeat period | Robustness curves | RQ7 | 5 |
-| E12 | Reputation dynamics | long horizon, commitment-breaking Tier 1/2 fraction, whitewash, Sybil (lazy workers only in the extension) | Trajectories, starvation, Jain | RQ5 | 5–6 |
-| E13 | Ledger (and optional verification) | anchor interval, validator count/placement; verification rate (extension only) | Overhead, settlement latency, unanchored loss, audit completeness, signed-log comparison; capacity cost of verification (extension) | RQ10, H7 | 6 |
+| E12 | Reputation dynamics | long horizon, commitment-breaking Tier 1/2 fraction, probation and exploration (identity is vetted, 09) | Trajectories, starvation, Jain | RQ5 | 5–6 |
+| E13 | Work log and accounting | router-written vs. scheduler-reported log under scheduler crashes; flush interval; credit period; canary fraction (extension) | Log completeness, DB write volume and cloud cost, credit settlement latency, canary cost | RQ10, H7 | 6 |
 | E14 | Graceful drain adoption | graceful_frac, lead time, deadline, abuse | Failure rate, P99 vs. adoption | RQ18, H10 | 5 |
 | E15 | Scheduler and worker failure | injection pattern (random scheduler loss, during burst, correlated with regional churn, scheduler + standby together, partition/zombie, whole-cluster loss), worker churn level | Failover time, delayed/lost/duplicated, P99 timeline, fencing rejections, learned-state loss | RQ17, H10, H11 | 7 |
 | E21 | Scheduler HA design space and baselines | `ha` (none / succession / raft_group), K, `T_ckpt`, failover mode, proactive handover, watchdog/hedge quantiles, cluster size N, churn | Failover time vs. steady-state overhead Pareto, cluster unavailability, planned-vs-crash handover ratio | RQ17, H11, H12, H13 | 7 |

@@ -12,7 +12,7 @@ and its **knob**. Calibration inputs live in `configs/calibration/*.yaml` and ar
 | `tier` | 0/1/2 with mix e.g. 70/25/5 (sweep) | Tier 1 declares `window` (daily hours) |
 | `hw_class` | Discrete classes (e.g., 6) with `speed` (lognormal around class), `cores`, `mem_mb`, `disk_gb`, `cpu_model` (for snapshot compat class) | Tier-1 envelope caps what the platform may use |
 | `link` | Down/up Mbps lognormal, asymmetric (up ≈ 0.1–0.3× down), last-mile RTT | Residential profile |
-| `behavior` | `honest` (default; crash-only threat model). `lazy(q)` only under the `crash_plus_lazy` extension | 04 §2 |
+| `behavior` | Always `honest` (vetted federation, crash-only threat model, 09). Only canary audits (optional) probe it | 09 |
 | `roles` | Role hosted: `scheduler` (active or warm standby); hosting reserves `sched_cores`. Orchestrator tier is not a worker | 07 §4.2 |
 | `failure_domain` | `(asn, region)`; workers in a city share a few ASNs | Used by anti-affinity and control-plane placement |
 | `benchmark` | Noisy measurement of true speed/bandwidth at onboarding | The predictor's prior sees this, never the truth |
@@ -48,7 +48,7 @@ types, each with its own generator parameters:
 - **Transfer(bytes, src, dst)** = `RTT + bytes / rate`, where `rate = min(src.up, dst.down, share)` and `share`
   is processor-sharing on each worker's access link (fluid fair share, recomputed on start/finish of flows).
   The core network is assumed uncontended (documented simplification).
-- **Every message** (heartbeats, dispatch, appointment, roll call, checkpoints, ledger, bulk data) uses `net.send` (01 §6), so geography
+- **Every message** (heartbeats, dispatch, appointment, roll call, checkpoints, bulk data) uses `net.send` (01 §6), so geography
   affects control-plane latency (failover, appointment RTT to the cloud, spillover) as well as data transfer.
 - NAT/relay: workers flagged `relayed` add a fixed RTT penalty and bandwidth factor.
 - **Validation:** RTT model vs. RIPE Atlas/M-Lab-derived city-pair distributions (verify datasets); report error.
@@ -61,7 +61,7 @@ types, each with its own generator parameters:
   `OWNER_BUSY` is throttled rather than evicted), `noise` lognormal with a heavy-tail mixture. Drawn from the
   invocation's own RNG stream.
 - **Failure:** an invocation fails if its worker is preempted/crashes/leaves before completion (checked against the
-  trace). No probabilistic "failure rate" outside the trace, except `lazy`/`malicious` wrong results.
+  trace). No probabilistic "failure rate" outside the trace,.
 - OOM: invocation memory > sandbox memory → fail immediately (sizing experiments).
 - Timeouts: per SLO class `max_duration`; exceeded → failure.
 

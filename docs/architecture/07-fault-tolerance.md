@@ -6,36 +6,31 @@ Supersedes the earlier Raft-replicated-scheduler sketch (kept only as a baseline
 
 | Role | Who runs it | Does | Fault tolerance |
 |---|---|---|---|
-| **Orchestrator** | **Provider** (cloud), not a volunteer | Arranges clusters (membership, split/merge/move); appoints and fences schedulers (epochs); front-door **routers**; operational DB; ledger gateway | **Assumed reliable** (managed cloud HA; not studied, named and costed as the one centralized component) |
+| **Orchestrator** | **Provider** (cloud), not a volunteer | Arranges clusters (membership, split/merge/move); appoints and fences schedulers (epochs); front-door **routers**; operational DB (private to this tier, 08) | **Assumed reliable** (managed cloud HA; not studied, named and costed as the one centralized component) |
 | **Scheduler** | A **worker** hosting an extra role (one active per cluster) | Placement inside its cluster: cost matrix, ILP/greedy, dispatch, retries, lifecycle actions | Crash-tolerant via succession (§4) |
 | **Worker** | Volunteer machine | Executes invocations; heartbeats; any eligible worker can be **promoted to scheduler** | Crash-tolerant via detection, retry, hedging (§5) |
 
 **Fault model (ADR-016):** crash-fault only, no Byzantine behavior. Workers and schedulers may crash (memory lost,
 disk survives), be preempted by the owner (immediate or with grace), drain, or be partitioned/delayed. Nobody lies;
-a scheduler never writes false records on-chain.
+volunteers are vetted and honest-but-unreliable (09); there is no blockchain.
 
 **Why this is the hard case:** unreliability is always high (volunteers continuously drop and join) and clusters are
 small (tens of workers; the ILP cost forces it). A scheduler host is just another unreliable volunteer.
 
-## 2. Operational DB (answer: yes, cloud-hosted, orchestrator-owned)
+## 2. Operational DB (cloud-hosted, orchestrator-owned, private to the orchestrator tier)
 
-The authoritative operational store of cluster information lives in a **cloud database run by the orchestrator**.
-It is *never* on the invocation critical path; the simulator models it as a service with an access latency (RTT to
-the cloud region) and availability 1.0 by default.
+Full schema, access matrix, message catalogue and volumes are in **08**. The points that matter for fault tolerance:
 
-| Table | Contents | Written by | Read by |
-|---|---|---|---|
-| `workers` | identity, tier, declared envelope, benchmark, state, cluster, reputation (global, whitewash-resistant) | orchestrator (on join/leave, from scheduler reports and ledger events) | orchestrator, scheduler at appointment |
-| `clusters` | membership + version, medoid, size targets | orchestrator | orchestrator, routers, scheduler |
-| `scheduler_epochs` | per cluster: `epoch`, `holder`, `succession` list, appointment time | orchestrator (atomic compare-and-swap on `epoch`) | routers, workers (via ask), schedulers |
-| `checkpoints` | latest `SchedulerCheckpoint` per cluster (§4.4) | scheduler (async, every `T_ckpt`) | newly appointed scheduler |
-| `functions` | versions, image digests, profiles | operator | scheduler, workers |
-| `ledger_index` | anchored epoch roots, settlement status | ledger gateway | audit analysis |
-
-Consequences stated plainly for the paper: this is a **centralized, provider-run dependency** (spec §5.5 requires
-naming it). It is off the data path: if it were unreachable, running invocations and the current scheduler keep
-working; what stops is appointments, membership change and checkpoint upload. A stress experiment (orchestrator
-outage) is parked; costs of the cloud tier (DB ops, egress) are reported.
+- Yes: the authoritative operational store of cluster information (workers, clusters, current scheduler and epoch,
+  succession list, checkpoints, reputation, work log) lives in a **cloud DB run by the orchestrator**.
+- **Only the orchestrator tier accesses it.** Workers and schedulers send messages (join/leave/lookup, summaries,
+  events, checkpoints) and the orchestrator reads/writes on their behalf; `APPOINT` embeds the membership snapshot,
+  checkpoint and reputation so a new scheduler never queries the DB.
+- It is **never on the invocation critical path** (modeled with cloud-region latency, availability 1.0). The live
+  queue, per-worker pending jobs and cost matrices are deliberately *not* stored there (08 §3.1).
+- It is a centralized, provider-run dependency (spec §5.5 requires naming it). If unreachable, running invocations
+  and the current scheduler keep working; appointments, membership change and checkpoint upload stop (stress test
+  parked). Its costs (writes, storage, egress) are reported.
 
 ## 3. How this is usually done, and why we do not copy it
 
@@ -67,7 +62,8 @@ A scheduler's state is a **cache**, never the source of truth. Nothing needs a r
 | Completed outcomes since last checkpoint | **Worker** retains them for `T_retain` | Roll call returns them; replayed into learned state | None if `T_retain > T_ckpt + failover` |
 | Learned state (predictor posteriors, retry counters, rep deltas) | Orchestrator DB **checkpoint** + worker-retained recent outcomes | Load checkpoint, then replay retained outcomes | ≤ outcomes older than `T_retain` that lacked a checkpoint (tiny, measured) |
 | Cluster view (free slots, lifecycle states, load) | Workers | Roll call + heartbeats | Rebuilt in ~1 RTT |
-| Scheduler epoch record for the ledger | Worker receipts (carry `epoch, token`) + checkpoint | Gap filled from receipts, flagged `recovered` | Measured |
+| Work records for accounting | **Routers'** `invocation_log` (written independently of the scheduler, 08 §3) | Nothing to recover | None |
+| Crash-detection events not yet reported | Scheduler memory | Roll call + membership version diff | ≤ `T_report`, measured |
 
 ### 4.2 Appointment, succession list and epochs
 
@@ -90,7 +86,6 @@ flowchart LR
     subgraph ORCH[Orchestrator tier — provider cloud, assumed reliable]
         RT[Routers<br/>hold pending invocations]
         OP[(Operational DB<br/>membership, epochs,<br/>checkpoints, reputation)]
-        LG[Ledger gateway]
     end
     subgraph C[Cluster C — small, volunteer]
         S[Scheduler = worker + role<br/>epoch e]
@@ -99,7 +94,7 @@ flowchart LR
         W2[Worker]
         W3[Worker, cold candidate]
     end
-    RT -->|ENQUEUE inv| S
+    RT -->|ENQUEUE metadata| S
     S -->|DISPATCH epoch e, token| W1
     S -->|DISPATCH| W2
     W1 -->|ACCEPTED, RESULT direct| RT
@@ -109,7 +104,8 @@ flowchart LR
     S -.->|checkpoint every T_ckpt| OP
     OP -.->|APPOINT / REVOKE, epoch CAS| S
     OP -.->|config push| RT
-    S -.->|epoch records, async| LG
+    S -->|ASSIGNED| RT
+    RT -->|INPUT payload| W1
 ```
 
 ### 4.3 Failure and failover protocol
@@ -216,16 +212,14 @@ operations, router pending tables, worker outcome retention. Failover cost: dete
 | Orchestrator/DB outage | — | Assumed not to happen; stress test parked | Out of scope |
 | Whole cluster offline | Orchestrator (no summary, no workers) | Router spillover; membership reassigned | Invocations at that cluster retried |
 
-## 7. Scheduler work on the ledger
+## 7. Work accounting under failures
 
-- Each epoch the scheduler sends the orchestrator's **ledger gateway** a `SchedulerEpochRecord{cluster, epoch,
-  scheduler, n_enqueued, n_assigned, assign_root = Merkle(inv_id, attempt, worker, t_assign), outcome_root}` plus a
-  `LeaderTerm{cluster, epoch, scheduler, start_t}` on change. Gateway dedupes by `(cluster, epoch, epoch_id)`.
-- **Crash gap:** if a scheduler dies before sending, the gap is filled from **worker receipts** (they carry
-  `epoch` and `token`) and marked `recovered`. Audit joins: every execution has an assignment under a valid epoch;
-  every assignment has an outcome or is flagged lost; no dispatch from a stale epoch after fencing.
-- **Credit:** scheduler credit ∝ committed assignments and time as active/warm scheduler (04 §4).
-- The ledger is audit and reward only; election and fencing never wait for it (spec §14).
+Accounting does not depend on scheduler liveness (ADR-027). The work log is written by the **routers** from the
+`ASSIGNED`/`ACCEPTED`/`RESULT` messages they observe (08 §3), each row stamped with `epoch` and `scheduler_id`, so
+scheduler credit (assignments made) and worker credit (successful results) are derived without any scheduler-authored
+record. Scheduler tenure comes from `scheduler_roles`, written by the orchestrator at appointment. A scheduler crash
+therefore loses no work records; it can only lose unreported crash detections (≤ `T_report`), which roll call and the
+membership version repair. Election and fencing never wait on accounting.
 
 ## 8. Parameters and metrics
 
@@ -244,7 +238,7 @@ operations, router pending tables, worker outcome retention. Failover cost: dete
 Metrics: failover time (crash → first new dispatch), invocations delayed/lost/duplicated, P99 in the failover
 window, learned-state loss, roll-call duration, control overhead (cores, traffic, cloud ops), planned vs. crash
 handover ratio, fencing rejections and any execution from a stale epoch (must be zero after install), cluster
-unavailability fraction, unanchored/`recovered` epoch share.
+unavailability fraction, crash-detection events lost, work-log completeness (must be 100% of router-seen attempts).
 
 **H11.** Succession cuts failure-induced tail latency versus no redundancy, at near-zero steady-state decision cost
 (no quorum in the decision path).

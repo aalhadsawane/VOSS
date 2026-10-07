@@ -101,7 +101,7 @@ scheduling regret (H6).
 
 **Other cost components** are state + estimates, not learned: `T_net` from per-worker bandwidth/RTT estimates
 (EWMA of observed transfers, benchmark prior), `T_startup` from lifecycle state × calibration distribution,
-`T_wait` from queue length × predicted residuals (stale view + local bookkeeping).
+`T_wait` from per-core **worker readiness** `ready_at` (running-job residuals conditioned on elapsed time, queued jobs, in-flight dispatches, staleness; 08 §5), so a worker's time-to-start is an explicit cost input.
 
 ## 6. Risk: reliability estimate vs. reputation (the double-counting rule, spec §4.4)
 
@@ -110,7 +110,7 @@ Two signals with **disjoint inputs**, which is how double counting is avoided:
 | Signal | Answers | Built from | Enters cost via |
 |---|---|---|---|
 | **Survival model** `S(τ ∣ age, tier, local_hour, declared window, drain deadline)` | P(worker stays available over `[now, now+T]`) | Observed session lengths, owner-busy/crash events, declared windows; Weibull per (tier, region) with time-of-day hazard; Kaplan–Meier as comparison | `pFail`, i.e. inside `pMiss` and the failure term |
-| **Reputation** | Commitment-keeping and timeliness (honesty only under the optional `crash_plus_lazy` extension) | **Only** broken Tier-1/2 commitments (leaving inside declared window), envelope shortfall, timeliness bonus (plus verification mismatches in the extension). **Never** owner preemption of Tier 0, crashes, or ordinary failures | `repPenalty` and eligibility threshold |
+| **Reputation** | Commitment-keeping and timeliness (vetted honest nodes, 09) | **Only** broken Tier-1/2 commitments (leaving inside declared window), envelope shortfall, timeliness bonus **Never** owner preemption of Tier 0, crashes, or ordinary failures | `repPenalty` and eligibility threshold |
 
 Hard constraints from known information: a drain deadline `D` removes any placement with predicted completion past
 `D`; declared windows are constraints for Tier 1. Ablations: `no_survival`, `no_reputation`, and
@@ -151,7 +151,7 @@ never by costs.
 
 All implement `place(PlaceRequest) → Placement`; `PlaceRequest` carries invocations, candidates, `CostMatrix`,
 capacities, time limit. Coupling within a window is handled by **slot expansion**: each node `j` exposes slots
-`(j, k)` for position `k` in its queue; `wait` of slot `k` = base wait + (k−1)·(predicted mean exec of the window's
+`(j, k)` for position `k` in its queue; `wait` of slot `k` = base `ready_at` (08 §5) + (k−1)·(predicted mean exec of the window's
 function mix on `j`), the positional-cost trick behind the polynomial matching result (verify: Horn;
 Bruno–Coffman–Sethi).
 
