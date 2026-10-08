@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import itertools
+from concurrent.futures import ProcessPoolExecutor
 import json
 from pathlib import Path
 from typing import Any
@@ -34,25 +35,33 @@ def points(spec: dict[str, Any]) -> list[list[str]]:
     return out
 
 
-def run_experiment(path: Path, out_root: Path = Path("runs")) -> list[Path]:
+def _one(cfg: RunConfig, run_dir: Path) -> Path:
+    if not (run_dir / "manifest.json").exists():
+        cmd_run(cfg, run_dir)
+    return run_dir
+
+
+def run_experiment(path: Path, out_root: Path = Path("runs"), jobs: int = 1) -> list[Path]:
+    """Run every point (in ``jobs`` processes); runs are independent and deterministic."""
     spec = yaml.safe_load(path.read_text())
     base = (path.parent / spec["base"]).resolve()
-    dirs = []
+    work = []
     for ov in points(spec):
         cfg = RunConfig.model_validate(apply_overrides(load_yaml_tree(base), ov))
-        run_dir = out_root / spec["experiment"] / cfg.config_hash()[:16]
-        if not (run_dir / "manifest.json").exists():
-            cmd_run(cfg, run_dir)
-        dirs.append(run_dir)
-    return dirs
+        work.append((cfg, out_root / spec["experiment"] / cfg.config_hash()[:16]))
+    if jobs <= 1:
+        return [_one(c, d) for c, d in work]
+    with ProcessPoolExecutor(max_workers=jobs) as pool:
+        return list(pool.map(_one, *zip(*work, strict=True)))
 
 
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("spec", type=Path)
     p.add_argument("--out", type=Path, default=Path("runs"))
+    p.add_argument("--jobs", type=int, default=1)
     a = p.parse_args()
-    for d in run_experiment(a.spec, a.out):
+    for d in run_experiment(a.spec, a.out, a.jobs):
         print(d)
 
 
