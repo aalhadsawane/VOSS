@@ -1,42 +1,29 @@
-# Traceability: spec → design → phase
+# Traceability: research spec → design → code → phase
 
-| Spec | Requirement | Module(s) | Doc | Phase |
+The spec (`VOSS_research_spec.md`) is the original research brief. Deliberate deviations are listed in doc 04 §11.
+
+| Spec | Requirement | Design doc | Module(s) | Phase |
 |---|---|---|---|---|
-| §3.1 #1–3 | Owner preemption, diurnal/correlated, heavy-tailed availability | `world/availability` | 02 §2 | P1 |
-| §3.1 #4 | Heterogeneity, microVM variance | `world/worker`, `lifecycle` | 02 §1, §5 | P1–P2 |
-| §3.1 #5 | Stale state | `observe/statestore` | 01 §5 | P2 |
-| §3.1 #6 | Donor costs | `world/lifecycle` accounting, `cost.donorCost` | 02 §5, 03 §7 | P2–P3 |
-| §3.1 #7 | Untrusted participants → **vetted honest volunteers** (09, ADR-026) | `identities` stub, `reputation`, optional `canary` | 09, 04 §1 | P5–P6 |
-| §3.1 #8 | Newcomers | probation, predictor priors | 03 §5, 04 §1 | P3, P5 |
-| §3.2 | Serverless concerns (all items; see notes below) | `world/*`, `policy/keepalive`, `policy/cost`, `runtime/worker_agent` | 02 §4–6, 03 §4, §10 | P2–P8 |
-| §4.2 | Tiers, filler | `worker.tier`, scheduler filler | 02 §1, 03 §4 | P5 |
-| §4.3 | Onboarding, probation, calibration | `worker.benchmark`, reputation | 02 §1, 04 §1 | P1, P5 |
-| §4.4 | Reputation vs. reliability | `reputation`, `survival` | 03 §6, 04 §1 | P5 |
-| §4.5 | Verification, ledger → **router-written work log + credits, no blockchain** (ADR-027) | `accounting`, `opdb` | 04 §2–3, 08 §3 | P6 |
-| §4.6 | Departure modes, drain | `availability`, scheduler reaction | 02 §2, 04 §5 | P1, P5 |
-| §5.1–5.4 | Hierarchy, dynamic clusters | `route`, `orchestrate`, `runtime/*` | 03 §1–4 | P4 |
-| §5.5 | Control-plane FT; scheduler as volunteer-hosted SPOF | `succession`, `scheduler`, `opdb`, `faults` | 07 | P2 (appointment, no failover), P7 |
-| §4.5 | Scheduler work tracked (added) | `invocation_log` rows carry epoch/scheduler; `scheduler_roles` | 07 §7, 08 §3 | P6–P7 |
-| §8.2 | Worker readiness / time-to-start as ILP input | `WorkerState`, cost model `ready_at` | 08 §5, 03 §7 | P3 |
-| §9 | Reproducibility | manifest, `voss repro`, lockfile, Docker | 01 §9 | P0 |
-| §7 | MicroVM lifecycle, snapshot compat, P2P images | `world/lifecycle` | 02 §5 | P2, P5, P9 |
-| §8.1 | Objective and scalarizations | `cost`, `scalarize` | 03 §7 | P3 |
-| §8.3 | Predictors | `policy/predict` | 03 §5 | P3 |
-| §8.5 | MCF vs ILP vs greedy | `policy/place` | 03 §8 | P3 |
-| §8.6 | Cluster size × solve × latency | decision clock, E02 | 01 §6, 06 §4 | P3–P4 |
-| §9 | Methodology, validation, reproducibility | scenario, manifest, E01 | 01, 06 §6 | P1, P9 |
-| §11 | Baselines and ablations | registry, configs | 06 §3 | P3–P8 |
-| §12 | Experiments | `experiments/` | 06 §4 | P8–P10 |
-| §13 | Metrics | `metrics/schema`, analysis | 06 §2 | P2+ |
-| §14 | Principles | AGENTS.md, import-linter, invariants | 05 | P0 |
-| §6 H1–H10 | Hypotheses | E02–E20 | 06 §4 | P10 |
-
-## §3.2 serverless concerns: where each is handled
-
-Cold start ladder, keep-alive, image distribution: lifecycle model + keep-alive policies (P2, P5). Scale-to-zero:
-`ttl=0` plus prewarm (P5). Concurrency, sizing/OOM, timeouts: execution model (P2). Semantics: `idempotent` flag
-gates retry/hedge (P1, P3). Bursts, admission, backpressure: scheduler admission and router spillover (P3–P4).
-Multi-tenancy: interference model; Jain index across functions (P8). Versioning: lifecycle invalidate (P5). Cost and
-billing: reference-cloud $/GB-s vs. VOSS credits (P6, P8). Observability: StateStore staleness (P2).
-Control-plane FT and drain: 04 (P5, P7). **Function composition/workflows: justified exclusion, parked
-(ADR-015)**; external state is modeled as a storage endpoint.
+| §3.1 #1–3 | Owner preemption, diurnal/correlated, heavy-tailed availability | 02 §2 (donation sessions) | `world/sessions` | P1 |
+| §3.1 #4 | Heterogeneity, sandbox variance | 02 §1, §5; 10 | `world/hardware`, `substrate`, `lifecycle` | P1–P2, P9 |
+| §3.1 #5 | Stale state | 01 §5, 08 §5 | `observe/*` | P2 |
+| §3.1 #6 | Donor costs | 02 §6, 03 §4.2 | `world/cache`, `policy/plan` | P2, P4 |
+| §3.1 #7 | Untrusted participants | 04 (attestation; malicious → omission) | `runtime/verifier`, `tenant_kbs`, `world/adversary` | P2, P6 |
+| §3.1 #8 | Newcomers | 03 §6, 09 §2 | predictors, reputation probation | P3, P7 |
+| §3.2 | Serverless concerns | 02 §4–8, 03 §5 | Cold starts and keep-alive: ladder + caches + planner. Images: P2P content-addressed. Scale-to-zero: plan `w=0`. Concurrency/sizing/timeouts: execution. Semantics: `idempotent` gates hedge/retry. Bursts: admission + spillover. Multi-tenancy: microVMs + Jain. Versioning: cache invalidation. Billing: credits vs reference cloud. Drain: sessions. Control plane: 07. **Workflows parked (D-22)** | P2–P8 |
+| §4.2 | Supply tiers, filler | 02 §1 (nightly/idle/dedicated), 03 §5.4 | `world/workers`, `policy/admission` | P1, P3 |
+| §4.3 | Onboarding, probation, calibration | 04 §5, 09 §2, 10 | verifier, reputation, harness | P2, P7, P9 |
+| §4.4 | Reliability vs reputation | 09 §1 (three disjoint signals) | `policy/survival`, `omission`, `reputation` | P3, P7 |
+| §4.5 | Verifiable work ledger | 09 §3 (attested receipts, **no chain**) | `runtime/router`, `accounting` | P7 |
+| §4.6 | Departure modes, drain | 02 §2, 07 §4 | `world/sessions`, scheduler | P1, P6 |
+| §5.1–5.4 | Hierarchy, dynamic clusters | 03 §2–3 | `policy/route`, `orchestrate`, runtime actors | P5 |
+| §5.5 | Control-plane fault tolerance | 07 | `runtime/succession`, `fault_driver` | P6 |
+| §6 C1–C6 | Contributions | 00 §1, 06 §3 | — | P10 |
+| §7 | microVM lifecycle, keep-alive, snapshots, P2P images | 02 §5–6, 03 §4 | `world/lifecycle`, `cache`, `policy/cache_value`, `plan` | P2, P4 |
+| §8.1–8.4 | Objective, inputs, prediction, scalarization | 03 §5–6, 08 §5 | `policy/cost`, `predict` | P3 |
+| §8.5 | Where integer programming is needed | 03 §8 | `policy/plan/milp`, `place/*` | P3–P4 |
+| §8.6 | Cluster size × solve time × latency | 06 E02 | decision clock | P4 |
+| §9 | Methodology, validation, reproducibility | 01 §1, §8; 10 | harness, manifests | P0, P9 |
+| §10–12 | RQs, baselines, experiments | 06 | `experiments/*` | P8–P10 |
+| §13 | Metrics | 06 §2 | `metrics/schema` | P2+ |
+| §14 | Principles | AGENTS.md, 05 §7–8 | linters, invariants | P0 |

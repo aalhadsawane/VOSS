@@ -1,138 +1,208 @@
 # 05 · Code Structure
 
-Python ≥ 3.11, `uv` for env, `numpy`, `scipy` (HiGHS MILP, assignment), `ortools` (CP-SAT/min-cost-flow
-comparison), `pandas`+`pyarrow`, `pydantic` (config), `matplotlib`, `pytest`, `ruff`, `mypy`, `import-linter`.
-No other frameworks.
+**Stack:** Python ≥ 3.11 with `uv`.
+
+| Need | Library |
+|---|---|
+| Numerics | `numpy` |
+| MILP, assignment | `scipy` (HiGHS `milp`, `linear_sum_assignment`) |
+| Data and logs | `pandas`, `pyarrow` |
+| Config | `pydantic` |
+| Plots | `matplotlib` |
+| Quality | `pytest`, `hypothesis`, `ruff`, `mypy`, `import-linter` |
+
+No other frameworks. The calibration harness (`tools/calibrate/`) may use shell tools on the real node, never in the
+simulator.
 
 ## 1. Repository layout
 
 ```
 VOSS/
-├─ pyproject.toml  Makefile  AGENTS.md  README.md  .importlinter
-├─ docs/                         # these documents
+├─ pyproject.toml  uv.lock  Dockerfile  Makefile  .importlinter  AGENTS.md  README.md
 ├─ configs/
-│  ├─ base.yaml                  # full default config
-│  ├─ functions.yaml             # SeBS-derived function profiles
-│  ├─ calibration/               # hw classes, lifecycle dists, reference-cloud params
-│  ├─ regimes/                   # churn_{none,low,med,high,burst,correlated}.yaml, load_*.yaml
-│  └─ experiments/               # E01_*.yaml ... (see 06)
+│  ├─ base.yaml                       # full default config
+│  ├─ substrates/                     # appliance_tpm.yaml, cvm_snp.yaml, coco_pool.yaml, drtm_hv.yaml, none.yaml
+│  ├─ hardware/                       # hw classes (C0 = calibration node, others scaled)
+│  ├─ functions.yaml  tenants.yaml
+│  ├─ regimes/                        # churn_*.yaml, adversary_*.yaml, load_*.yaml
+│  ├─ calibration/measured/<host>/    # ingested distributions + raw logs (doc 10)
+│  └─ experiments/                    # E*.yaml
 ├─ voss/
-│  ├─ core/        kernel.py rng.py types.py config.py registry.py decision_clock.py
-│  ├─ world/       geo.py worker.py availability.py network.py(net.send) lifecycle.py execution.py
-│  │               workload.py scenario.py reference_cloud.py
-│  ├─ observe/     statestore.py views.py            # only layer allowed to read world
+│  ├─ core/       kernel.py rng.py types.py messages.py config.py registry.py decision_clock.py ids.py
+│  ├─ world/      geo.py hardware.py workers.py sessions.py adversary.py network.py resources.py
+│  │              substrate.py lifecycle.py cache.py execution.py workload.py scenario.py reference_cloud.py
+│  ├─ observe/    statestore.py views.py summaries.py
 │  ├─ policy/
-│  │   predict/    base.py blr.py ewma.py means.py gbq.py knn.py conformal.py
-│  │   survival.py reputation.py keepalive.py retry.py route.py orchestrate.py
-│  │   cost.py scalarize.py
-│  │   place/      base.py greedy.py matching.py lp_round.py ilp.py baselines/*.py
-│  ├─ runtime/     system.py actor.py succession.py scheduler.py router.py orchestrator.py opdb.py
-│  │               worker_agent.py accounting.py faults.py canary.py(optional ext)
-│  └─ metrics/     schema.py recorder.py
-├─ experiments/    runner.py sweep.py analysis/*.py figures/*.py
-├─ tools/          calibrate/ (firecracker, sebs profiling), fit/ (trace fitting)
-└─ tests/          unit/ property/ integration/ regression/
+│  │   predict/   base.py blr.py ewma.py means.py conformal.py arrivals.py
+│  │   survival.py omission.py reputation.py
+│  │   cost/      components.py completion.py scalarize.py
+│  │   plan/      types.py milp.py greedy.py baselines.py diff.py        # slow loop
+│  │   place/     greedy.py flow.py ilp_window.py baselines/*.py          # fast loop
+│  │   hedge.py retry.py admission.py cache_value.py route.py orchestrate.py succession_rank.py exposure.py
+│  ├─ runtime/    actor.py system.py
+│  │              worker_agent.py scheduler_role.py router.py orchestrator.py verifier.py tenant_kbs.py
+│  │              opdb.py accounting.py fault_driver.py succession.py
+│  └─ metrics/    schema.py recorder.py
+├─ experiments/   runner.py sweep.py analysis/*.py figures/*.py
+├─ tools/calibrate/  harness (doc 10): probes/*.sh, run.py, ingest.py, emulate/ (single-box testbed)
+└─ tests/         unit/ property/ integration/ regression/
 ```
 
-## 2. Dependency rules (enforced by `import-linter`, run in `make check`)
+## 2. Dependency rules (enforced by `import-linter`)
 
 | Layer | May import |
 |---|---|
-| `core` | stdlib, numpy |
+| `core` | stdlib, numpy, pydantic |
 | `world` | `core` |
 | `observe` | `core`, `world` |
-| `policy` | `core` **only** (never `world`, `observe`, `runtime`) |
-| `runtime` | `core`, `world`, `observe`, `policy`, `metrics`. **Actors talk to each other only via `net.send`**, never by method calls |
+| `policy` | **`core` only** (never `world`, `observe`, `runtime`) |
+| `runtime` | `core`, `world`, `observe`, `policy`, `metrics`. **No runtime actor module imports another actor module**; they talk via `core/messages.py` |
 | `metrics` | `core` |
-| `experiments`, `tools` | everything; nothing imports them |
+| `experiments`, `tools` | Anything; nothing imports them |
 
-**Actors and messages.** Every runtime entity is an `Actor` hosted on a worker (`runtime/actor.py`); it reacts to
-`on_message`, sets timers on the kernel, and sends via `net.send`. A test fails if one actor module imports another
-actor module (shared types go in `core`). This keeps geographic latency honest and the runtime decoupled.
+View dataclasses (`ClusterView`, `WorkerState`, …) are defined in `core/types.py`, so `policy` stays free of `observe`.
 
-Policies receive data only via the typed structures in `core/types.py` and `observe/views.py`'s *dataclasses*.
-To keep `policy` free of `observe`, the view dataclasses are defined in `core/types.py` and merely *constructed* by
-`observe`. This is the single most important rule against spaghetti.
-
-## 3. Core types (`core/types.py`, frozen dataclasses / numpy struct-of-arrays)
+## 3. Core types (frozen dataclasses / struct-of-arrays)
 
 ```python
-Invocation      id, fn, origin, t_arrive, in_bytes, slo_class, deadline, attempt, excluded: frozenset[WorkerId]
-WorkerFeatures    arrays: speed_est, cores, mem_free, disk_free, bw_est, rtt_to(origin), tier, domain, age, rep ...
-ClusterView     as_of, worker_ids, WorkerFeatures, queue_len, running_residual, lifecycle[fn]→state array, drain_deadline
-ClusterSummary  cluster_id, as_of, utilization, headroom, warm_fns, slo_health, pred_completion[fn], n_live
-CostMatrix      components: dict[str, ndarray[W,N]], feasible: ndarray[W,N]
-Placement       assign: dict[inv_id → list[WorkerId]], prewarm: list[...], status, gap, solve_wall_s
-MoveOp          kind: move|split|merge, workers, src, dst
-Outcome         inv_id, worker, status, timings{wait,startup,net_in,exec,net_out}, wasted_s
+# core/types.py
+Invocation     id, fn, tenant, origin, t_arrive, in_bytes, slo_class, deadline, attempt, idempotent, excluded
+WorkerState    (doc 08 §5) slots, running, queued, mem/ssd/hdd free, cache: dict[FnVer, CacheEntry], trust: frozenset[TenantId],
+               session_expiry, drain_hint, as_of
+ClusterView    as_of, workers: tuple[WorkerId], states: WorkerStateArrays, assurance, domains, survival_inputs, ...
+ClusterSummary cluster, as_of, load, slo_health, trust_warm_capacity: dict[TenantId, float], robust_slack, diversity
+Plan           y: dict[(TenantId, WorkerId), bool], s/w/c: ..., valid_until, cost_terms: dict[str, float]
+PlanAction     kind ∈ {PREPARE, PIN_SNAPSHOT, WARM, RELEASE}, worker, tenant/fn, n
+CostMatrix     components: dict[str, ndarray[W,K]], candidates: ndarray[W,K], feasible
+Placement      assign: dict[InvId, WorkerId], hedges: dict[InvId, WorkerId], status, solve_s
+Outcome        inv, attempt, worker, status, timings{route,wait,trust,startup,net,exec}, start_level, trust_cold
+
+# core/messages.py — one frozen dataclass per message in doc 08 §4
 ```
 
-## 4. Interfaces (`Protocol`s; one line each; all registered by name)
+## 4. Interfaces (each is a `Protocol`, registered by name, chosen in config)
 
 ```python
-Predictor:   predict(fn, in_bytes, workers, load) -> LogDist ;  update(obs)
-Survival:    p_available(workers, horizon_s, now) -> ndarray[N]
-Reputation:  update(state, event) -> state ;  score(state, now) -> float
-CostModel:   build(invs, view, predictors, survival, rep) -> CostMatrix
-Scalarizer:  __call__(cm: CostMatrix, invs) -> ndarray[W,N]
-Placer:      place(req: PlaceRequest) -> Placement
-Router:      route(inv, summaries) -> ClusterId
-OrchestratorPolicy: step(summaries, membership, events) -> list[MoveOp]
-KeepAlive:   ttl(worker, fn, view) -> float ;  Prewarm: plan(forecast, view) -> list[PrewarmOp]
-RetryPolicy: on_failure(inv, outcome, view) -> RetryDecision
+# slow loop
+class Planner(Protocol):         def plan(self, view: ClusterView, demand: Demand, prev: Plan, cfg) -> Plan
+class Forecaster(Protocol):      def forecast(self, history: ArrivalHistory, now: float) -> Demand
+# fast loop
+class CostModel(Protocol):       def build(self, invs, view, plan, preds) -> CostMatrix
+class Scalarizer(Protocol):      def __call__(self, cm: CostMatrix, invs) -> ndarray
+class Placer(Protocol):          def place(self, req: PlaceRequest) -> Placement
+class HedgePolicy(Protocol):     def decide(self, inv, cm_row, budget) -> WorkerId | None
+class RetryPolicy(Protocol):     def on_failure(self, inv, outcome, view, plan) -> RetryDecision
+# predictions
+class Predictor(Protocol):       def predict(self, fn, in_bytes, workers, load) -> LogDist; def update(self, obs) -> None
+class Survival(Protocol):        def p_alive(self, workers, horizon_s, now) -> ndarray
+class OmissionModel(Protocol):   def p_omit(self, workers) -> ndarray; def update(self, outcome) -> ChangePoint | None
+class Reputation(Protocol):      def update(self, state, event) -> state; def score(self, state, now) -> float
+# other
+class CacheValue(Protocol):      def value(self, entry, forecast) -> float; def source_score(self, src, dst, digest) -> float
+class Router(Protocol):          def route(self, inv, summaries) -> ClusterId
+class OrchestratorPolicy(Protocol): def step(self, summaries, membership, events) -> list[MoveOp]
+class SuccessionRank(Protocol):  def rank(self, view, cluster) -> list[WorkerId]
 ```
 
-Registry: `@register("placer", "ilp")`; config `placer: {name: ilp, time_limit: 0.5, K: 20}`;
-`registry.make("placer", cfg)`.
+**Registry:** `@register("planner", "milp")`, and the config says `planner: {name: milp, T_plan: 30, T_solve: 2}`.
 
-## 5. Config (single pydantic tree, YAML)
+## 5. Substrate profiles are data (one engine, no per-substrate code)
+
+`world/substrate.py` loads a profile and `world/lifecycle.py` interprets it. Example (abridged):
+
+```yaml
+# configs/substrates/appliance_tpm.yaml
+name: appliance_tpm
+assurance_base: 0.80
+concurrent_owner_use: false
+session:
+  establish:                          # BOOTING → ATTESTED
+    - {op: delay,  dist: measured/reboot_to_kernel}        # firmware + bootloader + UKI
+    - {op: delay,  dist: measured/appliance_userspace}
+    - {op: tpm_quote}                                      # Tpm resource, measured/tpm2_quote
+    - {op: rpc,    to: verifier, size: 6KB}                # geo RTT
+    - {op: cpu,    work: measured/verify_ms}
+  reattest_every_s: 600
+trust:                                 # tenant key release
+  - {op: rpc, to: tenant_kbs, size: 2KB}
+  - {op: cpu, work: 0.002}
+ladder:                                # levels and transitions (doc 02 §5)
+  levels: [L0, L1, L2, L3, L4]
+  transitions:
+    L0->L1: [{op: fetch, artifacts: [bundle, rootfs]}, {op: cpu, work: verify_per_MB}]
+    L1->L3: [{op: disk_read, what: rootfs}, {op: delay, dist: measured/fc_boot}, {op: cpu, work: fn.init_s}]
+    L2->L3: [{op: disk_read, what: snapshot_touched}, {op: delay, dist: measured/fc_restore}]
+    L3->L4: [{op: delay, dist: measured/dispatch}]
+slowdown: {cpu: measured/tme_cpu_factor, mem: measured/tme_mem_factor, io: 1.0}
+```
+
+Adding a substrate means adding a YAML file. Adding a new `op` means one function in `lifecycle.py`.
+
+## 6. Config (single pydantic tree, abridged)
 
 ```yaml
 seed: 1
 horizon_s: 3600
-scenario:  {workers: 1000, tier_mix: [0.7,0.25,0.05], regime: churn_med, load: {rate: 100, flash: null}, cities: world100}
-world:     {heartbeat_s: 5, snapshots: true, p2p_images: true, hw_classes: calibration/hw.yaml}
-voss:     # (the VOSS system under test)
-  clusters:    {init: kmedoids, target_size: 60, orchestrator: {enabled: true, triggers: [size, slo, demand, drain]}}
-  router:      {name: score}
-  scheduler:   {mode: hybrid, window_s: 0.2, placer: {name: ilp, time_limit: 0.5, K: 20}, fast_placer: greedy}
-  predictor:   {name: blr, forgetting: 0.995, conformal: true}
-  cost:        {scalarizer: slo_miss, eps: 0.05, lam: 1.0}
-  reputation:  {name: beta_decay}
-  lifecycle:   {keepalive: churn_aware, prewarm: ewma_hour}
-  retry:       {name: other_lowest_cost, max_attempts: 3, hedge: null}
-  threat_model: vetted_honest_crash_only   # 09; no blockchain
-  accounting:  {mode: db_log, flush_s: 1, credit_period_s: 3600}
-  canary_audit: {enabled: false, fraction: 0.01}   # optional extension (09 §5)
-  succession:    {ha: succession, warm_standbys: 1, ckpt_s: 30, retain_s: 90, failover: fast, lease_s: 5,
-                  keepalive_s: 0.5, proactive_handover: {theta: 0.2, margin: 2.0}, sched_cores: 1,
-                  rank: survival_x_speed_x_centrality, min_domains: 2}
-  orchestrator:  {opdb_rtt: cloud_region, route_pending: true}   # provider-run, assumed reliable
-network:        {loss: 0.0, jitter: lognormal}
-decision_clock: {mode: modeled}     # measured | modeled | replay (01 §7)
+scenario:
+  workers: 1000
+  substrate_mix: {appliance_tpm: 1.0}
+  tiers: {nightly: 0.6, idle: 0.3, dedicated: 0.1}
+  regime: churn_med
+  adversary: {alpha: 0.1, mix: {black_hole: 0.4, on_off: 0.4, omit_random: 0.2}}
+  load: {rate: 100}
+voss:
+  clusters:   {target_size: 30, diversity_min_domains: 3}
+  router:     {name: score}
+  planner:    {name: milp, T_plan: 30, T_solve: 2.0, hot_top_k: 20, f_from_alpha: 0.1}
+  placer:     {sync: greedy, async: flow, K: 12}
+  hedge:      {name: risk_proportional, theta: 0.2, budget: 0.1}
+  predictor:  {name: blr, forgetting: 0.995, conformal: true}
+  cost:       {scalarizer: slo_miss, eps: 0.05, lambda_exposure: 1.0}
+  cache:      {value: gdsf, p2p: true, hdd_tier: true}
+  detection:  {T_dispatch: 1.0, watchdog_q: 0.9, change_point: cusum}
+  succession: {warm_standbys: 1, ckpt_s: 30, lease_s: 5}
+  reputation: {name: beta_decay}
+decision_clock: {mode: modeled}
+calibration: configs/calibration/measured/i7-12gen-node0
 ```
 
-A baseline is just another config: same `scenario`, different `voss`-section values (e.g.,
-`placer: random`, `clusters: none`). A `system:` key selects `voss` or `reference_cloud`.
+A baseline is the same scenario with a different `voss` section, or with `system: reference_cloud`.
 
-## 6. Testing strategy
+## 7. Testing strategy
 
-- **Unit:** every policy on hand-built views (no simulator). Property tests (hypothesis): cost matrix monotonicity,
-  `mcf == ilp` on uncoupled instances, placements respect constraints.
-- **Invariants (integration, run in every sim test):** no invocation executes on an offline worker; memory/disk
-  accounting never exceeds envelope; latency components sum to end-to-end; each invocation has exactly one terminal
-  outcome; policies never receive a view with `as_of > now`.
-- **Information-boundary test:** a "spy" scenario where world state changes between heartbeats; assert policies saw
-  stale data.
-- **Determinism:** same manifest ⇒ identical result hash (`modeled`/`replay`); `voss repro` asserts it; the
-  golden `make repro-smoke` scenario runs in CI.
-- **Succession:** property tests under random crash/partition/delay schedules: at most one scheduler effective per
-  epoch, no execution from a stale epoch after install, no invocation lost (router retention + roll call), duplicates
-  only via the documented at-least-once paths.
-- **Regression:** small golden scenario with stored summary metrics (tolerance bands).
+- **Unit:** every policy on hand-built views. Planner tests on tiny instances check, by brute force, that robust
+  coverage holds after removing any *f* workers.
+- **Property (hypothesis):**
+  - `flow == ilp_window` on uncoupled instances;
+  - plans respect all constraints;
+  - cache never exceeds tier budgets;
+  - digest-verified loads never accept wrong bytes.
+- **Invariants in every integration run:**
+  - no execution on an unattested or expired worker;
+  - no tenant key on a worker without a successful `KEY_REQUEST`;
+  - latency components sum to end-to-end;
+  - exactly one terminal outcome per invocation;
+  - no dispatch from a stale epoch is executed;
+  - receipts are complete vs ground truth.
+- **Information boundary:** a spy scenario asserts that policies only saw stale data.
+- **Determinism:** `voss repro` equals the result hash; `make repro-smoke` runs in CI.
+- **Regression:** a golden scenario with metric bands.
 
-## 7. Conventions
+## 8. Conventions ("clean and elegant")
 
-Typed everywhere, no module > ~400 lines, no policy state hidden in globals (state objects are passed in/returned),
-`Recorder.log(event_type, **fields)` for all observability, one `Makefile` with `check`, `test`, `run`, `repro-smoke`,
-`sweep`, `figs`, `paper`. Docstrings cite the spec section a model implements.
+- Modules < 400 lines, functions < 50 lines, typed everywhere. No globals; state objects are passed and returned.
+- Pure policies are functions or small classes with explicit state in and out.
+- Actors are thin: they decode a message, call a policy, encode messages. No business logic in actors.
+- Data over code: substrates, hardware, regimes and experiments are YAML.
+- One logging call style: `recorder.log(EventType, **fields)`. Analysis reads logs only.
+- Docstrings cite the doc section they implement (e.g., `"""Doc 03 §4.2 robust coverage."""`).
+
+## 9. Recipes for the coding agent
+
+| Task | Steps |
+|---|---|
+| New placer | Add `policy/place/<name>.py` implementing `Placer` → register → add to `configs/experiments/*` → unit test on a hand-built `CostMatrix` |
+| New planner | Implement `Planner` → register → brute-force robustness test on tiny instances |
+| New adversary | Add the behavior to `world/adversary.py` (scenario trace generation + effect hook) → regime YAML |
+| New substrate | YAML in `configs/substrates/` (+ a new `op` only if needed) |
+| New message | Dataclass in `core/messages.py` → sender and receiver actors → add to the doc 08 §4 table |

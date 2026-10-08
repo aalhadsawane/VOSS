@@ -1,127 +1,113 @@
-# Design Decisions (ADR log)
+# Design Decisions
 
-Format: **Decision** · Why · Alternatives rejected · Revisit if. Resolves the spec's "open decisions" (§15).
+Current decisions are authoritative. History (ADR-001…029, proposals 0001/0002) is summarized at the end.
+Format: **Decision**, why, rejected alternatives.
 
-**ADR-001 Custom Python DES instead of SimGrid.** The FaaS-relevant physics (transfer, disk, CPU slots, fixed
-delays) is small; real solver time must enter simulated time; 10⁵ workers need light state; ship fast. Resource
-models are behind narrow interfaces. *Rejected:* SimGrid (heavy integration, binding limits), SimPy (generator
-style hurts determinism/profiling for little gain). *Revisit if* reviewers require it; do the optional SimGrid
-micro-scenario cross-check (P9).
+## Current decisions
 
-**ADR-002 World/observe/policy separation; policy never imports world.** Enforces "no future information"
-mechanically and makes every policy a pure, testable function. *Rejected:* convention-only discipline.
+**D-01 Custom Python discrete-event simulator.** FaaS physics is small; solver wall time must enter simulated time;
+10⁵ workers need light state; there are no TEE-capable simulators. *Rejected:* SimGrid, SimPy.
 
-**ADR-003 Precomputed traces for churn, arrivals, network, control faults.** Common random numbers across compared
-systems; real traces plug in via the same schema. Invocation true runtime is drawn from a per-invocation stream.
+**D-02 Substrate-agnostic design; profiles are data.**
+- Primary substrate: **`appliance_tpm`**, a consumer PC with TPM 2.0 booting an owner-locked, measured VOSS appliance
+  per donation session. Tenant functions run in Firecracker microVMs.
+- Modeled: `cvm_snp`, `coco_pool`, `drtm_hv`, `none`.
+- *Why:* the available hardware is consumer Intel. Memory Guard/TME are not TEEs (no isolation from the OS, no
+  attestation). Server CVMs exist only on server CPUs.
+- *Rejected:* Memory Guard/TME as a TEE; SGX (deprecated on client); vetted volunteers.
 
-**ADR-004 Single `CostMatrix` consumed by all placers.** Isolates algorithm effects from input effects; makes
-min-cost-flow vs. ILP vs. greedy a fair comparison.
+**D-03 Threat model.**
+- Owners may be malicious; attestation reduces them to omission/timing faults.
+- Out of scope: physical attacks needing equipment, appliance 0-days, side channels, traffic analysis, orchestrator
+  failure.
+- The orchestrator tier is trusted for availability and accounting only. (Doc 04.)
 
-**ADR-005 Primary objective = expected SLO-violation cost with `ε·E[T]` regularizer** (spec §8.1), implemented as
-one scalarizer among several; P99 is an evaluation metric only. Completion distribution by moment-matched shifted
-lognormal; approximation stated in the paper.
+**D-04 No blockchain.** Attested receipts written by trusted routers already make work verifiable. A chain protects
+against no adversary in the model. A transparency log is parked.
 
-**ADR-006 Hybrid placement: fast-path greedy for sync SLO, windowed ILP/flow for async/filler and
-rebalancing/prewarm planning.** Answers "ILP in the loop vs. on the side" as a configurable axis; E02 sets the
-default window and cluster size.
+**D-05 Information boundary.** `policy` never imports `world`; policies see stale views only.
 
-**ADR-007 (superseded by ADR-027)** Ledger as an asynchronous service model; permissioned, validators = cluster orchestrators/federation.**
-Public chain is a different parameter set. Headline status: **supporting (C5)**, with the signed-log baseline
-always reported. Real chain calibration optional.
+**D-06 Actor model.** Every cross-node interaction is a typed message via `net.send` with geography-derived delay.
+Actors never call or import each other.
 
-**ADR-008 (superseded by ADR-022/023/024)** Control plane no longer relies on volunteer replica groups or a bootstrap root;
-the provider-run orchestrator tier is the single named centralized component.
+**D-07 Roles.**
+- Orchestrator tier (provider): orchestrator, regional routers, verifier/registrar, operational DB.
+- Scheduler: a role inside one attested worker per cluster.
+- Workers: volunteers.
+- Tenant KBS: tenant-run.
 
-**ADR-009 Reliability (survival model) and reputation have disjoint inputs.** Churn/preemption → survival only;
-verification/commitment → reputation only. Avoids double counting; ablation `reputation_includes_failures`
-demonstrates the effect.
+**D-08 Scheduler fault tolerance.** Soft-state succession; instance-bound epoch appointment by the orchestrator (CAS);
+worker-side fencing; roll call; checkpoints in the DB; warm standbys; planned handover; self-fence lease. No consensus
+among volunteers; **rollback-immune** by construction. *Rejected:* a Raft group of volunteers (brittle at high churn,
+quorum RTT on every decision).
 
-**ADR-010 Default predictor: hierarchical Bayesian linear regression in log space with forgetting and a conformal
-calibration wrapper.** Gives a distribution, cold-start priors and cheap online updates; compared against EWMA, GBQ,
-kNN. Heavy tails handled via Student-t scale and conformal scaling.
+**D-09 Progress-based failure detection.** Evidence comes from trusted or attested observers (router dispatch
+watchdog, scheduler result watchdog, decision-latency SLO, outcome model with change points). Heartbeats are hints.
+Owner drain/preemption notices are hints that never excuse omissions.
 
-**ADR-011 ILP solver: SciPy HiGHS MILP default, OR-Tools CP-SAT as second solver; matching via SciPy
-`linear_sum_assignment`.** Few dependencies, time limits supported. Slot-expansion handles queue coupling; `y`
-(start-up sharing), memory packing and domain caps are the constraints that justify integer programming.
+**D-10 Two-timescale scheduling (core novelty).** The slow loop is a robust MILP planner for trust and warm state:
+- f-robust coverage, linearized by duality;
+- domain caps, exposure, memory/SSD knapsack, switching cost;
+- greedy planner as baseline and fallback.
 
-**ADR-012 Backstop provider pool: ablation only.** Not in default config.
+The fast loop is cost-matrix greedy/flow placement over planned candidates, plus a priced cold path, hedging and
+retries. The per-window invocation ILP is a baseline only. Kill criterion in doc 03 §8.
 
-**ADR-013 No real testbed in the POC.** Only a Firecracker/SeBS calibration microbenchmark (P9); stated as a threat
-to validity.
+**D-11 Measure locally, simulate globally.** Calibration bundles come from the real node (doc 10); literature-only
+parameters are ranges with sensitivity sweeps; optional single-box emulation validation.
 
-**ADR-014 Decision clock has `measured` and `modeled` modes.** Measured for E02 (solver tail behavior), modeled for
-sweeps (reproducible and fast). Both logged.
+**D-12 Fast-loop objective.** The `slo_miss` scalarizer: expected SLO-violation cost + ε·E[T] + λ·exposure, over
+moment-matched completion distributions.
 
-**ADR-015 Workflows (SeBS-Flow) parked.** Secondary evaluation; add only after core results.
+**D-13 Exposure metric.** Assurance-weighted count of distinct key holders per tenant, with sensitivity classes and
+assurance floors. Results are reported as Pareto fronts, never as a single weighted number.
 
-## Added after design review
+**D-14 Three disjoint reliability signals:**
+- **survival:** session ends;
+- **omission:** mid-session drops, with change points;
+- **reputation:** long-run commitment behavior, rewards only.
 
-**ADR-016 Fault model is crash-fault tolerant, not Byzantine, for all nodes.** Workers, schedulers, routers,
-orchestrators and validators may crash, be preempted, drain, or be partitioned; none is assumed to lie (a scheduler
-never writes false records to the chain). Consequences: CFT consensus for validators, term/fencing for safety, no
-signature-verification cost. **This narrows spec §3.1 #7 / §4.5:** lazy-worker verification is dropped (see ADR-026: vetted
-honest volunteers; only an optional canary audit remains), and reputation measures
-commitment-keeping/timeliness. *Revisit if* reviewers require a Byzantine-worker evaluation; the extension exists for
-that.
+`f = ⌈α_assumed·N⌉` makes robustness independent of the adversary's strategy.
 
-**ADR-017 (superseded by ADR-024)** Raft-lite replicated-log schedulers: kept only as the `raft_group` baseline.
+**D-15 Worker caches.**
+- Three tiers (RAM / SSD / HDD), content-addressed and digest-verified, on a PCR-sealed partition.
+- Plan-pinned entries plus GDSF value-density eviction; P2P within the cluster.
+- Snapshots shared only with trust-warm workers of the same snapshot class, and counted as exposure.
 
-**ADR-018 (superseded by ADR-027/028)** Scheduler work recorded on the ledger and credited. Epoch records (assignment Merkle root, leader
-terms, counts) are log entries so a new leader resubmits unacked batches; chain dedupes by
-`(cluster, term, epoch_id)`. The ledger is audit and reward only, never election or fencing.
+**D-16 Operational DB.** Private to the orchestrator tier; never on the hot path; one writer per datum; routers write
+receipts. The live queue, caches and keys are deliberately not stored.
 
-**ADR-019 Reproducibility contract.** Lockfile + Dockerfile, run manifests with result hashes, `voss repro`
-asserting hash equality, `replay` decision-clock mode to reproduce `measured` solver experiments, deterministic
-single-threaded solver settings, no unseeded randomness. See 01 §9.
+**D-17 Identity = hash(TPM EK).** One identity per machine (Sybil-bounded). Reputation and credits bind to it.
 
-**ADR-020 Actor model with a single `net.send` for all cross-node interaction.** Geo-derived delay applies to
-control messages (heartbeats, appointment, roll call, checkpoints) and data alike; actors cannot call each other, which
-prevents spaghetti and unrealistic zero-latency shortcuts.
+**D-18 Tenant secrets.** Tenant-owned KBS releases keys wrapped to attested session keys, kept in appliance memory
+only. Schedulers and the orchestrator never see them. Bundles are tenant-encrypted, so ciphertext can be cached and
+forwarded freely.
 
-**ADR-021 Clusters are small by design (tens of workers; target from E02).** ILP cost grows quickly with window ×
-cluster size, scheduler hosts are slow volunteers, and a small cluster keeps quorum RTT low. Control-role overhead
-(`r` of `N` workers) is reported and tuned jointly with `N_target` (E21).
+**D-19 Small, diverse clusters.** Tens of workers (from E02), with failure-domain and assurance diversity, so robust
+plans are feasible and the MILP stays small.
 
-**ADR-022 Roles and lingo are fixed: orchestrator, scheduler, worker.** The orchestrator is provider-run (cloud),
-not a volunteer, assumed reliable, and includes the front-door routers, operational DB (private to the tier); failure of
-this tier is out of scope and named as the centralized component (spec §5.5 requires naming it). A scheduler is a
-role on a worker; any eligible worker can be promoted.
+**D-20 Credits in reference work units** (throttling earns nothing), plus small credits for pinned cache donation
+while responsive, and scheduler credits.
 
-**ADR-023 Operational DB is cloud-hosted and orchestrator-owned.** Holds membership, epochs and succession lists,
-scheduler checkpoints, function registry, global reputation, work log (see ADR-028). Never on the invocation critical path;
-modeled with cloud-region latency and availability 1.0. Costs reported.
+**D-21 Decision clock modes `measured | modeled | replay`;** a reproducibility contract with manifests, calibration
+bundle hashes and `voss repro`.
 
-**ADR-024 Scheduler fault tolerance = succession with soft state, no consensus among volunteers.** Orchestrator
-arbitrates epochs (CAS, Kubernetes-lease style); workers fence by epoch; scheduler state is a cache rebuilt by
-roll call (Mesos-style reconciliation) plus checkpoint in the cloud DB; routers retain pending invocations until
-the worker's `ACCEPTED`; workers keep results and outcomes on a direct path; successors are ranked by survival ×
-speed × centrality with failure-domain diversity; hazard-triggered proactive handover. *Why not Raft among
-volunteers:* needs a simultaneous majority and a majority to reconfigure, brittle at high churn, quorum RTT on every
-decision. *Rejected:* active-active sharding; chain-based election. See 07.
+**D-22 Parked:** workflows, GPU functions, padding, transparency log, real DRTM, multi-machine deployment.
 
-**ADR-025 Worker crash tolerance:** predictor-driven per-invocation watchdogs and hedging under a budget, accrual
-detector, push signals as known availability, storm control, crash-recover rejoin.
+## History (superseded or merged)
 
-*Amends:* **ADR-007** **ADR-014** (adds `replay` mode); **ADR-016** (honesty now justified by vetting, ADR-026).
-
-**ADR-026 Volunteers are vetted at admission and assumed honest but unreliable.** Admission (institutional email,
-research ID, consortium membership; out of implementation scope, stubbed as `identities`) ties each node to an
-accountable identity; reputation binds to it. Rationale: TEE/confidential microVMs (~2 s boot vs ~20 ms,
-`TODO verify`), 2f+1 voting (no comparable result for side-effecting functions) and ZK proofs (too slow) are all
-infeasible for ephemeral FaaS. Limitations and critics: 09 §6. Only optional extension: known-answer `canary_audit`.
-
-**ADR-027 No blockchain (public or private).** With vetted honest writers and a trusted provider, a chain protects
-against no actor in the threat model and never proved correct execution anyway. Work is recorded in an append-only
-`invocation_log` in the orchestrator's DB, credits are derived from it. A provider-signed Merkle transparency log is
-the parked alternative if volunteer-facing auditability is needed. Consequences: C5 becomes an accounting/incentive
-layer, RQ10 and H7 are reframed (09 §4, §7).
-
-**ADR-028 The DB is private to the orchestrator tier; hot path never touches it; one writer per datum; routers write
-the work log.** Workers and schedulers use messages (08 §3.3); `APPOINT` embeds snapshots; DB writes from schedulers
-are epoch-fenced; the live queue and per-worker pending jobs are intentionally not stored (recoverable from routers
-and workers).
-
-**ADR-029 Worker readiness (time-to-start) is an explicit ILP input.** The scheduler computes per-core `ready_at` from
-heartbeat `WorkerState`, predictor residuals conditioned on elapsed time, queued jobs, in-flight dispatches and
-staleness; it forms the slot ladder and feeds `T_wait` + `T_startup` (with image-pull overlap) into the cost matrix
-(08 §5).
+| Old | Became |
+|---|---|
+| ADR-001 SimGrid rejected; ADR-019 reproducibility; ADR-014 clock | D-01, D-21 |
+| ADR-002, 020 | D-05, D-06 |
+| ADR-005, 006 objective, hybrid placement | D-12, D-10 (the ILP moved to the slow loop) |
+| ADR-007, 018, 027 ledger/chain | D-04 |
+| ADR-008, 017, 022–024 control plane, Raft, succession | D-07, D-08 |
+| ADR-009 reliability vs reputation | D-14 |
+| ADR-010, 011 predictor, solver | Doc 03 §6, D-10 (HiGHS) |
+| ADR-016, 026 crash-only / vetted honest | Replaced by D-03 (malicious owners + attestation) |
+| ADR-021 small clusters | D-19 |
+| ADR-025 worker crash tolerance | D-09 + doc 07 §4 |
+| ADR-028 DB private | D-16 |
+| ADR-029 worker readiness | Doc 08 §5 |
+| Proposals 0001, 0002 | Accepted into docs 00–10 |
