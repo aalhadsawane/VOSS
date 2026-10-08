@@ -57,8 +57,82 @@ class ScenarioConfig(Frozen):
     geo: dict[str, Any] = Field(default_factory=dict)
     network: dict[str, Any] = Field(default_factory=dict)
     envelope: dict[str, Any] = Field(default_factory=dict)
+    execution: dict[str, Any] = Field(default_factory=dict)
     functions: str = "functions.yaml"
     tenants: str = "tenants.yaml"
+
+
+class InfraConfig(Frozen):
+    """Orchestrator-tier node locations (metro names, doc 08 §2)."""
+
+    orchestrator: str = "Frankfurt"
+    verifier: str = "Frankfurt"
+    registry: str = "Frankfurt"
+    routers: tuple[str, ...] = ("Washington", "Frankfurt", "Singapore")
+
+
+class RouterConfig(Frozen):
+    """Doc 03 §3, doc 07 §2 (dispatch watchdog)."""
+
+    name: str = "single"
+    T_dispatch: float = 1.0
+    max_resends: int = 3
+    give_up_s: dict[str, float] = Field(default_factory=lambda: {"sync": 30.0, "async": 300.0, "filler": 900.0})
+    receipt_batch_s: float = 1.0
+
+
+class PlacerConfig(Frozen):
+    """Fast-loop placer names (doc 03 §5.3)."""
+
+    sync: str = "least_loaded"
+
+
+class SchedulerConfig(Frozen):
+    """Scheduler role timers (doc 08 §3.2, §5)."""
+
+    heartbeat_s: float = 2.0
+    keepalive_s: float = 1.0
+    stale_after_s: float = 7.0
+    max_attempts: int = 3
+    retry_backoff_s: float = 0.2
+    no_candidate_retry_s: float = 0.5
+    view_refresh_s: float = 0.25
+
+
+class WorkerConfig(Frozen):
+    """Worker agent knobs (doc 02 §5-6)."""
+
+    warm_ttl_s: float = 600.0
+    m_base_mb: float = 512.0
+    prebooted_at_start: bool = True
+    assurance_tofu_factor: float = 0.9  # f_policy for TOFU firmware (doc 04 §8). tag: assumed
+
+
+class OrchestratorConfig(Frozen):
+    """Doc 03 §2, doc 07 §3 (P2: one cluster; keepalive-based re-appointment)."""
+
+    keepalive_timeout_s: float = 5.0
+    check_s: float = 1.0
+
+
+class CacheConfig(Frozen):
+    """Doc 02 §6."""
+
+    value: str = "lru"
+    hdd_tier: bool = True
+    p2p: bool = False
+
+
+class VossConfig(Frozen):
+    """The ``voss`` section: scheduler-side choices (doc 05 §6). Grows phase by phase."""
+
+    infra: InfraConfig = Field(default_factory=InfraConfig)
+    router: RouterConfig = Field(default_factory=RouterConfig)
+    placer: PlacerConfig = Field(default_factory=PlacerConfig)
+    scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
+    worker: WorkerConfig = Field(default_factory=WorkerConfig)
+    orchestrator: OrchestratorConfig = Field(default_factory=OrchestratorConfig)
+    cache: CacheConfig = Field(default_factory=CacheConfig)
 
 
 class RunConfig(Frozen):
@@ -68,7 +142,8 @@ class RunConfig(Frozen):
     horizon_s: float = 3600.0
     system: str = "voss"
     scenario: ScenarioConfig = Field(default_factory=ScenarioConfig)
-    voss: dict[str, Any] = Field(default_factory=dict)
+    voss: VossConfig = Field(default_factory=VossConfig)
+    drain_s: float = 30.0
     decision_clock: DecisionClockConfig = Field(default_factory=DecisionClockConfig)
     calibration: str | None = None
     out_dir: str = "runs"

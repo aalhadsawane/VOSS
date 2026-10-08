@@ -1,0 +1,7 @@
+# P2 smoke run (roadmap P2 exit): 1k workers, 1 simulated hour, one cluster.
+extends: base.yaml
+horizon_s: 3600
+scenario:
+  workers: 1000
+voss:
+  placer: {sync: least_loaded}

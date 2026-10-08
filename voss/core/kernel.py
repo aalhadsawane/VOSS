@@ -8,19 +8,19 @@ from __future__ import annotations
 
 import heapq
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 
-@dataclass(order=True, slots=True)
+@dataclass(slots=True)
 class Handle:
-    """A scheduled callback. Ordered by ``(t, seq)``."""
+    """A scheduled callback; the heap orders entries by ``(t, seq)``."""
 
     t: float
     seq: int
-    fn: Callable[..., Any] = field(compare=False)
-    args: tuple[Any, ...] = field(compare=False, default=())
-    cancelled: bool = field(compare=False, default=False)
+    fn: Callable[..., Any]
+    args: tuple[Any, ...] = ()
+    cancelled: bool = False
 
 
 class Kernel:
@@ -28,7 +28,7 @@ class Kernel:
 
     def __init__(self) -> None:
         self.now: float = 0.0
-        self._queue: list[Handle] = []
+        self._queue: list[tuple[float, int, Handle]] = []
         self._seq: int = 0
         self.events_run: int = 0
 
@@ -38,7 +38,7 @@ class Kernel:
             raise ValueError(f"cannot schedule at {t} < now {self.now}")
         h = Handle(float(t), self._seq, fn, args)
         self._seq += 1
-        heapq.heappush(self._queue, h)
+        heapq.heappush(self._queue, (h.t, h.seq, h))
         return h
 
     def after(self, dt: float, fn: Callable[..., Any], *args: Any) -> Handle:
@@ -53,13 +53,14 @@ class Kernel:
 
     def pending(self) -> int:
         """Number of live (not cancelled) scheduled events."""
-        return sum(1 for h in self._queue if not h.cancelled)
+        return sum(1 for _, _, h in self._queue if not h.cancelled)
 
     def run(self, until: float) -> None:
         """Run events with ``t <= until``; afterwards ``now == until``."""
         q = self._queue
-        while q and q[0].t <= until:
-            h = heapq.heappop(q)
+        pop = heapq.heappop
+        while q and q[0][0] <= until:
+            h = pop(q)[2]
             if h.cancelled:
                 continue
             self.now = h.t

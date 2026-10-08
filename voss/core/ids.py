@@ -11,4 +11,7 @@ FnId = NewType("FnId", str)
 InvId = NewType("InvId", int)
 ClusterId = NewType("ClusterId", int)
 
-NodeId = WorkerId | InfraNodeId
+NodeId = int | str
+
+Addr = tuple[str, int | str]
+"""Network address of an actor: ``(role, host id)`` (doc 01 §6)."""
