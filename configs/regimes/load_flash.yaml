@@ -1,0 +1,11 @@
+# Default load plus a flash crowd on the most popular function from one city (E07). tag: assumed.
+provenance: {default: assumed}
+regime: load_flash
+rate: 100
+zipf_s: 1.0
+diurnal: {peak_h: 15, amplitude: 0.3}
+mmpp: {enabled: true, burst_mult: 4.0, mean_normal_s: 600, mean_burst_s: 60}
+async_deadline_s: 60
+sync_overhead_s: 0.05
+flash_crowds:
+  - {t: 1200, duration_s: 300, mult: 5.0, fn: top, city: London}

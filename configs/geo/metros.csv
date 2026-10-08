@@ -1,0 +1,107 @@
+# Embedded metro table (doc 02 §1). name,lat,lon,utc_offset_h (standard time, no DST),population_m,region. tag: assumed (approximate public figures)
+name,lat,lon,tz,pop,region
+Tokyo,35.68,139.69,9,37.4,as
+Delhi,28.61,77.21,5.5,31.0,as
+Shanghai,31.23,121.47,8,27.1,as
+Sao Paulo,-23.55,-46.63,-3,22.0,sa
+Mexico City,19.43,-99.13,-6,21.8,na
+Cairo,30.04,31.24,2,21.3,af
+Mumbai,19.08,72.88,5.5,20.7,as
+Beijing,39.90,116.41,8,20.5,as
+Dhaka,23.81,90.41,6,21.0,as
+Osaka,34.69,135.50,9,19.1,as
+New York,40.71,-74.01,-5,18.8,na
+Karachi,24.86,67.01,5,16.1,as
+Buenos Aires,-34.60,-58.38,-3,15.2,sa
+Chongqing,29.56,106.55,8,15.9,as
+Istanbul,41.01,28.98,3,15.4,eu
+Kolkata,22.57,88.36,5.5,14.9,as
+Manila,14.60,120.98,8,13.9,as
+Lagos,6.52,3.38,1,14.4,af
+Rio de Janeiro,-22.91,-43.17,-3,13.5,sa
+Tianjin,39.34,117.36,8,13.6,as
+Kinshasa,-4.44,15.27,1,14.3,af
+Guangzhou,23.13,113.26,8,13.3,as
+Los Angeles,34.05,-118.24,-8,12.5,na
+Moscow,55.76,37.62,3,12.5,eu
+Shenzhen,22.54,114.06,8,12.4,as
+Lahore,31.55,74.34,5,12.6,as
+Bangalore,12.97,77.59,5.5,12.3,as
+Paris,48.86,2.35,1,11.0,eu
+Bogota,4.71,-74.07,-5,10.9,sa
+Jakarta,-6.21,106.85,7,10.8,as
+Chennai,13.08,80.27,5.5,10.9,as
+Lima,-12.05,-77.04,-5,10.7,sa
+Bangkok,13.76,100.50,7,10.5,as
+Seoul,37.57,126.98,9,9.9,as
+Nagoya,35.18,136.91,9,9.5,as
+Hyderabad,17.39,78.49,5.5,10.0,as
+London,51.51,-0.13,0,9.3,eu
+Tehran,35.69,51.39,3.5,9.1,me
+Chicago,41.88,-87.63,-6,8.9,na
+Chengdu,30.57,104.07,8,9.1,as
+Nanjing,32.06,118.80,8,8.8,as
+Wuhan,30.59,114.31,8,8.4,as
+Ho Chi Minh City,10.82,106.63,7,8.6,as
+Luanda,-8.84,13.23,1,8.3,af
+Ahmedabad,23.02,72.57,5.5,8.1,as
+Kuala Lumpur,3.14,101.69,8,7.9,as
+Hong Kong,22.32,114.17,8,7.5,as
+Riyadh,24.71,46.68,3,7.2,me
+Baghdad,33.31,44.36,3,7.1,me
+Santiago,-33.45,-70.67,-4,6.8,sa
+Pune,18.52,73.86,5.5,6.6,as
+Madrid,40.42,-3.70,1,6.6,eu
+Toronto,43.65,-79.38,-5,6.2,na
+Miami,25.76,-80.19,-5,6.1,na
+Dallas,32.78,-96.80,-6,7.6,na
+Houston,29.76,-95.37,-6,7.1,na
+Philadelphia,39.95,-75.17,-5,6.2,na
+Atlanta,33.75,-84.39,-5,6.1,na
+Washington,38.91,-77.04,-5,6.3,na
+Belo Horizonte,-19.92,-43.94,-3,6.1,sa
+Khartoum,15.50,32.56,2,6.0,af
+Johannesburg,-26.20,28.05,2,5.9,af
+Singapore,1.35,103.82,8,5.9,as
+Barcelona,41.39,2.17,1,5.6,eu
+Saint Petersburg,59.93,30.34,3,5.5,eu
+Dar es Salaam,-6.79,39.21,3,7.4,af
+Nairobi,-1.29,36.82,3,5.1,af
+Boston,42.36,-71.06,-5,4.9,na
+Phoenix,33.45,-112.07,-7,4.9,na
+San Francisco,37.77,-122.42,-8,4.7,na
+Seattle,47.61,-122.33,-8,4.0,na
+Sydney,-33.87,151.21,10,5.3,oc
+Melbourne,-37.81,144.96,10,5.1,oc
+Berlin,52.52,13.40,1,4.6,eu
+Rome,41.90,12.50,1,4.3,eu
+Milan,45.46,9.19,1,3.2,eu
+Athens,37.98,23.73,2,3.2,eu
+Kyiv,50.45,30.52,2,3.0,eu
+Warsaw,52.23,21.01,1,3.1,eu
+Lisbon,38.72,-9.14,0,2.9,eu
+Montreal,45.50,-73.57,-5,4.3,na
+Vancouver,49.28,-123.12,-8,2.6,na
+Dubai,25.20,55.27,4,3.5,me
+Tel Aviv,32.09,34.78,2,4.2,me
+Ankara,39.93,32.86,3,5.3,me
+Casablanca,33.57,-7.59,1,3.8,af
+Accra,5.60,-0.19,0,2.6,af
+Addis Ababa,9.03,38.74,3,5.2,af
+Cape Town,-33.92,18.42,2,4.8,af
+Taipei,25.03,121.57,8,7.0,as
+Hanoi,21.03,105.85,7,5.1,as
+Busan,35.18,129.08,9,3.4,as
+Auckland,-36.85,174.76,12,1.7,oc
+Brisbane,-27.47,153.03,10,2.6,oc
+Perth,-31.95,115.86,8,2.1,oc
+Amsterdam,52.37,4.90,1,2.5,eu
+Brussels,50.85,4.35,1,2.1,eu
+Vienna,48.21,16.37,1,1.9,eu
+Stockholm,59.33,18.07,1,1.7,eu
+Zurich,47.38,8.54,1,1.4,eu
+Frankfurt,50.11,8.68,1,2.3,eu
+Munich,48.14,11.58,1,2.6,eu
+Dublin,53.35,-6.26,0,1.4,eu
+Denver,39.74,-104.99,-7,3.0,na
+Minneapolis,44.98,-93.27,-6,3.7,na

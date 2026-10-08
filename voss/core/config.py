@@ -39,13 +39,35 @@ class DecisionClockConfig(Frozen):
     )
 
 
+class ScenarioConfig(Frozen):
+    """Exogenous scenario inputs (doc 01 §4, doc 02). World sections stay dicts here and are validated by the
+    world models that own them (regime files merged with inline overrides)."""
+
+    workers: int = Field(default=1000, ge=1)
+    start_utc_h: float = 0.0
+    warmup_s: float = Field(default=172800.0, ge=0)
+    substrate_mix: dict[str, float] = Field(default_factory=lambda: {"appliance_tpm": 1.0})
+    tiers: dict[str, float] = Field(default_factory=lambda: {"nightly": 0.6, "idle": 0.3, "dedicated": 0.1})
+    hw_mix: dict[str, float] = Field(default_factory=lambda: {"C0": 0.1, "C1": 0.35, "C2": 0.35, "C3": 0.2})
+    tofu_frac: float = Field(default=0.3, ge=0, le=1)
+    regime: str = "churn_med"
+    churn: dict[str, Any] = Field(default_factory=dict)
+    adversary: dict[str, Any] = Field(default_factory=dict)
+    load: dict[str, Any] = Field(default_factory=dict)
+    geo: dict[str, Any] = Field(default_factory=dict)
+    network: dict[str, Any] = Field(default_factory=dict)
+    envelope: dict[str, Any] = Field(default_factory=dict)
+    functions: str = "functions.yaml"
+    tenants: str = "tenants.yaml"
+
+
 class RunConfig(Frozen):
     """Root of the config tree."""
 
     seed: int = 1
     horizon_s: float = 3600.0
     system: str = "voss"
-    scenario: dict[str, Any] = Field(default_factory=dict)
+    scenario: ScenarioConfig = Field(default_factory=ScenarioConfig)
     voss: dict[str, Any] = Field(default_factory=dict)
     decision_clock: DecisionClockConfig = Field(default_factory=DecisionClockConfig)
     calibration: str | None = None

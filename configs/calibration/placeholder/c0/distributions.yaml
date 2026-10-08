@@ -1,0 +1,21 @@
+# PLACEHOLDER calibration bundle for node C0 (doc 10). Not measured: every value is literature or assumed and is
+# replaced by `voss calibrate ingest` output under configs/calibration/measured/<host>/ in P9.
+provenance: {default: assumed, note: "placeholder until P9; see per-entry tag/source"}
+host: c0-placeholder
+harness_version: none
+measured: false
+distributions:
+  reboot_to_kernel:     {dist: lognormal, median: 15.0,   sigma: 0.2, tag: assumed,    source: "consumer UEFI POST + shim + UKI; TODO verify (P9 appliance)"}
+  appliance_userspace:  {dist: lognormal, median: 4.0,    sigma: 0.2, tag: assumed,    source: "systemd minimal userspace + dm-verity; TODO verify (P9 appliance)"}
+  tpm2_quote:           {dist: lognormal, median: 0.25,   sigma: 0.2, tag: literature, source: "fTPM/PTT quote latency reports; TODO verify (P9 tpm)"}
+  verify_s:             {dist: lognormal, median: 0.01,   sigma: 0.3, tag: assumed,    source: "Keylime verifier policy check; TODO verify (P9 attest_local)"}
+  kbs_check_s:          {dist: lognormal, median: 0.002,  sigma: 0.3, tag: assumed,    source: "KBS policy check"}
+  fc_boot:              {dist: lognormal, median: 0.15,   sigma: 0.2, tag: literature, source: "Firecracker NSDI'20 (<125 ms to init); TODO verify (P9 fc_boot)"}
+  fc_restore:           {dist: lognormal, median: 0.02,   sigma: 0.3, tag: literature, source: "Firecracker snapshot restore (excl. page reads); TODO verify (P9 fc_snapshot)"}
+  fc_snapshot_create:   {dist: lognormal, median: 0.2,    sigma: 0.3, tag: literature, source: "Firecracker snapshot create (excl. write); TODO verify (P9 fc_snapshot)"}
+  dispatch:             {dist: lognormal, median: 0.002,  sigma: 0.3, tag: assumed,    source: "agent → warm VM vsock dispatch"}
+  verify_s_per_MB:      {dist: const,     value: 0.0007,              tag: literature, source: "SHA-256 ~1.4 GB/s per core; TODO verify"}
+  snapshot_touched_frac: {dist: const,    value: 0.3,                 tag: literature, source: "lazy restore touches a fraction of guest memory (REAP, FaaSnap)"}
+  tme_cpu_factor:       {dist: const,     value: 1.0,                 tag: assumed,    source: "TME overhead; TODO verify (P9 tme)"}
+  tme_mem_factor:       {dist: const,     value: 1.02,                tag: assumed,    source: "TME memory-bound overhead; TODO verify (P9 tme)"}
+  drtm_launch:          {dist: lognormal, median: 2.0,    sigma: 0.3, tag: assumed,    source: "DRTM late launch + measurement, no reboot"}

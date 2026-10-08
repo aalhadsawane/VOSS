@@ -1,0 +1,11 @@
+# Medium sessions plus frequent city-level shocks (bursty correlated loss). tag: assumed.
+provenance: {default: assumed}
+regime: churn_burst
+graceful_frac: 0.5
+drain_lead: {dist: lognormal, median: 120, sigma: 0.7}
+tiers:
+  nightly: {kind: nightly, start_hour: 23, start_sd_h: 1.5, p_night: 0.8, length: {dist: lognormal, median: 21600, sigma: 0.6}}
+  idle: {kind: poisson, rate_per_h: 0.15, peak_h: 14, amplitude: 0.6, length: {dist: weibull, shape: 0.6, scale: 5400}}
+  dedicated: {kind: always, length: {dist: weibull, shape: 0.7, scale: 259200}, gap: {dist: lognormal, median: 300, sigma: 0.5}}
+shocks: {rate_per_h: 0.5, frac: 0.7, scope: city}
+platform: {late_join_frac: 0.0, leave_rate_per_day: {nightly: 0.01, idle: 0.02, dedicated: 0.005}}

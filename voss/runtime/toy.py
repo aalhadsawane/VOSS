@@ -40,7 +40,7 @@ class _ToyNode:
 @register("system", "toy")
 def run_toy(cfg: RunConfig) -> RunResult:
     kernel, rng, rec = Kernel(), RngFactory(cfg.seed), Recorder()
-    n = int(cfg.scenario.get("workers", 10))
+    n = cfg.scenario.workers
     nodes = [_ToyNode(i, n, kernel, rng, rec) for i in range(n)]
     for node in nodes:
         node.peers = nodes

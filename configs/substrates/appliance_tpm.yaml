@@ -1,0 +1,32 @@
+# Primary substrate (doc 04 §3-4): consumer PC + TPM 2.0 boots the measured VOSS appliance per donation session.
+provenance: {default: measured, note: "all measured/* refs come from the calibration bundle (placeholder until P9)"}
+name: appliance_tpm
+assurance_base: 0.80          # policy parameter for exposure (doc 04 §3), not a measured truth
+concurrent_owner_use: false
+session:
+  establish:                  # BOOTING → ATTESTED
+    - {op: delay, dist: measured/reboot_to_kernel}
+    - {op: delay, dist: measured/appliance_userspace}
+    - {op: tpm_quote}
+    - {op: rpc, to: verifier, size: 6KB, reply: 2KB}
+    - {op: cpu, work: measured/verify_s}
+  reattest:
+    - {op: tpm_quote}
+    - {op: rpc, to: verifier, size: 4KB, reply: 1KB}
+  reattest_every_s: 600
+  valid_s: 900
+trust:                        # tenant key release (doc 04 §6)
+  - {op: rpc, to: tenant_kbs, size: 2KB, reply: 1KB}
+  - {op: cpu, work: measured/kbs_check_s}
+ladder:                       # Firecracker ladder (doc 02 §5)
+  levels: [L0, L1, L2, L3, L4]
+  ready: L3
+  busy: L4
+  persistent: [L1, L2]
+  transitions:
+    L0->L1: [{op: fetch, artifacts: [bundle, rootfs]}, {op: cpu, work: measured/verify_s_per_MB, per_mb: [bundle, rootfs]}]
+    L1->L3: [{op: disk_read, what: rootfs}, {op: delay, dist: measured/fc_boot}, {op: cpu, work: fn.init_s}]
+    L2->L3: [{op: disk_read, what: snapshot_touched}, {op: delay, dist: measured/fc_restore}]
+    L3->L4: [{op: delay, dist: measured/dispatch}]
+  after_init: [{op: delay, dist: measured/fc_snapshot_create}, {op: disk_write, what: snapshot}]
+slowdown: {cpu: measured/tme_cpu_factor, mem: measured/tme_mem_factor, io: 1.0}

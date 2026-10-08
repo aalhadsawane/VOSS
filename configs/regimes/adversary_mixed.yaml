@@ -1,0 +1,6 @@
+# Default adversarial regime from doc 05 §6. tag: assumed; E08 sweeps alpha and mix.
+provenance: {default: assumed}
+regime: adversary_mixed
+alpha: 0.1
+mix: {black_hole: 0.4, on_off: 0.4, omit_random: 0.2}
+params: {omit_p: 0.5, on_off_good_s: 1800, on_off_bad_s: 600}

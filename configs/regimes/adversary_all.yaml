@@ -1,0 +1,5 @@
+# Every behavior of doc 02 §7 represented (tests, E08 breadth). tag: assumed.
+provenance: {default: assumed}
+regime: adversary_all
+alpha: 0.2
+mix: {omit_random: 1, black_hole: 1, on_off: 1, throttle: 1, fake_signals: 1, replay: 1, colluding_domain: 1, selective: 1}

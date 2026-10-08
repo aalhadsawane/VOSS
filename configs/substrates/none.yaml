@@ -1,0 +1,24 @@
+# Reference without security (doc 04 §3): the Firecracker ladder with no attestation or key release.
+provenance: {default: measured}
+name: none
+assurance_base: 0.0
+concurrent_owner_use: true
+session:
+  establish:
+    - {op: delay, dist: {dist: lognormal, median: 1.0, sigma: 0.3, tag: assumed, source: "agent start"}}
+  reattest: []
+  reattest_every_s: 1.0e9
+  valid_s: 1.0e12
+trust: []
+ladder:
+  levels: [L0, L1, L2, L3, L4]
+  ready: L3
+  busy: L4
+  persistent: [L1, L2]
+  transitions:
+    L0->L1: [{op: fetch, artifacts: [bundle, rootfs]}, {op: cpu, work: measured/verify_s_per_MB, per_mb: [bundle, rootfs]}]
+    L1->L3: [{op: disk_read, what: rootfs}, {op: delay, dist: measured/fc_boot}, {op: cpu, work: fn.init_s}]
+    L2->L3: [{op: disk_read, what: snapshot_touched}, {op: delay, dist: measured/fc_restore}]
+    L3->L4: [{op: delay, dist: measured/dispatch}]
+  after_init: [{op: delay, dist: measured/fc_snapshot_create}, {op: disk_write, what: snapshot}]
+slowdown: {cpu: 1.0, mem: 1.0, io: 1.0}

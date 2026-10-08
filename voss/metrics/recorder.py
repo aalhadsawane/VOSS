@@ -6,14 +6,13 @@ logged content, independent of file formats and library versions.
 
 from __future__ import annotations
 
-import hashlib
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
+from voss.core.hashing import hash_columns
 from voss.metrics.schema import Table
 
 
@@ -42,17 +41,8 @@ class Recorder:
 
     def result_hash(self) -> str:
         """SHA-256 over every table's columns (names, then values in row order)."""
-        h = hashlib.sha256()
+        tables = {}
         for name in self.tables():
-            h.update(f"<{name}>".encode())
             df = self.frame(name)
-            for col in sorted(df.columns):
-                h.update(f"[{col}]".encode())
-                h.update(_column_bytes(df[col]))
-        return h.hexdigest()
-
-
-def _column_bytes(col: pd.Series[Any]) -> bytes:
-    if pd.api.types.is_numeric_dtype(col.dtype) and not pd.api.types.is_bool_dtype(col.dtype):
-        return np.ascontiguousarray(col.to_numpy(dtype=np.float64)).tobytes()
-    return "\x1e".join(repr(v) for v in col.tolist()).encode()
+            tables[name] = {c: df[c].to_numpy() for c in df.columns}
+        return hash_columns(tables)

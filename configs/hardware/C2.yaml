@@ -1,0 +1,14 @@
+# Mid-range desktop class (assumed).
+provenance: {default: assumed}
+name: C2
+speed: 0.85
+cores: 8
+mem_gb: 32
+ssd_gb: 512
+hdd_gb: 1000
+ssd_read_MBps: 2000
+ssd_write_MBps: 1500
+hdd_read_MBps: 160
+hdd_write_MBps: 140
+cpu_model: amd-zen3
+tpm: ftpm
