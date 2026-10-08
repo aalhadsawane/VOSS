@@ -9,6 +9,10 @@ invocations on heterogeneous, geo-distributed, owner-preemptible volunteer machi
 This is **not a real platform**. No frontend, no real networking, no blockchain (see 09). The deliverable is a
 deterministic simulator, the VOSS scheduler running inside it, baselines, and experiment results.
 
+> **⚠ Design under revision (2026-10-08):** the threat model is changing to *malicious, unreliable volunteers running
+> tenant code in confidential VMs*. See [`docs/proposals/0001-confidential-voss.md`](docs/proposals/0001-confidential-voss.md).
+> Until it is accepted and the docs are refactored, only Roadmap **P0–P1** may be implemented; hold P2+.
+
 ## Read in this order
 
 | Doc | What it answers |
@@ -27,6 +31,8 @@ deterministic simulator, the VOSS scheduler running inside it, baselines, and ex
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Build phases with exit criteria (start here to code) |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Design decisions and why (cite in the paper) |
 | [`docs/TRACEABILITY.md`](docs/TRACEABILITY.md) | Spec section → module → phase |
+| [`docs/proposals/0001-confidential-voss.md`](docs/proposals/0001-confidential-voss.md) | **Active redesign proposal** (CVMs, malicious hosts) |
+| [`docs/research/confidential-computing-sota.md`](docs/research/confidential-computing-sota.md) | Confidential-computing SOTA notes and numbers |
 | [`AGENTS.md`](AGENTS.md) | Rules for coding agents working in this repo |
 | [`docs/AGENT_PROMPT.md`](docs/AGENT_PROMPT.md) | Paste-ready prompt to start a coding agent |
 
