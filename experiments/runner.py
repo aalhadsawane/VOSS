@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import argparse
 import itertools
-from concurrent.futures import ProcessPoolExecutor
 import json
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Any
 
