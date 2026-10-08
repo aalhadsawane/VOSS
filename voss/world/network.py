@@ -19,12 +19,12 @@ from dataclasses import dataclass
 import numpy as np
 from pydantic import BaseModel, ConfigDict
 
+from voss.core.ids import Addr
 from voss.core.kernel import Kernel
 from voss.core.messages import Message
-from voss.world.geo import haversine_km
+from voss.world.geo import haversine_scalar
 from voss.world.resources import Link
 
-Addr = tuple[str, Hashable]  # (role, host id)
 Handler = Callable[[Message], None]
 
 
@@ -76,6 +76,7 @@ class Network:
         self.stats: dict[str, MsgStats] = defaultdict(MsgStats)
         self._fifo: dict[tuple[Addr, Addr], float] = {}
         self._channels: set[tuple[Addr, Addr, int, int]] = set()
+        self._rtt: dict[tuple[Hashable, Hashable], float] = {}
 
     def add_host(
         self,
@@ -120,11 +121,17 @@ class Network:
         """Jitter-free RTT in seconds (ground truth; policies only see estimates)."""
         if a == b:
             return 2 * self.p.local_delay_s
+        key = (a, b)
+        cached = self._rtt.get(key)
+        if cached is not None:
+            return cached
         ha, hb = self.hosts[a], self.hosts[b]
-        km = float(haversine_km(ha.lat, ha.lon, hb.lat, hb.lon))
+        km = haversine_scalar(ha.lat, ha.lon, hb.lat, hb.lon)
         prop = km / self.p.c_eff_km_per_ms * self.p.route_factor / 1e3
         relay = self.p.relay_extra_ms / 1e3 * (int(ha.relayed) + int(hb.relayed))
-        return ha.last_mile_s + hb.last_mile_s + prop + relay
+        rtt = ha.last_mile_s + hb.last_mile_s + prop + relay
+        self._rtt[key] = rtt
+        return rtt
 
     def send(self, src: Addr, dst: Addr, msg: Message, size_bytes: int) -> bool:
         """Send ``msg``; returns ``False`` if it is dropped at the source."""

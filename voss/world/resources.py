@@ -203,3 +203,46 @@ class Psp(FifoServer):
 
     def __init__(self, kernel: Kernel) -> None:
         super().__init__(kernel, 1)
+
+
+class Slots:
+    """FIFO counting semaphore for VM slots: ``acquire(cb)`` calls ``cb(token)`` once a slot is free."""
+
+    def __init__(self, n: int) -> None:
+        self.n = max(1, n)
+        self.held: set[int] = set()
+        self.waiting: deque[tuple[int, Callback]] = deque()
+        self._seq = 0
+
+    def acquire(self, cb: Callback) -> int:
+        token = self._seq
+        self._seq += 1
+        self.waiting.append((token, cb))
+        self._pump()
+        return token
+
+    def release(self, token: int) -> None:
+        """Release a held slot or withdraw a waiting request."""
+        if token in self.held:
+            self.held.discard(token)
+            self._pump()
+        else:
+            self.waiting = deque((t, c) for t, c in self.waiting if t != token)
+
+    def reset(self) -> None:
+        self.held.clear()
+        self.waiting.clear()
+
+    @property
+    def busy(self) -> int:
+        return len(self.held)
+
+    @property
+    def queued(self) -> int:
+        return len(self.waiting)
+
+    def _pump(self) -> None:
+        while self.waiting and len(self.held) < self.n:
+            token, cb = self.waiting.popleft()
+            self.held.add(token)
+            cb(token)

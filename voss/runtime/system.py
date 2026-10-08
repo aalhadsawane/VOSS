@@ -25,4 +25,5 @@ def run_system(cfg: RunConfig) -> RunResult:
 
 def _import_systems() -> None:
     """Import modules whose ``@register("system", ...)`` decorators must run."""
-    import voss.runtime.toy  # noqa: F401, PLC0415
+    import voss.runtime.toy  # noqa: PLC0415
+    import voss.runtime.voss_system  # noqa: F401, PLC0415
