@@ -14,3 +14,4 @@ class Table(StrEnum):
     SAMPLES = "samples"
     MESSAGES = "messages"
     RECEIPTS = "receipts"
+    PREDICTIONS = "predictions"

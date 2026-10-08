@@ -12,6 +12,7 @@ from voss.core.dist import Const, Dist
 from voss.core.ids import WorkerId
 from voss.core.kernel import Kernel
 from voss.core.rng import RngFactory
+from voss.core.types import WorkerStatic
 from voss.world.cache import WorkerCache
 from voss.world.resources import Disk, Psp, Slots, Tpm
 from voss.world.substrate import SubstrateProfile
@@ -43,6 +44,8 @@ class HostLocal:
     assurance: float = 0.0
     attested: bool = False
     extra: dict[str, float] = field(default_factory=dict)
+    static_base: WorkerStatic | None = None
+    static: WorkerStatic | None = None
 
     def cert_valid(self, now: float) -> bool:
         return self.attested and self.cert_expiry > now

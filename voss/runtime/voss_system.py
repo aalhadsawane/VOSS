@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pandas as pd
 
 from voss.core.config import RunConfig
 from voss.core.decision_clock import DecisionClock
@@ -12,6 +14,7 @@ from voss.core.ids import FnId, TenantId, WorkerId
 from voss.core.kernel import Kernel
 from voss.core.registry import register
 from voss.core.rng import RngFactory
+from voss.core.types import WorkerStatic
 from voss.metrics.recorder import Recorder
 from voss.metrics.schema import Table
 from voss.runtime.actor import ActorContext, Directory
@@ -21,17 +24,19 @@ from voss.runtime.opdb import OpDb
 from voss.runtime.orchestrator import Orchestrator
 from voss.runtime.registry import Registry
 from voss.runtime.router import Router
+from voss.runtime.schedlib.context import cost_context, fn_priors
 from voss.runtime.scheduler_role import SchedulerRole
 from voss.runtime.system import RunResult
 from voss.runtime.tenant_kbs import TenantKbs
 from voss.runtime.verifier import Verifier
 from voss.runtime.worker_agent import WorkerAgent
-from voss.runtime.workerlib.host import make_host
+from voss.runtime.workerlib.host import HostLocal, make_host
 from voss.world.execution import ExecParams, noise_matrix
-from voss.world.hardware import load_hw_classes
+from voss.world.hardware import HwClass, load_hw_classes
 from voss.world.network import Network, NetworkParams
 from voss.world.scenario import Scenario, generate
 from voss.world.substrate import SubstrateProfile, load_bundle, load_substrate
+from voss.world.workers import TIERS
 
 
 class VossSystem:
@@ -46,14 +51,18 @@ class VossSystem:
         names = sorted(set(scn.workers.substrate_names))
         self.profiles: dict[str, SubstrateProfile] = {n: load_substrate(n, self.bundle) for n in names}
         self.directory = Directory()
-        self.ctx = ActorContext(
-            self.kernel, self.net, self.rec, self.rng, DecisionClock(cfg.decision_clock), cfg, self.directory
-        )
+        clock = DecisionClock(cfg.decision_clock, replay_charges(cfg), sink=self._charge)
+        self.ctx = ActorContext(self.kernel, self.net, self.rec, self.rng, clock, cfg, self.directory)
+        self.cost = cost_context(cfg, scn.catalog, scn.metros, self.profiles, self.bundle)
+        self.priors = fn_priors(scn.catalog)
         self.agents: dict[WorkerId, WorkerAgent] = {}
         self.scheds: dict[WorkerId, SchedulerRole] = {}
         self.routers: list[Router] = []
         self._infra()
         self._workers()
+
+    def _charge(self, kind: str, work: float, wall_s: float, charged_s: float) -> None:
+        self.rec.log(Table.SOLVER, t=self.kernel.now, kind=kind, size=work, solve_wall_s=wall_s, charged_s=charged_s)
 
     # --- construction -------------------------------------------------------------------------------------------
     def _place(self, host: str, city: str) -> None:
@@ -92,28 +101,11 @@ class VossSystem:
         catalog = {FnId(f.name): f for f in self.scn.catalog.functions}
         touched = self.bundle["snapshot_touched_frac"].mean() if "snapshot_touched_frac" in self.bundle else 0.3
         ep = ExecParams.model_validate(self.cfg.scenario.execution)
-        noise = noise_matrix(self.rng.stream("inv.exec.noise"), len(self.scn.arrivals), 4, ep)
+        noise = noise_matrix(self.rng.stream("inv.exec.noise"), len(self.scn.arrivals), 6, ep)
         params = {"exec": ep, "touched_frac": touched, "noise": noise}
         for w in range(len(wt)):
             wid = WorkerId(w)
-            prof = self.profiles[wt.substrate_names[int(wt.substrate[w])]]
-            hc = hw[wt.hw_names[int(wt.hw[w])]]
-            caps = {k: float(getattr(wt, k)[w]) for k in ("slots", "speed", "mem_mb", "ssd_mb", "hdd_mb")}
-            host = make_host(
-                self.kernel,
-                self.rng,
-                wid,
-                wt.identity[w],
-                prof,
-                hc.model_dump(),
-                caps,
-                self.bundle.get("tpm2_quote"),
-                (int(wt.domain[w]), bool(wt.known_good[w]), f"{hc.cpu_model}|k1|fc1"),
-                self.cfg.voss.cache.hdd_tier,
-            )
-            g = self.rng.stream("host.slowdown", w)
-            host.cpu_slowdown = _sample(prof.slowdown.get("cpu", 1.0), g) * _sample(prof.slowdown.get("mem", 1.0), g)
-            host.io_slowdown = _sample(prof.slowdown.get("io", 1.0), g)
+            host = self._host(wid, hw[wt.hw_names[int(wt.hw[w])]])
             self.net.add_host(
                 wid,
                 float(wt.lat[w]),
@@ -125,7 +117,41 @@ class VossSystem:
                 up=False,
             )
             self.agents[wid] = self._attach(WorkerAgent(host, self.ctx, catalog, params))
-            self.scheds[wid] = self._attach(SchedulerRole(host, self.ctx))
+            self.scheds[wid] = self._attach(SchedulerRole(host, self.ctx, self.cost, self.priors))
+
+    def _host(self, w: WorkerId, hc: HwClass) -> HostLocal:
+        wt = self.scn.workers
+        prof = self.profiles[wt.substrate_names[int(wt.substrate[w])]]
+        caps = {k: float(getattr(wt, k)[w]) for k in ("slots", "speed", "mem_mb", "ssd_mb", "hdd_mb")}
+        meta = (int(wt.domain[w]), bool(wt.known_good[w]), f"{hc.cpu_model}|k1|fc1")
+        host = make_host(
+            self.kernel,
+            self.rng,
+            w,
+            wt.identity[w],
+            prof,
+            hc.model_dump(),
+            caps,
+            self.bundle.get("tpm2_quote"),
+            meta,
+            self.cfg.voss.cache.hdd_tier,
+        )
+        g = self.rng.stream("host.slowdown", w)
+        host.cpu_slowdown = _sample(prof.slowdown.get("cpu", 1.0), g) * _sample(prof.slowdown.get("mem", 1.0), g)
+        host.io_slowdown = _sample(prof.slowdown.get("io", 1.0), g)
+        host.static_base = WorkerStatic(
+            float(wt.lat[w]),
+            float(wt.lon[w]),
+            float(wt.tz[w]),
+            TIERS[int(wt.tier[w])],
+            prof.name,
+            float(wt.down_bps[w]),
+            float(wt.up_bps[w]),
+            hc.ssd_read_MBps,
+            hc.hdd_read_MBps,
+            0.0,
+        )
+        return host
 
     # --- running -------------------------------------------------------------------------------------------------
     def _owner(self, row: dict[str, Any]) -> None:
@@ -159,6 +185,15 @@ class VossSystem:
         for v in check_invariants(self.rec, self.scn, len(arr)):
             self.rec.log(Table.EVENTS, t=self.kernel.now, kind="invariant_violation", worker=-1, value=0.0, detail=v)
         return RunResult(self.rec, self.scn.hash, self.kernel.events_run)
+
+
+def replay_charges(cfg: RunConfig) -> list[tuple[str, float]] | None:
+    """``decision_clock.replay_log``: a previous run directory (or its ``solver.parquet``)."""
+    if cfg.decision_clock.mode != "replay" or cfg.decision_clock.replay_log is None:
+        return None
+    path = Path(cfg.decision_clock.replay_log)
+    df = pd.read_parquet(path / "solver.parquet" if path.is_dir() else path)
+    return list(zip(df.kind.astype(str), df.charged_s.astype(float), strict=True))
 
 
 def _sample(ref: Any, g: np.random.Generator) -> float:

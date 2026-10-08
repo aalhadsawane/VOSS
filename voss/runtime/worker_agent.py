@@ -229,6 +229,7 @@ class WorkerAgent(SessionMixin, Actor):
             self.now,
             self.op_gen,
             self,
+            m.batch_wait,
         )
         self.attempts[key] = att
         self._log_exec_guard(att)
@@ -312,6 +313,7 @@ class WorkerAgent(SessionMixin, Actor):
             domain=h.domain,
             as_of=self.now,
             cert_id=h.cert_id,
+            static=h.static,
         )
 
     def _heartbeat(self) -> None:

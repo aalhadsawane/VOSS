@@ -16,6 +16,7 @@ from voss.core.messages import (
     Invoke,
     Message,
     Receipt,
+    Reject,
     Result,
     RevokeSession,
     SchedulerAddr,
@@ -67,6 +68,10 @@ class Router(Actor):
             self._scheduler(msg)
         elif isinstance(msg, RevokeSession):
             self.revoked.add(msg.cert_id)
+        elif isinstance(msg, Reject):
+            p = self.pending.get(msg.inv)
+            if p is not None:
+                self._finalize(p, "rejected", None)
 
     # --- request path ------------------------------------------------------------------------------------------
     def _invoke(self, inv: Invocation) -> None:
@@ -187,8 +192,8 @@ class Router(Actor):
             attempts=o.attempt + 1,
             met=now - inv.t_arrive <= inv.deadline,
             retry=t.t_enqueue - first,
-            batch_wait=0.0,
-            decide=t.t_dispatch - t.t_enqueue,
+            batch_wait=t.batch_wait,
+            decide=t.t_dispatch - t.t_enqueue - t.batch_wait,
             net_in=(t.t_received - t.t_dispatch) + t.input_wait,
             wait=t.wait,
             trust=t.trust,

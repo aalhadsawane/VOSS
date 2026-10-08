@@ -1,0 +1,12 @@
+# E03 pilot (doc 06 §5): predictors × scalarizations under two churn regimes. Pilot size: ≥5 seeds (doc 06 §1).
+experiment: E03
+base: ../smoke.yaml
+overrides:
+  - horizon_s=600
+  - scenario.workers=150
+  - scenario.load.rate=8
+grid:
+  voss.predictor.name: [means, ewma, blr]
+  voss.cost.scalarizer: [slo_miss, expected, quantile]
+  scenario.regime: [churn_low, churn_high]
+seeds: [1, 2, 3, 4, 5]

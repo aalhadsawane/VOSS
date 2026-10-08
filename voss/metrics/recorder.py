@@ -40,9 +40,13 @@ class Recorder:
             self.frame(name).to_parquet(out_dir / f"{name}.parquet", index=False)
 
     def result_hash(self) -> str:
-        """SHA-256 over every table's columns (names, then values in row order)."""
+        """SHA-256 over every table's columns (names, then values in row order).
+
+        Wall-clock measurements (columns ending in ``_wall_s``) are metadata, not simulation results: they are
+        excluded so ``modeled`` and ``replay`` runs hash identically across machines (doc 01 §7-8).
+        """
         tables = {}
         for name in self.tables():
             df = self.frame(name)
-            tables[name] = {c: df[c].to_numpy() for c in df.columns}
+            tables[name] = {c: df[c].to_numpy() for c in df.columns if not str(c).endswith("_wall_s")}
         return hash_columns(tables)

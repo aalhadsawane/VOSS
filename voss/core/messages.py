@@ -76,6 +76,14 @@ class Result(Message):
 
 
 @dataclass(frozen=True, slots=True)
+class Reject(Message):
+    """Admission control refused the invocation (doc 03 §5.4)."""
+
+    inv: InvId
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
 class SchedulerAddr(Message):
     cluster: ClusterId
     epoch: int
@@ -93,6 +101,7 @@ class Dispatch(Message):
     t_enqueue: float
     t_dispatch: float
     scheduler: Addr
+    batch_wait: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -286,6 +295,7 @@ SIZE: dict[type[Message], int] = {
     Invoke: 600,
     Enqueue: 400,
     Assigned: 120,
+    Reject: 100,
     Accepted: 120,
     SchedulerAddr: 100,
     Dispatch: 500,
