@@ -38,13 +38,14 @@ class BetaCusum:
     ) -> None:
         self.prior, self.pessimistic, self.k, self.h = prior, pessimistic, k, h
         self.state: dict[int, _State] = {}
+        self._p0 = prior[0] / (prior[0] + prior[1])
+        self._p = np.full(64, self._p0)
 
     def p_omit(self, workers: np.ndarray) -> np.ndarray:
-        out = np.empty(len(workers))
-        for i, w in enumerate(workers):
-            st = self.state.get(int(w))
-            a, b = (st.a, st.b) if st else self.prior
-            out[i] = a / (a + b)
+        w = np.asarray(workers, dtype=np.int64)
+        if len(w) and int(w.max()) >= len(self._p):
+            self._p = np.concatenate([self._p, np.full(int(w.max()) + 65 - len(self._p), self._p0)])
+        out: np.ndarray = self._p[w]
         return out
 
     def update(self, worker: int, omitted: bool, t: float) -> ChangePoint | None:
@@ -53,8 +54,10 @@ class BetaCusum:
         st.a += x
         st.b += 1.0 - x
         st.cusum = max(0.0, st.cusum + x - self.k)
+        cp = None
         if st.cusum > self.h:
             cp = ChangePoint(worker, t, st.cusum)
-            self.state[worker] = _State(*self.pessimistic)
-            return cp
-        return None
+            st = self.state[worker] = _State(*self.pessimistic)
+        self.p_omit(np.array([worker]))  # grow the cache if needed
+        self._p[worker] = st.a / (st.a + st.b)
+        return cp

@@ -2,35 +2,40 @@
 
 For invocations × candidate workers it produces the named components ``wait, trust, startup, net, exec, pFail,
 exposure``, the completion distribution and ``pMiss``. Trust and artifact fetch overlap the slot wait:
-``time_to_start = max(wait, trust, fetch) + rest`` (doc 08 §5). Candidates are pruned to the top ``K`` by a cheap
-bound (expected completion plus a failure penalty).
+``time_to_start = max(wait, trust, fetch) + rest`` (doc 08 §5).
+
+Candidates are pruned in two stages (doc 03 §5.1 "top-K by a cheap lower bound"): a bound from cached per-view
+arrays (prior execution time, no failure model) keeps ``prune × K`` workers; predictions and the full model run on
+those only, and the best ``K`` by expected completion plus a failure penalty are returned.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 import numpy as np
 
 from voss.core.types import ClusterView, Invocation, SloClass
-from voss.policy.cost.arrays import ArrayCache, ViewArrays
+from voss.policy.cost.arrays import ArrayCache
 from voss.policy.cost.completion import Completion, moment_match, p_miss
 from voss.policy.cost.inputs import CostContext
 from voss.policy.place.candidates import eligible
 
-MB = 1024 * 1024
-NAMES = ("wait", "trust", "startup", "net", "exec", "pFail", "exposure", "tts")
+NAMES = ("wait", "trust", "startup", "net", "exec", "exec_var", "pFail", "exposure", "tts")
 
 
 @dataclass(frozen=True)
 class Preds:
-    """Per-invocation predictions over all view workers (computed by the scheduler)."""
+    """Predictions for one invocation over a subset of view workers (computed by the scheduler)."""
 
-    exec_mean: np.ndarray  # [I, N]
-    exec_var: np.ndarray  # [I, N]
-    p_alive: np.ndarray  # [I, N] session survival over the expected completion horizon
-    p_omit: np.ndarray  # [N]
-    svc_mean: np.ndarray  # [N] typical service time on the worker (readiness)
+    exec_mean: np.ndarray
+    exec_var: np.ndarray
+    p_alive: np.ndarray  # session survival over the expected completion horizon
+    p_omit: np.ndarray
+
+
+PredsFn = Callable[[int, np.ndarray], Preds]  # (row, view indices) -> predictions on those workers
 
 
 @dataclass(frozen=True)
@@ -46,91 +51,122 @@ class CostMatrix:
     extra: dict[str, np.ndarray] = field(default_factory=dict)
 
 
-def startup(
-    a: ViewArrays, code: np.ndarray, hdd: np.ndarray, ctx: CostContext, fn: str, speed: np.ndarray
-) -> tuple[np.ndarray, np.ndarray]:
-    """``(fetch_s, rest_s)`` per worker from its cache level (doc 02 §5 ladder)."""
-    f = ctx.fns[fn]
-    read = np.where(hdd, a.hdd_read, a.ssd_read)
-    boot = f.rootfs_mb / read + a.boot + f.init_s / speed + a.dispatch
-    restore = f.snapshot_mb * a.touched / read + a.restore + a.dispatch
-    rest = np.where(code >= 3, a.dispatch, np.where((code == 2) & a.has_snap, restore, boot))
-    mb = f.bundle_mb + f.rootfs_mb
-    fetch = np.where(code == 0, a.reg_rtt + mb * MB * 8 / a.down + a.verify * mb / speed, 0.0)
-    return fetch, rest
+@dataclass(frozen=True)
+class Static:
+    """Per-invocation parts that do not need predictions, over all view workers."""
+
+    ok: np.ndarray
+    holder: np.ndarray
+    trust: np.ndarray
+    fetch: np.ndarray
+    rest: np.ndarray
+    net: np.ndarray
+
+
+def static_parts(
+    inv: Invocation, view: ClusterView, ctx: CostContext, cache: ArrayCache, now: float, router: str, margin_s: float
+) -> Static:
+    a = cache.get(view, ctx)
+    f, t = ctx.fns[inv.fn], ctx.tenants[inv.tenant]
+    ok = eligible(view, inv, now, margin_s) & (view.assurance >= t.assurance_floor)
+    holder = cache.holder(view, inv.tenant)
+    trust = np.where(holder | (a.trust_fixed == 0), 0.0, cache.rtt(ctx, t.kbs_lat, t.kbs_lon) + a.trust_fixed)
+    fetch, rest = cache.startup(view, ctx, inv.fn)
+    rlat, rlon = ctx.routers.get(router, (float(a.lat.mean()), float(a.lon.mean())))
+    net = cache.rtt(ctx, rlat, rlon) + inv.in_bytes * 8 / a.down + f.out_bytes * 8 / a.up
+    return Static(ok, holder, trust, fetch, rest, net)
 
 
 def _row(
     inv: Invocation,
     view: ClusterView,
     ctx: CostContext,
-    a: ViewArrays,
     cache: ArrayCache,
-    preds: Preds,
-    i: int,
+    st: Static,
+    sub: np.ndarray,
+    p: Preds,
     now: float,
-    router: str,
     wait: np.ndarray,
-    margin_s: float,
 ) -> dict[str, np.ndarray]:
-    f, t = ctx.fns[inv.fn], ctx.tenants[inv.tenant]
-    ok = eligible(view, inv, now, margin_s) & (view.assurance >= t.assurance_floor)
-    holder = np.fromiter((inv.tenant in ts for ts in view.trust), dtype=bool, count=len(view))
-    kbs = ctx.geo.rtt(a.lat, a.lon, t.kbs_lat, t.kbs_lon)
-    trust = np.where(holder | (a.trust_fixed == 0), 0.0, kbs + a.trust_fixed)
-    code, hdd = cache.level(view, inv.fn)
-    fetch, rest = startup(a, code, hdd, ctx, inv.fn, view.speed)
-    rlat, rlon = ctx.routers.get(router, (float(a.lat.mean()), float(a.lon.mean())))
-    net = ctx.geo.rtt(a.lat, a.lon, rlat, rlon) + inv.in_bytes * 8 / a.down + f.out_bytes * 8 / a.up
-    tts = np.maximum(np.maximum(wait, trust), fetch) + rest
-    e_mean = preds.exec_mean[i] * a.cpu_factor
-    comp = moment_match(tts + net, (0.3 * tts) ** 2, e_mean, preds.exec_var[i] * a.cpu_factor**2)
-    p_fail = 1 - preds.p_alive[i] * (1 - preds.p_omit)
-    budget = np.full(len(view), inv.deadline - (now - inv.t_arrive))
+    a = cache.get(view, ctx)
+    t = ctx.tenants[inv.tenant]
+    w = wait[sub]
+    tts = np.maximum(np.maximum(w, st.trust[sub]), st.fetch[sub]) + st.rest[sub]
+    cpu = a.cpu_factor[sub]
+    e_mean = p.exec_mean * cpu
+    comp = moment_match(tts + st.net[sub], (0.3 * tts) ** 2, e_mean, p.exec_var * cpu**2)
+    p_fail = 1 - p.p_alive * (1 - p.p_omit)
+    budget = np.full(len(sub), inv.deadline - (now - inv.t_arrive))
     return {
-        "ok": ok,
-        "wait": wait,
-        "trust": trust,
-        "startup": fetch + rest,
-        "net": net,
+        "ok": st.ok[sub],
+        "wait": w,
+        "trust": st.trust[sub],
+        "startup": st.fetch[sub] + st.rest[sub],
+        "net": st.net[sub],
         "exec": e_mean,
+        "exec_var": p.exec_var * cpu**2,
         "pFail": p_fail,
-        "exposure": np.where(holder, 0.0, t.sigma * (1 - view.assurance)),
         "tts": tts,
+        "exposure": np.where(st.holder[sub], 0.0, t.sigma * (1 - view.assurance[sub])),
         "shift": comp.shift,
         "m": comp.m,
         "s": comp.s,
         "pMiss": p_miss(comp, budget, p_fail),
         "budget": budget,
-        "bound": np.where(ok, comp.mean() + 10.0 * p_fail, np.inf),
+        "bound": np.where(st.ok[sub], comp.mean() + 10.0 * p_fail, np.inf),
     }
+
+
+def prune(inv: Invocation, view: ClusterView, ctx: CostContext, st: Static, wait: np.ndarray, m: int) -> np.ndarray:
+    """Stage 1: the ``m`` best eligible workers by a prediction-free bound (sorted view indices)."""
+    prior = ctx.fns[inv.fn].work_ref_s / np.maximum(view.speed, 1e-9)
+    bound = np.where(st.ok, np.maximum(np.maximum(wait, st.trust), st.fetch) + st.rest + st.net + prior, np.inf)
+    if len(bound) <= m:
+        return np.arange(len(bound))
+    return np.sort(np.argpartition(bound, m - 1)[:m])
 
 
 def build_cost_matrix(
     invs: tuple[Invocation, ...],
     view: ClusterView,
     ctx: CostContext,
-    preds: Preds,
+    preds: PredsFn | Preds,
     now: float,
     routers: tuple[str, ...],
     cache: ArrayCache | None = None,
     margin_s: float = 5.0,
+    prune_factor: int = 3,
+    svc_s: float = 1.0,
 ) -> CostMatrix:
     """Doc 03 §5.2 for every invocation (rows) over its top-K eligible candidates."""
     cache = cache or ArrayCache()
-    a = cache.get(view, ctx)
     k = min(ctx.K, max(1, len(view)))
     occ = view.busy + view.queued + view.inflight
-    wait = np.maximum(0, occ - view.slots + 1) * preds.svc_mean / np.maximum(view.slots, 1)
-    rows = [_row(inv, view, ctx, a, cache, preds, i, now, routers[i], wait, margin_s) for i, inv in enumerate(invs)]
-    top = np.array([np.argsort(r["bound"], kind="stable")[:k] for r in rows])
+    wait = np.maximum(0, occ - view.slots + 1) * svc_s / np.maximum(view.slots, 1)
+    rows, tops = [], []
+    for i, inv in enumerate(invs):
+        st = static_parts(inv, view, ctx, cache, now, routers[i], margin_s)
+        sub = prune(inv, view, ctx, st, wait, prune_factor * k)
+        p = _slice(preds, i, sub) if isinstance(preds, Preds) else preds(i, sub)
+        r = _row(inv, view, ctx, cache, st, sub, p, now, wait)
+        top = np.argsort(r["bound"], kind="stable")[:k]
+        rows.append({name: v[top] for name, v in r.items()})
+        tops.append(sub[top])
 
     def grid(name: str) -> np.ndarray:
-        return np.array([r[name][top[i]] for i, r in enumerate(rows)])
+        return np.array([r[name] for r in rows])
 
-    comps = {name: grid(name) for name in NAMES}
     completion = Completion(grid("shift"), grid("m"), grid("s"))
-    return CostMatrix(comps, top, grid("ok"), completion, grid("pMiss"), grid("budget"))
+    comps = {name: grid(name) for name in NAMES}
+    return CostMatrix(comps, np.array(tops), grid("ok"), completion, grid("pMiss"), grid("budget"))
+
+
+def _slice(p: Preds, i: int, sub: np.ndarray) -> Preds:
+    def pick(x: np.ndarray) -> np.ndarray:
+        out: np.ndarray = x[i, sub] if x.ndim == 2 else x[sub]
+        return out
+
+    return Preds(pick(p.exec_mean), pick(p.exec_var), pick(p.p_alive), pick(p.p_omit))
 
 
 def slo_weight(inv: Invocation, ctx: CostContext) -> float:

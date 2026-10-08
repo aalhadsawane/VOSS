@@ -50,7 +50,7 @@ def view() -> ClusterView:
 
 
 def preds() -> Preds:
-    return Preds(np.full((1, N), 0.5), np.full((1, N), 0.01), np.ones((1, N)), np.zeros(N), np.full(N, 0.5))
+    return Preds(np.full((1, N), 0.5), np.full((1, N), 0.01), np.ones((1, N)), np.zeros(N))
 
 
 def inv(deadline: float = 2.0) -> Invocation:

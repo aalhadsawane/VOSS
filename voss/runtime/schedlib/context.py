@@ -51,7 +51,16 @@ def cost_context(
     touched = bundle["snapshot_touched_frac"].mean() if "snapshot_touched_frac" in bundle else 0.3
     fns = {
         f.name: FnInfo(
-            f.name, f.tenant, f.mem_mb, f.bundle_mb, f.rootfs_mb, f.snapshot_mb, f.init_s, f.out_kb * 1024, f.idempotent
+            f.name,
+            f.tenant,
+            f.mem_mb,
+            f.bundle_mb,
+            f.rootfs_mb,
+            f.snapshot_mb,
+            f.init_s,
+            f.out_kb * 1024,
+            f.idempotent,
+            f.work_ref_s,
         )
         for f in catalog.functions
     }

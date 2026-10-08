@@ -59,6 +59,7 @@ class SchedulerRole(Actor):
         self.inflight: dict[InvId, Inflight] = {}
         self.done: set[InvId] = set()
         self.window: list[InvId] = []
+        self.fillers: set[InvId] = set()
         self.busy_until = 0.0
         self.models = SchedModels(cfg, self.priors)
         self.decider = Decider(cfg, self.cost, self.models, self.ctx.cfg.scenario.start_utc_h)
@@ -161,6 +162,8 @@ class SchedulerRole(Actor):
                 self.send(rec.router, Assigned(rec.inv.id, c.attempt, c.worker, self.epoch, self.token))
             return
         self.inflight[m.inv.id] = Inflight(m.inv, m.router, m.t_sent)
+        if m.inv.slo_class == SloClass.FILLER:
+            self.fillers.add(m.inv.id)
         self.models.forecaster.observe(m.inv.tenant, self.now)
         if m.inv.slo_class == SloClass.SYNC:
             self._decide([m.inv.id], windowed=False)
@@ -185,7 +188,7 @@ class SchedulerRole(Actor):
         view = self.views.view(self.members, self.now)
         routers = tuple(str(r.router[1]) for r in recs)
         t0 = time.perf_counter()
-        d = self.decider.decide(tuple(r.inv for r in recs), view, self.now, routers, self.gen, windowed)
+        d = self.decider.decide(tuple(r.inv for r in recs), view, self.now, routers, self.gen, windowed, self.views.idx)
         wall = time.perf_counter() - t0
         delay = self.ctx.clock.charge("place", work=d.work, host_speed=self.hl.speed, wall_s=wall)
         start = max(self.now, self.busy_until)
@@ -234,12 +237,15 @@ class SchedulerRole(Actor):
         st = self.views.store.states.get(w)
         if st is None or st.busy + st.queued + len(self.views.recent.get(w, ())) <= st.slots:
             return
-        for _, rec in sorted(self.inflight.items()):
-            if rec.inv.slo_class == SloClass.FILLER:
-                for c in rec.live_on(w):
-                    self.send(("agent", w), Cancel(rec.inv.id, c.attempt))
-                    self._copy_failed(rec, c, "preempted")
-                    return
+        for inv_id in sorted(self.fillers):
+            rec = self.inflight.get(inv_id)
+            if rec is None:
+                self.fillers.discard(inv_id)
+                continue
+            for c in rec.live_on(w):
+                self.send(("agent", w), Cancel(rec.inv.id, c.attempt))
+                self._copy_failed(rec, c, "preempted")
+                return
 
     # --- outcomes ---------------------------------------------------------------------------------------------
     def _outcome(self, o: Outcome) -> None:

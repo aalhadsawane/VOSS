@@ -82,13 +82,51 @@ class ArrayCache:
         self.key: int | None = None
         self.arrays: ViewArrays | None = None
         self.lv: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+        self.holders: dict[str, np.ndarray] = {}
+        self.rtts: dict[tuple[float, float], np.ndarray] = {}
 
     def get(self, view: ClusterView, ctx: CostContext) -> ViewArrays:
         if self.key != id(view.cache) or self.arrays is None:
             self.key, self.arrays, self.lv = id(view.cache), view_arrays(view, ctx), {}
+            self.holders, self.rtts = {}, {}
         return self.arrays
+
+    def holder(self, view: ClusterView, tenant: str) -> np.ndarray:
+        """Workers already holding ``tenant``'s key (trust-warm), per view."""
+        if tenant not in self.holders:
+            self.holders[tenant] = np.fromiter((tenant in ts for ts in view.trust), dtype=bool, count=len(view))
+        return self.holders[tenant]
+
+    def startup(self, view: ClusterView, ctx: CostContext, fn: str) -> tuple[np.ndarray, np.ndarray]:
+        key = f"startup:{fn}"
+        if key not in self.lv:
+            code, hdd = self.level(view, fn)
+            assert self.arrays is not None
+            self.lv[key] = startup_arrays(self.arrays, code, hdd, ctx, fn, view.speed)
+        return self.lv[key]
+
+    def rtt(self, ctx: CostContext, lat: float, lon: float) -> np.ndarray:
+        key = (lat, lon)
+        if key not in self.rtts:
+            assert self.arrays is not None
+            self.rtts[key] = ctx.geo.rtt(self.arrays.lat, self.arrays.lon, lat, lon)
+        return self.rtts[key]
 
     def level(self, view: ClusterView, fn: str) -> tuple[np.ndarray, np.ndarray]:
         if fn not in self.lv:
             self.lv[fn] = levels(view, fn)
         return self.lv[fn]
+
+
+def startup_arrays(
+    a: ViewArrays, code: np.ndarray, hdd: np.ndarray, ctx: CostContext, fn: str, speed: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """``(fetch_s, rest_s)`` per worker from its cache level (doc 02 §5 ladder)."""
+    f = ctx.fns[fn]
+    read = np.where(hdd, a.hdd_read, a.ssd_read)
+    boot = f.rootfs_mb / read + a.boot + f.init_s / speed + a.dispatch
+    restore = f.snapshot_mb * a.touched / read + a.restore + a.dispatch
+    rest = np.where(code >= 3, a.dispatch, np.where((code == 2) & a.has_snap, restore, boot))
+    mb = f.bundle_mb + f.rootfs_mb
+    fetch = np.where(code == 0, a.reg_rtt + mb * 8 * 1024 * 1024 / a.down + a.verify * mb / speed, 0.0)
+    return fetch, rest

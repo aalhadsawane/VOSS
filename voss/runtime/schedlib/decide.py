@@ -17,7 +17,7 @@ from voss.core.types import ClusterView, Invocation, SloClass
 from voss.policy import hedge as _hedge  # noqa: F401  (registers hedge policies)
 from voss.policy.admission import admit, filler_mask
 from voss.policy.cost.arrays import ArrayCache
-from voss.policy.cost.components import CostMatrix, build_cost_matrix
+from voss.policy.cost.components import CostMatrix, PredsFn, build_cost_matrix
 from voss.policy.cost.inputs import CostContext
 from voss.policy.cost.scalarize import SCALARIZERS
 from voss.policy.hedge import TokenBucket
@@ -60,13 +60,15 @@ class Decider:
         routers: tuple[str, ...],
         gen: np.random.Generator,
         windowed: bool,
+        idx: dict[WorkerId, int] | None = None,
     ) -> Decision:
         out = Decision(work=len(invs) * max(1, len(view)))
         if not len(view):
             out.deferred = [i.id for i in invs]
             return out
-        preds = self.models.preds(invs, view, now, self.start_utc_h)
-        cm = build_cost_matrix(invs, view, self.ctx, preds, now, routers, self.cache)
+        preds = self.models.preds_fn(invs, view, now, self.start_utc_h)
+        svc = self.models.svc
+        cm = build_cost_matrix(invs, view, self.ctx, preds, now, routers, self.cache, svc_s=svc)
         cm = self._filler(invs, view, cm)
         scores = self.scalarize(cm, invs, self.ctx)
         keep = self._admission(invs, cm, out)
@@ -80,12 +82,10 @@ class Decider:
             gen,
             cm=_rows(cm, keep),
             scores=scores[keep],
-            slot_step=self.ctx.eps
-            * preds.svc_mean[cm.candidates[keep]]
-            / np.maximum(view.slots[cm.candidates[keep]], 1),
+            slot_step=self.ctx.eps * svc / np.maximum(view.slots[cm.candidates[keep]], 1),
         )
         pl = (self.batch if windowed else self.sync).place(req)
-        idx = view.index()
+        idx = idx if idx is not None else view.index()
         for r, inv in enumerate(sub):
             w = pl.assign.get(inv.id)
             if w is None:
@@ -93,7 +93,7 @@ class Decider:
                 continue
             out.assign[inv.id] = w
             j = idx[w]
-            out.predicted[(inv.id, w)] = (float(preds.exec_mean[keep[r], j]), float(preds.exec_var[keep[r], j]))
+            out.predicted[(inv.id, w)] = _pred(req.cm, r, j)
             self._maybe_hedge(inv, r, j, req, view, out, preds, keep[r])
         return out
 
@@ -125,7 +125,15 @@ class Decider:
         return keep
 
     def _maybe_hedge(
-        self, inv: Invocation, r: int, j: int, req: PlaceRequest, view: ClusterView, out: Decision, preds: Any, row: int
+        self,
+        inv: Invocation,
+        r: int,
+        j: int,
+        req: PlaceRequest,
+        view: ClusterView,
+        out: Decision,
+        preds: PredsFn,
+        row: int,
     ) -> None:
         self.bucket.earn()
         if self.hedge is None or req.cm is None or req.scores is None:
@@ -143,7 +151,15 @@ class Decider:
         if h is not None and self.bucket.take():
             w = view.workers[h]
             out.hedges[inv.id] = w
-            out.predicted[(inv.id, w)] = (float(preds.exec_mean[row, h]), float(preds.exec_var[row, h]))
+            out.predicted[(inv.id, w)] = _pred(req.cm, r, h)
+
+
+def _pred(cm: CostMatrix | None, r: int, j: int) -> tuple[float, float]:
+    """Predicted (mean, variance) of execution for row ``r`` on view index ``j`` (from the cost matrix)."""
+    if cm is None or j not in cm.candidates[r]:
+        return 0.0, 0.0
+    k = int(np.flatnonzero(cm.candidates[r] == j)[0])
+    return float(cm.components["exec"][r, k]), float(cm.components["exec_var"][r, k])
 
 
 def _rows(cm: CostMatrix, keep: list[int]) -> CostMatrix:

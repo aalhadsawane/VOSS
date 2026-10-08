@@ -31,12 +31,24 @@ def prediction_metrics(pred: pd.DataFrame) -> dict[str, float]:
     }
 
 
+def online_curve(pred: pd.DataFrame, bins: int = 4) -> list[float]:
+    """Time-ordered evaluation: MAE of log runtime in consecutive quarters of the run (doc 03 §6.1)."""
+    p = pred[(pred.pred_mean > 0) & (pred.actual > 0)].sort_values("t")
+    if len(p) < bins:
+        return [np.nan] * bins
+    s2 = np.log1p(p.pred_var / p.pred_mean**2)
+    err = np.abs(np.log(p.actual) - (np.log(p.pred_mean) - s2 / 2)).to_numpy()
+    return [float(x.mean()) for x in np.array_split(err, bins)]
+
+
 def collect(runs: list[Path]) -> pd.DataFrame:
     rows = []
     for r in runs:
         cfg = manifest(r)["config"]
         row = {k: get(cfg, k) for k in KEYS} | {"seed": cfg["seed"]}
-        row |= latency_metrics(table(r, "invocations")) | prediction_metrics(table(r, "predictions"))
+        pred = table(r, "predictions")
+        row |= latency_metrics(table(r, "invocations")) | prediction_metrics(pred)
+        row |= {f"mae_q{i + 1}": v for i, v in enumerate(online_curve(pred))}
         rows.append(row)
     return pd.DataFrame(rows)
 
@@ -53,6 +65,19 @@ def report(df: pd.DataFrame) -> str:
     for key, g in df.groupby(list(KEYS)):
         cells = [fmt(*bootstrap_ci(g[c].to_numpy())) for c in ("mae_log_late", "cov90", "p99_sync", "met")]
         lines.append(f"| {' | '.join(map(str, key))} | {len(g)} | {' | '.join(cells)} |")
+    lines += [
+        "",
+        "## Online predictor evaluation (time-ordered)",
+        "",
+        "MAE of log execution time per quarter of the run, all scalarizers and regimes pooled per predictor "
+        "(mean over runs). Decreasing values show online learning from the profile prior.",
+        "",
+        "| predictor | Q1 | Q2 | Q3 | Q4 | 90% coverage |",
+        "|---|---|---|---|---|---|",
+    ]
+    for name, g in df.groupby(KEYS[0]):
+        qs = " | ".join(f"{g[f'mae_q{i}'].mean():.3f}" for i in range(1, 5))
+        lines.append(f"| {name} | {qs} | {g.cov90.mean():.3f} |")
     return "\n".join(lines) + "\n"
 
 

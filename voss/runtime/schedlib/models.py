@@ -11,7 +11,7 @@ from voss.core.registry import create
 from voss.core.types import ClusterView, Invocation
 from voss.policy import omission as _omission  # noqa: F401  (registers models)
 from voss.policy import survival as _survival  # noqa: F401
-from voss.policy.cost.components import Preds
+from voss.policy.cost.components import Preds, PredsFn
 from voss.policy.predict import arrivals as _arrivals  # noqa: F401
 from voss.policy.predict.base import ExecObs, FnPrior
 from voss.policy.predict.conformal import Conformal
@@ -37,19 +37,23 @@ class SchedModels:
         self.predictor.update(obs)
         self.svc = 0.98 * self.svc + 0.02 * obs.exec_s
 
-    def preds(self, invs: tuple[Invocation, ...], view: ClusterView, now: float, start_utc_h: float) -> Preds:
-        n = len(view)
+    def preds_fn(self, invs: tuple[Invocation, ...], view: ClusterView, now: float, start_utc_h: float) -> PredsFn:
+        """Predictions for row ``i`` on view indices ``sub`` (evaluated lazily on pruned candidates only)."""
         workers = np.asarray(view.workers, dtype=np.int64)
         load = (view.busy + view.queued + view.inflight) / np.maximum(view.slots, 1)
-        mean, var = np.empty((len(invs), n)), np.empty((len(invs), n))
-        alive = np.empty((len(invs), n))
         k, lam, start, tz, drain = self._static(view)
         hour = np.mod(start_utc_h + now / 3600 + tz, 24)
-        for i, inv in enumerate(invs):
-            d = self.predictor.predict(inv.fn, inv.in_bytes, workers, view.speed, load)
-            mean[i], var[i] = d.mean(), d.var()
-            alive[i] = self.survival.p_alive_arr(k, lam, now - start, mean[i] + 2.0, hour, drain, now)
-        return Preds(mean, var, alive, self.omission.p_omit(workers), np.full(n, self.svc))
+
+        def fn(i: int, sub: np.ndarray) -> Preds:
+            inv = invs[i]
+            d = self.predictor.predict(inv.fn, inv.in_bytes, workers[sub], view.speed[sub], load[sub])
+            mean = d.mean()
+            alive = self.survival.p_alive_arr(
+                k[sub], lam[sub], now - start[sub], mean + 2.0, hour[sub], drain[sub], now
+            )
+            return Preds(mean, d.var(), alive, self.omission.p_omit(workers[sub]))
+
+        return fn
 
     def _static(self, view: ClusterView) -> tuple[np.ndarray, ...]:
         key = (id(view.cache), self.survival_version)

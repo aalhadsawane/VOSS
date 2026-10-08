@@ -26,6 +26,11 @@ class ViewCache:
         self.recent: dict[WorkerId, list[float]] = {}
         self._counts = np.zeros(0, dtype=np.int64)
 
+    @property
+    def idx(self) -> dict[WorkerId, int]:
+        """Worker → position in the current base view."""
+        return self._idx
+
     def members_changed(self) -> None:
         self.members_version += 1
 

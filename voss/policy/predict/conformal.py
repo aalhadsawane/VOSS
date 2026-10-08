@@ -20,6 +20,7 @@ class Conformal:
         self.z: deque[float] = deque(maxlen=window)
         self.zq = NormalDist().inv_cdf(0.5 + coverage / 2)
         self.scale = 1.0
+        self.n_obs = 0
 
     def predict(self, fn: str, in_bytes: int, workers: np.ndarray, speed: np.ndarray, load: np.ndarray) -> LogDist:
         d = self.inner.predict(fn, in_bytes, workers, speed, load)
@@ -31,6 +32,7 @@ class Conformal:
         )
         z = (np.log(max(obs.exec_s, 1e-9)) - float(d.mu[0])) / max(float(d.sigma[0]), 1e-6)
         self.z.append(abs(z))
-        if len(self.z) >= self.min_obs:
+        self.n_obs += 1
+        if len(self.z) >= self.min_obs and self.n_obs % 20 == 0:
             self.scale = max(0.25, float(np.quantile(np.array(self.z), self.coverage)) / self.zq)
         self.inner.update(obs)

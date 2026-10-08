@@ -50,11 +50,22 @@ class BlrPredictor:
     ) -> None:
         self.models = {fn: _FnModel(p, prior_sd) for fn, p in sorted(priors.items())}
         self.lam, self.kappa = forgetting, kappa
-        self.delta_s: dict[int, float] = {}
-        self.delta_n: dict[int, float] = {}
+        self.delta_s = np.zeros(64)
+        self.delta_n = np.zeros(64)
+
+    def _grow(self, w: int) -> None:
+        if w >= len(self.delta_s):
+            n = max(w + 1, 2 * len(self.delta_s))
+            self.delta_s = np.concatenate([self.delta_s, np.zeros(n - len(self.delta_s))])
+            self.delta_n = np.concatenate([self.delta_n, np.zeros(n - len(self.delta_n))])
 
     def offsets(self, workers: np.ndarray) -> np.ndarray:
-        return np.array([self.delta_s.get(int(w), 0.0) / (self.delta_n.get(int(w), 0.0) + self.kappa) for w in workers])
+        """Shrunk worker offsets ``δ_j`` (vectorized over a growable per-worker array)."""
+        w = np.asarray(workers, dtype=np.int64)
+        if len(w):
+            self._grow(int(w.max()))
+        out: np.ndarray = self.delta_s[w] / (self.delta_n[w] + self.kappa)
+        return out
 
     def predict(self, fn: str, in_bytes: int, workers: np.ndarray, speed: np.ndarray, load: np.ndarray) -> LogDist:
         m = self.models[fn]
@@ -70,7 +81,8 @@ class BlrPredictor:
         y = math.log(max(obs.exec_s, 1e-9)) + math.log(max(obs.speed, 1e-9))
         beta, _ = m.posterior()
         w = int(obs.worker)
-        delta = self.delta_s.get(w, 0.0) / (self.delta_n.get(w, 0.0) + self.kappa)
+        self._grow(w)
+        delta = float(self.delta_s[w] / (self.delta_n[w] + self.kappa))
         resid = y - float(X @ beta)
         # noise variance: discounted mean of squared residuals after the worker offset
         m.noise_var = max(1e-4, self.lam * m.noise_var + (1 - self.lam) * (resid - delta) ** 2)
@@ -78,5 +90,5 @@ class BlrPredictor:
         m.d = self.lam * m.d + X * (y - delta)
         m.n += 1
         m._cache = None
-        self.delta_s[w] = self.lam * self.delta_s.get(w, 0.0) + resid
-        self.delta_n[w] = self.lam * self.delta_n.get(w, 0.0) + 1.0
+        self.delta_s[w] = self.lam * self.delta_s[w] + resid
+        self.delta_n[w] = self.lam * self.delta_n[w] + 1.0

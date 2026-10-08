@@ -34,6 +34,7 @@ class FnInfo:
     init_s: float
     out_bytes: float
     idempotent: bool
+    work_ref_s: float = 0.1
 
 
 @dataclass(frozen=True)
