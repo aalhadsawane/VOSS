@@ -72,6 +72,19 @@ calibration *starting points* and mark `# TODO verify` wherever used. Our own ca
 - So today's TEE-capable "volunteers" are owners of **server-class** machines: university labs, research groups,
   SMB and colo servers, homelab EPYC/Xeon, edge micro-datacenters.
 
+## 5b. Consumer hardware (Ryzen / Intel Core), added for proposal 0002
+
+- **AMD Memory Guard (TSME)** and **Intel TME/TME-MK** encrypt all RAM against *physical* attacks. The host OS sees
+  plaintext and there is no attestation, so they are **not** a TEE against a malicious owner.
+- **TPM 2.0** (AMD fTPM, Intel PTT; Windows 11 requires it) provides measured boot and remote attestation.
+  **Keylime** (CNCF) is the industry stack (measured boot + IMA + key release + revocation). Reported quote latency is
+  ~0.3–2 s and must be measured.
+- **DRTM** (Intel TXT, AMD SKINIT via TrenchBoot): Linux patches are at v15 (Dec 2025); AMD DRTM needs a discrete TPM.
+- **faulTPM:** voltage glitching of the AMD fTPM (Zen 2/3) with physical access (~$200, hours), so physical attacks
+  are out of scope.
+- **pKVM** protected guests: Arm only, experimental.
+- Sources are listed in proposal 0002.
+
 ## 6. Fault-model theory
 
 - TEE integrity can **transform Byzantine faults into crash/omission faults** for the protected code (Madsen et al.,

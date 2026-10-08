@@ -1,7 +1,8 @@
 # Rules for coding agents
 
 > **⚠ Design under revision (2026-10-08):** the threat model is changing to *malicious, unreliable volunteers running
-> tenant code in confidential VMs*. See [`docs/proposals/0001-confidential-voss.md`](docs/proposals/0001-confidential-voss.md).
+> tenant code in confidential VMs*. See [`docs/proposals/0001-confidential-voss.md`](docs/proposals/0001-confidential-voss.md) and
+> [`docs/proposals/0002-trust-substrate-and-scheduler.md`](docs/proposals/0002-trust-substrate-and-scheduler.md) (consumer TPM substrate, two-timescale scheduler).
 > Until it is accepted and the docs are refactored, only Roadmap **P0–P1** may be implemented; hold P2+.
 
 
