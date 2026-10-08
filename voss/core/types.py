@@ -60,6 +60,8 @@ class WorkerStatic:
     ssd_read_MBps: float
     hdd_read_MBps: float
     session_start: float
+    mem_mb: float = 0.0
+    ssd_mb: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +85,7 @@ class WorkerState:
     as_of: float
     cert_id: str = ""
     static: WorkerStatic | None = None
+    pinned: frozenset[str] = frozenset()  # tenants whose PREPARE completed (confirmed plan state)
 
 
 @dataclass(frozen=True)

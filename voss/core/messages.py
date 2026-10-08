@@ -102,6 +102,7 @@ class Dispatch(Message):
     t_dispatch: float
     scheduler: Addr
     batch_wait: float = 0.0
+    sources: tuple[WorkerId, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -262,8 +263,47 @@ class Fetch(Message):
 
 @dataclass(frozen=True, slots=True)
 class Chunk(Message):
+    """Artifact bytes; ``nbytes < 0`` means the peer does not hold the digest (fall back to the registry)."""
+
     digest: str
     nbytes: int
+
+
+# --- plan actions (scheduler → worker, doc 03 §4.4) --------------------------------------------------------------
+@dataclass(frozen=True, slots=True)
+class Prepare(Message):
+    """Become trust-warm for a tenant: request its key, fetch and pin its functions' artifacts."""
+
+    tenant: TenantId
+    fns: tuple[FnId, ...]
+    epoch: int
+    sources: tuple[WorkerId, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class PinSnapshot(Message):
+    """Create (if trust-warm) or fetch from a same-class trust-warm peer, then pin a function snapshot."""
+
+    fn: FnId
+    epoch: int
+    sources: tuple[WorkerId, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class Warm(Message):
+    """Keep ``n`` warm VMs of ``fn`` (boot or restore as needed); ``n = 0`` unpins."""
+
+    fn: FnId
+    n: int
+    epoch: int
+
+
+@dataclass(frozen=True, slots=True)
+class Release(Message):
+    """Unpin a tenant's state; drop its key after ``T_linger`` if nothing is in flight."""
+
+    tenant: TenantId
+    epoch: int
 
 
 # --- operational DB (orchestrator tier only) -------------------------------------------------------------------
@@ -317,6 +357,10 @@ SIZE: dict[type[Message], int] = {
     KeyRequest: 2048,
     Key: 1024,
     Fetch: 200,
+    Prepare: 400,
+    PinSnapshot: 200,
+    Warm: 120,
+    Release: 100,
     DbCasEpoch: 200,
     DbCasResult: 200,
 }
