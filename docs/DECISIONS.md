@@ -111,3 +111,24 @@ bundle hashes and `voss repro`.
 | ADR-028 DB private | D-16 |
 | ADR-029 worker readiness | Doc 08 §5 |
 | Proposals 0001, 0002 | Accepted into docs 00–10 |
+
+## Implementation decisions (coding phase)
+
+**D-23 `ACCEPTED` is sent when the worker receives `DISPATCH`** (P2). Doc 00 §6 draws it after `INPUT`; with
+multi-MB payloads on residential downlinks that makes the router's dispatch watchdog (`T_dispatch` = 1 s, doc 07 §2)
+fire spuriously. The watchdog tests scheduler progress, so the worker acknowledges the dispatch itself; payload
+arrival is accounted as `net_in` (input wait). *Rejected:* raising `T_dispatch` (slows real stall detection).
+
+**D-24 Sessions already running at t = 0 skip their boot delays** (P2). Their establish ops keep the TPM quote and
+verifier round trip but drop `delay`/`psp` steps, so a run does not start with every worker rebooting. Caches still
+start empty; analyses may drop a warm-up window.
+
+**D-25 Latency attribution with overlap** (P2). Trust and artifact fetch overlap the slot wait (doc 08 §5). The time
+from `DISPATCH` receipt until slot, key and artifacts are all ready is split as trust first, then fetch (counted in
+`startup`), and the remainder is `wait`; payload arrival after start-up is `net_in`. Components therefore always sum
+exactly to end-to-end latency (doc 05 §7 invariant).
+
+**D-26 Per-invocation execution noise is a precomputed matrix** (P2). Common random numbers (doc 01 §3) only need the
+same draws for the same `(invocation, attempt)` in every system; a vectorized `noise_matrix` from one named stream
+gives that without creating a generator per attempt (a measurable cost at 10⁵ invocations). Ladder delays use a
+per-worker-session stream.
