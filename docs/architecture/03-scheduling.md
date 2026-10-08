@@ -1,192 +1,243 @@
-# 03 · Scheduling Design (contributions C2, C3, C4)
+# 03 · Scheduling (contribution C2: two-timescale, trust-aware)
 
-All policies here are **pure** (live in `voss/policy`), take views/summaries/predictions and return decisions.
-The runtime actors (`Router`, `SchedulerRole`, `Orchestrator`) call them and apply the result after the
-decision latency.
+All decision logic lives in `voss/policy` as **pure functions** of views, plans and predictions. Runtime actors
+(doc 05) call them on timers or messages and apply results after the decision latency (doc 01 §7).
 
-## 1. Three decision levels
+## 1. Decision levels
 
-| Level | Cadence | Input (stale) | Output |
-|---|---|---|---|
-| Orchestrator | every `T_orch` (e.g., 30 s) + event triggers | `ClusterSummary` per cluster, worker coordinates, drain notices, demand forecast | `MoveOp`s: move worker, split, merge |
-| Router | per request | `ClusterSummary[]` (load, warm-fn sets, SLO health, predicted completion) + origin RTT | cluster id (+ spillover) |
-| Cluster scheduler | per invocation (fast path) or per window | `ClusterView` + predictions + reputation | placements, lifecycle actions, retries |
+| Level | Who | Cadence | Decides | Method |
+|---|---|---|---|---|
+| Cluster arrangement | Orchestrator | 30 s + events | Membership, split/merge/move, succession lists | Rule-based with hysteresis (§2) |
+| Routing | Router | Per request | Cluster for each invocation, spillover | Score over cluster summaries (§3) |
+| **Slow loop: Trust & Warm-state Planning (TWP)** | Scheduler | `T_plan` 10–60 s + events | Trust-warm sets, warm units, caps, cache pins, prewarm and key-release actions | **Robust MILP** (default) or greedy (§4) |
+| **Fast loop: placement** | Scheduler | Per invocation (sync), small window (async/filler) | Worker per invocation, hedge, cold path, retry | Cost-matrix greedy or min-cost flow (§5) |
 
-## 2. Orchestrator: cluster arrangement (C2)
+**Why two timescales:**
+- Trust and warm state are **set-valued and long-lived**:
+  - a key released to a host stays for the session;
+  - exposure depends on *how many distinct hosts* hold a key;
+  - robustness to *f* defectors is a *worst case over subsets*.
+- None of these is a per-assignment additive cost, and none should be solved per request.
+- Placement is latency-critical and decomposes well, so it stays cheap.
 
-The orchestrator is provider-run and assumed reliable (07 §1). Its cluster state lives in the cloud operational DB (07 §2).
+## 2. Orchestrator: cluster arrangement
 
-**State:** membership map `worker → cluster`, per-cluster medoid (RTT space).
+Provider-run, trusted, assumed reliable; state in the operational DB (doc 08).
 
-**Initial clustering:** (also builds each cluster's scheduler succession list, 07 §4.2); k-medoids on worker RTT embedding (lat/lon + last-mile), `k = ceil(N / N_target)`,
-`N_target` from the §8.6 knee (config).
-
-**Triggers (all rule-based, each individually switchable for ablation):**
+- **Initial clustering:** k-medoids on worker RTT embedding, `k = ceil(N / N_target)`. `N_target` is small (tens),
+  from E02. It bounds both the planner MILP size and intra-cluster RTT.
+- **Diversity requirement (new):** each cluster should contain ≥ `D_min` failure domains and enough assurance mass
+  for its hot tenants' floors, so f-robust plans are feasible.
+- **Triggers** (each switchable for ablation):
 
 | Trigger | Condition | Action |
 |---|---|---|
-| Size floor | `size(C) < N_min` (live workers) | Borrow nearest border workers from the largest neighbour; else merge |
-| Size ceiling | `size(C) > N_max` (ILP bound) | Split by 2-medoids |
-| SLO health | EWMA(miss rate) > θ for ≥ `m` periods | Borrow from neighbours with headroom |
-| Demand imbalance | Utilization gap between neighbours > δ | Lend workers to the busy one |
-| Diurnal/forecast | Forecast demand next hour (EWMA of same-hour history) exceeds capacity | Pre-move workers |
-| Drain notice | Worker announces departure | Rebalance before it leaves |
-| Scheduler loss | No scheduler for `T_orphan` and no eligible worker to promote | Reassign its workers to neighbors, router spillover (07 §4.3) |
+| Size floor/ceiling | live attested workers < `N_min` or > `N_max` | Borrow or merge / split |
+| SLO health | Router-observed miss rate > θ for `m` periods | Borrow from neighbors with headroom |
+| Demand imbalance | Utilization gap > δ | Lend workers |
+| Forecast | Next-hour demand exceeds capacity | Pre-move workers |
+| Diversity deficit | < `D_min` domains or infeasible robust plan reported by scheduler | Swap workers with neighbors |
+| Scheduler loss | No progress / no keepalive (doc 07) | Appoint successor; reassign if orphaned |
 
-**Stability:** per-worker cooldown (`min_dwell`), hysteresis deadband on thresholds, max moves per period, and a
-**migration cost** (moved worker loses warm state in old cluster; image cache relevance) subtracted from benefit. Worker
-chosen to move = border worker (min RTT-to-target minus RTT-to-home) with lowest warm-state value.
-`static_regions`, `static_kmeans`, `random_partition` baselines use the same membership structure with the
-orchestrator disabled or replaced.
+- **Stability:** per-worker dwell time, hysteresis, max moves per period, and a migration cost (a moved worker
+  loses trust-warm and cache relevance).
+- Also maintains each cluster's **succession list** (doc 07).
 
-## 3. Global router (orchestrator tier)
+## 3. Router (orchestrator tier, regional)
 
-Routers are the orchestrator tier's front door: stateless apart from a pending-invocation table, provider-hosted.
+`score(c) = rtt(origin, c) + E[completion_c(f)] + penalty(health_c) + trust_cold_penalty(c, t)`
 
-Chooses cluster per request using only `ClusterSummary` (updated every `T_sum`, e.g., 1–5 s):
+- `trust_cold_penalty`: zero if cluster *c* has trust-warm capacity for tenant *t* in its summary; otherwise the
+  expected key release + cold start, plus an exposure increment. **Spillover is therefore a priced decision.**
+- **Progress watchdog:** no `ACCEPTED` within `T_dispatch` triggers a re-send; after `T_spill` it spills over. Repeated
+  stalls are reported to the orchestrator (doc 07).
+- Baselines: `nearest`, `least_loaded`, `po2_nearby`, `warm_aware` (ignores trust).
 
-```
-score(c) = rtt(origin, c) + predicted_cluster_completion(c, fn) + penalty(health(c)) − bonus(warm_fn(c, fn))
-```
+## 4. Slow loop: Trust & Warm-state Planner (TWP)
 
-Default `route=score`; baselines: `nearest`, `least_loaded`, `po2_nearby`, `warm_aware`. **Spillover** occurs when
-the best cluster is saturated (utilization > ρ or SLO-health degraded); an orphaned cluster (control plane lost,
-see 04) is excluded after its summary expires. The router adds a small calibrated decision delay.
+### 4.1 Inputs (from the scheduler's view; all estimates, no ground truth)
 
-## 4. Cluster scheduler pipeline
-
-The cluster scheduler is a **role hosted by a worker**, appointed (with an epoch) by the orchestrator and replaceable by
-any eligible worker (07): there is no replicated log, so a decision is dispatched as soon as it is made. Solve time on
-the scheduler host scales with the host's speed (01 §7). Clusters are kept **small** (tens of workers, `N_target` from
-E02) because ILP cost grows quickly with window size × cluster size.
-
-```
-arrival ─▶ admission ─▶ ┬─ fast path (sync SLO):  immediate greedy over CostMatrix row(s)
-                        └─ window path (async/filler): batch Δ (ms–s) → solve → dispatch
-          periodic: rebalance / prewarm planning (window solver or heuristic)
-```
-
-- `placer_mode: fast | window | hybrid` (default **hybrid**: fast for sync; window for async/filler and for
-  prewarm/rebalance planning). Resolves the spec's "ILP in loop vs. on the side" as a configurable axis (ADR-006).
-- **Admission control:** if predicted `pMiss ≈ 1` on all candidates → reject (sync) or defer (async/filler).
-  Backpressure: bounded cluster queue; overflow triggers router spillover.
-- **Filler class:** placed only on slots idle beyond sync headroom; preempted (killed, re-queued) when a sync
-  invocation needs the slot. Never counted as SLO traffic.
-- **Candidate pruning:** top-`K` workers per invocation by a cheap lower bound (`wait + startup + net`); ILP
-  size is `W×K`.
-
-## 5. Prediction (`policy/predict`)
-
-Interface (batch, vectorized):
-
-```python
-class Predictor(Protocol):
-    def predict(self, fn: IntArr, in_bytes: FloatArr, workers: WorkerFeatures, load: FloatArr) -> LogDist  # [W, N]
-    def update(self, obs: ExecObservation) -> None   # online, from completed invocations only
-```
-
-`LogDist` carries `(mu, sigma, nu)` of log-runtime (Student-t family; Gaussian when `nu=∞`) with `.mean()`,
-`.quantile(q)`, `.cdf(x)`, `.cvar(a)`.
-
-**Default (`blr`)**: Bayesian linear regression in log space with factorized features:
-`log T = f_fn + g·log(in_bytes) − log(speed_node) + δ_node + β·load + ε`. Function and node terms are one-hot with
-**hierarchical shrinkage** (partial pooling); closed-form recursive update with forgetting factor `γ`; a **split-
-conformal scale factor** corrects interval calibration. Cold start: new node's `speed_node` prior from its
-benchmark; new function's prior from the nearest profiled function (by features). Evaluated **online,
-time-ordered** only.
-
-Other registered predictors: `global_mean, worker_mean, fn_mean, pair_mean, ewma, loglinear_ols, gbq_quantile,
-knn_similarity`. Metrics: MAE/RMSE/MAPE/bias/tail error + interval calibration (coverage), plus downstream
-scheduling regret (H6).
-
-**Other cost components** are state + estimates, not learned: `T_net` from per-worker bandwidth/RTT estimates
-(EWMA of observed transfers, benchmark prior), `T_startup` from lifecycle state × calibration distribution,
-`T_wait` from per-core **worker readiness** `ready_at` (running-job residuals conditioned on elapsed time, queued jobs, in-flight dispatches, staleness; 08 §5), so a worker's time-to-start is an explicit cost input.
-
-## 6. Risk: reliability estimate vs. reputation (the double-counting rule, spec §4.4)
-
-Two signals with **disjoint inputs**, which is how double counting is avoided:
-
-| Signal | Answers | Built from | Enters cost via |
-|---|---|---|---|
-| **Survival model** `S(τ ∣ age, tier, local_hour, declared window, drain deadline)` | P(worker stays available over `[now, now+T]`) | Observed session lengths, owner-busy/crash events, declared windows; Weibull per (tier, region) with time-of-day hazard; Kaplan–Meier as comparison | `pFail`, i.e. inside `pMiss` and the failure term |
-| **Reputation** | Commitment-keeping and timeliness (vetted honest nodes, 09) | **Only** broken Tier-1/2 commitments (leaving inside declared window), envelope shortfall, timeliness bonus **Never** owner preemption of Tier 0, crashes, or ordinary failures | `repPenalty` and eligibility threshold |
-
-Hard constraints from known information: a drain deadline `D` removes any placement with predicted completion past
-`D`; declared windows are constraints for Tier 1. Ablations: `no_survival`, `no_reputation`, and
-`reputation_includes_failures` (to show the double-counting effect).
-
-## 7. Cost matrix and scalarization (`policy/cost.py`)
-
-`CostModel.build(invs, view, predictors) → CostMatrix` with **separate named components**, each `[W×N]`:
-
-```
-wait, startup, net, exec (LogDist), pFail, wasted_time, recovery, repPenalty, donorCost, feasible (bool)
-```
-
-Completion distribution per pair: shifted lognormal by moment-matching (Fenton–Wilkinson) of independent terms
-(`wait`, `startup`, `net`, `exec`) plus the failure branch:
-
-```
-pMiss(i,j) = 1 − (1 − pFail(i,j)) · P(T(i,j) ≤ d_i)
-failure cost = pFail · (wasted_time + recovery)      # recovery ≈ expected re-placement latency, approximated
-```
-
-`Scalarizer` maps components to the scalar cost `Ĉ[i,j]` (registered, swappable):
-
-| Name | Ĉ |
+| Input | Source |
 |---|---|
-| `slo_miss` (**primary**, spec §8.1) | `w_i·pMiss + ε·E[T] + λ·repPenalty + donorCost` |
-| `expected` | `E[T] + failure cost + …` |
-| `mean_spread` | `E[T] + κ·sd(T)` |
-| `quantile` | `Q_q(T)` (q = 0.9/0.95) |
-| `cvar` | `CVaR_α(T)` |
-| `tardiness` | `E[max(0, T−d)]` (for invocations that will miss) |
-| `makespan` / `sum_latency` | batch/filler and baseline comparison |
+| Attested workers `J`, slots `cap_j`, memory/SSD/HDD budgets, cache inventory, trust flags `K[t,j]`, attestation expiry | Heartbeats (doc 08 §5) |
+| Survival over horizon `S_j(H)` | Survival model (§6.3) |
+| Omission rate `p_j` and change-point state | Omission model (§6.4) |
+| Assurance `a_j` | Verifier-issued certificate + freshness (doc 04 §8) |
+| Failure domain `d(j)` | Membership data |
+| Demand forecast per hot tenant/function: rate `λ_t`, required concurrent capacity quantile `q_t = Q_0.95(λ_t × service time)` | Arrival forecaster (§6.2) |
+| Tenant sensitivity `σ_t`, assurance floor `a_min,t`, robustness level `f_t` | Tenant config |
+| Previous plan | Scheduler state |
 
-**Correlated failure** is handled by *constraints* in the placer (failure-domain caps, anti-affinity for replicas),
-never by costs.
+**Hot set:** only tenants/functions above a rate threshold (top-k) are planned. The long tail uses the cold path.
+This keeps the MILP small.
 
-## 8. Placers (`policy/place`)
+### 4.2 Robust MILP
 
-All implement `place(PlaceRequest) → Placement`; `PlaceRequest` carries invocations, candidates, `CostMatrix`,
-capacities, time limit. Coupling within a window is handled by **slot expansion**: each node `j` exposes slots
-`(j, k)` for position `k` in its queue; `wait` of slot `k` = base `ready_at` (08 §5) + (k−1)·(predicted mean exec of the window's
-function mix on `j`), the positional-cost trick behind the polynomial matching result (verify: Horn;
-Bruno–Coffman–Sethi).
+**Variables:**
+- `y[t,j] ∈ {0,1}`: tenant *t* is trust-warm on worker *j* for the horizon (key released, artifacts at ≥ L1).
+- `s[f,j] ∈ {0,1}`: snapshot of function *f* pinned on *j* (L2, SSD tier).
+- `w[f,j] ∈ ℤ≥0`: warm VMs of *f* kept on *j* (L3).
+- `c[t,j] ≥ 0`: slots of *j* earmarked for *t* (soft cap for the fast loop).
+- Auxiliaries `θ_t`, `π[t,j] ≥ 0` for the robust constraint.
 
-| Placer | Formulation | Handles |
+**Objective (minimize; each term logged separately for Pareto analysis):**
+
+```
+  Σ_t  ColdPenalty_t · u_t                                              # uncovered demand (u_t ≥ shortfall, below)
++ Σ_j  ρ_mem · (Σ_f m_f w[f,j]) + ρ_ssd · (Σ_f size_f s[f,j])           # donor cost
++ Σ_t  σ_t · Σ_j (1 − a_j) · y[t,j]                                     # exposure (doc 04 §8)
++ Σ_t,j  κ_switch · max(0, y[t,j] − y_prev[t,j])                         # plan churn (linearized)
+- Σ_f,j  β_warm · benefit(f) · (w[f,j] + γ s[f,j])                       # warm-start savings (concave approx.)
+```
+
+**Constraints:**
+
+```
+Robust coverage, per hot tenant t:
+  Σ_j c[t,j]·S_j(H)·(1 − p_j)  −  ( f_t·θ_t + Σ_j π[t,j] )  + u_t  ≥  q_t
+  π[t,j] ≥ c[t,j] − θ_t ,  π[t,j] ≥ 0                         # = sum of the f_t largest c[t,·] (exact, LP duality)
+Coupling:          c[t,j] ≤ cap_j · y[t,j];   w[f,j] ≤ W_max · y[t(f),j];   s[f,j] ≤ y[t(f),j]
+Slots:             Σ_t c[t,j] ≤ cap_j
+Memory:            Σ_f m_f w[f,j] + m_base ≤ M_j          SSD: Σ_f size_f s[f,j] ≤ SSD_j
+Domain cap:        Σ_{j ∈ D} c[t,j] ≤ κ_dom · Σ_j c[t,j]   for every failure domain D
+Assurance floor:   y[t,j] = 0 if a_j < a_min,t
+Freshness:         y[t,j] = 0 if attestation expires within H and no re-quote fits
+```
+
+**Size:** one cluster has ~30 workers × (≤ 20 hot tenants, ≤ 50 hot functions), so about 10³–3·10³ integers.
+
+**Solver:** HiGHS via `scipy.optimize.milp`, deterministic settings, time limit `T_solve` (default 2 s simulated
+budget). Warm-started from the previous plan; falls back to the incumbent, then to greedy.
+
+### 4.3 Greedy planner (baseline and fallback)
+
+For each hot tenant in decreasing `λ_t × ColdPenalty_t`:
+1. Repeatedly add the worker maximizing `S_j(1−p_j) a_j / (memory cost + σ_t(1−a_j))` under the assurance floor and
+   domain cap, until robust coverage holds: coverage with the `f_t` largest contributions removed is ≥ `q_t`.
+2. Then add warm VMs and snapshots by value density until budgets bind.
+
+### 4.4 From plan to actions
+
+`Plan = {y, s, w, c, valid_until}`. `diff(plan_prev, plan)` yields idempotent actions sent to workers:
+
+| Action | Message | Worker effect |
 |---|---|---|
-| `greedy` | Sequential best-cost; updates local state per assignment | Everything approximately; fast path |
-| `mcf` / `matching` | Assignment of invocations to `(node, slot)`; `scipy.optimize.linear_sum_assignment` (or OR-Tools min-cost flow) | Slot capacity, positional queue cost. **Polynomial.** |
-| `lp_round` | LP relaxation of ILP + rounding | Approximation baseline |
-| `ilp` | Binary `x[i,j,k]`, plus `y[f,j]` (function instance started on node: pay start-up once, shared by co-placed invocations of `f`), memory packing `Σ mem ≤ free_mem_j`, failure-domain caps, replica anti-affinity, reputation thresholds. Solver: `scipy.optimize.milp` (HiGHS) default; OR-Tools CP-SAT as a second solver | Everything; **NP-hard** (generalized assignment) |
+| Make trust-warm | `PREPARE(t, fns)` | Request key from KBS; fetch/decrypt bundles (P2P/registry); pin |
+| Pin snapshot | `PIN_SNAPSHOT(f)` | Create (if trust-warm) or fetch from a same-class trust-warm peer |
+| Keep warm VMs | `WARM(f, n)` | Boot/restore n VMs |
+| Unpin / release | `RELEASE(t)` | Unpin; drop key after `T_linger` (no in-flight work) |
 
-Solver options (registered): `time_limit`, `warm_start=greedy`, `pruning_K`. On timeout use incumbent, else fall
-back to greedy; log `status, gap, solve_wall_s`. **The paper shows which constraints force `ilp` over `mcf`**
-(`y` coupling, memory packing, domain caps) with an ablation that removes each constraint and measures quality
-and solve-time differences; if `mcf` ≈ `ilp`, report that.
+Actions are rate-limited per worker (`max_parallel_prepares`) and ordered by value. Workers report completion in
+heartbeats. The plan is valid only for state the worker has *confirmed*, so the fast loop never assumes a trust-warm
+host that is not yet warm.
 
-**Non-VOSS baselines** (same interface, ignore parts of the cost matrix): `random, round_robin, least_loaded,
-jsq, po2, fastest_predicted, latency_aware, reliability_aware, weighted_score, k8s_least_allocated, k8s_binpack,
-k8s_spread, warm_first, hash_locality, min_min, sufferage, boinc_pull_replicate, condor_match, nearest_edge`.
-Full list and which are Phase 8 vs. nice-to-have in 06.
+## 5. Fast loop: placement
 
-## 9. Failure handling (`policy/retry`)
+### 5.1 Candidates for invocation *i* of tenant *t*
 
-On a failure outcome, `RetryPolicy` decides: `retry_same | retry_other | retry_most_reputable | retry_lowest_cost`,
-`max_attempts`, optional **hedge** after `h` ms (idempotent functions only; tied-request cancel), optional
-**cross-cluster retry**, and optional **replication** for critical invocations (domain-spread). Retries re-enter
-the placer with the failed worker excluded and the elapsed time counted; wasted and duplicate work are logged.
-Failures are never treated as infinite latency; they are retried and counted as misses. Failure *detection* (predictor-driven
-watchdogs, accrual detector), hedge budgets and retry-storm control are specified in 07 §5.
+1. **Trust-warm candidates:** `{j : y[t,j]=1, confirmed}` with remaining earmarked slots `c[t,j]` (soft) and free
+   slots (hard).
+2. **Cold-path candidates:** other attested workers meeting the assurance floor. Their cost adds key release
+   (KBS RTT), artifact fetch, and an **exposure increment** `σ_t(1−a_j)` when *j* is new for *t*.
+3. Pruned to top-`K` by a cheap lower bound.
 
-## 10. Lifecycle policies (C4, `policy/keepalive.py`)
+### 5.2 Cost matrix
 
-- `KeepAlivePolicy.ttl(worker, fn, view) → seconds`: `none | fixed | histogram (Shahrad) | greedy_dual
-  (FaasCache-style) | churn_aware` (TTL scaled by worker survival and reputation, bounded by donor memory budget).
-- `PrewarmPolicy.plan(forecast, view) → [(worker, fn, target_state)]`: from per-cluster arrival forecasts
-  (EWMA by hour); run on the window path/periodically; bounded by donor memory/disk budgets.
-- Snapshots on/off, P2P seeding on/off are config flags in the lifecycle model.
-- Placement preference for `S3 > S2 > S1 > S0` emerges from `startup` cost vs. `wait` and risk in the matrix, not
-  from a hard rule (that rule exists only as the `warm_first` baseline).
+For each candidate pair `(i, j)` the cost model (`policy/cost`) produces named components:
+
+```
+wait       = ready_at[j] (per-core readiness, doc 08 §5)
+trust      = 0 if K[t,j]=1 else KBS_rtt(j, t) + check
+startup    = ladder cost from the worker's cache level for f (L3 ≈ 0, L2 restore@tier, L1 boot+init@tier, L0 fetch+…)
+net        = input + output transfer over geo network (+TLS)
+exec       = LogDist from the predictor × substrate slowdown
+pFail      = 1 − S_j(T_completion) · (1 − p_j)          # churn + omission
+exposure   = σ_t (1 − a_j) if j not yet a key-holder for t else 0
+```
+
+The completion distribution is a moment-matched shifted lognormal over `wait + trust + startup + net + exec`.
+
+| Scalarizer | Formula |
+|---|---|
+| **`slo_miss`** (default) | `w_i·pMiss + ε·E[T] + λ_exp·exposure` |
+| Others (sweeps) | `expected`, `mean_spread`, `quantile`, `cvar`, `tardiness` |
+
+### 5.3 Placers
+
+| Placer | Use |
+|---|---|
+| `greedy` (default, sync) | Best scalar cost; updates local bookkeeping |
+| `flow` (async/filler windows) | Min-cost assignment of window invocations to `(worker, slot)` pairs; polynomial |
+| `ilp_window` (baseline only) | Old per-window ILP, kept to show the slow/fast split is better |
+| Baselines | `random, round_robin, least_loaded, jsq, po2, warm_first, latency_aware, reliability_aware, k8s_*, nearest_edge, hash_locality` |
+
+All placers see the same candidates and cost matrix.
+
+### 5.4 Hedging, retries, admission
+
+- **Hedge** (idempotent, sync): if `pMiss(best) > θ_hedge` and the cluster hedge budget allows, send a tied duplicate
+  to the best trust-warm candidate **in another failure domain**, and cancel the loser on first `RESULT`. This is the
+  main defense against black-holing and on-off hosts.
+- **Retry:** on a watchdog or failure, re-place with the failed worker excluded. Prefer trust-warm candidates; elapsed
+  time counts.
+- **Admission:** if no candidate has `pMiss < 1−ε`, reject (sync) or defer (async).
+- **Filler:** only on slots idle beyond sync headroom; preempted by sync.
+
+## 6. Prediction (`policy/predict`, `policy/survival.py`, `policy/omission.py`)
+
+### 6.1 Execution time
+
+Bayesian log-linear regression with hierarchical shrinkage, a forgetting factor and conformal calibration (unchanged
+design):
+- `log T = f_fn + g·log(in_bytes) − log(speed_j) + δ_j + β·load + ε`.
+- Priors come from SeBS profiling on node C0 (doc 10).
+- Online and time-ordered evaluation only.
+
+### 6.2 Arrival forecast (feeds the planner)
+
+Per hot tenant/function per cluster: EWMA of rates at two scales (minutes, same hour of past days) plus a Poisson
+quantile for `q_t`. Baselines: last-value, oracle (analysis only).
+
+### 6.3 Survival (churn)
+
+Session residual life `S_j(τ | session age, tier, local hour, drain notice)`:
+- Weibull per (tier, region) with time-of-day hazard; Kaplan–Meier as a comparison.
+- Drain notices are **hints that only shorten** predicted life (doc 07: they may be fake).
+
+### 6.4 Omission (adversaries)
+
+- `p_j` = Beta posterior on accepted invocations that end in a result vs omission.
+- **Change-point detection** (CUSUM on omission indicators): when it fires, the host's trust-warm eligibility is
+  reset and `p_j` restarts from a pessimistic prior. This defeats on-off attackers.
+- **Robustness does not rely on this model:** the planner's `f_t`-robust coverage holds against *any* `f_t`
+  defectors, including ones with a perfect record.
+- `f_t = ⌈α_assumed · N_cluster⌉` by default; tenants may opt down.
+
+**Reputation is separate** (doc 09): it measures declared-commitment behavior and feeds rewards. It never double
+counts `p_j`.
+
+## 7. Baselines and ablations (scheduler side)
+
+- **Planning:**
+  - `none` (reactive cold path only);
+  - `keepalive_ttl` (classic per-function keep-alive, no trust planning);
+  - `greedy` planner;
+  - MILP variants: `−robust (f=0)`, `−exposure (σ=0)`, `−domain_cap`, `−freshness`;
+  - `oracle_demand` (analysis only).
+- **Placement:** listed in §5.3, all with the same plan.
+- **Hedging:** off / always / risk-proportional.
+- **Detection:** progress-based vs heartbeat-only (doc 07).
+- **Cache:** value-density vs LRU; P2P on/off; HDD tier on/off.
+
+## 8. Where integer programming is justified (answers spec RQ16)
+
+Only the planner needs it, for:
+- set coverage (`y`);
+- the robust top-f coverage;
+- the memory/SSD knapsack;
+- domain caps;
+- the coupling between `y`, `s` and `w`.
+
+Placement decomposes into assignment/flow. Experiment E04 compares MILP vs greedy planner vs no planner. **Kill
+criterion:** if the MILP improves P99 by < 5% over greedy in all regimes, greedy becomes the method and the MILP is
+reported as an upper-bound reference.

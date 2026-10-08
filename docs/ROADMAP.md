@@ -1,96 +1,121 @@
 # Roadmap
 
-Each phase ends with a demo command and **exit criteria**. Do not start phase *n+1* until *n* passes. Sizes are
-relative (S/M/L). Critical path for the paper's headline (C1–C4, C6): P0 → P1 → P2 → P3 → P4 → P5 → P8 → P10.
-P6 and P7 (accounting, succession) run after P5; P9 is a parallel track.
+Build **one phase at a time**. Each phase ends with a demo command and **exit criteria**; do not start phase *n+1*
+until *n* passes. Open a PR per phase and merge it yourself when the exit criteria pass. Sizes are relative (S/M/L).
 
 ```
-P0 ─ P1 ─ P2 ─ P3 ─ P4 ─ P5 ─┬─ P6 ──┐
-                             ├─ P7 ──┼─ P8 ─ P10
- P9 (calibration, parallel from P1) ─┘
+P0 ─ P1 ─ P2 ─ P3 ─ P4 ─ P5 ─ P6 ─ P7 ─ P8 ─ P10
+      └──── P9 calibration (parallel from P1; needs the real node) ────┘
 ```
+
+Critical path for the paper's headline (C2 two-timescale scheduler, C4 cold-start characterization, C5 viability
+map): P0 → P4, then P6 and P10, with P9 in parallel.
 
 ## P0 · Scaffold (S)
-- `pyproject.toml` + committed `uv.lock`, `Dockerfile`, `Makefile`, ruff/mypy/pytest, `.importlinter` encoding the
-  layer rules and the actor-isolation rule, CI workflow (incl. `make repro-smoke`).
-- `core`: kernel, rng streams, config (pydantic), registry, `types.py`, `DecisionClock` (all three modes stubbed),
-  `metrics.Recorder`, run manifest, `voss run` and `voss repro` CLIs.
-- **Exit:** `make check` green; kernel determinism test; RNG stream independence test; import-linter fails if
-  `policy` imports `world`; `voss repro` reproduces a toy run's result hash.
+- `pyproject.toml` + `uv.lock`, `Dockerfile`, `Makefile` (`check test run repro-smoke sweep figs paper`), ruff, mypy,
+  pytest, `.importlinter` (layer rules + actor isolation), CI.
+- `core/`: kernel, rng streams, `types.py`, `messages.py` (empty skeletons), pydantic config, registry, decision clock
+  (three modes stubbed), recorder, run manifest; `voss run` and `voss repro` CLIs.
+- **Exit:**
+  - `make check` green;
+  - kernel determinism test;
+  - RNG independence test;
+  - import-linter fails on `policy → world`;
+  - `voss repro` reproduces a toy run's hash.
 
 ## P1 · World and scenarios (M)
-- `geo` (city table), `worker`, `network` with `net.send` (geo RTT, bulk transfer, loss/partition hooks), `availability` (Weibull + diurnal + regional shocks + drain events),
-  `workload` (functions yaml, Zipf/MMPP arrivals, SLO classes), `scenario` (generate, hash, store).
-- **Exit:** `voss gen-scenario` produces a hashed scenario; message delay grows with great-circle distance and
-  messages to down hosts are lost (tests); statistical sanity tests (session-length tail,
-  timezone-shifted supply waves, regional correlation > independent baseline, arrival rate/Zipf fit); sanity plots.
-- Start **P9 in parallel** now (wall-clock measurements are slow).
+- `geo`, `hardware` (classes; C0 placeholder until P9), `workers`, `sessions` (donation sessions per tier, diurnal,
+  heavy-tailed, regional shocks, fake drains), `adversary` traces, `network` with `net.send`, `resources` (Cpu, Disk
+  tiers, Link, Tpm, Psp), `workload` (functions, tenants, arrivals, SLO classes), `substrate` YAML loader (schema +
+  validation), `scenario` (generate, hash, store).
+- **Exit:**
+  - `voss gen-scenario` produces a hashed scenario;
+  - tests: delay grows with distance, messages to down hosts are lost, session tails are heavy, timezone waves exist,
+    adversary schedules match their spec;
+  - all five substrate YAMLs validate.
+- **Start P9 now** (suites `caps`, `disk`, `fc_boot`, `fc_snapshot`, `sebs`, `tpm` on the real node).
 
-## P2 · Data-plane vertical slice (L)
-- `lifecycle` (S0–S4, memory/disk accounting), `execution`, `observe` (heartbeats as messages, views), `Actor`
-  base and `WorkerAgent`, **`Orchestrator` + `OperationalDB` actors that appoint the scheduler with an epoch, and the scheduler as a
-  `SchedulerRole` actor** reached only by `net.send` (epoch/token fields in dispatch, router pending table and
-  `ACCEPTED`/direct-result path already in place; no failover logic yet), single
-  global cluster with `random` and `least_loaded` placers, basic retry, recorder, invariants.
-- **Exit:** `voss run configs/smoke.yaml` (1k workers, 1 h) finishes in <5 min; all invariants in 05 §6 pass;
-  latency components sum to end-to-end; cold-start state shares and failure counts plausible; deterministic rerun.
+## P2 · Vertical slice: attested execution end to end (L)
+- `world/lifecycle.py` (generic ladder engine) + `world/cache.py` (three tiers, content addressing, LRU only for now)
+  + `execution`.
+- `observe` (heartbeats → views).
+- Actors:
+  - `worker_agent` (session establishment, attestation, key requests, ladder, results with receipts);
+  - `verifier` (session certs, re-quotes, revocation);
+  - `tenant_kbs`;
+  - `orchestrator` + `opdb` (one cluster, appointment by epoch CAS);
+  - `router` (pending table, `ASSIGNED`/`INPUT`/`ACCEPTED`/`RESULT`, receipts to DB);
+  - `scheduler_role` with `random` and `least_loaded` placement and basic retry.
+- Substrates: `none`, `appliance_tpm`.
+- **Exit:**
+  - `voss run configs/smoke.yaml` (1k workers, 1 h) in < 5 min;
+  - all invariants of doc 05 §7 pass;
+  - latency components sum to end-to-end;
+  - trust-cold vs trust-warm visible in logs;
+  - deterministic rerun.
 
-## P3 · Prediction, cost and placers (L)
-- `policy/predict` (means, ewma, blr+conformal), `survival`, `cost` + scalarizers, placers (`greedy`, `matching`,
-  `lp_round`, `ilp` with HiGHS; CP-SAT optional), fast/window/hybrid modes, decision clock in both modes, baseline
-  placers (first six in 06 §3), **worker readiness `ready_at` / time-to-start from `WorkerState` (08 §5) as an explicit cost input**.
-- **Exit:** `mcf == ilp` on uncoupled random instances (property test); online predictor eval harness with coverage
-  report; **pilot of E02/E03/E04** on a single cluster; placers respect all constraints.
+## P3 · Prediction and fast loop (L)
+- `policy/predict` (means, ewma, blr + conformal, arrival forecaster), `survival`, `omission` (Beta + CUSUM), `cost`
+  (components incl. readiness/trust/startup/exposure, completion distribution, scalarizers), placers (`greedy`,
+  `flow`, `ilp_window` baseline, first baselines), `hedge`, `retry`, `admission`, decision clock (all modes).
+- **Exit:**
+  - `flow == ilp_window` on uncoupled instances (property test);
+  - online predictor evaluation report;
+  - pilots of E03 and the simulated side of E-CS1.
 
-## P4 · Hierarchy (L)
-- Initial clustering (k-medoids), `router` (score + baselines), `orchestrator` (triggers, stability controls),
-  per-cluster scheduler instances, cluster summaries, spillover; static/random/global baselines.
-- **Exit:** pilots of E05, E06, E10; no thrashing (moves/worker/hour bounded in test); global-ILP gap measured at
-  small scale.
+## P4 · Slow loop: trust and warm-state planner + cache policy (L) ★ core novelty
+- `policy/plan` (types, `greedy`, `milp` with robust top-f coverage, domain caps, exposure, switching cost, memory/SSD
+  knapsack; `diff` → actions), plan actions in `worker_agent` (`PREPARE`, `PIN_SNAPSHOT`, `WARM`, `RELEASE`),
+  `cache_value` (GDSF value density, pins, P2P source scoring, SSD↔HDD promotion), planner timers in
+  `scheduler_role`, `plans.parquet` logging.
+- **Exit:**
+  - brute-force test: on tiny instances, plans keep coverage after removing any *f* workers;
+  - MILP is never worse than greedy on the objective;
+  - pilots of E02, E04, E09, E23.
 
-## P5 · Risk, reputation, lifecycle policies, drain, tiers (L)
-- Reputation rules + fair punishment + newcomer/probation; risk in cost (`pFail` from survival, drain deadlines);
-  retry/hedge/replication policies; keep-alive/prewarm policies; snapshots and P2P seeding; filler class; tiers;
-  graceful drain handling and handover.
-- **Exit:** pilots of E08, E09, E14, E16; double-counting ablation works; no starvation in long-horizon test.
+## P5 · Geo hierarchy (M)
+- Clustering (k-medoids + diversity), router scoring with trust-cold penalty, orchestrator triggers, static/global
+  baselines, cluster summaries.
+- **Exit:**
+  - pilots of E05, E06, E07, E10;
+  - bounded migrations per worker per hour.
 
-## P6 · Work log, credits and reputation updates (S)
-- Routers append `invocation_log` (batched, async); orchestrator `worker_events`, reputation update and credit batch
-  job; scheduler credits from `scheduler_roles`; completeness assertion against simulator ground truth.
-- Optional: `canary_audit` extension.
-- **Exit:** E13/E12 pilots; invocation records identical with accounting on or off; work log complete under random
-  scheduler crashes.
+## P6 · Fault tolerance and adversaries (L)
+- Progress-based detection (router dispatch watchdog, scheduler result watchdog, stall reports, decision-latency SLO),
+  suspicion, succession (instance-bound appointment, fencing, roll call, checkpoint incl. plan, warm standbys, planned
+  handover, self-fence), `fault_driver` (adversary effects, partitions).
+- **Exit:**
+  - property tests under random fault schedules: no stale-epoch execution, no lost invocations;
+  - pilots of E08, E14, E15, E16.
 
-## P7 · Succession and crash tolerance (L)
-- `Succession`: appointment by epoch CAS in `OperationalDB`, ranked succession list (survival × speed × centrality,
-  failure-domain diversity, hysteresis), keepalive + accrual failure detector, worker `SUSPECT`, `EPOCH_INSTALL`,
-  **roll call**, router pending retention with `T_dispatch`/spill-first, worker-side epoch fencing and token dedupe,
-  scheduler checkpoints + worker outcome retention + replay, warm standbys (`K`), self-fence lease, planned handover
-  (drain, owner-preempt grace, hazard-triggered).
-- Worker crash tolerance: predictor-driven watchdogs, accrual detector, push-signal handling, risk-proportional
-  hedging with budget, retry storm control, crash-recover rejoin.
-- `FaultInjector` (scheduler/worker crash patterns, partitions). Baselines `ha: none`.
-- **Exit:** property tests (05 §6) pass under random fault schedules; E15/E21 pilots with failover timeline;
-  invariants: in-flight invocations survive scheduler failure, zero execution from a stale epoch after install,
-  no invocation lost.
-- **P7b (only if E21 needs the comparison):** `raft_group(r)` baseline (replicated-log scheduler).
+## P7 · Accounting and reputation (S)
+- Receipt verification and logging, credits (reference work units, cache-donation credit, scheduler credit),
+  reputation (`beta_decay` + variants).
+- **Exit:**
+  - receipts complete vs ground truth under faults;
+  - pilots of E12 and E13.
 
-## P8 · Baselines, reference clouds, runner, analysis (L)
-- Remaining baselines; `ref_lambda_like`/`ref_azure_like`; sweep runner with multiprocessing; analysis library,
-  figure registry; scalability mode (10⁵ workers); ablation switches.
-- **Exit:** `make sweep EXP=E19` and `make figs` reproduce tables/figures from a clean checkout.
+## P8 · Breadth: substrates, references, runner, analysis (L)
+- Substrate YAMLs for `cvm_snp`, `coco_pool`, `drtm_hv` (literature ranges; `Psp` resource used), reference clouds,
+  remaining baselines, sweep runner, analysis library, figure registry, scalability mode, ablation switches.
+- **Exit:**
+  - `make sweep EXP=E19` and `make figs` reproduce figures from a clean checkout;
+  - E17 and E18 pilots.
 
-## P9 · Calibration and validation (M, parallel track)
-- Firecracker boot/restore/init microbench; SeBS profiling on reference hardware; fit availability and arrivals to
-  traces; RIPE/M-Lab-style network fit; reference-cloud calibration; optional SimGrid micro-scenario cross-check;
-  solver-time model fit. Validation notes in `docs/validation/`.
-- **Exit:** E01 report with errors per model; placeholders in `configs/` replaced or flagged.
+## P9 · Calibration and validation (M, parallel)
+- `tools/calibrate/` suites (doc 10 §3), `ingest.py`, the measured calibration bundle for C0; manual suites `tme` and
+  `appliance` (with user approval).
+- P9b (optional): single-box emulation testbed (doc 10 §4).
+- **Exit:**
+  - calibration bundle committed and hashed;
+  - E-CS1 measured table;
+  - E01 validation errors reported in `docs/validation/`.
 
 ## P10 · Paper experiments (M)
-- Freeze configs; run E02–E20 with ≥ 10 seeds; regime maps (E20); negative results; figure polish; artifact
-  README.
-- **Exit:** every paper figure regenerates from `make figs`; manifests archived.
+- Freeze configs; run everything with ≥ 10 seeds; E20 viability map; Pareto fronts (E23); negative results.
+- **Exit:** every paper figure regenerates via `make paper`.
 
-## Parked (do not build unless a result demands it)
-Workflows (SeBS-Flow), real trace loaders beyond Azure/FTA, SimGrid backend, ML-heavy predictors beyond
-`gbq/knn`, EigenTrust full, scenario-based stochastic program, transparency log (09 §4), real testbed.
+## Parked
+Workflows (SeBS-Flow), GPU functions (the node has 2 × RTX 4060 Ti; no confidential GPU path on consumer hardware),
+provider-signed transparency log, padding against traffic analysis, DRTM real implementation, real multi-machine
+deployment.

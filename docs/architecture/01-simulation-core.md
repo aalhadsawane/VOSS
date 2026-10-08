@@ -1,137 +1,122 @@
 # 01 · Simulation Core
 
-## 1. Engine choice (see ADR-001)
+## 1. Method: measure locally, simulate globally (D-11)
 
-A **custom Python discrete-event kernel** (`heapq` of timestamped callbacks), not SimGrid. Reasons: (a) the
-spec's key physics for FaaS is network transfer, disk read, CPU slots and fixed delays, which are small to model
-directly; (b) real solver wall-time must be injected into simulated time, which is trivial in-process; (c) 10⁴–10⁵
-workers need cheap per-worker state; (d) the team ships faster. The resource models sit behind narrow interfaces
-(`Network.send`, `Disk.read`, `Cpu.run`) so a SimGrid backend can be validated against them on micro-scenarios
-(Roadmap P9, optional). The paper reports this as a stated threat to validity plus that validation.
+- **Engine:** a custom Python discrete-event kernel. No simulator models TEEs or attestation, and FaaS physics
+  (transfer, disk, CPU slots, fixed delays) is small to model directly. Solver wall time must enter simulated time.
+- **Everything distributed is simulated:** geography, churn, adversaries, clusters, 10³–10⁵ workers, scheduling. It is
+  bit-reproducible.
+- **Everything node-local that we can run is measured** on the real calibration node (Intel i7 12th gen, 128 GB, NVMe
+  SSD + HDD, Intel PTT) by the harness in doc 10, and ingested as distributions.
+- **Everything we cannot run** (server CVMs) comes from literature as **ranges**, and conclusions are checked across
+  the range.
+- **Validation:** a single-box emulation testbed (doc 10 §4) runs small scenarios for real and is compared with the
+  simulator.
 
 ## 2. Kernel API (`core/kernel.py`)
 
 ```python
 class Kernel:
-    now: float                                   # seconds, float64
-    def at(self, t: float, fn, *args) -> Handle  # schedule absolute
+    now: float                                   # seconds
+    def at(self, t: float, fn, *args) -> Handle
     def after(self, dt: float, fn, *args) -> Handle
     def cancel(self, h: Handle) -> None
     def run(self, until: float) -> None
 ```
 
-- Callback style (no coroutines): easy to profile and to keep deterministic. Ties broken by insertion sequence.
-- No component sleeps; components schedule continuations. Long activities are chains: `transfer → disk → cpu → done`.
-- Units: seconds in sim time, bytes, MB for memory, ms only in reported metrics.
+- Callbacks, not coroutines. Ties broken by insertion sequence. Long activities are chains of continuations.
+- Units: seconds, bytes, MB for memory; ms only in reports.
 
 ## 3. Determinism and RNG
 
-- `core.rng.stream(name, *keys)` returns a `numpy.random.Generator` seeded by `hash(master_seed, name, keys)`.
-  Example: `stream("avail", worker_id)`, `stream("exec", inv_id)`. Adding a component never perturbs another's stream.
-- **True runtime of an invocation is drawn from its own stream at dispatch**, independent of the scheduling
-  decision, so every compared system sees the same underlying randomness (common random numbers).
-- Iterate dicts/sets only in sorted order wherever the order affects behavior.
+- `core.rng.stream(name, *keys)` → `numpy.random.Generator` seeded by `hash(master_seed, name, keys)`. Streams are
+  independent, so adding a component never perturbs another.
+- **Common random numbers:** an invocation's true runtime, noise and failure draws come from its own stream, so every
+  compared system sees the same underlying randomness.
+- Iterate sets and dicts in sorted order wherever order affects behavior.
 
 ## 4. Scenario = precomputed exogenous traces
 
-A `Scenario` is generated once from `(config, seed)` and hashed; all systems in a comparison replay it.
+Generated once from `(config, seed)`, hashed, and replayed by every compared system.
 
-| Trace | Content | Generator (see 02) |
-|---|---|---|
-| `WorkerTable` | Workers with static attributes, location, tier, hardware class, failure domain | `world.worker` |
-| `AvailabilityTrace` | Per-worker events: `JOIN, OWNER_BUSY(grace), OWNER_IDLE, DRAIN_NOTICE(deadline), LEAVE, CRASH, RECOVER` | `world.availability` |
-| `ArrivalTrace` | `(t, fn, origin_city, payload_in, slo_class)` | `world.workload` |
-| `LinkTable` | Per-worker access bandwidth up/down, last-mile RTT; city-pair base RTT | `world.network` |
-| `ControlFaultTrace` | Extra control-plane faults and partitions, separate so it can be swept independently | `runtime.faults` |
+| Trace | Content |
+|---|---|
+| `WorkerTable` | Workers: hw class, substrate, tier, location, failure domain, link, identity, firmware policy |
+| `SessionTrace` | Per worker: `BOOT_START, ATTESTED, DRAIN_NOTICE(deadline, is_fake), SESSION_END(abrupt/graceful), JOIN/LEAVE platform` |
+| `AdversaryTrace` | Per worker: behavior and its schedule (on/off windows, collusion events) |
+| `ArrivalTrace` | `(t, fn, tenant, origin_city, in_bytes, slo_class)` |
+| `LinkTable` | Access bandwidth, last-mile RTT, city-pair base RTT |
+| `ControlFaultTrace` | Extra partitions/crashes for control-plane experiments |
 
-Storage: Parquet/npz under `runs/scenarios/<hash>/`. Real traces (Azure arrivals, Failure Trace Archive) enter by
-providing a loader that outputs the same trace schema.
+Stored under `runs/scenarios/<hash>/` (Parquet/npz). Real traces (Azure arrivals, availability datasets) enter
+through loaders that emit the same schema.
 
 ## 5. Ground truth vs. observed state
 
 ```
-world.*  (true state)  ──heartbeat messages──▶  observe.StateStore  ──▶  ClusterView (immutable, timestamped)
-                                                                    └─▶  ClusterSummary (router/orchestrator)
+world.* (truth) ──HEARTBEAT messages──▶ observe.StateStore ──▶ ClusterView (immutable, as_of)
+                                                         └──▶ ClusterSummary (router/orchestrator)
 ```
 
-- Workers emit heartbeats every `heartbeat_s` (config) to **the active scheduler of their cluster (and its warm standbys, 07 §4.2)**, carrying: free
-  cores, free memory, per-function lifecycle states, queue length, load. Heartbeats are `net.send` messages, so
-  network delay (and optional loss) applies. Each recipient keeps its own `StateStore`.
-- **Push events** also use `net.send`: drain notices, owner-busy-with-grace, outcomes. Abrupt crashes are only
-  observed via missed heartbeats (timeout `3×heartbeat_s`).
-- A `ClusterView` is a frozen dataclass of numpy arrays plus `as_of` time and per-worker age. Policies receive views
-  only; they have no reference to `world`. This is the enforcement point for the information boundary.
-- A scheduler's own dispatch decisions update its **local optimistic bookkeeping** (slots it has committed) so it
-  does not double-assign between heartbeats; this is soft scheduler state, rebuilt by roll call after a failover (07 §4.3), not the world.
-- Heartbeat/monitoring traffic is counted (messages, bytes) as scheduling overhead.
+- Heartbeats (`WorkerState`, doc 08 §5) go to the active scheduler and warm standbys every `heartbeat_s`.
+- Push events (outcomes, accepted, drain hints) use `net.send` too.
+- Views are frozen dataclasses of numpy arrays with `as_of` and per-worker age. Policies get views only, never the
+  world. The scheduler's own dispatches since `as_of` live in its soft bookkeeping (`inflight`).
 
-## 6. Network lag and the actor model
-
-**All cross-node interaction is a message with geo-derived delay.** This is both the realism requirement
-(geo-distribution drives latency) and the anti-spaghetti rule.
+## 6. Actors, messages and the network
 
 ```python
-class Network:                       # world/network.py
-    def send(self, src: NodeId, dst: NodeId, msg, size_bytes: int, kind: str) -> None
-    # delivers msg to dst.on_message(msg) at now + delay, unless src/dst is down, dropped, or partitioned
-    def rtt(self, a: NodeId, b: NodeId) -> float
+class Actor:                       # runtime/actor.py
+    host: WorkerId | InfraNodeId   # dies with its host (memory lost)
+    def on_message(self, msg: Message) -> None: ...
+
+class Network:                     # world/network.py
+    def send(self, src, dst, msg: Message, size_bytes: int) -> None
+    # delivers dst.on_message(msg) at now + geo delay, unless src/dst is down, partitioned or dropped
 ```
 
-- **Delay** = `RTT/2 + size / effective_rate` for bulk data (with access-link sharing, 02 §3) or `RTT/2 + jitter` for
-  small control messages. RTT comes from the geographic model:
-  `last_mile_a + last_mile_b + great_circle_km / c_eff × route_factor`, plus jitter. Registry, storage and
-  the orchestrator tier and cloud DB are nodes with cloud-region locations; workers are nodes with their own locations.
-- **Failure behavior:** a message to a down host is silently lost (senders detect via timeout); optional per-link
-  loss probability and **partitions** (from `ControlFaultTrace`) drop messages in a window.
-- **Actors:** every runtime entity (`WorkerAgent`, `SchedulerRole`, `Router`, `Orchestrator`) is an `Actor` with a `host: WorkerId` and `on_message(msg)`. When the host crashes, leaves or is
-  preempted the actor dies (memory lost; disk state survives a crash-recover). The orchestrator tier (orchestrator, routers, operational DB) runs on provider-hosted nodes that never crash (07 §1). Actors may call
-  `kernel.after` for timers and `net.send` for communication, **never another actor's methods**.
-- Message counts and bytes per `kind` are logged for overhead metrics.
+- **All cross-node interaction is a `net.send`.** Actors set timers with `kernel.after` and never call or import each
+  other. Message types are frozen dataclasses in `core/messages.py`.
+- **Simulated node resources** (`world/resources.py`), all FIFO or processor-sharing servers with calibrated rates:
+  - `Cpu(slots)`;
+  - `Disk(tier ∈ {ssd, hdd}, read_MBps, write_MBps)`;
+  - `Link(up, down)`;
+  - `Tpm` (one quote at a time, quote-latency distribution);
+  - `Psp` (for `cvm_snp`: CVM launches serialize).
+- TLS channels: a handshake cost on first use per peer pair per session, then per-message CPU overhead.
 
-## 7. Decision latency (spec §8, §14: "never hide overhead")
+## 7. Decision latency (never free)
 
-`DecisionClock.charge(kind, work_units, host) → seconds` is called before a runtime actor applies a decision;
-the decision takes effect at `now + charge`.
+`DecisionClock.charge(kind, work, host) → seconds`, applied before a decision takes effect.
 
 | Kind | `measured` | `modeled` (default for sweeps) | `replay` |
 |---|---|---|---|
-| `solve` (ILP/MCF/greedy) | wall-clock of the solver call × `cpu_scale` ÷ `host.speed` | fitted `a + b·W·K` per placer ÷ `host.speed` | read logged solve times from a previous run's `solver.parquet` |
-| `cost_matrix` | wall-clock of the build, same scaling | fitted `a + b·W·N` | logged |
-| `router`, `orchestrator` | constant + per-cluster term | same | same |
-| `coordination` | emerges from `net.send` (appointment, roll call, checkpoint RTTs to the orchestrator/cloud DB, 07) | same | same |
+| `plan` (MILP / greedy) | Wall clock × `cpu_scale` / host speed | Fitted `a + b·vars` | From the logged `solver.parquet` |
+| `place` (cost matrix + placer) | Same | Fitted `a + b·K` | Logged |
+| `route`, `orchestrate` | Constant + per-cluster term | Same | Same |
+| Coordination | Emerges from `net.send` | — | — |
 
-- The **scheduler host's speed** scales solver time (a slow volunteer schedules slowly), tying scheduler placement
-  (07 §4) to decision latency.
-- `measured` is used for E02 (solver tail behavior) and logs every call (`solve_wall_s`, status, gap). Because wall
-  time is not reproducible, `replay` mode re-runs the same experiment deterministically from those logs. A paper result
-  from a `measured` run is reproduced via `replay`.
-- In `modeled`/`replay` modes, solvers use **deterministic limits** (single thread, fixed seed, node/iteration
-  limit); the wall-clock `time_limit` applies only in `measured` mode.
+- `measured` drives E02/E04 solver studies. `replay` reproduces those runs bit-for-bit.
+- Solvers run single-threaded with fixed seeds and deterministic limits in `modeled`/`replay` modes.
 
-## 8. Performance budget
+## 8. Reproducibility contract
 
-Target: 1k workers × 1 simulated hour × ~100 invocations/s in < 5 wall-minutes on a laptop; 10⁵ workers for the
-scalability experiment using fast-path placement, coarser heartbeats and a shorter horizon. Rules: vectorize cost
-matrices in numpy; keep per-worker state in struct-of-arrays inside `WorkerPool`; avoid per-event object churn in hot
-paths. Profile before optimizing.
+1. **Pinned environment:** `uv.lock`, `Dockerfile`, `OMP/MKL/OPENBLAS_NUM_THREADS=1`.
+2. **Run manifest:** git SHA (dirty refused for paper runs), resolved config, scenario hash, **calibration bundle
+   hash**, seeds, versions, clock mode, result hash.
+3. **Entrypoints:**
+   - `voss run <config>`;
+   - `voss repro <manifest>` (asserts the result hash);
+   - `make repro-smoke` (CI);
+   - `make paper` (all experiments → tables and figures).
+4. **Calibration bundles** (`configs/calibration/measured/<host_fingerprint>/`) are versioned data with the
+   harness version and raw logs; `voss calibrate ingest` turns raw logs into fitted distributions deterministically.
+5. Figures are registered functions of run directories and embed the manifest hashes they used.
+6. No unseeded randomness (lint bans global `random` and `np.random.*`).
 
-## 9. Reproducibility contract (ADR-019)
+## 9. Performance budget
 
-Everything in the paper must be reproducible by someone else with one command.
-
-1. **Pinned environment:** `uv.lock` committed; `Dockerfile` pins OS, Python and solver wheels; CI builds it.
-   `OMP/MKL/OPENBLAS_NUM_THREADS=1`, solvers single-threaded with fixed seeds, to avoid nondeterministic float
-   reduction order.
-2. **Run manifest** (`manifest.json` per run): git SHA (+ dirty flag, refused for paper runs), full resolved config,
-   scenario hash, seeds, library versions, decision-clock mode, host info, wall time, event counts, result hash.
-3. **One-command entrypoints:** `voss run <config>`, `voss repro <manifest.json>` (re-executes and **asserts the
-   result hash matches**), `make repro-smoke` (small golden scenario, runs in CI), `make paper` (all experiments
-   → tables and figures).
-4. **Determinism levels:** `modeled` and `replay` modes are bit-identical across reruns on the same lockfile;
-   `measured` mode is reproduced only via `replay`.
-5. **Results are derived, not hand-edited:** every figure/table is a registered function of run directories,
-   named by experiment id; figure files embed the manifest hashes they were built from.
-6. **Seeds:** experiment configs list seeds explicitly; no unseeded randomness (lint: ban global `random` and
-   `np.random.*`).
-7. **Provenance of inputs:** traces and calibration data are versioned files with source, date and checksum in
-   `configs/calibration/SOURCES.md`.
+- 1k workers × 1 simulated hour × ~100 inv/s in < 5 wall-minutes on a laptop.
+- 10⁵ workers with greedy placement, coarse heartbeats and a short horizon.
+- Vectorize cost matrices; keep per-worker state in struct-of-arrays; profile before optimizing.
+- The planner MILP runs per cluster every `T_plan`, so its cost is amortized.

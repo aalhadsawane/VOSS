@@ -1,265 +1,146 @@
-# 07 · Fault Tolerance: Succession Design for Schedulers and Workers
+# 07 · Fault Tolerance: Omission-Tolerant Succession and Worker Failure Handling
 
-Supersedes the earlier Raft-replicated-scheduler sketch (kept only as a baseline, §10). Spec §5.5, §4.6.
+Spec §5.5, §4.6. The threat model (doc 04) reduces malicious hosts to **omission/timing faults**, so one mechanism
+set covers churn, crashes and malice.
 
-## 1. Roles and trust (fixed terminology, ADR-022)
+## 1. Fault model the mechanisms must handle
 
-| Role | Who runs it | Does | Fault tolerance |
-|---|---|---|---|
-| **Orchestrator** | **Provider** (cloud), not a volunteer | Arranges clusters (membership, split/merge/move); appoints and fences schedulers (epochs); front-door **routers**; operational DB (private to this tier, 08) | **Assumed reliable** (managed cloud HA; not studied, named and costed as the one centralized component) |
-| **Scheduler** | A **worker** hosting an extra role (one active per cluster) | Placement inside its cluster: cost matrix, ILP/greedy, dispatch, retries, lifecycle actions | Crash-tolerant via succession (§4) |
-| **Worker** | Volunteer machine | Executes invocations; heartbeats; any eligible worker can be **promoted to scheduler** | Crash-tolerant via detection, retry, hedging (§5) |
-
-**Fault model (ADR-016):** crash-fault only, no Byzantine behavior. Workers and schedulers may crash (memory lost,
-disk survives), be preempted by the owner (immediate or with grace), drain, or be partitioned/delayed. Nobody lies;
-volunteers are vetted and honest-but-unreliable (09); there is no blockchain.
-
-**Why this is the hard case:** unreliability is always high (volunteers continuously drop and join) and clusters are
-small (tens of workers; the ILP cost forces it). A scheduler host is just another unreliable volunteer.
-
-## 2. Operational DB (cloud-hosted, orchestrator-owned, private to the orchestrator tier)
-
-Full schema, access matrix, message catalogue and volumes are in **08**. The points that matter for fault tolerance:
-
-- Yes: the authoritative operational store of cluster information (workers, clusters, current scheduler and epoch,
-  succession list, checkpoints, reputation, work log) lives in a **cloud DB run by the orchestrator**.
-- **Only the orchestrator tier accesses it.** Workers and schedulers send messages (join/leave/lookup, summaries,
-  events, checkpoints) and the orchestrator reads/writes on their behalf; `APPOINT` embeds the membership snapshot,
-  checkpoint and reputation so a new scheduler never queries the DB.
-- It is **never on the invocation critical path** (modeled with cloud-region latency, availability 1.0). The live
-  queue, per-worker pending jobs and cost matrices are deliberately *not* stored there (08 §3.1).
-- It is a centralized, provider-run dependency (spec §5.5 requires naming it). If unreachable, running invocations
-  and the current scheduler keep working; appointments, membership change and checkpoint upload stop (stress test
-  parked). Its costs (writes, storage, egress) are reported.
-
-## 3. How this is usually done, and why we do not copy it
-
-| System | Mechanism | Take-away |
+| Fault | Source | Distinguishing difficulty |
 |---|---|---|
-| **Borg** | Paxos-replicated Borgmaster (5 replicas); Borglets keep tasks running when master is down | Separate control and data plane (we do). Paxos quorum among *reliable* machines |
-| **Kubernetes** | Scheduler instances elect a leader via a **Lease** in etcd (compare-and-swap); scheduler is stateless, rebuilt from the API server | External arbiter + stateless scheduler (we do, with the orchestrator DB as arbiter) |
-| **Mesos** | Master failover; **agents re-register and reconcile tasks** to rebuild master state | State reconstruction from the edge (we generalize this) |
-| **Sparrow** | Decentralized stateless schedulers, late binding | No scheduler state to lose, but no global optimization (we want per-cluster ILP) |
-| **Super-peer P2P** (Gnutella ultrapeers, Skype supernodes) | Capacity/uptime-based supernode election; edge workers hold backup lists; re-elect on missed acks | Closest to volunteers; lacks fencing and churn-aware ranking (we add both) |
-| **BOINC** | Single server + DB, clients pull; deadlines and replication tolerate lost clients | Server is the SPOF; we need latency-class recovery |
-| **Raft/Paxos group of volunteers** | Majority-replicated log | **Brittle at high churn:** needs a majority alive *simultaneously*; membership change needs a majority; every decision pays a quorum RTT. Kept as baseline `raft_group` |
+| Crash / session end | Owner reboot, power loss, crash | Easy: channel and heartbeats stop |
+| Graceful drain | Owner request (deadline) | Announced, but the announcement may be **fake** |
+| **Black-hole / selective omission** | Malicious owner drops work but keeps heartbeats | **Heartbeats look healthy** |
+| On-off defection | Builds a clean record, then omits | History is misleading |
+| Delay / throttle | Malicious or overloaded host | Looks like slowness |
+| Partition | Network | Zombie scheduler |
+| Replay | Malicious owner | Handled by TLS (sequence numbers) |
 
-**Our position:** because the orchestrator is a reliable arbiter, **volunteers need no consensus among themselves**.
-Combine external arbitration (Kubernetes-style epochs), soft-state reconciliation (Mesos-style), and super-peer-style
-succession, add churn-aware ranking, and shard the recovery state across the entities that already hold it.
+**Principle:** *liveness signals from untrusted hosts are hints; progress observed by trusted or attested parties is
+evidence.*
+- **Trusted:** routers (orchestrator tier).
+- **Attested:** worker agents and the scheduler code (their *hosts* are not trusted).
 
-## 4. Design: Succession with soft-state schedulers
+## 2. Progress-based detection
 
-### 4.1 Principle: state is held by whoever must already remember it
-
-A scheduler's state is a **cache**, never the source of truth. Nothing needs a replicated log.
-
-| State | Truth held by | Recovery path | Loss bound |
+| Detector | Observer | Signal | Suspects |
 |---|---|---|---|
-| Membership, cluster config, epochs | Orchestrator DB | Read at appointment | None |
-| Undispatched invocations (queue, current window) | **Router** keeps a pending copy until the worker's `ACCEPTED` | Router re-sends to the new scheduler (dedupe by `inv_id`) | None (delay only) |
-| Running / queued-at-worker assignments | The **worker** itself (token, epoch, state) | **Roll call** (§4.3) | None |
-| Completed outcomes since last checkpoint | **Worker** retains them for `T_retain` | Roll call returns them; replayed into learned state | None if `T_retain > T_ckpt + failover` |
-| Learned state (predictor posteriors, retry counters, rep deltas) | Orchestrator DB **checkpoint** + worker-retained recent outcomes | Load checkpoint, then replay retained outcomes | ≤ outcomes older than `T_retain` that lacked a checkpoint (tiny, measured) |
-| Cluster view (free slots, lifecycle states, load) | Workers | Roll call + heartbeats | Rebuilt in ~1 RTT |
-| Work records for accounting | **Routers'** `invocation_log` (written independently of the scheduler, 08 §3) | Nothing to recover | None |
-| Crash-detection events not yet reported | Scheduler memory | Roll call + membership version diff | ≤ `T_report`, measured |
+| **Dispatch watchdog** | Router | `ENQUEUE` without `ACCEPTED` within `T_dispatch` | Scheduler (or cluster) |
+| **Result watchdog** | Scheduler | `ACCEPTED` without `RESULT` by the predicted completion quantile (q90 + margin) | Worker |
+| **Cluster stall** | Router → orchestrator | Repeated dispatch-watchdog fires for one cluster | Scheduler (grey failure / black hole) |
+| **Decision-latency SLO** | Orchestrator | Scheduler's attested timestamps show placement latency > `T_decide_max` | Slow or throttled scheduler host |
+| **Outcome rate** | Scheduler (omission model, doc 03 §6.4) | Omission rate and change point | Worker (on-off, selective) |
+| Heartbeat/accrual | Scheduler, orchestrator | Missing heartbeats | Crash (fast path only, never sufficient alone) |
 
-### 4.2 Appointment, succession list and epochs
+A suspected worker gets no new work, its in-flight work is hedged or retried, and it loses trust-warm eligibility. A
+suspected scheduler triggers succession (§3).
 
-- **Epoch** = monotone integer per cluster in the DB. A scheduler is whoever the orchestrator last appointed by atomic
-  CAS (`epoch e → e+1, holder = S`). This is Kubernetes' lease idea with the orchestrator as the arbiter.
-- **Succession list** per cluster: `[S0 active, S1, S2, …]` ranked by
-  `score = P(survive horizon H) × speed × centrality`, with **failure-domain diversity** (S1 must be in a different
-  ASN/region than S0) and hysteresis (re-rank only on meaningful change) to avoid flapping. The survival model
-  (03 §6) provides `P(survive)`: long-lived, older sessions rank higher (age-dependent hazard).
-- **Warm standbys:** the first `K` successors (default `K=1`, sweep 0–2) also receive worker heartbeats and
-  periodically fetch checkpoints, so takeover skips view/checkpoint loading. Others are **cold** candidates: any
-  eligible worker can be promoted ("workers can come up to be the scheduler"). Roll call makes cold promotion cheap,
-  so `K=0` is a legitimate cheap configuration (hypothesis H12).
-- **Eligibility:** tier ≥ 1, or Tier 0 with high predicted survival; enough free cores for `sched_cores`
-  (default 1 reserved core, removed from that host's worker capacity); not draining.
-- **Host speed matters:** solver time on the host = `solve_wall × cpu_scale / host.speed` (01 §7).
+## 3. Scheduler succession (soft state, no volunteer consensus)
 
-```mermaid
-flowchart LR
-    subgraph ORCH[Orchestrator tier — provider cloud, assumed reliable]
-        RT[Routers<br/>hold pending invocations]
-        OP[(Operational DB<br/>membership, epochs,<br/>checkpoints, reputation)]
-    end
-    subgraph C[Cluster C — small, volunteer]
-        S[Scheduler = worker + role<br/>epoch e]
-        S1[Warm standby worker]
-        W1[Worker]
-        W2[Worker]
-        W3[Worker, cold candidate]
-    end
-    RT -->|ENQUEUE metadata| S
-    S -->|DISPATCH epoch e, token| W1
-    S -->|DISPATCH| W2
-    W1 -->|ACCEPTED, RESULT direct| RT
-    W1 & W2 & W3 -->|heartbeat| S
-    W1 & W2 & W3 -.->|heartbeat| S1
-    S -->|keepalive + summary| OP
-    S -.->|checkpoint every T_ckpt| OP
-    OP -.->|APPOINT / REVOKE, epoch CAS| S
-    OP -.->|config push| RT
-    S -->|ASSIGNED| RT
-    RT -->|INPUT payload| W1
-```
+The orchestrator is a reliable arbiter, so **no consensus among volunteers** is needed.
 
-### 4.3 Failure and failover protocol
+**Instance-bound appointment.** The orchestrator appoints scheduler *S* by atomic CAS on the cluster `epoch` in the
+DB. The appointment token binds `(cluster, epoch, S's session-cert id)`. A cloned appliance with the same image but a
+different session key is **not** appointed.
+
+**Worker-side fencing.** Workers accept `DISPATCH` only from the current `(epoch, cert id)` and reject lower epochs
+with `STALE`.
+
+**Soft state = rollback-immune.** A scheduler keeps no durable state on its host:
+
+| State | Held by | Recovery path |
+|---|---|---|
+| Undispatched invocations | Router pending table | Router re-sends |
+| Running / queued work | Workers | **Roll call** |
+| Plan (trust-warm sets, pins) | Workers (confirmed pins and keys) + DB checkpoint of the last plan | Roll call + recompute |
+| Learned state (predictor, survival, omission posteriors) | DB checkpoint (orchestrator) + outcomes retained in worker memory | Checkpoint + replay |
+| Work records | Routers' attested receipts | Nothing to recover |
+
+A restarted or rolled-back appliance is a *new instance* and must be re-appointed. Its stale memory is never trusted.
+
+**Succession list:** ranked by `S_j(H) × speed × centrality × a_j`, with failure-domain diversity and hysteresis.
+Every attested worker is a candidate: the scheduler role is in the appliance image, so promotion costs no boot.
+`K` warm standbys (default 1) also receive heartbeats.
+
+**Failover sequence:**
 
 ```mermaid
 sequenceDiagram
     participant R as Router
     participant S as Scheduler (epoch 7)
     participant O as Orchestrator + DB
-    participant N as New scheduler
+    participant N as Successor (attested worker)
     participant W as Workers
     R->>S: ENQUEUE(inv2)
-    S->>W: DISPATCH(inv1, epoch 7)
-    W-->>R: ACCEPTED(inv1)  (router drops pending copy)
-    Note over S: host crashes / owner preempts
-    W->>W: inv1 keeps running (data plane independent)
-    S--xO: keepalive missed (adaptive detector)
-    W->>O: SUSPECT (corroboration from workers)
-    R->>R: inv2 not ACCEPTED within T_dispatch → spill-first for sync SLO
-    O->>O: CAS epoch 7→8, holder = N (next in succession list)
-    O->>N: APPOINT(epoch 8, membership, checkpoint ref)
-    O->>R: config push (new scheduler)
-    N->>O: load checkpoint (cold) / already warm
+    Note over S: host crashes OR black-holes (heartbeats continue)
+    R->>R: dispatch watchdog fires (no ACCEPTED) → re-send / spill sync invocations
+    R->>O: STALL(cluster, epoch 7)
+    O->>O: CAS epoch 7→8, holder = N (cert-bound)
+    O->>N: APPOINT(epoch 8, membership, plan + learned-state checkpoint, reputation)
+    O->>R: scheduler address push
     N->>W: EPOCH_INSTALL(8) + ROLL_CALL
-    W-->>N: report: running assignments, retained outcomes, free slots, lifecycle states
-    N->>N: rebuild view; replay outcomes into learned state; adopt running assignments
-    R->>N: re-send pending (inv2) — dedupe by inv_id
-    N->>W: DISPATCH(inv2, epoch 8)
-    W-->>R: RESULT(inv1) (direct path, never needed the scheduler)
+    W-->>N: running/queued work, confirmed pins and keys, retained outcomes, cache inventory
+    N->>N: rebuild view; replay outcomes; re-plan (warm-started from checkpoint)
+    R->>N: re-send pending (dedupe by inv_id)
+    N->>W: DISPATCH(epoch 8)
 ```
 
-- **Fencing is worker-side.** Workers adopt `(epoch, scheduler)` when higher, and reject dispatches from lower
-  epochs with `STALE(epoch)`; the old scheduler steps down on `STALE` or `REVOKE`. The old scheduler can only affect
-  the world through workers, so once workers adopt epoch 8 it is harmless.
-- **Zombie bound:** a scheduler that cannot reach the orchestrator for `lease_s` **self-fences** (stops
-  dispatching). `failover_mode: fast` (default) appoints on strong suspicion and relies on fencing (possible brief
-  overlap, duplicates counted); `lease_safe` waits out `lease_s` first. Ablated in E21.
-- **Detection (fast):** (1) orchestrator ↔ scheduler keepalive with an adaptive accrual detector (phi-style);
-  (2) workers detect missing scheduler acks/beacons and send `SUSPECT`; `k` corroborations shorten the decision;
-  (3) **push signals take precedence:** drain notice, or owner-preempt-with-grace, trigger a *planned handover*
-  (§4.5) instead of waiting for failure.
-- **Roll call:** workers report all state in one message each (small); new scheduler waits for a quorum of reports
-  or `T_roll` (whichever first), proceeds, and late reports merge in.
-- **Router retention:** `ENQUEUE` is *not* acked by the scheduler; the router clears its pending copy only on the
-  worker's `ACCEPTED`. If none arrives within `T_dispatch` (window + decision + RTT bound), it re-sends; after
-  `T_spill` (short for sync SLO) it **spills over** to a neighboring cluster. Worker-side `token = (inv_id, attempt)`
-  and scheduler-side `inv_id` dedupe make re-sends safe. Semantics are at-least-once; duplicates are counted.
-- **Response path:** workers return results directly to the router/origin, so completed work never depends on
-  scheduler liveness.
-- **Total loss of the succession list's hosts** (correlated crash): orchestrator promotes any eligible worker; if
-  the cluster has too few live workers it is merged/reassigned (03 §2). A cluster with no live workers is marked dead
-  and the router spills over.
+**Other paths:**
+- **Planned handover** on drain notice or decision-latency degradation: the old scheduler flushes its checkpoint, then
+  the CAS happens. A *fake* drain by a malicious scheduler host just causes a clean handover, which is harmless.
+- **Zombie:** a scheduler that cannot reach the orchestrator for `lease_s` stops dispatching (self-fence). Workers
+  fence it anyway.
+- **Whole-cluster loss:** the orchestrator reassigns the workers and the router spills over.
 
-### 4.4 Checkpoints
-
-`SchedulerCheckpoint{cluster, epoch, covered_until_t, predictor posteriors (small), retry/storm counters,
-reputation deltas}` is uploaded to the DB every `T_ckpt` (default 30 s) and at clean handover. Workers retain
-outcome records for `T_retain ≥ 2·T_ckpt` and drop them once a later checkpoint's `covered_until_t` passes them
-(announced in scheduler beacons). A new scheduler = checkpoint + replay of retained outcomes (dedupe by
-`(inv_id, attempt)`): learned state survives failover almost losslessly with **no replicated log**. Predictor
-hierarchy helps: function-level effects are shared globally at the orchestrator, only worker-level deviations are
-cluster-local.
-
-### 4.5 Proactive, hazard-triggered handover (converts crashes into planned handovers)
-
-The orchestrator evaluates the scheduler host's survival hazard continuously (age, tier, local time-of-day,
-declared window, recent owner activity). If `P(host fails within H) > θ` **and** a successor beats it by a margin
-(hysteresis, cooldown), it orders a **planned handover**: new scheduler appointed, old one flushes a checkpoint and
-hands its window over; no detection delay, no loss. Drain notices and owner-preempt grace use the same path.
-`no_proactive_handover` is an ablation.
-
-### 4.6 Overhead (reported)
-
-Steady state is cheap: one scheduler (+ `K` warm standbys), no replicated log, no quorum RTT in the decision path.
-Costs: keepalive/checkpoint traffic to the cloud, `K+1×` heartbeat traffic, reserved scheduler core, cloud DB
-operations, router pending tables, worker outcome retention. Failover cost: detection + appointment RTT + roll call
-≈ a few RTTs.
-
-## 5. Worker crash tolerance
+## 4. Worker failure handling
 
 | Mechanism | Design |
 |---|---|
-| **Detection: per-invocation watchdog from the predictor** | Dispatch sets a watchdog at the predicted completion quantile (e.g., q90) plus margin from the same distribution the placer used (03 §5). On expiry the scheduler probes the worker; no reply ⇒ crash ⇒ re-place. Detection time adapts to each invocation instead of a global timeout |
-| **Detection: accrual detector per worker** | Heartbeats feed a phi-style detector; suspected workers get no new work and their in-flight work is probed |
-| **Push signals** | `OWNER_BUSY(grace)` and `DRAIN_NOTICE` arrive as messages: queued-not-started work is re-placed immediately, running short work may finish within grace; known availability is a hard constraint, not a prediction |
-| **Recovery** | Retry policy re-places with the failed worker excluded and elapsed time counted (03 §9) |
-| **Risk-proportional hedging** | If not done by the hedge quantile (e.g., q95) and `pMiss` is high, launch a tied duplicate on another worker (idempotent functions only), under a cluster **hedge budget** to cap wasted work |
-| **Storm control** | A regional preemption wave fails many invocations at once; a per-cluster retry token bucket plus router spillover prevent retry storms from overloading survivors |
-| **Crash-recover rejoin** | Disk survives: on return the worker re-registers with the orchestrator, reports surviving image/snapshot state (S1/S2), and re-enters the cluster; memory state (S3/S4) is lost |
-| **Correlated failure** | Anti-affinity for replicated or hedged copies (same failure domain never holds both); succession list diversity |
-| **Membership** | Join/leave go through the orchestrator (registration, calibration, cluster assignment); the scheduler reports `WORKER_LOST` in batches; scheduler also learns by heartbeat, reconciled by membership version |
+| Predictive watchdog | Fires at the predicted completion quantile; the scheduler probes the worker, and without a reply it re-places the work |
+| **Risk-proportional hedging** | Tied duplicate on another failure domain when `pMiss > θ` (doc 03 §5.4), under a budget. Attested results make hedges integrity-safe |
+| Retry | Exclude the failed worker; prefer trust-warm candidates; retry budget per invocation |
+| **Storm control** | A per-cluster retry token bucket plus router spillover during regional waves |
+| **Fake signals** | Drain or preemption notices only make the scheduler *more conservative* (stop new dispatch, shorten predicted life). They never excuse an omission in the omission model or reputation |
+| Suspicion | Change point or watchdog streak → suspected: no new work, trust-warm eligibility revoked, re-planned |
+| Session end | All `K`/L3/L4 state lost; disk caches survive as ciphertext; the worker rejoins after re-attestation |
 
-## 6. Failure matrix
+## 5. Failure matrix
 
 | Failure | Detected by | Recovered by | Lost / delayed |
 |---|---|---|---|
-| Worker crash mid-invocation | Watchdog, accrual detector | Retry/hedge elsewhere | That attempt; wasted work counted |
-| Worker owner-preempt with grace | Push message | Re-place queued, finish short work | Possibly running attempt |
-| Scheduler crash | Orchestrator keepalive, worker `SUSPECT` | Appoint next successor; roll call; router re-send | Delay for undispatched invocations; no loss |
-| Scheduler + standby crash together | Same | Promote any eligible worker (cold) | Slightly longer failover; learned-state tail |
-| Scheduler partitioned (zombie) | `STALE`/`REVOKE`, `lease_s` self-fence | Fencing by epoch | Possible duplicates (counted) |
-| Scheduler drain / owner preempt | Push message | Planned handover | None |
-| Router instance loss | Provider tier (assumed reliable) | Another router; client retry | Out of scope |
-| Orchestrator/DB outage | — | Assumed not to happen; stress test parked | Out of scope |
-| Whole cluster offline | Orchestrator (no summary, no workers) | Router spillover; membership reassigned | Invocations at that cluster retried |
+| Worker session ends mid-invocation | Channel close / watchdog | Retry / hedge | That attempt (counted as wasted work) |
+| Worker black-holes | Result watchdog, omission model | Hedge, retry, suspicion, re-plan | Attempts until detection |
+| Worker on-off | Change point | Eligibility reset, re-plan | Bounded by detection delay |
+| Scheduler crash | Keepalive + router stall | Succession + roll call | Delay for undispatched invocations |
+| Scheduler black-hole | Router stall, decision SLO | Succession | Delay ≈ `T_dispatch` + appointment |
+| Scheduler partitioned | Self-fence, `STALE` | Fencing | Possible duplicates (at-least-once, counted) |
+| Colluding domain | Many watchdogs at once | Domain caps keep coverage; re-plan | Bounded by the robust plan |
+| Orchestrator tier | — | Out of scope (assumed reliable) | — |
 
-## 7. Work accounting under failures
+## 6. Parameters and metrics
 
-Accounting does not depend on scheduler liveness (ADR-027). The work log is written by the **routers** from the
-`ASSIGNED`/`ACCEPTED`/`RESULT` messages they observe (08 §3), each row stamped with `epoch` and `scheduler_id`, so
-scheduler credit (assignments made) and worker credit (successful results) are derived without any scheduler-authored
-record. Scheduler tenure comes from `scheduler_roles`, written by the orchestrator at appointment. A scheduler crash
-therefore loses no work records; it can only lose unreported crash detections (≤ `T_report`), which roll call and the
-membership version repair. Election and fencing never wait on accounting.
+| Parameter | Default |
+|---|---|
+| `T_dispatch` | 1 s |
+| `T_spill` (sync) | 1.5 s |
+| Watchdog quantile | q90 + 20% |
+| `T_decide_max` | 200 ms |
+| Change point | CUSUM `h=5` |
+| Hedge θ / budget | 0.2 / 10% |
+| Warm standbys `K` | 1 |
+| `T_ckpt` | 30 s |
+| `lease_s` | 5 s |
 
-## 8. Parameters and metrics
+**Metrics:**
+- time-to-detect (per fault type) and false-suspicion rate;
+- failover time and invocations delayed/lost/duplicated;
+- P99 inside fault windows;
+- hedge waste;
+- re-plan churn.
 
-| Parameter | Default | Sweep (E21) |
-|---|---|---|
-| `ha` | `succession` | `none`, `succession`, `raft_group(r)` baseline |
-| `K` warm standbys | 1 | 0, 1, 2 |
-| `T_ckpt`, `T_retain` | 30 s, 90 s | 5–120 s |
-| keepalive period, detector threshold | 500 ms, phi 8 | ×0.5…×4 |
-| `failover_mode`, `lease_s` | fast, 5 s | fast / lease_safe |
-| `T_dispatch`, `T_spill` (sync) | 1 s, 1.5 s | |
-| proactive handover `θ`, margin | 0.2, 2× | off, on |
-| watchdog / hedge quantile, hedge budget | q90 / q95, 10% | |
-| `sched_cores`, host policy | 1, survival-ranked | Tier 2 only |
+**Hypotheses:**
 
-Metrics: failover time (crash → first new dispatch), invocations delayed/lost/duplicated, P99 in the failover
-window, learned-state loss, roll-call duration, control overhead (cores, traffic, cloud ops), planned vs. crash
-handover ratio, fencing rejections and any execution from a stale epoch (must be zero after install), cluster
-unavailability fraction, crash-detection events lost, work-log completeness (must be 100% of router-seen attempts).
-
-**H11.** Succession cuts failure-induced tail latency versus no redundancy, at near-zero steady-state decision cost
-(no quorum in the decision path).
-**H12.** At high churn, reconcile-based succession (even cold, `K=0`) achieves lower cluster unavailability than a
-volunteer Raft group of the same overhead, because it needs the reliable orchestrator plus any one eligible
-worker, not a simultaneous majority.
-**H13.** Proactive hazard-triggered handover converts most scheduler losses into planned handovers and reduces
-delayed invocations versus reactive failover.
-
-## 9. Novelty and honest claims (for the paper)
-
-Individually known: epoch/lease arbitration (Kubernetes/Chubby), reconciliation (Mesos), accrual failure detectors,
-super-peer succession, hedging. **Claimed contribution is the combination for volunteer FaaS:** (1) no consensus among
-volunteers: recovery state is *sharded across entities that already hold it* (router, workers, orchestrator DB);
-(2) any worker is a scheduler candidate, ranked by a churn-aware survival model with failure-domain diversity;
-(3) hazard-triggered proactive handover; (4) failure detection and hedging driven by the same predictive
-distributions as placement. Evaluated against `none` and `raft_group` in E21; negative results are reported.
-
-## 10. Baselines and simplifications
-
-- `ha: none`: scheduler crash loses its state; no roll call, no router retention; orchestrator re-appoints blindly.
-- `ha: raft_group(r)`: replicated-log scheduler on volunteers (terms, majority commit, snapshot catch-up, fencing),
-  implemented in Roadmap P7b **only if** needed for E21; all messages go through `net.send`.
-- Not modeled: orchestrator/DB failure, router failure, Byzantine nodes, active-active sharding of invocations.
+| ID | Hypothesis |
+|---|---|
+| H-FT1 | Progress-based detection bounds black-hole impact; heartbeat-only detection does not |
+| H-FT2 | Succession without volunteer consensus keeps cluster unavailability low at high churn |
+| H-FT3 | Risk-proportional hedging recovers most of the P99 lost to omission at < 10% extra work |

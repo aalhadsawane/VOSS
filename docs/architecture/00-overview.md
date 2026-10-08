@@ -1,120 +1,135 @@
 # 00 · Architecture Overview
 
-## 1. Scope
+## 1. Problem and thesis
 
-**In scope:** a discrete-event simulator of a volunteer FaaS pool; the VOSS hierarchy (orchestrator, per-cluster
-schedulers, workers); prediction, risk and reputation models; microVM lifecycle model; a router-written work log
-with credit accounting (no blockchain); crash-fault injection and succession-based fault tolerance; baselines; an experiment
-pipeline.
+**Problem.** Run latency-sensitive, ephemeral serverless invocations on **idle volunteer machines** that are
+heterogeneous, geo-distributed, unreliable (owners reboot, unplug or reclaim them at will) and **untrusted** (an
+owner may be malicious).
 
-**Out of scope (POC):** UI/frontend, real networking/agents, blockchain of any kind (09), real Firecracker orchestration (only a
-calibration microbenchmark), confidentiality/TEE, Byzantine behavior, billing UI, failure of the orchestrator tier.
-Replaced by calibrated models or stated assumptions.
+**Thesis.**
+- **Attested execution turns malicious volunteers into merely unreliable ones.** Once tenant code and VOSS control
+  code run only on attested, owner-locked software, a hostile owner can no longer read, forge or tamper. What remains
+  is *omission and timing*: power off, drop, delay, throttle.
+- **What remains is a scheduling problem in which trust is a perishable resource.** Trust is:
+  - **costly to establish:** boot and attestation, key release, artifact loading;
+  - **destroyed by churn;**
+  - **exposing:** every host given a tenant's key widens that tenant's attack surface.
+- **VOSS schedules it.** Geo-clustered, **two-timescale** scheduling: a slow robust planner decides *where trust and
+  warm state live*, and a fast risk-aware placer decides *where each invocation runs*.
 
-## 2. Roles (fixed terminology, ADR-022) and fault model
+**This repository is a research POC.** A deterministic simulator plus the VOSS scheduler, baselines and experiments,
+calibrated by measurements on a real consumer machine (doc 10). No real distributed deployment, no frontend.
 
-| Role | Who | Responsibility |
-|---|---|---|
-| **Orchestrator** | Provider-run cloud tier, **not a volunteer**, assumed reliable | Arranges clusters; appoints and fences schedulers (epochs); front-door routers; **operational DB on cloud** (private to this tier, 08) |
-| **Scheduler** | A worker hosting an extra role; one active per cluster | Placement inside its cluster (cost matrix, ILP/greedy), dispatch, retries, lifecycle actions |
-| **Worker** | Volunteer machine | Executes invocations; any eligible worker can be promoted to scheduler |
+## 2. Roles and trust
 
-**Fault model (ADR-016): crash-fault tolerant, not Byzantine.** Workers and schedulers can crash (disk survives), be
-preempted by their owner, drain, and suffer network delay (optionally loss/partition). Nobody lies: volunteers are **vetted at admission and honest but unreliable** (09), which
-is also why no blockchain is needed. The orchestrator
-tier is assumed reliable and is the one named, costed centralized component. Schedulers are made crash-tolerant by
-**succession with soft state** (07): no consensus among volunteers. An optional known-answer canary audit is the only integrity extension (09 §5).
+| Role | Runs on | Trusted for | Doc |
+|---|---|---|---|
+| **Orchestrator tier**: orchestrator, regional routers, operational DB, attestation verifier | Provider cloud | Availability and accounting (not tenant confidentiality) | 03, 08 |
+| **Tenant key broker (KBS)** | Tenant-operated (located per tenant) | Releasing the tenant's secrets only to attested hosts | 04 |
+| **Scheduler** | A role inside one worker's attested appliance, one active per cluster | Correct placement (code is attested); its *host* may still omit or delay | 03, 07 |
+| **Worker** | Volunteer machine booted into the **attested VOSS appliance** | Executes functions in microVMs; host owner may omit or delay | 02, 04 |
+
+**Threat model (doc 04):** owners are Byzantine but neutralized by measured boot and TPM attestation, so their
+residual power is omission and timing. Lab-grade physical attacks, kernel 0-days and side channels are out of scope.
+There is **no blockchain**: work is recorded as attested receipts in the operational DB.
+
+**Trust substrate (doc 04 §3):** VOSS is substrate-agnostic.
+- **Primary: `appliance_tpm`.** A consumer PC with TPM 2.0 boots a locked VOSS OS for a *donation session*; tenant
+  functions run in Firecracker microVMs. This is measured on our Intel i7 node.
+- **Modeled profiles:**
+  - `cvm_snp`: server CVMs with trustlets;
+  - `coco_pool`: Confidential Containers;
+  - `drtm_hv`: owner keeps using the machine;
+  - `none`: reference.
 
 ## 3. Design principles
 
-1. **Ground truth vs. observation.** The *world* holds true state. Schedulers see only *views*: stale, partial,
-   immutable snapshots (spec §8 "no future information" by construction, see 01).
-2. **Policies are pure.** `view + prediction → decision`. No simulator access, so they unit-test and swap easily.
-3. **Everything between nodes is a message.** Heartbeats, dispatch, appointment, roll call and data transfers all go
-   through one `net.send`, whose delay comes from the geographic network model. No direct cross-node calls (01 §6).
-4. **State lives with whoever must remember it.** Scheduler state is a rebuildable cache; truth is held by routers,
-   workers and the orchestrator DB (07 §4.1).
-5. **One cost matrix, many placers.** All placers consume the same `CostMatrix`.
-6. **Precompute exogenous inputs.** Churn, arrivals and network are *traces* generated before the run.
-7. **Reproducible by default.** Pinned environment, manifest per run, one-command rerun, deterministic decision clock
-   (01 §9).
-8. **Nothing is free.** Decision latency, heartbeats, checkpoints, accounting costs are simulated.
-9. **Plug-in by name.** Every variant in spec §11 is a registered class selected by config.
-10. **Log raw, analyze offline.** Simulation emits event logs; metrics and plots come from logs.
+1. **Ground truth vs. observation.** The *world* holds true state; schedulers see stale *views* only (no future
+   knowledge, enforced by import rules).
+2. **Policies are pure functions** of views and predictions.
+3. **Everything between nodes is a message** (`net.send`) with geography-derived delay; actors never call each other.
+4. **Trust and warm state are explicit, perishable resources** in the model and in the optimizer.
+5. **Substrates, ladders and caches are data** (YAML profiles), interpreted by one generic engine.
+6. **One cost model, many placers; one plan format, many planners.** Baselines use the same interfaces.
+7. **Reproducible by default:** pinned environment, manifests, one-command reruns; calibration data versioned.
+8. **Nothing is free:** decision, attestation, key release, cache I/O, heartbeats and checkpoints are all simulated.
+9. **Log raw, analyze offline.**
+10. **Simple fidelity first;** every model has one default and one knob.
 
 ## 4. Layers (dependencies point downward only)
 
 ```mermaid
 flowchart TD
     E[experiments: runner, sweeps, analysis, figures] --> RT
-    RT[runtime: actors on simulated hosts<br/>WorkerAgent, SchedulerRole, Router, Orchestrator, OperationalDB<br/>Succession, FaultInjector]
-    RT --> POL[policy: predict, survival, reputation, cost, place, route, orchestrate, succession-ranking, keepalive, retry<br/>PURE functions of views]
-    RT --> OBS[observe: StateStore, heartbeats, ClusterView, ClusterSummary]
-    RT --> W[world: workers, availability, network + net.send, lifecycle, execution, workload, reference cloud<br/>GROUND TRUTH]
+    RT["runtime: actors on simulated hosts<br/>WorkerAgent, SchedulerRole, Router, Orchestrator, Verifier, TenantKBS, OpDB, Accounting, FaultDriver"]
+    RT --> POL["policy: predict, survival, omission, reputation, cost, plan (slow loop), place (fast loop),<br/>hedge, retry, cache value, route, orchestrate, succession rank — PURE"]
+    RT --> OBS[observe: StateStore, heartbeats → ClusterView / ClusterSummary]
+    RT --> W["world: workers, sessions/availability, adversaries, network + net.send,<br/>substrate profiles, lifecycle ladder + caches, execution, workload — GROUND TRUTH"]
     OBS --> W
     POL --> CORE
     OBS --> CORE
-    W --> CORE[core: kernel, rng, types, config, registry, decision clock]
+    W --> CORE["core: kernel, rng, types, messages, config, registry, decision clock"]
 ```
 
-- `policy` → `world` imports are **forbidden** (the information boundary). Only `observe` reads `world`.
-- `runtime` wires everything: actors are hosted on nodes and talk only through `net.send`.
+## 5. Two-timescale scheduling at a glance (doc 03)
 
-## 5. Component inventory
+```mermaid
+flowchart LR
+    subgraph SLOW["Slow loop — Trust & Warm-state Planner (every 10–60 s, events)"]
+        F[Demand forecast per tenant] --> P[Robust MILP / greedy planner]
+        H[Host survival, omission, assurance, cache inventory] --> P
+        P --> PLAN["Plan: trust-warm sets y[t,j], warm units z[r,j], caps c[t,j], cache pins, prewarm actions"]
+    end
+    subgraph FAST["Fast loop — Placement (per invocation)"]
+        I[Invocation] --> C[Cost matrix over candidates]
+        PLAN --> C
+        C --> D{"pMiss high?"}
+        D -->|no| X[Dispatch to best trust-warm worker]
+        D -->|yes| HG[Dispatch + hedge on another failure domain]
+    end
+```
 
-| Component | Layer | Responsibility | Spec |
-|---|---|---|---|
-| Kernel, DecisionClock | core | Event loop, simulated time; charges solver/router/orchestrator time | §9, §8 |
-| WorkerPool / Availability | world | Worker attributes; replay of churn trace (owner-preempt, crash, drain, join) | §3.1, §4.6 |
-| Network, `net.send` | world | Geo RTT/bandwidth model; delay (and optional loss/partition) for every message | §9 |
-| Lifecycle | world | Per-(worker, function) S0–S4 microVM state, memory/disk accounting | §7 |
-| Execution | world | Cores, interference, true runtime sampling, failure on preempt | §3.1 |
-| Workload | world | Functions (SeBS profiles), arrivals, SLO classes | §9 |
-| StateStore | observe | Heartbeat-fed stale cluster state; produces views and summaries | §3.1 #5 |
-| Predictor, Survival | policy | Completion-time distributions; residual availability (also ranks succession) | §8.2–8.3 |
-| Reputation | policy | Commitment/timeliness score | §4.4 |
-| CostModel, Placers | policy | Cost matrix, scalarizers; ILP, min-cost-flow, greedy, baselines | §8, §11 |
-| Route / Orchestrate / Succession ranking | policy | Cluster choice; membership moves; successor ranking and handover triggers | §5 |
-| KeepAlive/Prewarm, Retry/Hedge | policy | Lifecycle and failure handling | §7.1, §11 |
-| **Orchestrator + OperationalDB** | runtime | Cluster arrangement; epoch CAS appointments; membership, checkpoints, reputation, work log (cloud, 08) | §5 |
-| Routers | runtime | Front door (orchestrator tier): choose cluster, hold pending invocations and payloads until worker `ACCEPTED`, forward input, spill over, write the work log | §5 |
-| **SchedulerRole** | runtime | Active scheduler on a worker: runs the placer, dispatches, checkpoints, steps down on `STALE` | §5.5 |
-| **Succession** | runtime | Appointment, failover, roll call, planned handover, fencing protocol | §5.5 |
-| WorkerAgent | runtime | Executes (epoch-fenced, token-dedup), retains outcomes, direct result path, buffers | §5.5 |
-| Accounting | runtime | Credit batch job over the router-written work log; reputation updates (orchestrator) | §4.4–4.5 |
-| FaultInjector | runtime | Partitions and extra crash patterns (worker faults come from traces) | §5.5, §9 |
-| Recorder | metrics | Raw event log to Parquet | §13 |
-
-## 6. Life of an invocation
+## 6. Life of an invocation (primary substrate)
 
 ```mermaid
 sequenceDiagram
-    participant W as Workload
+    participant C as Client
     participant R as Router (orchestrator tier)
-    participant S as Scheduler (a worker + role)
-    participant K as Worker
-    participant DB as Operational DB (orchestrator tier)
-    W->>R: arrival (t, fn, origin, SLO)
-    R->>R: choose cluster from stale summaries (+router decision delay); keep pending copy
-    R->>S: ENQUEUE (net delay = geo RTT)
-    S->>S: cost matrix from view + predictions; place (fast path greedy, or window ILP; solve time charged)
-    S->>K: DISPATCH (epoch, token)
-    K-->>R: ACCEPTED (router drops pending copy)
-    K->>K: transfer in → start-up ladder (S0..S3) → execute → transfer out
-    K-->>R: RESULT direct (invocation latency ends here)
-    K-->>S: OUTCOME (failure → retry policy re-places; watchdog from predictor catches silent crashes)
-    R-->>DB: invocation_log row (batched, async, off critical path)
+    participant S as Scheduler (attested worker)
+    participant W as Worker appliance (attested)
+    participant K as Tenant KBS
+    participant DB as Operational DB
+    C->>R: invoke(fn, payload)
+    R->>R: pick cluster from summaries (trust-warm capacity, health, RTT); keep pending copy
+    R->>S: ENQUEUE (metadata only)
+    S->>S: candidates = trust-warm workers (plan) ∪ cold path; cost matrix; place (+hedge?)
+    S->>W: DISPATCH (epoch, token)  and  S->>R: ASSIGNED
+    R->>W: INPUT payload (TLS to attested appliance)
+    W-->>R: ACCEPTED
+    alt worker not trust-warm for tenant
+        W->>K: key request with fresh attestation evidence
+        K-->>W: key wrapped to this appliance
+    end
+    W->>W: cache ladder: warm VM ▸ snapshot restore ▸ boot ▸ fetch artifacts
+    W-->>R: RESULT (bound to attested key) — latency ends here
+    W-->>S: OUTCOME
+    R-->>DB: attested receipt (batched, async)
 ```
 
-End-to-end latency = router delay + batching wait + decision time + queue + start-up + network + execution +
-retries. Each term is a separate field in the invocation record (spec §8.6). Scheduler crash timeline: 07 §4.3.
+End-to-end latency = route + (window wait) + decision + queue + trust (key release, only if trust-cold) +
+start-up (by cache/ladder level) + network + execution + retries. Each term is a logged field.
 
-**Where to read next:** state, DB and message formats: 08; threat model and why there is no blockchain: 09.
+## 7. Document map
 
-## 7. Delivery strategy
-
-Build a **vertical slice first** (Roadmap P2: random placement on a small pool with full latency decomposition, with
-the scheduler already an actor reached only by `net.send` and appointed by an orchestrator that issues epochs), then
-deepen one axis at a time. Headline contributions are C2, C3, C4, C6 on top of the C1 environment model. Trust (C5)
-and succession are *models* delivered after the core results exist, and reported as separate evaluation axes
-(spec §9).
+| Doc | Content |
+|---|---|
+| 01 | Simulation kernel, determinism, actors and messages, decision clock, reproducibility |
+| 02 | World model: workers, donation sessions, network, substrate profiles, lifecycle ladder, **worker caches**, adversaries, workload |
+| 03 | Scheduling: orchestrator, router, scheduler slow loop (planner) and fast loop (placement), prediction, cost model |
+| 04 | Trust and security: threat model, substrates, attestation, key release, identity, exposure, limitations |
+| 05 | Code structure, layering, interfaces, config, tests |
+| 06 | Experiments, metrics, baselines, hypotheses, statistics |
+| 07 | Fault tolerance: progress-based detection, scheduler succession, worker omission handling |
+| 08 | State, operational DB, protocols, worker readiness |
+| 09 | Reliability vs reputation, attested receipts, credits |
+| 10 | Calibration harness and single-box emulation testbed |

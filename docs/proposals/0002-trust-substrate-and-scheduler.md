@@ -1,7 +1,6 @@
 # Proposal 0002 · Trust substrate on consumer hardware, simulation method, and the scheduler's new optimization
 
-**Status:** DRAFT, round 2. It builds on 0001 (malicious hosts, attested execution) and **replaces 0001's hardware
-assumption (server-only CVMs)** with the hardware actually available: consumer AMD Ryzen / Intel Core.
+**Status:** ACCEPTED (2026-10-09) and folded into `docs/architecture/00`–`10` and `docs/DECISIONS.md`. Kept as design history; the architecture docs are authoritative.
 
 **Inputs from the user:**
 - Hardware will be Ryzen or Intel client CPUs (exact model to come).
