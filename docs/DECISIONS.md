@@ -132,3 +132,16 @@ exactly to end-to-end latency (doc 05 §7 invariant).
 same draws for the same `(invocation, attempt)` in every system; a vectorized `noise_matrix` from one named stream
 gives that without creating a generator per attempt (a measurable cost at 10⁵ invocations). Ladder delays use a
 per-worker-session stream.
+
+**D-27 Admission rejects only overload** (P3). Doc 03 §5.4 rejects a sync invocation when no candidate has
+`pMiss < 1 − ε`. Without a warm plan, every cold function then has `pMiss ≈ 1` (deadline = k × warm latency), so it
+would be rejected forever and its caches would never warm. Rejection (sync) or deferral (async) therefore also
+requires overload: even the shortest slot wait exceeds the remaining budget. Cold-start misses are admitted.
+
+**D-28 Wall-clock columns are metadata** (P3). Columns ending in `_wall_s` (e.g. solver wall time) are logged but
+excluded from the result hash, so `modeled` and `replay` runs hash identically across machines; `measured` runs
+are reproduced through `replay` of their charged latencies (doc 01 §7).
+
+**D-29 Decisions serialize on the scheduler host** (P3). A decision is computed on the view at its start and takes
+effect after its charged latency; decisions queue behind each other (`busy_until`), so decision latency includes
+queueing on a busy scheduler. Async/filler invocations wait in a window (`placer.window_s`) logged as `batch_wait`.

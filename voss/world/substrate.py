@@ -199,8 +199,22 @@ def _walk(tree: Any, bundle: dict[str, Dist], where: str) -> Any:
     return tree
 
 
-def load_substrate(name: str, bundle: dict[str, Dist]) -> SubstrateProfile:
+def _set_range_at(tree: Any, at: float) -> Any:
+    """Move every literature ``range`` to point ``at`` (doc 10 §5: experiments sweep literature ranges)."""
+    if isinstance(tree, dict):
+        out = {k: _set_range_at(v, at) for k, v in tree.items()}
+        if out.get("dist") == "range":
+            out["at"] = at
+        return out
+    if isinstance(tree, list):
+        return [_set_range_at(x, at) for x in tree]
+    return tree
+
+
+def load_substrate(name: str, bundle: dict[str, Dist], range_at: float | None = None) -> SubstrateProfile:
     raw = load_data_yaml(f"substrates/{name}.yaml")
+    if range_at is not None:
+        raw = _set_range_at(raw, range_at)
     prof = SubstrateProfile.model_validate(_walk(raw, bundle, name))
     if prof.name != name:
         raise ValueError(f"substrates/{name}.yaml declares name '{prof.name}'")

@@ -52,6 +52,7 @@ class Attempt:
     t_received: float
     gen: np.random.Generator
     port: AgentPort
+    batch_wait: float = 0.0
     input_at: float | None = None
     level: str = ""
     tier: str = ""
@@ -172,6 +173,7 @@ class Attempt:
         rest = self.dur.get("rest", 0.0)
         self.timings = Timings(
             t_enqueue=self.t_enqueue,
+            batch_wait=self.batch_wait,
             t_dispatch=self.t_dispatch,
             t_received=self.t_received,
             wait=a - trust - fetch,

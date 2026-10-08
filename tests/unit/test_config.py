@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -46,12 +45,11 @@ def test_registry() -> None:
 def test_decision_clock_modes(tmp_path: Path) -> None:
     modeled = DecisionClock(DecisionClockConfig(mode="modeled", coeffs={"place": (0.1, 0.01)}))
     assert modeled.charge("place", work=10, host_speed=2.0) == pytest.approx(0.1)
-    measured = DecisionClock(DecisionClockConfig(mode="measured", cpu_scale=2.0))
+    seen: list[tuple[str, float, float, float]] = []
+    measured = DecisionClock(DecisionClockConfig(mode="measured", cpu_scale=2.0), sink=lambda *a: seen.append(a))
     assert measured.charge("plan", wall_s=0.5) == pytest.approx(1.0)
-    log = tmp_path / "clock.json"
-    measured.dump(log)
-    assert json.loads(log.read_text()) == [["plan", 1.0]]
-    replay = DecisionClock(DecisionClockConfig(mode="replay", replay_log=str(log)))
+    assert seen == [("plan", 0.0, 0.5, 1.0)]
+    replay = DecisionClock(DecisionClockConfig(mode="replay"), replay=measured.log)
     assert replay.charge("plan") == pytest.approx(1.0)
     with pytest.raises(RuntimeError):
         replay.charge("plan")

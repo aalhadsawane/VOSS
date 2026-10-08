@@ -47,6 +47,22 @@ class CacheEntry:
 
 
 @dataclass(frozen=True, slots=True)
+class WorkerStatic:
+    """Declared at ``JOIN`` (doc 08 §5): location, tier, substrate, envelope speeds, session start."""
+
+    lat: float
+    lon: float
+    tz: float
+    tier: str
+    substrate: str
+    down_bps: float
+    up_bps: float
+    ssd_read_MBps: float
+    hdd_read_MBps: float
+    session_start: float
+
+
+@dataclass(frozen=True, slots=True)
 class WorkerState:
     """Heartbeat content (doc 08 §5); static fields come from ``JOIN``."""
 
@@ -66,6 +82,7 @@ class WorkerState:
     domain: int
     as_of: float
     cert_id: str = ""
+    static: WorkerStatic | None = None
 
 
 @dataclass(frozen=True)
@@ -87,6 +104,8 @@ class ClusterView:
     cache: tuple[Mapping[FnId, CacheEntry], ...]
     trust: tuple[frozenset[TenantId], ...]
     inflight: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    static: tuple[WorkerStatic | None, ...] = ()
+    drain_deadline: tuple[float | None, ...] = ()
 
     def __len__(self) -> int:
         return len(self.workers)
@@ -129,6 +148,7 @@ class Timings:
     """
 
     t_enqueue: float = 0.0
+    batch_wait: float = 0.0
     t_dispatch: float = 0.0
     t_received: float = 0.0
     t_sent: float = 0.0

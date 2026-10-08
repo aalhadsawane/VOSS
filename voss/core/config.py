@@ -82,9 +82,57 @@ class RouterConfig(Frozen):
 
 
 class PlacerConfig(Frozen):
-    """Fast-loop placer names (doc 03 §5.3)."""
+    """Fast-loop placers (doc 03 §5.3): ``sync`` per invocation, ``async`` per window (async and filler)."""
 
-    sync: str = "least_loaded"
+    sync: str = "greedy"
+    async_: str = Field(default="flow", alias="async")
+    K: int = 12
+    window_s: float = 0.2
+    slots_per_worker: int = 4
+
+    model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
+
+
+class PredictorConfig(Frozen):
+    """Doc 03 §6.1."""
+
+    name: str = "blr"
+    forgetting: float = 0.995
+    conformal: bool = True
+
+
+class CostConfig(Frozen):
+    """Doc 03 §5.2, D-12. ``sigma``: weight per tenant sensitivity class (doc 04 §8). tag: assumed."""
+
+    scalarizer: str = "slo_miss"
+    eps: float = 0.05
+    lambda_exposure: float = 1.0
+    sync_weight: float = 1.0
+    sigma: dict[str, float] = Field(default_factory=lambda: {"low": 0.1, "medium": 1.0, "high": 3.0})
+
+
+class HedgeConfig(Frozen):
+    """Doc 03 §5.4, doc 07 §6."""
+
+    name: str = "risk_proportional"
+    theta: float = 0.2
+    budget: float = 0.1
+
+
+class AdmissionConfig(Frozen):
+    enabled: bool = True
+    eps: float = 0.05
+    filler_headroom: int = 1
+    defer_s: float = 1.0
+
+
+class ModelsConfig(Frozen):
+    """Survival and omission models (doc 03 §6.3-6.4)."""
+
+    survival: str = "weibull"
+    omission: str = "beta_cusum"
+    refit_s: float = 60.0
+    cusum_h: float = 5.0
 
 
 class SchedulerConfig(Frozen):
@@ -129,6 +177,11 @@ class VossConfig(Frozen):
     infra: InfraConfig = Field(default_factory=InfraConfig)
     router: RouterConfig = Field(default_factory=RouterConfig)
     placer: PlacerConfig = Field(default_factory=PlacerConfig)
+    predictor: PredictorConfig = Field(default_factory=PredictorConfig)
+    cost: CostConfig = Field(default_factory=CostConfig)
+    hedge: HedgeConfig = Field(default_factory=HedgeConfig)
+    admission: AdmissionConfig = Field(default_factory=AdmissionConfig)
+    models: ModelsConfig = Field(default_factory=ModelsConfig)
     scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
     worker: WorkerConfig = Field(default_factory=WorkerConfig)
     orchestrator: OrchestratorConfig = Field(default_factory=OrchestratorConfig)

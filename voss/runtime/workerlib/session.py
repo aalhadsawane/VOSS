@@ -8,6 +8,7 @@ to the orchestrator and scheduler. ``end`` loses all RAM state (keys, warm VMs, 
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from voss.core.ids import Addr
@@ -97,6 +98,8 @@ class SessionMixin:
         if session != h.session or not h.up or not h.cert_id:
             return
         h.attested = True
+        if h.static_base is not None:
+            h.static = replace(h.static_base, session_start=self.now)
         self.ctx.rec.log(
             Table.EVENTS, t=self.now, kind="session_attested", worker=h.worker, cert=h.cert_id, value=h.cert_expiry
         )
