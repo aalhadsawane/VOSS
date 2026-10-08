@@ -1,0 +1,5 @@
+# P0 toy run used by `make repro-smoke`.
+extends: base.yaml
+system: toy
+horizon_s: 200
+scenario: {workers: 20}

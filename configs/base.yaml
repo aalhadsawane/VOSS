@@ -1,0 +1,6 @@
+# Full default config (doc 05 §6). Sections are typed in voss/core/config.py and grow phase by phase.
+seed: 1
+horizon_s: 3600
+system: voss
+decision_clock: {mode: modeled}
+calibration: null
