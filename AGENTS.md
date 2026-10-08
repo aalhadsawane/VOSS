@@ -1,5 +1,10 @@
 # Rules for coding agents
 
+> **⚠ Design under revision (2026-10-08):** the threat model is changing to *malicious, unreliable volunteers running
+> tenant code in confidential VMs*. See [`docs/proposals/0001-confidential-voss.md`](docs/proposals/0001-confidential-voss.md).
+> Until it is accepted and the docs are refactored, only Roadmap **P0–P1** may be implemented; hold P2+.
+
+
 1. Read `docs/ROADMAP.md`, then the architecture doc for the phase you are building. Build **one phase at a time**
    and meet its exit criteria before starting the next.
 2. **Respect the layering** in `docs/architecture/05-code-structure.md`. `voss.policy` must never import

@@ -1,5 +1,7 @@
 # 09 · Threat Model: Vetted, Honest, Crash-Prone Volunteers (and No Blockchain)
 
+> **Superseded in progress:** proposal [`0001-confidential-voss`](../proposals/0001-confidential-voss.md) replaces this vetted-honest model with malicious hosts on confidential VMs.
+
 Decision record: ADR-016 (crash-only), ADR-026 (vetted membership), ADR-027 (no blockchain).
 
 ## 1. The assumption
