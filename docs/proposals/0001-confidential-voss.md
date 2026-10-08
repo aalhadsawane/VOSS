@@ -1,6 +1,6 @@
 # Proposal 0001 · Confidential VOSS: malicious, unreliable volunteers on CVMs
 
-**Status:** DRAFT, round 1 of the redesign discussion. Until it is accepted, this proposal overrides the threat
+**Status:** DRAFT, round 1. **Hardware assumption (server-only CVMs) superseded by [0002](0002-trust-substrate-and-scheduler.md)**; the threat insight, the trustlet design (now the `cvm_snp` profile) and the critique tables still apply. Until it is accepted, this proposal overrides the threat
 model in `docs/architecture/09-threat-model.md` (vetted honest nodes), but the other docs are not yet rewritten.
 Evidence: `docs/research/confidential-computing-sota.md`.
 
