@@ -6,6 +6,9 @@
 - 1 TB NVMe SSD + 2 TB HDD;
 - 2 × RTX 4060 Ti (unused: GPU functions are parked).
 
+**Access:** C0 is reached over SSH (details to be provided by the user); the coding agent does not run on it. See
+ROADMAP P9.
+
 ## 1. Principles
 
 - **Single node, unattended, idempotent.** `tools/calibrate/run.py --suite <name>` runs probes, writes raw logs, and

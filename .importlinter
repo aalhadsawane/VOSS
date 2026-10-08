@@ -1,0 +1,72 @@
+[importlinter]
+root_package = voss
+include_external_packages = False
+
+[importlinter:contract:core]
+name = core imports nothing else in voss (doc 05 §2)
+type = forbidden
+source_modules = voss.core
+forbidden_modules =
+    voss.world
+    voss.observe
+    voss.policy
+    voss.runtime
+    voss.metrics
+    voss.cli
+
+[importlinter:contract:world]
+name = world imports only core
+type = forbidden
+source_modules = voss.world
+forbidden_modules =
+    voss.observe
+    voss.policy
+    voss.runtime
+    voss.metrics
+    voss.cli
+
+[importlinter:contract:observe]
+name = observe imports only core and world
+type = forbidden
+source_modules = voss.observe
+forbidden_modules =
+    voss.policy
+    voss.runtime
+    voss.metrics
+    voss.cli
+
+[importlinter:contract:policy]
+name = policy imports only core (information boundary, D-05)
+type = forbidden
+source_modules = voss.policy
+forbidden_modules =
+    voss.world
+    voss.observe
+    voss.runtime
+    voss.metrics
+    voss.cli
+
+[importlinter:contract:metrics]
+name = metrics imports only core
+type = forbidden
+source_modules = voss.metrics
+forbidden_modules =
+    voss.world
+    voss.observe
+    voss.policy
+    voss.runtime
+    voss.cli
+
+[importlinter:contract:actors]
+name = actor modules never import each other (D-06)
+type = independence
+modules =
+    voss.runtime.worker_agent
+    voss.runtime.scheduler_role
+    voss.runtime.router
+    voss.runtime.orchestrator
+    voss.runtime.verifier
+    voss.runtime.tenant_kbs
+    voss.runtime.opdb
+    voss.runtime.accounting
+    voss.runtime.fault_driver

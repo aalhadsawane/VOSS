@@ -103,6 +103,11 @@ map): P0 → P4, then P6 and P10, with P9 in parallel.
   - E17 and E18 pilots.
 
 ## P9 · Calibration and validation (M, parallel)
+- **Access (2026-10-08):** the calibration node C0 is not available yet. When it is, the user will share **SSH
+  details**; it is *not* the machine the coding agent runs on. The harness must therefore run remotely over SSH
+  (copy `tools/calibrate/` to the node, run suites there, copy raw logs back, ingest locally). Reboot/BIOS suites
+  still need explicit user approval (AGENTS.md rule 14). Until then, simulator phases use `literature`/`assumed`
+  placeholder values for C0.
 - `tools/calibrate/` suites (doc 10 §3), `ingest.py`, the measured calibration bundle for C0; manual suites `tme` and
   `appliance` (with user approval).
 - P9b (optional): single-box emulation testbed (doc 10 §4).
