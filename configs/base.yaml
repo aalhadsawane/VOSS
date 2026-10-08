@@ -1,6 +1,19 @@
-# Full default config (doc 05 §6). Sections are typed in voss/core/config.py and grow phase by phase.
+# Full default config (doc 05 §6). World sections are validated by the world models that own them.
 seed: 1
 horizon_s: 3600
 system: voss
+scenario:
+  workers: 1000
+  start_utc_h: 0
+  warmup_s: 172800
+  substrate_mix: {appliance_tpm: 1.0}
+  tiers: {nightly: 0.6, idle: 0.3, dedicated: 0.1}
+  hw_mix: {C0: 0.1, C1: 0.35, C2: 0.35, C3: 0.2}
+  tofu_frac: 0.3
+  regime: churn_med
+  adversary: {regime: adversary_none}
+  load: {regime: load_default, rate: 100}
+  functions: functions.yaml
+  tenants: tenants.yaml
 decision_clock: {mode: modeled}
-calibration: null
+calibration: configs/calibration/placeholder/c0

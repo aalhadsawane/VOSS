@@ -1,0 +1,32 @@
+# Confidential Containers pool (doc 04 §3): CVM shell boot, tenant bind, warm container. Literature ranges.
+provenance: {default: literature, source: "docs/research/confidential-computing-sota.md"}
+name: coco_pool
+assurance_base: 0.95
+concurrent_owner_use: true
+session:
+  establish:
+    - {op: psp, dist: {dist: range, low: 3.5, high: 17.0, at: 0.5, sigma: 0.2, tag: literature, source: "CoCo shell boot 3.5-17 s"}}
+    - {op: delay, dist: {dist: range, low: 0.05, high: 1.0, at: 0.5, sigma: 0.2, tag: literature, source: "attestation agent"}}
+    - {op: rpc, to: verifier, size: 8KB, reply: 2KB}
+    - {op: cpu, work: measured/verify_s}
+  reattest:
+    - {op: delay, dist: {dist: range, low: 0.05, high: 1.0, at: 0.5, tag: literature}}
+    - {op: rpc, to: verifier, size: 6KB, reply: 1KB}
+  reattest_every_s: 600
+  valid_s: 900
+trust:
+  - {op: rpc, to: tenant_kbs, size: 4KB, reply: 1KB}
+  - {op: cpu, work: measured/kbs_check_s}
+ladder:                       # shell → tenant-bound shell (image pulled in guest) → warm container
+  levels: [L0, L1, L3, L4]
+  ready: L3
+  busy: L4
+  persistent: []
+  transitions:
+    L0->L1: [{op: fetch, artifacts: [bundle, rootfs]}, {op: cpu, work: measured/verify_s_per_MB, per_mb: [bundle, rootfs]}]
+    L1->L3: [{op: disk_read, what: rootfs}, {op: delay, dist: {dist: range, low: 0.3, high: 3.0, at: 0.5, sigma: 0.3, tag: literature, source: "container start in CVM"}}, {op: cpu, work: fn.init_s}]
+    L3->L4: [{op: delay, dist: measured/dispatch}]
+slowdown:
+  cpu: {dist: range, low: 1.02, high: 1.1, at: 0.5, tag: literature}
+  mem: {dist: range, low: 1.02, high: 1.15, at: 0.5, tag: literature}
+  io: {dist: range, low: 1.1, high: 1.5, at: 0.5, tag: literature}

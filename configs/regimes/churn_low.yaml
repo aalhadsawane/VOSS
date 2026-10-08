@@ -1,0 +1,11 @@
+# Lower churn: longer sessions, more graceful ends. tag: assumed.
+provenance: {default: assumed}
+regime: churn_low
+graceful_frac: 0.8
+drain_lead: {dist: lognormal, median: 300, sigma: 0.5}
+tiers:
+  nightly: {kind: nightly, start_hour: 22, start_sd_h: 1.0, p_night: 0.9, length: {dist: lognormal, median: 28800, sigma: 0.4}}
+  idle: {kind: poisson, rate_per_h: 0.1, peak_h: 14, amplitude: 0.5, length: {dist: weibull, shape: 0.7, scale: 10800}}
+  dedicated: {kind: always, length: {dist: weibull, shape: 0.8, scale: 604800}, gap: {dist: lognormal, median: 300, sigma: 0.5}}
+shocks: {rate_per_h: 0.005, frac: 0.3, scope: city}
+platform: {late_join_frac: 0.0, leave_rate_per_day: {nightly: 0.005, idle: 0.01, dedicated: 0.002}}

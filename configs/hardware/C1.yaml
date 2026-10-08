@@ -1,0 +1,14 @@
+# Older laptop class, scaled from C0 by benchmark ratio (assumed).
+provenance: {default: assumed}
+name: C1
+speed: 0.6
+cores: 4
+mem_gb: 16
+ssd_gb: 256
+hdd_gb: 0
+ssd_read_MBps: 520
+ssd_write_MBps: 450
+hdd_read_MBps: 0
+hdd_write_MBps: 0
+cpu_model: intel-skl
+tpm: ptt

@@ -1,0 +1,26 @@
+# Donation-session regime (doc 02 §2). All values tag: assumed (no public consumer-donation trace); swept by E14.
+provenance: {default: assumed, note: "shape follows volunteer-computing availability studies (heavy tails, diurnal)"}
+regime: churn_med
+graceful_frac: 0.5
+drain_lead: {dist: lognormal, median: 120, sigma: 0.7}
+tiers:
+  nightly:
+    kind: nightly
+    start_hour: 23
+    start_sd_h: 1.5
+    p_night: 0.8
+    length: {dist: lognormal, median: 21600, sigma: 0.6}
+  idle:
+    kind: poisson
+    rate_per_h: 0.15
+    peak_h: 14
+    amplitude: 0.6
+    length: {dist: weibull, shape: 0.6, scale: 5400}
+  dedicated:
+    kind: always
+    length: {dist: weibull, shape: 0.7, scale: 259200}
+    gap: {dist: lognormal, median: 300, sigma: 0.5}
+shocks: {rate_per_h: 0.02, frac: 0.5, scope: city}
+platform:
+  late_join_frac: 0.0
+  leave_rate_per_day: {nightly: 0.01, idle: 0.02, dedicated: 0.005}

@@ -1,0 +1,15 @@
+# Calibration node C0 (doc 10): Intel i7 12th gen, 128 GB DDR5, 1 TB NVMe + 2 TB HDD, Intel PTT.
+# Placeholder until P9 calibration: disk speeds are typical datasheet values, not measured.
+provenance: {default: assumed, note: "spec sheet of the calibration node; disk speeds literature until P9 suite `disk`"}
+name: C0
+speed: 1.0                  # reference core (work_ref_s is measured on this node)
+cores: 20                   # 8P + 4E cores, 20 threads
+mem_gb: 128
+ssd_gb: 1000
+hdd_gb: 2000
+ssd_read_MBps: 3000         # literature (PCIe 4 NVMe class)
+ssd_write_MBps: 2000
+hdd_read_MBps: 180          # literature (7200 rpm class)
+hdd_write_MBps: 160
+cpu_model: intel-adl
+tpm: ptt

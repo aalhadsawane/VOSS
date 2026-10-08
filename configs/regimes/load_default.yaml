@@ -1,0 +1,11 @@
+# Arrival process (doc 02 §8). tag: assumed (shape follows Azure Functions trace characteristics: Zipf popularity,
+# bursty per-function arrivals, diurnal demand).
+provenance: {default: assumed, source: "Shahrad et al., ATC'20 (Azure Functions) for shape"}
+regime: load_default
+rate: 100
+zipf_s: 1.0
+diurnal: {peak_h: 15, amplitude: 0.3}
+mmpp: {enabled: true, burst_mult: 4.0, mean_normal_s: 600, mean_burst_s: 60}
+async_deadline_s: 60
+sync_overhead_s: 0.05
+flash_crowds: []

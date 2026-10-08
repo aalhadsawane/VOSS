@@ -13,11 +13,11 @@ from voss.core.registry import Registry
 
 
 def test_extends_and_overrides(tmp_path: Path) -> None:
-    (tmp_path / "base.yaml").write_text("seed: 1\nhorizon_s: 10\nscenario: {workers: 5, x: {a: 1}}\n")
-    (tmp_path / "child.yaml").write_text("extends: base.yaml\nscenario: {x: {b: 2}}\n")
+    (tmp_path / "base.yaml").write_text("seed: 1\nhorizon_s: 10\nscenario: {workers: 5, load: {a: 1}}\n")
+    (tmp_path / "child.yaml").write_text("extends: base.yaml\nscenario: {load: {b: 2}}\n")
     cfg = load_config(tmp_path / "child.yaml", ["seed=9", "scenario.workers=7"])
     assert cfg.seed == 9
-    assert cfg.scenario == {"workers": 7, "x": {"a": 1, "b": 2}}
+    assert cfg.scenario.workers == 7 and cfg.scenario.load == {"a": 1, "b": 2}
 
 
 def test_unknown_keys_rejected() -> None:

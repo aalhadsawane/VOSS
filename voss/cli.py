@@ -9,6 +9,7 @@ from pathlib import Path
 from voss.core.config import RunConfig, load_config
 from voss.metrics.manifest import Manifest, build_manifest
 from voss.runtime.system import run_system
+from voss.world.scenario import generate, store
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -35,6 +36,17 @@ def cmd_repro(path: Path) -> bool:
     return ok
 
 
+def cmd_gen_scenario(cfg: RunConfig) -> str:
+    """Generate the scenario for ``cfg`` and store it under ``<out_dir>/scenarios/<hash>``."""
+    scn = generate(cfg)
+    path = store(scn, Path(cfg.out_dir) / "scenarios")
+    print(
+        f"scenario={scn.hash} path={path} workers={len(scn.workers)} "
+        f"sessions={len(scn.sessions.sessions)} arrivals={len(scn.arrivals)}"
+    )
+    return scn.hash
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="voss")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -42,11 +54,17 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("config")
     r.add_argument("--set", action="append", default=[], help="override key.path=value")
     r.add_argument("--out", type=Path, default=None)
+    g = sub.add_parser("gen-scenario", help="generate, hash and store a scenario")
+    g.add_argument("config")
+    g.add_argument("--set", action="append", default=[], help="override key.path=value")
     rp = sub.add_parser("repro", help="re-run a manifest and assert its result hash")
     rp.add_argument("manifest", type=Path)
     a = p.parse_args(argv)
     if a.cmd == "run":
         cmd_run(load_config(a.config, a.set), a.out)
+        return 0
+    if a.cmd == "gen-scenario":
+        cmd_gen_scenario(load_config(a.config, a.set))
         return 0
     return 0 if cmd_repro(a.manifest) else 1
 

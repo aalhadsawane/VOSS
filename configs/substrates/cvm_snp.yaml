@@ -1,0 +1,37 @@
+# Server CVMs (AMD SEV-SNP) with trustlets (doc 04 §3). Literature ranges only (doc 10 §5); swept by experiments.
+provenance: {default: literature, source: "docs/research/confidential-computing-sota.md"}
+name: cvm_snp
+assurance_base: 0.95
+concurrent_owner_use: true
+session:                      # wCVM boot + SNP attestation report
+  establish:
+    - {op: psp, dist: {dist: range, low: 0.2, high: 8.0, at: 0.5, sigma: 0.2, tag: literature, source: "wCVM boot 0.2-8 s"}}
+    - {op: delay, dist: {dist: range, low: 0.02, high: 0.5, at: 0.5, sigma: 0.2, tag: literature, source: "SNP report + VCEK"}}
+    - {op: rpc, to: verifier, size: 8KB, reply: 2KB}
+    - {op: cpu, work: measured/verify_s}
+  reattest:
+    - {op: delay, dist: {dist: range, low: 0.02, high: 0.5, at: 0.5, tag: literature}}
+    - {op: rpc, to: verifier, size: 6KB, reply: 1KB}
+  reattest_every_s: 600
+  valid_s: 900
+trust:                        # key per function per wCVM
+  - {op: rpc, to: tenant_kbs, size: 4KB, reply: 1KB}
+  - {op: cpu, work: measured/kbs_check_s}
+ladder:                       # no zygote → zygote(runtime) → function loaded → trustlet
+  levels: [L0, L1, L2, L3, L4]
+  ready: L3
+  busy: L4
+  persistent: [L1]
+  transitions:
+    L0->L1: [{op: fetch, artifacts: [bundle, rootfs]}, {op: cpu, work: measured/verify_s_per_MB, per_mb: [bundle, rootfs]}]
+    L1->L2: [{op: disk_read, what: rootfs}, {op: delay, dist: {dist: range, low: 0.5, high: 2.0, at: 0.5, sigma: 0.2, tag: literature, source: "zygote ~1 s"}}]
+    L2->L3: [{op: cpu, work: fn.init_s}, {op: delay, dist: {dist: range, low: 0.001, high: 0.01, at: 0.5, tag: literature, source: "trustlet <10 ms"}}]
+    L3->L4: [{op: delay, dist: measured/dispatch}]
+slowdown:
+  cpu: {dist: range, low: 1.02, high: 1.1, at: 0.5, tag: literature}
+  mem: {dist: range, low: 1.02, high: 1.15, at: 0.5, tag: literature}
+  io: {dist: range, low: 1.1, high: 1.5, at: 0.5, tag: literature, source: "CVM I/O tax (bounce buffers)"}
+owner_activity:
+  rate_per_h: 0.5
+  duration: {dist: lognormal, median: 1800, sigma: 0.8, tag: assumed}
+  cpu_factor: 1.2

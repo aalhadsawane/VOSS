@@ -1,0 +1,35 @@
+# DRTM-measured hypervisor under the owner's OS (doc 04 §2-3): no reboot, owner keeps using the machine.
+provenance: {default: assumed, note: "appliance values + assumptions; not deployable today"}
+name: drtm_hv
+assurance_base: 0.75
+concurrent_owner_use: true
+session:
+  establish:
+    - {op: delay, dist: measured/drtm_launch}
+    - {op: tpm_quote}
+    - {op: rpc, to: verifier, size: 6KB, reply: 2KB}
+    - {op: cpu, work: measured/verify_s}
+  reattest:
+    - {op: tpm_quote}
+    - {op: rpc, to: verifier, size: 4KB, reply: 1KB}
+  reattest_every_s: 600
+  valid_s: 900
+trust:
+  - {op: rpc, to: tenant_kbs, size: 2KB, reply: 1KB}
+  - {op: cpu, work: measured/kbs_check_s}
+ladder:
+  levels: [L0, L1, L2, L3, L4]
+  ready: L3
+  busy: L4
+  persistent: [L1, L2]
+  transitions:
+    L0->L1: [{op: fetch, artifacts: [bundle, rootfs]}, {op: cpu, work: measured/verify_s_per_MB, per_mb: [bundle, rootfs]}]
+    L1->L3: [{op: disk_read, what: rootfs}, {op: delay, dist: measured/fc_boot}, {op: cpu, work: fn.init_s}]
+    L2->L3: [{op: disk_read, what: snapshot_touched}, {op: delay, dist: measured/fc_restore}]
+    L3->L4: [{op: delay, dist: measured/dispatch}]
+  after_init: [{op: delay, dist: measured/fc_snapshot_create}, {op: disk_write, what: snapshot}]
+slowdown: {cpu: 1.05, mem: 1.05, io: 1.1}
+owner_activity:
+  rate_per_h: 1.0
+  duration: {dist: lognormal, median: 900, sigma: 0.8, tag: assumed}
+  cpu_factor: 1.3

@@ -1,0 +1,11 @@
+# High churn: short sessions, mostly abrupt ends. tag: assumed.
+provenance: {default: assumed}
+regime: churn_high
+graceful_frac: 0.3
+drain_lead: {dist: lognormal, median: 60, sigma: 0.7}
+tiers:
+  nightly: {kind: nightly, start_hour: 23, start_sd_h: 2.0, p_night: 0.6, length: {dist: lognormal, median: 7200, sigma: 0.9}}
+  idle: {kind: poisson, rate_per_h: 0.3, peak_h: 14, amplitude: 0.6, length: {dist: weibull, shape: 0.5, scale: 1800}}
+  dedicated: {kind: always, length: {dist: weibull, shape: 0.6, scale: 43200}, gap: {dist: lognormal, median: 600, sigma: 0.6}}
+shocks: {rate_per_h: 0.05, frac: 0.5, scope: city}
+platform: {late_join_frac: 0.05, leave_rate_per_day: {nightly: 0.03, idle: 0.05, dedicated: 0.01}}

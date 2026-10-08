@@ -1,0 +1,6 @@
+# Colluding failure domains (doc 02 §7). tag: assumed.
+provenance: {default: assumed}
+regime: adversary_collude
+alpha: 0.1
+mix: {colluding_domain: 1.0}
+params: {collude_t: 1200}

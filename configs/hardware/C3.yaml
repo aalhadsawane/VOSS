@@ -1,0 +1,14 @@
+# Mini PC / spare box class (assumed).
+provenance: {default: assumed}
+name: C3
+speed: 0.5
+cores: 4
+mem_gb: 8
+ssd_gb: 128
+hdd_gb: 500
+ssd_read_MBps: 500
+ssd_write_MBps: 400
+hdd_read_MBps: 120
+hdd_write_MBps: 110
+cpu_model: intel-adl-n
+tpm: ptt
