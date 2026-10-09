@@ -1,0 +1,17 @@
+# E09 pilot (doc 06 §5, RQ7): caching — value density vs LRU, P2P, HDD tier — under tight SSD and high churn.
+experiment: E09
+base: ../smoke.yaml
+overrides:
+  - horizon_s=900
+  - scenario.workers=200
+  - scenario.load.rate=10
+  - scenario.regime=churn_high
+  - scenario.envelope.ssd_frac=0.003
+  - voss.planner.name=greedy
+systems:
+  gdsf_p2p_hdd: []
+  lru: [voss.cache.value=lru]
+  no_p2p: [voss.cache.p2p=false]
+  no_hdd: [voss.cache.hdd_tier=false]
+  lru_no_p2p_no_hdd: [voss.cache.value=lru, voss.cache.p2p=false, voss.cache.hdd_tier=false]
+seeds: [1, 2, 3, 4, 5]

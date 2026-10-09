@@ -30,7 +30,7 @@ class SchedModels:
         self.forecaster: Any = create("forecaster", "ewma2")
         self.svc = 1.0
         self.survival_version = 0
-        self._static_key: tuple[int, int] | None = None
+        self._static_key: tuple[object, int] | None = None
         self._static_cache: tuple[np.ndarray, ...] = ()
 
     def observe(self, obs: ExecObs) -> None:
@@ -56,8 +56,11 @@ class SchedModels:
         return fn
 
     def _static(self, view: ClusterView) -> tuple[np.ndarray, ...]:
-        key = (id(view.cache), self.survival_version)
-        if self._static_key != key:
+        if (
+            self._static_key is None
+            or self._static_key[0] is not view.cache
+            or self._static_key[1] != self.survival_version
+        ):
             st = view.static if view.static else (None,) * len(view)
             k, lam = self.survival.tier_params([s.tier if s else "idle" for s in st])
             start = np.array([s.session_start if s else 0.0 for s in st])
@@ -68,7 +71,7 @@ class SchedModels:
                 else np.full(len(view), np.inf)
             )
             self._static_cache = (k, lam, start, tz, drain)
-            self._static_key = key
+            self._static_key = (view.cache, self.survival_version)
         return self._static_cache
 
     def refit(self, live: dict[str, list[float]]) -> None:

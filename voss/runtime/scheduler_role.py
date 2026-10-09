@@ -37,11 +37,13 @@ from voss.runtime.actor import Actor, ActorContext
 from voss.runtime.schedlib.decide import Decider, Decision
 from voss.runtime.schedlib.inflight import Copy, Inflight
 from voss.runtime.schedlib.models import SchedModels
+from voss.runtime.schedlib.planner_mixin import PlannerMixin
+from voss.runtime.schedlib.planning import Planning
 from voss.runtime.schedlib.viewcache import ViewCache
 from voss.runtime.workerlib.host import HostLocal
 
 
-class SchedulerRole(Actor):
+class SchedulerRole(PlannerMixin, Actor):
     role = "sched"
 
     def __init__(self, host: HostLocal, ctx: ActorContext, cost: CostContext, priors: dict[str, FnPrior]) -> None:
@@ -63,6 +65,7 @@ class SchedulerRole(Actor):
         self.busy_until = 0.0
         self.models = SchedModels(cfg, self.priors)
         self.decider = Decider(cfg, self.cost, self.models, self.ctx.cfg.scenario.start_utc_h)
+        self.planning = Planning(cfg, self.cost, self.models, self.ctx.cfg.scenario.start_utc_h)
         self.retry = BasicRetry(cfg.scheduler.max_attempts, cfg.scheduler.retry_backoff_s)
         self.gen = self.ctx.rng.stream("sched.place", self.hl.worker, self.hl.session)
         self.token = 0
@@ -100,6 +103,7 @@ class SchedulerRole(Actor):
         cfg = self.ctx.cfg.voss
         self.after(cfg.scheduler.heartbeat_s, self._check_silent)
         self.after(cfg.models.refit_s, self._refit)
+        self.after(cfg.planner.T_plan, self._plan_tick)
 
     def _membership(self, m: Membership) -> None:
         if not self.active or m.epoch != self.epoch:
@@ -165,6 +169,7 @@ class SchedulerRole(Actor):
         if m.inv.slo_class == SloClass.FILLER:
             self.fillers.add(m.inv.id)
         self.models.forecaster.observe(m.inv.tenant, self.now)
+        self.models.forecaster.observe(f"fn:{m.inv.fn}", self.now)
         if m.inv.slo_class == SloClass.SYNC:
             self._decide([m.inv.id], windowed=False)
             return
@@ -224,8 +229,18 @@ class SchedulerRole(Actor):
         rec.copies[a] = Copy(a, w, self.now, hedge, mu=mu, sigma=var, load=load)
         self.views.dispatched(w, self.now)
         inv = replace(rec.inv, attempt=a)
+        src = self.dispatch_sources(inv.fn, w)
         d = Dispatch(
-            inv, self.epoch, self.token, rec.router, self.hl.cert_id, rec.t_enqueue, self.now, self.addr, rec.batch_wait
+            inv,
+            self.epoch,
+            self.token,
+            rec.router,
+            self.hl.cert_id,
+            rec.t_enqueue,
+            self.now,
+            self.addr,
+            rec.batch_wait,
+            src,
         )
         self.send(("agent", w), d)
         self.send(rec.router, Assigned(inv.id, a, w, self.epoch, self.token))
@@ -268,6 +283,8 @@ class SchedulerRole(Actor):
         speed = st.speed if st else 1.0
         obs = ExecObs(rec.inv.fn, int(c.worker), rec.inv.in_bytes, speed, c.load, o.timings.exec, self.now)
         self.models.observe(obs)
+        self.models.forecaster.observe_service(rec.inv.tenant, o.timings.exec)
+        self.models.forecaster.observe_service(f"fn:{rec.inv.fn}", o.timings.exec)
         cp = self.models.omission.update(int(c.worker), False, self.now)
         if cp is not None:
             self.ctx.rec.log(Table.EVENTS, t=self.now, kind="change_point", worker=c.worker, value=cp.statistic)

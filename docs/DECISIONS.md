@@ -145,3 +145,17 @@ are reproduced through `replay` of their charged latencies (doc 01 §7).
 **D-29 Decisions serialize on the scheduler host** (P3). A decision is computed on the view at its start and takes
 effect after its charged latency; decisions queue behind each other (`busy_until`), so decision latency includes
 queueing on a busy scheduler. Async/filler invocations wait in a window (`placer.window_s`) logged as `batch_wait`.
+
+**D-30 The MILP is bounded by construction** (P4). With exposure fixed costs, robust top-f coverage and warm-state
+benefits the full MILP took 20-35 s with large gaps on 200 workers. Three bounds keep it tractable, each a choice the
+greedy planner already makes implicitly: a *planning pool* of at most `max_plan_workers` live workers (previous
+holders first, then capacity × assurance; P5 clusters bound it further); *candidate* workers per tenant (previous
+holders plus the best by the greedy score, 3× what robust coverage needs); and `fn_snaps` = warm units + 1 snapshot
+copies per function. The solver gets a node limit and the greedy plan as a competing incumbent; the better objective
+is kept (status `greedy_incumbent:*`), so the MILP is never worse than greedy (P4 exit test). An unchanged input
+signature (workers, hot set, demand buckets) reuses the previous plan (status `reused`).
+
+**D-31 The planner runs beside the fast loop** (P4). A plan is computed on the view at its start and applied after its
+charged latency (decision clock kind `plan`), but it does not hold the scheduler's `busy_until`: the slow loop runs
+on its own core, so placements are not delayed by a solve. Its actions are diffed against the workers' confirmed
+state (heartbeat `pinned`, cache inventory), not against the previous plan.

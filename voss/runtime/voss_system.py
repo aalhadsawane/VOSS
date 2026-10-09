@@ -150,6 +150,9 @@ class VossSystem:
             hc.ssd_read_MBps,
             hc.hdd_read_MBps,
             0.0,
+            mem_mb=caps["mem_mb"],
+            ssd_mb=caps["ssd_mb"],
+            snapshot_class=meta[2],
         )
         return host
 
@@ -169,7 +172,32 @@ class VossSystem:
         att = sum(1 for a in self.agents.values() if a.host.attested)
         pending = sum(len(r.pending) for r in self.routers)
         self.rec.log(Table.SAMPLES, t=self.kernel.now, hosts_up=up, attested=att, pending=pending)
+        self._sample_cache()
         self.kernel.after(60.0, self._sample)
+
+    def _sample_cache(self) -> None:
+        """Doc 06 §2 ``cache`` table: cluster-wide bytes per tier, hits, evictions, promotions, P2P bytes, keys."""
+        hosts = [a.host for a in self.agents.values()]
+        live = [a for a in self.agents.values() if a.host.attested]
+        hits: dict[str, int] = {}
+        for h in hosts:
+            for tier, n in h.cache.stats.hits.items():
+                hits[tier] = hits.get(tier, 0) + n
+        self.rec.log(
+            Table.CACHE,
+            t=self.kernel.now,
+            ssd_mb=sum(h.cache.used("ssd") for h in hosts),
+            hdd_mb=sum(h.cache.used("hdd") for h in hosts),
+            warm_mb=sum(h.cache.warm_mb() for h in hosts if h.up),
+            hits_ssd=hits.get("ssd", 0),
+            hits_hdd=hits.get("hdd", 0),
+            evictions=sum(h.cache.stats.evictions for h in hosts),
+            demotions=sum(h.cache.stats.demotions for h in hosts),
+            promotions=sum(h.cache.stats.promotions for h in hosts),
+            p2p_mb=sum(h.extra.get("p2p_bytes", 0.0) for h in hosts) / 2**20,
+            key_holders=sum(len(a.keys) for a in live),
+            exposure=sum(len(a.keys) * (1 - a.host.assurance) for a in live),
+        )
 
     def run(self) -> RunResult:
         TraceDriver(self.kernel, session_events(self.scn), self._owner).start()

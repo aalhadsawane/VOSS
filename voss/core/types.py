@@ -60,6 +60,9 @@ class WorkerStatic:
     ssd_read_MBps: float
     hdd_read_MBps: float
     session_start: float
+    mem_mb: float = 0.0
+    ssd_mb: float = 0.0
+    snapshot_class: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +86,7 @@ class WorkerState:
     as_of: float
     cert_id: str = ""
     static: WorkerStatic | None = None
+    pinned: frozenset[str] = frozenset()  # tenants whose PREPARE completed (confirmed plan state)
 
 
 @dataclass(frozen=True)
@@ -106,6 +110,7 @@ class ClusterView:
     inflight: np.ndarray = field(default_factory=lambda: np.zeros(0))
     static: tuple[WorkerStatic | None, ...] = ()
     drain_deadline: tuple[float | None, ...] = ()
+    pinned: tuple[frozenset[str], ...] = ()
 
     def __len__(self) -> int:
         return len(self.workers)

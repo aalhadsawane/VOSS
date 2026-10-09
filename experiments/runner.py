@@ -19,19 +19,20 @@ from voss.core.config import RunConfig, apply_overrides, load_yaml_tree
 
 
 def points(spec: dict[str, Any]) -> list[list[str]]:
-    """Override lists for every grid point × seed (grid keys sorted for stable order)."""
+    """Override lists for every system × grid point × seed (keys sorted for stable order).
+
+    ``systems`` maps a label to its own overrides: compared systems run paired on the same scenario (doc 06 §4).
+    """
     grid = spec.get("grid", {})
     keys = sorted(grid)
+    systems = spec.get("systems", {"": []})
     out = []
-    for values in itertools.product(*(grid[k] for k in keys)):
-        for seed in spec.get("seeds", [1]):
-            out.append(
-                [
-                    *spec.get("overrides", []),
-                    *(f"{k}={json.dumps(v)}" for k, v in zip(keys, values, strict=True)),
-                    f"seed={seed}",
-                ]
-            )
+    for label in sorted(systems):
+        for values in itertools.product(*(grid[k] for k in keys)):
+            gv = [f"{k}={json.dumps(v)}" for k, v in zip(keys, values, strict=True)]
+            for seed in spec.get("seeds", [1]):
+                tag = [f"label={label}"] if label else []
+                out.append([*spec.get("overrides", []), *systems[label], *gv, f"seed={seed}", *tag])
     return out
 
 

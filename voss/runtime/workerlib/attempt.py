@@ -13,7 +13,7 @@ from typing import Protocol
 
 import numpy as np
 
-from voss.core.ids import Addr, FnId
+from voss.core.ids import Addr, FnId, WorkerId
 from voss.core.kernel import Kernel
 from voss.core.types import Invocation, Timings
 from voss.runtime.workerlib.host import HostLocal
@@ -32,7 +32,9 @@ class AgentPort(Protocol):
     digests: dict[FnId, dict[str, str]]
 
     def request_key(self, tenant: str, cont: Callable[[bool], None]) -> None: ...
-    def fetch(self, fn: FunctionSpec, artifacts: tuple[str, ...], cont: Callable[[], None]) -> None: ...
+    def fetch(
+        self, fn: FunctionSpec, artifacts: tuple[str, ...], cont: Callable[[], None], sources: tuple[WorkerId, ...] = ()
+    ) -> None: ...
     def finish(self, att: Attempt, status: str) -> None: ...
     def touched_frac(self) -> float: ...
     def on_exec_start(self, att: Attempt) -> None: ...
@@ -53,6 +55,7 @@ class Attempt:
     gen: np.random.Generator
     port: AgentPort
     batch_wait: float = 0.0
+    sources: tuple[WorkerId, ...] = ()
     input_at: float | None = None
     level: str = ""
     tier: str = ""
@@ -100,7 +103,7 @@ class Attempt:
             fn=self.fn,
         )
         env.rpc = self._rpc
-        env.fetch = lambda arts, cont: self.port.fetch(self.fn, arts, cont)
+        env.fetch = lambda arts, cont: self.port.fetch(self.fn, arts, cont, self.sources)
         return env
 
     def _rpc(self, op: RpcOp, cont: Callable[[], None]) -> None:

@@ -43,6 +43,7 @@ class TenantInfo:
     kbs_lat: float
     kbs_lon: float
     assurance_floor: float
+    f: int | None = None
 
 
 @dataclass(frozen=True)
