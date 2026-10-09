@@ -79,15 +79,15 @@ class ArrayCache:
     """Remembers arrays for the most recent base view (keyed by its cache tuple identity)."""
 
     def __init__(self) -> None:
-        self.key: int | None = None
+        self.key: object | None = None  # the keyed view's cache tuple (held, so its identity cannot be reused)
         self.arrays: ViewArrays | None = None
         self.lv: dict[str, tuple[np.ndarray, np.ndarray]] = {}
         self.holders: dict[str, np.ndarray] = {}
         self.rtts: dict[tuple[float, float], np.ndarray] = {}
 
     def get(self, view: ClusterView, ctx: CostContext) -> ViewArrays:
-        if self.key != id(view.cache) or self.arrays is None:
-            self.key, self.arrays, self.lv = id(view.cache), view_arrays(view, ctx), {}
+        if self.key is not view.cache or self.arrays is None:
+            self.key, self.arrays, self.lv = view.cache, view_arrays(view, ctx), {}
             self.holders, self.rtts = {}, {}
         return self.arrays
 

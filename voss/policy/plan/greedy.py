@@ -49,7 +49,8 @@ def _trust_sets(inp: PlanInput, y: np.ndarray, c: np.ndarray) -> None:
     for t in np.argsort(-(inp.rate * inp.cold_penalty), kind="stable"):
         fns = inp.fn_tenant == t
         mem_cost = inp.params.rho_mem * float(inp.fn_mem[fns].mean()) if fns.any() else 0.0
-        base = e * inp.assurance / (mem_cost + inp.sigma[t] * (1 - inp.assurance) + 1e-6)
+        exposure = inp.params.exposure_weight * inp.sigma[t] * (1 - inp.assurance) if inp.params.use_exposure else 0.0
+        base = e * inp.assurance / (mem_cost + exposure + 1e-6)
         for _ in range(4):  # fill, cap domains, refill what the cap removed
             _fill(inp, t, y, c, free, base)
             before = c[t].copy()
@@ -90,11 +91,13 @@ def _warm_state(inp: PlanInput, y: np.ndarray, s: np.ndarray, w: np.ndarray) -> 
                 w[f, j] += 1
                 mem[j] -= inp.fn_mem[f]
                 units[f] -= 1
+    snaps = inp.fn_snaps.astype(float).copy()
     for f in np.argsort(-(inp.fn_benefit / np.maximum(inp.fn_size, 1.0)), kind="stable"):
         if p.beta_warm * p.gamma * inp.fn_benefit[f] <= p.rho_ssd * inp.fn_size[f]:
             continue
         for j in np.flatnonzero(y[inp.fn_tenant[f]]):
-            if ssd[j] >= inp.fn_size[f]:
+            if ssd[j] >= inp.fn_size[f] and snaps[f] >= 1:
+                snaps[f] -= 1
                 s[f, j] = True
                 ssd[j] -= inp.fn_size[f]
 

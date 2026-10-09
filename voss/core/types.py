@@ -62,6 +62,7 @@ class WorkerStatic:
     session_start: float
     mem_mb: float = 0.0
     ssd_mb: float = 0.0
+    snapshot_class: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,6 +110,7 @@ class ClusterView:
     inflight: np.ndarray = field(default_factory=lambda: np.zeros(0))
     static: tuple[WorkerStatic | None, ...] = ()
     drain_deadline: tuple[float | None, ...] = ()
+    pinned: tuple[frozenset[str], ...] = ()
 
     def __len__(self) -> int:
         return len(self.workers)

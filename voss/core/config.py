@@ -132,7 +132,9 @@ class PlannerConfig(Frozen):
     name: str = "milp"
     T_plan: float = 30.0
     T_solve: float = 2.0
-    node_limit: int = 200
+    node_limit: int = 50
+    max_plan_workers: int = 40
+    replan_tolerance: float = 0.2
     hot_top_k: int = 20
     hot_fn_k: int = 50
     min_rate: float = 0.01
@@ -220,9 +222,10 @@ class RunConfig(Frozen):
     decision_clock: DecisionClockConfig = Field(default_factory=DecisionClockConfig)
     calibration: str | None = None
     out_dir: str = "runs"
+    label: str = ""
 
     def config_hash(self) -> str:
-        return hash_obj(self.model_dump(mode="json", exclude={"out_dir"}))
+        return hash_obj(self.model_dump(mode="json", exclude={"out_dir", "label"}))
 
 
 def deep_merge(base: dict[str, Any], over: dict[str, Any]) -> dict[str, Any]:

@@ -29,6 +29,7 @@ class PlanParams:
     use_exposure: bool = True
     use_domain_cap: bool = True
     use_freshness: bool = True
+    exposure_weight: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -59,6 +60,12 @@ class PlanInput:
     fn_units: np.ndarray  # [F] warm VMs worth keeping cluster-wide (demand bound)
     y_prev: np.ndarray  # [T, J] previous trust-warm sets
     params: PlanParams = field(default_factory=PlanParams)
+
+    @property
+    def fn_snaps(self) -> np.ndarray:
+        """``[F]`` snapshot copies worth pinning cluster-wide: one per warm unit plus one spare (D-30)."""
+        out: np.ndarray = self.fn_units + 1.0
+        return out
 
     @property
     def shape(self) -> tuple[int, int, int]:

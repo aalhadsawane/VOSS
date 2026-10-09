@@ -54,6 +54,9 @@ class TwoScaleForecaster:
         if service_s is not None:
             self.service[key] = 0.9 * self.service.get(key, service_s) + 0.1 * service_s
 
+    def observe_service(self, key: str, service_s: float) -> None:
+        self.service[key] = 0.9 * self.service.get(key, service_s) + 0.1 * service_s
+
     def _roll(self, t: float) -> None:
         while t >= self.bin_start + self.bin_s:
             for key in sorted(set(self.short) | set(self.counts)):

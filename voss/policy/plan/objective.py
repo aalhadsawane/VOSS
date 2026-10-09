@@ -27,6 +27,7 @@ def terms(inp: PlanInput, y: np.ndarray, s: np.ndarray, w: np.ndarray, c: np.nda
     p = inp.params
     u = shortfall(inp, c)
     exposure = float(((inp.sigma[:, None] * (1 - inp.assurance[None, :])) * y).sum()) if p.use_exposure else 0.0
+    exposure *= p.exposure_weight
     return {
         "coverage": float(inp.cold_penalty @ u),
         "donor": float(p.rho_mem * (inp.fn_mem[:, None] * w).sum() + p.rho_ssd * (inp.fn_size[:, None] * s).sum()),
@@ -75,6 +76,8 @@ def feasible(inp: PlanInput, plan: Plan, tol: float = 1e-6) -> list[str]:
         out.append("memory")
     if ((inp.fn_size[:, None] * plan.s).sum(axis=0) > inp.ssd_mb + tol).any():
         out.append("ssd")
+    if (plan.s.sum(axis=1) > inp.fn_snaps + tol).any() or (plan.w.sum(axis=1) > inp.fn_units + tol).any():
+        out.append("demand bounds")
     if (plan.y & ~inp.allowed()).any():
         out.append("assurance/freshness")
     if p.use_domain_cap:

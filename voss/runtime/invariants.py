@@ -34,14 +34,22 @@ def attested_execution(rec: Recorder, scn: Scenario) -> list[str]:
 
 
 def keys_released(rec: Recorder) -> list[str]:
-    """No tenant key used on a worker without a successful ``KEY_REQUEST`` in the same session."""
+    """No tenant key used on a worker without a successful ``KEY_REQUEST`` in the same session, and not after the
+    key was dropped (``RELEASE`` + linger) unless it was released again."""
     ex = _events(rec, "exec_start")
-    rel = _events(rec, "key_release")
-    granted = {(int(r.worker), r.cert, r.tenant): float(r.t) for r in rel.itertuples()}
+    hist: dict[tuple[int, str, str], list[tuple[float, int]]] = {}
+    for kind, sign in (("key_release", 1), ("key_dropped", -1)):
+        ev = _events(rec, kind)
+        if ev.empty:
+            continue
+        cert = ev.cert if "cert" in ev else pd.Series([""] * len(ev), index=ev.index)
+        for w, c, t, ten in zip(ev.worker, cert, ev.t, ev.tenant, strict=True):
+            hist.setdefault((int(w), str(c) if sign > 0 else "*", str(ten)), []).append((float(t), sign))
     out = []
     for r in ex[ex.needs_key == True].itertuples():  # noqa: E712
-        t = granted.get((int(r.worker), r.cert, r.tenant))
-        if t is None or t > r.t:
+        rel = [t for t, _ in hist.get((int(r.worker), r.cert, r.tenant), []) if t <= r.t]
+        drop = [t for t, _ in hist.get((int(r.worker), "*", r.tenant), []) if t <= r.t]
+        if not rel or (drop and max(drop) > max(rel)):
             out.append(f"key used without release: worker {r.worker} tenant {r.tenant} inv {r.inv}")
     return out
 

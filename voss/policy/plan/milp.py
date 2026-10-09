@@ -8,6 +8,10 @@ planner falls back to the greedy plan (doc 03 §4.2).
 
 from __future__ import annotations
 
+import os
+import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 
 import numpy as np
@@ -87,7 +91,7 @@ def _objective(inp: PlanInput, L: Layout) -> np.ndarray:
     for t in range(L.T):
         obj[L.u(t)] = inp.cold_penalty[t]
         for j in range(L.J):
-            obj[L.y(t, j)] = inp.sigma[t] * (1 - inp.assurance[j]) if p.use_exposure else 0.0
+            obj[L.y(t, j)] = p.exposure_weight * inp.sigma[t] * (1 - inp.assurance[j]) if p.use_exposure else 0.0
             obj[L.z(t, j)] = p.kappa_switch
     for f in range(L.F):
         for j in range(L.J):
@@ -124,7 +128,7 @@ def _structure(inp: PlanInput, L: Layout, rows: _Rows) -> None:
             rows.add([(L.z(t, j), 1.0), (L.y(t, j), -1.0)], -float(inp.y_prev[t, j]), np.inf)
         for f in range(L.F):
             t = int(inp.fn_tenant[f])
-            rows.add([(L.w(f, j), 1.0), (L.y(t, j), -float(p.w_max))], -np.inf, 0.0)
+            rows.add([(L.w(f, j), 1.0), (L.y(t, j), -float(min(p.w_max, inp.fn_units[f])))], -np.inf, 0.0)
             rows.add([(L.s(f, j), 1.0), (L.y(t, j), -1.0)], -np.inf, 0.0)
         rows.add([(L.c(t, j), 1.0) for t in range(L.T)], -np.inf, float(inp.cap[j]))
         rows.add(
@@ -135,6 +139,7 @@ def _structure(inp: PlanInput, L: Layout, rows: _Rows) -> None:
         rows.add([(L.s(f, j), float(inp.fn_size[f])) for f in range(L.F)], -np.inf, float(inp.ssd_mb[j]))
     for f in range(L.F):
         rows.add([(L.w(f, j), 1.0) for j in range(L.J)], -np.inf, float(inp.fn_units[f]))
+        rows.add([(L.s(f, j), 1.0) for j in range(L.J)], -np.inf, float(inp.fn_snaps[f]))
     if p.use_domain_cap:
         for d in np.unique(inp.domain):
             inside = set(np.flatnonzero(inp.domain == d).tolist())
@@ -171,8 +176,27 @@ def _bounds(inp: PlanInput, L: Layout) -> tuple[np.ndarray, np.ndarray, np.ndarr
     for f in range(L.F):
         for j in range(L.J):
             hi[L.s(f, j)], integ[L.s(f, j)] = 1.0, 1
-            hi[L.w(f, j)], integ[L.w(f, j)] = float(inp.params.w_max), 1
+            hi[L.w(f, j)], integ[L.w(f, j)] = float(min(inp.params.w_max, inp.fn_units[f])), 1
     return lo, hi, integ
+
+
+@contextmanager
+def _quiet() -> Iterator[None]:
+    """HiGHS prints some MIP diagnostics straight to file descriptor 1; keep run logs clean."""
+    try:
+        fd = os.dup(1)
+    except OSError:
+        yield
+        return
+    with open(os.devnull, "w") as null:
+        sys.stdout.flush()
+        os.dup2(null.fileno(), 1)
+        try:
+            yield
+        finally:
+            sys.stdout.flush()
+            os.dup2(fd, 1)
+            os.close(fd)
 
 
 @register("planner", "milp")
@@ -193,12 +217,17 @@ class MilpPlanner:
         lo, hi, integ = _bounds(inp, L)
         opts: dict[str, float | bool] = {"disp": False, "mip_rel_gap": self.gap}
         opts |= {"node_limit": self.node_limit} if self.deterministic else {"time_limit": self.time_limit}
-        res = milp(
-            _objective(inp, L), integrality=integ, bounds=Bounds(lo, hi), constraints=rows.constraint(L.n), options=opts
-        )
+        with _quiet():
+            res = milp(
+                _objective(inp, L),
+                integrality=integ,
+                bounds=Bounds(lo, hi),
+                constraints=rows.constraint(L.n),
+                options=opts,
+            )
+        greedy = self.fallback.plan(inp)
         if res.x is None:
-            g = self.fallback.plan(inp)
-            return finish(inp, g.y, g.s, g.w, g.c, "milp", status=f"fallback:{res.status}")
+            return finish(inp, greedy.y, greedy.s, greedy.w, greedy.c, "milp", status=f"fallback:{res.status}")
         x = res.x
         T, F, J = L.T, L.F, L.J
         y = x[: T * J].reshape(T, J) > 0.5
@@ -206,4 +235,7 @@ class MilpPlanner:
         w = np.rint(x[(T + F) * J : (T + 2 * F) * J].reshape(F, J)).astype(int)
         c = np.clip(x[(T + 2 * F) * J : (2 * T + 2 * F) * J].reshape(T, J), 0, None) * y
         status = "optimal" if res.status == 0 else f"limit:{res.status}"
-        return finish(inp, y, s, w, c, "milp", status=status)
+        plan = finish(inp, y, s, w, c, "milp", status=status)
+        if greedy.objective < plan.objective:  # a budget-limited incumbent may lose to greedy: keep the better one
+            return finish(inp, greedy.y, greedy.s, greedy.w, greedy.c, "milp", status=f"greedy_incumbent:{status}")
+        return plan

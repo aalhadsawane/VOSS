@@ -8,7 +8,6 @@ import itertools
 import numpy as np
 from hypothesis import given, settings
 from hypothesis import strategies as st
-
 from voss.core.ids import FnId, TenantId, WorkerId
 from voss.core.rng import stream
 from voss.policy.plan.greedy import GreedyPlanner
@@ -21,16 +20,32 @@ def instance(seed: int, n_t: int, n_j: int, f: int, robust: bool = True) -> Plan
     g = stream(seed, "plan.instance")
     n_f = 2 * n_t
     return PlanInput(
-        now=0.0, horizon_s=60.0, workers=tuple(WorkerId(i) for i in range(n_j)),
-        cap=g.integers(1, 5, n_j).astype(float), mem_mb=g.uniform(600, 4000, n_j), ssd_mb=g.uniform(0, 2000, n_j),
-        survival=g.uniform(0.6, 1.0, n_j), p_omit=g.uniform(0.0, 0.2, n_j), assurance=g.uniform(0.5, 0.95, n_j),
-        domain=g.integers(0, max(2, n_j // 2), n_j), fresh_ok=g.random(n_j) < 0.9,
-        tenants=tuple(TenantId(f"t{i}") for i in range(n_t)), q=g.uniform(0.5, 4.0, n_t), rate=g.uniform(1, 10, n_t),
-        sigma=g.choice([0.1, 1.0, 3.0], n_t), a_min=g.choice([0.0, 0.0, 0.7], n_t), f=np.full(n_t, f),
-        cold_penalty=g.uniform(5, 20, n_t), fns=tuple(FnId(f"f{i}") for i in range(n_f)),
-        fn_tenant=np.repeat(np.arange(n_t), 2), fn_mem=g.choice([128.0, 256.0, 512.0], n_f),
-        fn_size=g.uniform(50, 600, n_f), fn_benefit=g.uniform(0, 20, n_f), fn_units=g.integers(0, 4, n_f).astype(float),
-        y_prev=g.random((n_t, n_j)) < 0.3, params=PlanParams(use_robust=robust),
+        now=0.0,
+        horizon_s=60.0,
+        workers=tuple(WorkerId(i) for i in range(n_j)),
+        cap=g.integers(1, 5, n_j).astype(float),
+        mem_mb=g.uniform(600, 4000, n_j),
+        ssd_mb=g.uniform(0, 2000, n_j),
+        survival=g.uniform(0.6, 1.0, n_j),
+        p_omit=g.uniform(0.0, 0.2, n_j),
+        assurance=g.uniform(0.5, 0.95, n_j),
+        domain=g.integers(0, max(2, n_j // 2), n_j),
+        fresh_ok=g.random(n_j) < 0.9,
+        tenants=tuple(TenantId(f"t{i}") for i in range(n_t)),
+        q=g.uniform(0.5, 4.0, n_t),
+        rate=g.uniform(1, 10, n_t),
+        sigma=g.choice([0.1, 1.0, 3.0], n_t),
+        a_min=g.choice([0.0, 0.0, 0.7], n_t),
+        f=np.full(n_t, f),
+        cold_penalty=g.uniform(5, 20, n_t),
+        fns=tuple(FnId(f"f{i}") for i in range(n_f)),
+        fn_tenant=np.repeat(np.arange(n_t), 2),
+        fn_mem=g.choice([128.0, 256.0, 512.0], n_f),
+        fn_size=g.uniform(50, 600, n_f),
+        fn_benefit=g.uniform(0, 20, n_f),
+        fn_units=g.integers(0, 4, n_f).astype(float),
+        y_prev=g.random((n_t, n_j)) < 0.3,
+        params=PlanParams(use_robust=robust),
     )
 
 
