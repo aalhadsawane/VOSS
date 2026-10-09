@@ -38,6 +38,7 @@ class AgentPort(Protocol):
     def finish(self, att: Attempt, status: str) -> None: ...
     def touched_frac(self) -> float: ...
     def on_exec_start(self, att: Attempt) -> None: ...
+    def exec_factor(self) -> float: ...
     def noise(self, inv: int, attempt: int) -> float: ...
     def exec_params(self) -> ExecParams: ...
 
@@ -57,6 +58,7 @@ class Attempt:
     batch_wait: float = 0.0
     sources: tuple[WorkerId, ...] = ()
     scheduler: Addr = ("sched", -1)
+    cluster: int = -1
     input_at: float | None = None
     level: str = ""
     tier: str = ""
@@ -166,6 +168,7 @@ class Attempt:
         p = self.port.exec_params()
         noise = self.port.noise(int(self.inv.id), self.inv.attempt)
         run = true_runtime(self.fn, self.inv.in_bytes, h.speed, h.slots.busy, h.n_slots, h.cpu_slowdown, noise, p)
+        run *= self.port.exec_factor()  # an owner throttling its host (doc 02 §7)
         timeout = p.timeout_s.get(SLO_CLASSES[int(self.inv.slo_class)], 600.0)
         self.port.kernel.after(min(run, timeout), self._done, run <= timeout)
 

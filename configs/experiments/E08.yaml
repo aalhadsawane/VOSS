@@ -1,0 +1,15 @@
+# E08 pilot (doc 06 §5, RQ3/RQ5): robustness vs adversaries — fraction α × strategy mix × robustness f, with and
+# without progress-based detection. Paired systems on the same scenarios.
+experiment: E08
+base: ../pilot.yaml
+systems:
+  voss: []
+  f0: [voss.planner.f_from_alpha=0.0]
+  heartbeat_only: [voss.detection.mode=heartbeat_only]
+grid:
+  scenario.adversary:
+    - {regime: adversary_none}
+    - {regime: adversary_mixed, alpha: 0.1}
+    - {regime: adversary_mixed, alpha: 0.2}
+    - {regime: adversary_all, alpha: 0.2}
+seeds: [1, 2, 3, 4, 5]

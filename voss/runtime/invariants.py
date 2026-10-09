@@ -74,6 +74,20 @@ def one_terminal_outcome(rec: Recorder, n: int) -> list[str]:
     return out
 
 
+def no_lost(rec: Recorder, give_up: dict[int, float], end: float) -> list[str]:
+    """Doc 07 exit: every invocation reaches a terminal outcome by its give-up time; ``unfinished`` is only allowed
+    for invocations whose give-up time lies beyond the end of the run."""
+    inv = rec.frame(Table.INVOCATIONS)
+    if inv.empty:
+        return []
+    lim = inv.slo_class.map(give_up).astype(float)
+    lost = inv[(inv.outcome == "unfinished") & (inv.t_arrive + lim < end - 1e-6)]
+    return [
+        f"lost invocation {int(r.inv)} (class {int(r.slo_class)}, t={r.t_arrive:.1f})"
+        for r in lost.head(20).itertuples()
+    ]
+
+
 def no_stale_epoch(rec: Recorder) -> list[str]:
     acc = _events(rec, "dispatch_accepted")
     bad = acc[acc.epoch < acc.epoch_installed] if len(acc) else acc
@@ -89,8 +103,11 @@ def receipts_complete(rec: Recorder) -> list[str]:
     return [f"{len(missing)} successful invocations without receipts (e.g. {missing[:5]})"] if missing else []
 
 
-def check_invariants(rec: Recorder, scn: Scenario, n_invocations: int) -> list[str]:
+def check_invariants(
+    rec: Recorder, scn: Scenario, n_invocations: int, give_up: dict[int, float] | None = None, end: float = 0.0
+) -> list[str]:
     return [
+        *(no_lost(rec, give_up, end) if give_up else []),
         *attested_execution(rec, scn),
         *keys_released(rec),
         *components_sum(rec),

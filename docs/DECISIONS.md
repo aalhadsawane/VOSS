@@ -198,3 +198,40 @@ both clusters could run it and the router could pair an input with the wrong att
 the nearest peer is not the fastest source (a 175 MB bundle at 6 Mbps up takes ~230 s). Source hints rank peers by
 expected pull time (RTT + bytes / min(peer uplink / (1 + busy), target downlink)) and keep only peers faster than the
 registry estimate; snapshots, which the registry does not serve, keep the fastest eligible peers.
+
+*(D-38..D-41 are taken by the P9 calibration harness, branch `p9-harness`.)*
+
+**D-42 Stalls are judged on router evidence, with a grace period** (P6). A router reports `STALL` when dispatch
+watchdogs fire for `stall_n` distinct invocations of one cluster within `stall_window_s` (rate-limited), and includes
+how long since it last saw an `ACCEPTED` from that cluster. The orchestrator suspects the scheduler only if that idle
+time exceeds `T_dispatch` (an over-full cluster still gets new dispatches accepted: a capacity problem for the
+triggers, not a reason to replace its scheduler) and only after a grace period following an appointment (a new
+scheduler without a view defers everything). *Rejected:* the scheduler's self-reported load (a black-holed scheduler
+looks over-full because its own lost dispatches count as in flight).
+
+**D-43 Retries skip admission** (P6). Admission (doc 03 §5.4, D-27) decides whether new load enters. A retry was
+admitted already; past its deadline the overload test is trivially true and would turn a recovered fault into a
+rejection. Retries are placed whenever a feasible candidate exists.
+
+**D-44 Schedulers report their own lost dispatches** (P6). A copy without `ACCEPTED` after 2 × `T_dispatch` is failed
+and retried elsewhere (scheduler-side dispatch watchdog). The keepalive reports how many distinct workers had such
+losses recently; at `stall_n` the orchestrator suspects the scheduler (`unaccepted`). The attested scheduler code
+cannot stop its host from dropping messages, but it can notice and say so. Routers otherwise route around a
+black-holed cluster (its summary shows no free slots) and its stalls become rare: detection fell from 33 s to ~2-8 s.
+
+**D-45 Probe replies come from the attested agent** (P6). The result watchdog fires at `slack × q90` of the predicted
+execution; the scheduler probes and the agent answers `running`, `done` (with the time it sent the result) or
+`unknown`. `done` long ago without an outcome is direct evidence of omission on the host's network; an omitting
+owner drops the probe reply along with the result, so no reply also fails the copy. A fenced (zombie) scheduler draws
+no conclusions from its own unanswered probes.
+
+**D-46 What a successor inherits** (P6). Checkpoints carry the last plan and a frozen copy of the learned models
+(predictor, survival, omission, forecaster), epoch-fenced at the orchestrator. On appointment with a predecessor,
+workers answer `EPOCH_INSTALL(roll_call)` with their running attempts (adopted with fresh watchdogs, their outcomes
+re-pointed to the successor) and their retained outcomes (replayed into the predictor). One warm standby per cluster
+receives heartbeats and is promoted first, keeping its view. Leases ride on keepalive replies; a scheduler without a
+fresh lease stops dispatching.
+
+**D-47 The decision-latency SLO is absolute** (P6, doc 07 §6). `T_decide_max` = 200 ms on the p90 of placement
+latency (queueing on the scheduler included) over consecutive keepalive periods with decisions. With modeled
+placement costs of 1-2 ms, only a severe slowdown (≥ 100×) breaches it; E15 injects 400×.

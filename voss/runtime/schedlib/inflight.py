@@ -20,6 +20,7 @@ class Copy:
     mu: float = 0.0
     sigma: float = 0.0
     load: float = 0.0
+    probes: int = 0  # result-watchdog generation (doc 07 §4)
 
 
 @dataclass

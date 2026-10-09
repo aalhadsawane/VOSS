@@ -1,0 +1,16 @@
+# E16 pilot (doc 06 §5, RQ11): hedging — risk-proportional hedging θ × budget vs off/always, benign and with 10%
+# omitting adversaries. Waste (extra attempts per success) vs P99 recovered.
+experiment: E16
+base: ../pilot.yaml
+systems:
+  hedge_off: ['voss.hedge.name="off"']
+  hedge_always: [voss.hedge.name=always]
+  rp_t01_b005: [voss.hedge.theta=0.1, voss.hedge.budget=0.05]
+  rp_t01_b02: [voss.hedge.theta=0.1, voss.hedge.budget=0.2]
+  rp_t03_b005: [voss.hedge.theta=0.3, voss.hedge.budget=0.05]
+  rp_t03_b02: [voss.hedge.theta=0.3, voss.hedge.budget=0.2]
+grid:
+  scenario.adversary:
+    - {regime: adversary_none}
+    - {regime: adversary_mixed, alpha: 0.1}
+seeds: [1, 2, 3, 4, 5]

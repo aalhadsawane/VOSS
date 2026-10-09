@@ -60,6 +60,7 @@ class ScenarioConfig(Frozen):
     execution: dict[str, Any] = Field(default_factory=dict)
     functions: str = "functions.yaml"
     tenants: str = "tenants.yaml"
+    faults: list[dict[str, Any]] = Field(default_factory=list)  # control-plane faults (doc 07 §5, E15)
 
 
 class InfraConfig(Frozen):
@@ -218,6 +219,31 @@ class CacheConfig(Frozen):
     max_sources: int = 3
 
 
+class DetectionConfig(Frozen):
+    """Progress-based detection (doc 07 §2, §6). ``mode``: ``progress`` or ``heartbeat_only`` (ablation)."""
+
+    mode: str = "progress"
+    watchdog_slack: float = 1.2  # result watchdog at predicted q90 × slack (doc 07 §6: q90 + 20%)
+    watchdog_min_s: float = 3.0
+    probe_timeout_s: float = 2.0
+    stall_n: int = 3  # dispatch-watchdog fires per cluster ...
+    stall_window_s: float = 5.0  # ... within this window → STALL
+    suspect_streak: int = 2  # watchdog failures in a row → suspected
+    suspect_s: float = 600.0  # suspicion lasts this long (then probation)
+    T_decide_max: float = 0.2
+    decide_periods: int = 3
+
+
+class SuccessionConfig(Frozen):
+    """Scheduler succession (doc 07 §3, §6)."""
+
+    T_ckpt: float = 30.0
+    lease_s: float = 5.0
+    standbys: int = 1
+    handover_wait_s: float = 1.0
+    retain_outcomes: int = 64
+
+
 class VossConfig(Frozen):
     """The ``voss`` section: scheduler-side choices (doc 05 §6). Grows phase by phase."""
 
@@ -235,6 +261,8 @@ class VossConfig(Frozen):
     orchestrator: OrchestratorConfig = Field(default_factory=OrchestratorConfig)
     clusters: ClustersConfig = Field(default_factory=ClustersConfig)
     cache: CacheConfig = Field(default_factory=CacheConfig)
+    detection: DetectionConfig = Field(default_factory=DetectionConfig)
+    succession: SuccessionConfig = Field(default_factory=SuccessionConfig)
 
 
 class RunConfig(Frozen):

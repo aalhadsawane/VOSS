@@ -113,7 +113,7 @@ class Decider:
             budget = float(cm.budget[i, 0]) if cm.budget.shape[1] else 0.0
             verdict = (
                 admit(inv, cm.p_miss[i], cm.feasible[i], cm.components["wait"][i], budget, self.cfg.admission.eps)
-                if self.cfg.admission.enabled
+                if self.cfg.admission.enabled and not inv.excluded  # a retry was admitted already (D-43)
                 else ("admit" if cm.feasible[i].any() else "defer")
             )
             if verdict == "admit":

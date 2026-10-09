@@ -77,6 +77,7 @@ class Network:
         self._fifo: dict[tuple[Addr, Addr], float] = {}
         self._channels: set[tuple[Addr, Addr, int, int]] = set()
         self._rtt: dict[tuple[Hashable, Hashable], float] = {}
+        self.filters: dict[Hashable, Callable[[Addr, Addr, Message], bool]] = {}
 
     def add_host(
         self,
@@ -111,6 +112,13 @@ class Network:
             h.link.reset()
         h.up = up
 
+    def set_filter(self, host: Hashable, drop: Callable[[Addr, Addr, Message], bool] | None) -> None:
+        """An owner silently dropping some of its host's outgoing messages (omission faults, doc 07 §1)."""
+        if drop is None:
+            self.filters.pop(host, None)
+        else:
+            self.filters[host] = drop
+
     def set_partition(self, host: Hashable, group: int) -> None:
         self.hosts[host].partition = group
 
@@ -142,6 +150,10 @@ class Network:
         if not hs.up or hs.partition != hd.partition or not hd.up:
             st.drops += 1
             return False
+        drop = self.filters.get(src[1])
+        if drop is not None and drop(src, dst, msg):
+            st.drops += 1
+            return True  # silently lost on the way: the sender cannot tell
         if src[1] == dst[1]:
             self.k.after(self.p.local_delay_s, self._deliver, src, dst, msg, hd.incarnation)
             return True
