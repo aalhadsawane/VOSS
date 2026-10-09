@@ -235,3 +235,32 @@ fresh lease stops dispatching.
 **D-47 The decision-latency SLO is absolute** (P6, doc 07 §6). `T_decide_max` = 200 ms on the p90 of placement
 latency (queueing on the scheduler included) over consecutive keepalive periods with decisions. With modeled
 placement costs of 1-2 ms, only a severe slowdown (≥ 100×) breaches it; E15 injects 400×.
+
+**D-48 Receipt statuses** (P7, doc 09 §3). The router writes one `receipts` row per attempt: `ok` (the verified result
+that finished the invocation), `duplicate` (a verified result of an already finished invocation: a hedge loser that
+completed) and `no_result` (every other attempt, written when the invocation reaches its terminal outcome; for a
+timeout that is the router's give-up). Duplicates are credited like `ok`: the scheduler asked for the work and the
+receipt proves it was done. Signature checks are charged as router CPU (`verify`) on the asynchronous batch path.
+
+**D-49 Settlement is its own actor reading the DB journal** (P7, doc 09 §4). The `credits` batch job runs in the
+orchestrator tier as a separate actor: every `settle_s` it reads, by cursor, the receipts, scheduler-role records and
+cache accruals appended since its last read, pays after the charged CPU time (`settle`), and returns verified on-time
+and late reference work to the orchestrator for reputation. Scheduler time is credited from each role record until the
+cluster's next record (a crashed holder keeps accruing until its successor's appointment, a few seconds).
+
+**D-50 The share cap guards the reputation bonus, not credits** (P7, doc 09 §2 guards). Capping paid credits would
+confiscate verified work: in the first pilot the cap clipped over half of all work credit, because trust-warm sets
+concentrate work on few workers by design. Instead, an identity holding more than `share_cap` of the last settlement's
+verified work gets no tie-break bonus (when the cap is feasible, i.e. at least `1/share_cap` identities earned).
+
+**D-51 Reputation inputs and weights** (P7, doc 09 §1-2). Disjoint from survival and omission: a session shorter than
+its declared tier's commitment (`dedicated` 24 h, `nightly` 4 h; `idle` declares none) is a breach (β 3 / 1, half with
+a graceful notice), any other session end is honored (α 1); verified on-time work adds α 0.1 per reference unit, late
+work β 0.05 per unit (the delivered-vs-declared shortfall the simulator can observe); omission change points add β 2
+and suspicions β 1 (the long-run omission summary). Abrupt ends are seen at certificate expiry or at the identity's
+next join. `survival_informed` also counts every abrupt end (the double-counting variant). All weights `assumed`.
+
+**D-52 How reputation breaks ties** (P7, doc 09 §1). Greedy multiplies a worker's selection score by
+`1 + tie_break × score`; the MILP scales the trust-exposure and churn costs by `1 − tie_break × score`. Plan objective
+terms are reported without it. Newcomers in probation get the exploration floor `ε` as score. Reputation never enters
+`pFail`; the `reputation_in_cost` ablation belongs to the P8 ablation switches.
