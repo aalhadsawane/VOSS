@@ -177,6 +177,8 @@ def _cloud_bill(r: Run, ok: pd.DataFrame) -> float:
 def _credits(r: Run) -> float:
     """Volunteer work credits (non-monetary reference units) per million invocations."""
     cr = r["credits"]
+    if r.cfg["system"] == "reference_cloud":
+        return np.nan  # providers are paid in money, not credits
     return float(cr.amount.sum()) / max(len(r["invocations"]), 1) * 1e6 if len(cr) else np.nan
 
 
@@ -197,7 +199,9 @@ def run_dirs(exp: str, root: Path) -> list[Path]:
 
 def key_value(cfg: dict[str, Any], key: str) -> str:
     v = cfg.get("label", "") if key == "label" else get(cfg, key)
-    return v if isinstance(v, str) else yaml.safe_dump(v, default_flow_style=True).strip()
+    if isinstance(v, dict | list):
+        return yaml.safe_dump(v, default_flow_style=True).strip()
+    return str(v)
 
 
 def collect(exp: str, root: Path, metrics: list[str] | None = None) -> pd.DataFrame:
