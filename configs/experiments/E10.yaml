@@ -1,0 +1,19 @@
+# E10 pilot (doc 06 §5, RQ16): homogeneous benign null. Churn off (dedicated donors, low-churn regime), no adversaries;
+# homogeneous vs mixed hardware. ``simple`` = static regions + nearest routing + least-loaded placement + keep-alive
+# TTL + no hedging: where it matches VOSS, the machinery is not paying for itself.
+experiment: E10
+base: ../pilot.yaml
+overrides:
+  - scenario.regime=churn_low
+  - 'scenario.tiers={dedicated: 1.0}'
+systems:
+  voss: []
+  simple:
+    - voss.clusters.mode=static_regions
+    - voss.router.name=nearest
+    - voss.placer.sync=least_loaded
+    - voss.planner.name=keepalive_ttl
+    - 'voss.hedge.name="off"'
+grid:
+  scenario.hw_mix: [{C1: 1.0}, {C0: 0.1, C1: 0.35, C2: 0.35, C3: 0.2}]
+seeds: [1, 2, 3, 4, 5]

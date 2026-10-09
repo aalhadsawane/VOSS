@@ -105,7 +105,18 @@ class SessionMixin:
         )
         self.send(
             self.ctx.directory.orchestrator,
-            Join(h.worker, h.cert_id, h.cert_expiry, h.assurance, h.speed, h.n_slots, h.domain, self.addr),
+            Join(
+                h.worker,
+                h.cert_id,
+                h.cert_expiry,
+                h.assurance,
+                h.speed,
+                h.n_slots,
+                h.domain,
+                self.addr,
+                h.static_base.lat if h.static_base else 0.0,
+                h.static_base.lon if h.static_base else 0.0,
+            ),
         )
         self.after(h.profile.session.reattest_every_s, self._reattest, session)
 

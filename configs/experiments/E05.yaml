@@ -1,0 +1,12 @@
+# E05 pilot (doc 06 §5, RQ8): geo-clustered vs global scheduling across geographic dispersion (paired systems).
+# ``none_global`` (one cluster, full information) is the reference for the optimality gap.
+experiment: E05
+base: ../pilot.yaml
+systems:
+  dynamic: [voss.clusters.mode=dynamic]
+  static_kmeans: [voss.clusters.mode=static_kmeans]
+  static_regions: [voss.clusters.mode=static_regions]
+  none_global: [voss.clusters.mode=none_global]
+grid:
+  scenario.geo.regions: [[eu], [eu, na], []]
+seeds: [1, 2, 3, 4, 5]

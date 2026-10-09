@@ -1,0 +1,13 @@
+# E06 pilot (doc 06 §5, RQ8): dynamic vs static cluster arrangements under two churn regimes (30 min so dwell-bounded
+# moves can happen). Skew and diurnal factors are left to the full experiment (P8).
+experiment: E06
+base: ../pilot.yaml
+overrides:
+  - horizon_s=1800
+systems:
+  dynamic: [voss.clusters.mode=dynamic]
+  static_kmeans: [voss.clusters.mode=static_kmeans]
+  static_regions: [voss.clusters.mode=static_regions]
+grid:
+  scenario.regime: [churn_low, churn_high]
+seeds: [1, 2, 3, 4, 5]

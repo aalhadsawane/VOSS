@@ -135,6 +135,21 @@ class ClusterSummary:
 
 
 @dataclass(frozen=True, slots=True)
+class ClusterCard:
+    """What routers know about one cluster (doc 03 §3): pushed by the orchestrator from scheduler summaries."""
+
+    cluster: int
+    lat: float
+    lon: float
+    load: float
+    free_slots: int
+    slo_miss: float
+    overhead_s: float  # measured completion − execution (routing, decision, network, wait, trust, startup)
+    trust_warm: Mapping[str, float] = field(default_factory=dict)
+    warm_fns: Mapping[str, int] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
 class Placement:
     """Placer output (doc 05 §3)."""
 
