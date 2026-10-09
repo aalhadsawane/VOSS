@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from voss.core.ids import Addr, ClusterId, InvId, TenantId, WorkerId
+from voss.core.ids import Addr, ClusterId, FnId, InvId, TenantId, WorkerId
 from voss.core.types import Invocation, Outcome, WorkerState
 
 

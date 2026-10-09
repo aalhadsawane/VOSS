@@ -22,16 +22,23 @@ from voss.core.messages import (
     Message,
     OutcomeMsg,
     OwnerEvent,
+    PinSnapshot,
+    Prepare,
     Receipt,
+    Release,
     Result,
     SessionCert,
     Stale,
+    Warm,
 )
 from voss.core.types import CacheEntry, Outcome, WorkerState
 from voss.metrics.schema import Table
+from voss.policy.cache_value import GdsfState
 from voss.runtime.actor import Actor, ActorContext
 from voss.runtime.workerlib.attempt import Attempt
+from voss.runtime.workerlib.fetching import FetchMixin
 from voss.runtime.workerlib.host import HostLocal
+from voss.runtime.workerlib.planned import PlannedMixin
 from voss.runtime.workerlib.session import SessionMixin
 from voss.world.execution import ExecParams
 from voss.world.lifecycle import artifact_digests, artifact_sizes, cache_level
@@ -40,7 +47,7 @@ from voss.world.workload import FunctionSpec
 MB = 1024 * 1024
 
 
-class WorkerAgent(SessionMixin, Actor):
+class WorkerAgent(PlannedMixin, FetchMixin, SessionMixin, Actor):
     role = "agent"
 
     def __init__(
@@ -55,6 +62,9 @@ class WorkerAgent(SessionMixin, Actor):
         self.digests = {fid: artifact_digests(fn, host.snapshot_class) for fid, fn in catalog.items()}
         self._inventory: dict[FnId, CacheEntry] = {}
         self._inv_version = -1
+        self.gdsf = GdsfState()
+        if ctx.cfg.voss.cache.value == "gdsf":
+            self.use_gdsf()
         self._init_session_state()
 
     def _init_session_state(self) -> None:
@@ -65,7 +75,8 @@ class WorkerAgent(SessionMixin, Actor):
         self.keys = set()
         self.key_waiters: dict[str, list[Callable[[bool], None]]] = {}
         self.fetch_waiters: dict[str, list[Callable[[], None]]] = {}
-        self.fetch_kind: dict[str, tuple[str, float]] = {}
+        self.fetch_kind: dict[str, tuple[str, float, float]] = {}
+        self.prepared: set[str] = set()
         self.attempts: dict[tuple[int, int], Attempt] = {}
         self.early_inputs: dict[tuple[int, int], float] = {}
         self.drain_deadline: float | None = None
@@ -114,27 +125,6 @@ class WorkerAgent(SessionMixin, Actor):
             kbs = self.ctx.directory.kbs[TenantId(tenant)]
             h = self.host
             self.send(kbs, KeyRequest(h.worker, TenantId(tenant), h.cert_id, h.cert_expiry, self.addr))
-
-    def fetch(self, fn: FunctionSpec, artifacts: tuple[str, ...], cont: Callable[[], None]) -> None:
-        digests, sizes = self.digests[FnId(fn.name)], artifact_sizes(fn, self.touched_frac())
-        missing = [a for a in artifacts if self.host.cache.touch(digests[a], self.now) is None]
-        remaining = {"n": len(missing)}
-
-        def one() -> None:
-            remaining["n"] -= 1
-            if remaining["n"] == 0:
-                cont()
-
-        if not missing:
-            self.kernel.after(0.0, cont)
-            return
-        for a in missing:
-            d = digests[a]
-            waiters = self.fetch_waiters.setdefault(d, [])
-            waiters.append(one)
-            if len(waiters) == 1:
-                self.fetch_kind[d] = (a, sizes[a] / MB)
-                self.send(self.ctx.directory.registry, Fetch(d, int(sizes[a]), self.addr))
 
     def finish(self, att: Attempt, status: str) -> None:
         key = (int(att.inv.id), att.inv.attempt)
@@ -197,6 +187,10 @@ class WorkerAgent(SessionMixin, Actor):
             self._key(msg)
         elif isinstance(msg, Chunk):
             self._chunk(msg)
+        elif isinstance(msg, Fetch):
+            self._serve(msg)
+        elif isinstance(msg, Prepare | PinSnapshot | Warm | Release):
+            self._plan_action(msg)
         elif isinstance(msg, EpochInstall):
             self._epoch_install(msg)
         elif isinstance(msg, SessionCert):
@@ -230,6 +224,7 @@ class WorkerAgent(SessionMixin, Actor):
             self.op_gen,
             self,
             m.batch_wait,
+            m.sources,
         )
         self.attempts[key] = att
         self._log_exec_guard(att)
@@ -273,12 +268,6 @@ class WorkerAgent(SessionMixin, Actor):
         for cont in self.key_waiters.pop(m.tenant, []):
             cont(m.ok)
 
-    def _chunk(self, m: Chunk) -> None:
-        kind, size_mb = self.fetch_kind.pop(m.digest, ("bundle", m.nbytes / MB))
-        self.host.cache.insert(m.digest, kind, size_mb, self.now)
-        for cont in self.fetch_waiters.pop(m.digest, []):
-            cont()
-
     def _epoch_install(self, m: EpochInstall) -> None:
         if m.epoch < self.epoch or not self.host.attested:
             return
@@ -314,6 +303,7 @@ class WorkerAgent(SessionMixin, Actor):
             as_of=self.now,
             cert_id=h.cert_id,
             static=h.static,
+            pinned=frozenset(self.prepared),
         )
 
     def _heartbeat(self) -> None:

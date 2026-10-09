@@ -41,11 +41,24 @@ def objective(t: dict[str, float]) -> float:
     return t["coverage"] + t["donor"] + t["exposure"] + t["churn"] + t["warm"]
 
 
-def finish(inp: PlanInput, y: np.ndarray, s: np.ndarray, w: np.ndarray, c: np.ndarray, planner: str,
-           status: str = "ok") -> Plan:
+def finish(
+    inp: PlanInput, y: np.ndarray, s: np.ndarray, w: np.ndarray, c: np.ndarray, planner: str, status: str = "ok"
+) -> Plan:
     tm = terms(inp, y, s, w, c)
-    return Plan(inp.tenants, inp.fns, inp.workers, y.astype(bool), s.astype(bool), w.astype(int), c,
-                inp.now + inp.horizon_s, tm, status, objective(tm), planner)
+    return Plan(
+        inp.tenants,
+        inp.fns,
+        inp.workers,
+        y.astype(bool),
+        s.astype(bool),
+        w.astype(int),
+        c,
+        inp.now + inp.horizon_s,
+        tm,
+        status,
+        objective(tm),
+        planner,
+    )
 
 
 def feasible(inp: PlanInput, plan: Plan, tol: float = 1e-6) -> list[str]:

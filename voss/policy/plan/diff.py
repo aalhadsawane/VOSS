@@ -22,7 +22,9 @@ class PlanAction:
     value: float = 0.0
 
 
-def _index(plan: Plan | None) -> tuple[dict[tuple[str, int], bool], dict[tuple[str, int], int], dict[tuple[str, int], bool]]:
+def _index(
+    plan: Plan | None,
+) -> tuple[dict[tuple[str, int], bool], dict[tuple[str, int], int], dict[tuple[str, int], bool]]:
     if plan is None:
         return {}, {}, {}
     y = {(str(t), int(w)): bool(plan.y[i, j]) for i, t in enumerate(plan.tenants) for j, w in enumerate(plan.workers)}
@@ -48,12 +50,14 @@ def diff(prev: Plan | None, plan: Plan, fn_tenant: dict[str, str], benefit: dict
             out.append(PlanAction("PREPARE", WorkerId(w), TenantId(t), fns, value=sum(benefit.get(f, 0) for f in fns)))
     for (f, w), on in sorted(ns.items()):
         if on and not ps.get((f, w), False):
-            out.append(PlanAction("PIN_SNAPSHOT", WorkerId(w), TenantId(fn_tenant[f]), (FnId(f),),
-                                  value=benefit.get(f, 0.0)))
+            out.append(
+                PlanAction("PIN_SNAPSHOT", WorkerId(w), TenantId(fn_tenant[f]), (FnId(f),), value=benefit.get(f, 0.0))
+            )
     for (f, w), n in sorted(nw.items()):
         if n != pw.get((f, w), 0):
-            out.append(PlanAction("WARM", WorkerId(w), TenantId(fn_tenant[f]), (FnId(f),), n,
-                                  value=benefit.get(f, 0.0) * n))
+            out.append(
+                PlanAction("WARM", WorkerId(w), TenantId(fn_tenant[f]), (FnId(f),), n, value=benefit.get(f, 0.0) * n)
+            )
     rank = {"RELEASE": 0, "PREPARE": 1, "PIN_SNAPSHOT": 2, "WARM": 3}
     return sorted(out, key=lambda a: (rank[a.kind], -a.value, int(a.worker), a.tenant, a.fns))
 

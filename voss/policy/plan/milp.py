@@ -127,8 +127,11 @@ def _structure(inp: PlanInput, L: Layout, rows: _Rows) -> None:
             rows.add([(L.w(f, j), 1.0), (L.y(t, j), -float(p.w_max))], -np.inf, 0.0)
             rows.add([(L.s(f, j), 1.0), (L.y(t, j), -1.0)], -np.inf, 0.0)
         rows.add([(L.c(t, j), 1.0) for t in range(L.T)], -np.inf, float(inp.cap[j]))
-        rows.add([(L.w(f, j), float(inp.fn_mem[f])) for f in range(L.F)], -np.inf,
-                 max(0.0, float(inp.mem_mb[j]) - p.m_base_mb))
+        rows.add(
+            [(L.w(f, j), float(inp.fn_mem[f])) for f in range(L.F)],
+            -np.inf,
+            max(0.0, float(inp.mem_mb[j]) - p.m_base_mb),
+        )
         rows.add([(L.s(f, j), float(inp.fn_size[f])) for f in range(L.F)], -np.inf, float(inp.ssd_mb[j]))
     for f in range(L.F):
         rows.add([(L.w(f, j), 1.0) for j in range(L.J)], -np.inf, float(inp.fn_units[f]))
@@ -174,8 +177,9 @@ def _bounds(inp: PlanInput, L: Layout) -> tuple[np.ndarray, np.ndarray, np.ndarr
 
 @register("planner", "milp")
 class MilpPlanner:
-    def __init__(self, time_limit: float = 2.0, node_limit: int = 200, deterministic: bool = True,
-                 gap: float = 0.01) -> None:
+    def __init__(
+        self, time_limit: float = 2.0, node_limit: int = 200, deterministic: bool = True, gap: float = 0.01
+    ) -> None:
         self.time_limit, self.node_limit, self.deterministic, self.gap = time_limit, node_limit, deterministic, gap
         self.fallback = GreedyPlanner()
 
@@ -189,8 +193,9 @@ class MilpPlanner:
         lo, hi, integ = _bounds(inp, L)
         opts: dict[str, float | bool] = {"disp": False, "mip_rel_gap": self.gap}
         opts |= {"node_limit": self.node_limit} if self.deterministic else {"time_limit": self.time_limit}
-        res = milp(_objective(inp, L), integrality=integ, bounds=Bounds(lo, hi), constraints=rows.constraint(L.n),
-                   options=opts)
+        res = milp(
+            _objective(inp, L), integrality=integ, bounds=Bounds(lo, hi), constraints=rows.constraint(L.n), options=opts
+        )
         if res.x is None:
             g = self.fallback.plan(inp)
             return finish(inp, g.y, g.s, g.w, g.c, "milp", status=f"fallback:{res.status}")
