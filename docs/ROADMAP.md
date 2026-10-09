@@ -124,3 +124,10 @@ map): P0 → P4, then P6 and P10, with P9 in parallel.
 Workflows (SeBS-Flow), GPU functions (the node has 2 × RTX 4060 Ti; no confidential GPU path on consumer hardware),
 provider-signed transparency log, padding against traffic analysis, DRTM real implementation, real multi-machine
 deployment.
+
+From the P5 pilots (to revisit in P8):
+- Geo vs global at larger N and load (E05 × E18): at 600 workers a global scheduler still wins; find the crossover.
+- Per-cluster robust trust sets multiply key exposure by the number of clusters a tenant is hot in: consider
+  cross-cluster robustness (borrowing covered capacity from a neighbor) instead of independent f-robust sets.
+- Routing price calibration: amortize the trust-cold price over the expected follow-up demand, and damp herding on
+  stale cards (`po2_nearby`/`warm_aware` handled the flash crowd better than `score`).
