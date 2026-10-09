@@ -145,3 +145,23 @@ are reproduced through `replay` of their charged latencies (doc 01 §7).
 **D-29 Decisions serialize on the scheduler host** (P3). A decision is computed on the view at its start and takes
 effect after its charged latency; decisions queue behind each other (`busy_until`), so decision latency includes
 queueing on a busy scheduler. Async/filler invocations wait in a window (`placer.window_s`) logged as `batch_wait`.
+
+**D-38 The harness runs remotely and the node side is stdlib-only** (P9). C0 is reached over SSH and is not the
+agent's machine, so `tools/calibrate/remote.py` copies the harness, runs suites there and pulls raw logs back; the
+node needs only Python ≥ 3.10 and the measured tools. Reboots are never automated beyond one per invocation:
+`--boots N` waits for SSH between reboots instead of installing a reboot loop on the owner's machine.
+
+**D-39 Local attestation without Keylime** (P9). `attest_local` measures the same cryptographic work as a
+Keylime-style verifier (TPM quote, `tpm2_checkquote`, an Ed25519 certificate signature) with tpm2-tools; Keylime's
+policy-engine overhead is not included and the `verify_s` entry says so in its `source`. *Rejected:* installing
+Keylime agent + verifier on the owner's machine for one number.
+
+**D-40 SeBS-equivalent kernels instead of SeBS code** (P9). SeBS benchmarks fetch inputs from cloud object storage;
+inside an offline microVM the guest runs small kernels with the same libraries and computation per function
+(Jinja2, Pillow, ffmpeg, zip, ResNet-50, igraph, squiggle) on generated inputs. Measured `init_s`, `work_ref_s`,
+`size_exp` and interference therefore describe these kernels. Node.js variants and Kata are not covered yet.
+
+**D-41 Measured hardware and function profiles live in the bundle** (P9, AGENTS.md rule 13). Besides
+`distributions.yaml`, a measured bundle may carry `hardware.yaml` (fields of hardware classes, e.g. C0 disk speeds)
+and `functions.yaml` (per-function profile fields); loaders overlay them on the literature YAMLs when a run's
+`calibration` points at that bundle. The placeholder bundle has neither, so existing runs are unchanged.
