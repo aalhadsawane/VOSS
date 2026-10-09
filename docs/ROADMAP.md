@@ -137,3 +137,6 @@ From P7 (accounting and reputation):
 - Probation as low-stakes work (keep newcomers off high-σ tenants' trust sets); P7 implements only the exploration
   floor on tie-break scores.
 - Delivered-vs-declared envelope beyond lateness (slots and storage actually offered vs declared at join).
+- Work concentration (E12): trust-warm planning gives ~94% of work credit to the top 10% of identities and none to
+  ~60% of benign ones, with or without reputation. A tie-break cannot fix that; consider rotating trust-warm sets or an
+  exploration quota inside the planner, and measure the latency and exposure cost.

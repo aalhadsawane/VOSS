@@ -27,6 +27,7 @@ COLS = {
         "lat_max",
         "complete",
         "missing",
+        "unexplained",
         "p99_sync",
     ),
 }
