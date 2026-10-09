@@ -145,3 +145,40 @@ are reproduced through `replay` of their charged latencies (doc 01 §7).
 **D-29 Decisions serialize on the scheduler host** (P3). A decision is computed on the view at its start and takes
 effect after its charged latency; decisions queue behind each other (`busy_until`), so decision latency includes
 queueing on a busy scheduler. Async/filler invocations wait in a window (`placer.window_s`) logged as `batch_wait`.
+
+**D-32 Clusters plan for their region's demand** (P5). With priced spillover (doc 03 §3) a cluster that receives no
+traffic for a tenant never becomes trust-warm for it, so it keeps paying the trust-cold penalty and keeps receiving
+no traffic: in the first multi-cluster pilot one cluster served 80% of the world and `nearest` routing beat `score`.
+Routers therefore count every invocation against its *home* cluster (nearest by RTT, whatever it was routed to);
+the orchestrator forwards these rates each period (`HOME_DEMAND`), and the arrival forecaster plans for
+max(local, home) per tenant and function. In equilibrium local ≈ home, so nothing is double counted. *Rejected:*
+routing exploration (wastes cold starts), dropping the trust-cold term (removes priced spillover).
+
+**D-33 Cluster cards carry measured in-cluster overhead** (P5). `E[completion_c(f)]` in the routing score is
+execution (the same in every cluster up to speed) plus the cluster's overhead. Cards report an EWMA of decision time
+plus slot wait as measured by the scheduler (excluding the router hop, which `rtt` already counts, and trust and
+start-up, which the trust-warm and warm-function terms price), decaying to a prior when idle so stale values cannot
+lock traffic out. The health penalty applies only above the unhealthy threshold θ (doc 03 §2). *Rejected:* the
+scheduler's mean service time (reflects each cluster's function mix, not its quality).
+
+**D-34 Hard per-worker migration budget** (P5 exit: bounded migrations). Dwell time and a cap per period bound
+rebalancing moves but not structural ones (merge/split). The orchestrator also enforces `max_moves_per_h` (default
+3) per worker over a sliding hour, across sessions: merges wait until every member is eligible, splits move only
+eligible members (and only if at least `min_size` remain eligible). A property test drives the trigger policy
+through random churn and summaries and checks the bound in every one-hour window.
+
+**D-35 Moves are explicit and fenced by cluster** (P5). The orchestrator moves a worker with `ASSIGN(cluster)`; the
+worker accepts `EPOCH_INSTALL` and `DISPATCH` only for its assigned cluster (an install that arrives before the
+`ASSIGN` is held) and answers others with `STALE(cluster)`. The source scheduler gets the worker in `MEMBERSHIP.moved`
+and drops it from its view without retrying its in-flight copies: they still report to the scheduler that
+dispatched them. *Rejected:* treating a move as a loss (needless retries and duplicate execution).
+
+**D-36 Spillover withdraws the invocation** (P5). On spillover (no `ACCEPTED` within `T_spill`) the router sends
+`WITHDRAW` to the previous cluster's scheduler, which forgets the invocation and cancels any copies already
+dispatched; an `ASSIGNED` that still arrives from a cluster the router spilled away from is cancelled. Otherwise
+both clusters could run it and the router could pair an input with the wrong attempt.
+
+**D-37 P2P sources must beat the registry** (P5, fixes P4). Residential uplinks are often slower than the registry, so
+the nearest peer is not the fastest source (a 175 MB bundle at 6 Mbps up takes ~230 s). Source hints rank peers by
+expected pull time (RTT + bytes / min(peer uplink / (1 + busy), target downlink)) and keep only peers faster than the
+registry estimate; snapshots, which the registry does not serve, keep the fastest eligible peers.
