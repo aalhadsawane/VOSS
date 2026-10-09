@@ -70,7 +70,8 @@ def _hash(tables: dict[str, pd.DataFrame], catalog: Catalog, horizon: float) -> 
 def generate(cfg: RunConfig) -> Scenario:
     """Doc 01 §4. Order: workers → adversaries → sessions (fake drains) → arrivals; each uses its own streams."""
     sc, rng, horizon = cfg.scenario, RngFactory(cfg.seed), cfg.horizon_s
-    metros = load_metros(GeoParams.model_validate(sc.geo).metros)
+    gp = GeoParams.model_validate(sc.geo)
+    metros = load_metros(gp.metros).restrict(gp.regions)
     catalog = load_catalog(sc)
     workers = generate_workers(sc, metros, load_hw_classes(sorted(sc.hw_mix)), rng)
     adv = generate_adversaries(sc, workers, horizon, rng)

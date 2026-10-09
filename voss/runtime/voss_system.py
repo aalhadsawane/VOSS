@@ -32,6 +32,7 @@ from voss.runtime.verifier import Verifier
 from voss.runtime.worker_agent import WorkerAgent
 from voss.runtime.workerlib.host import HostLocal, make_host
 from voss.world.execution import ExecParams, noise_matrix
+from voss.world.geo import haversine_km
 from voss.world.hardware import HwClass, load_hw_classes
 from voss.world.network import Network, NetworkParams
 from voss.world.scenario import Scenario, generate
@@ -74,6 +75,12 @@ class VossSystem:
         self.net.attach(actor.addr, actor.on_message)
         return actor
 
+    def _region_of(self, lat: float, lon: float) -> int:
+        """World region of the nearest metro (``static_regions`` clustering baseline)."""
+        m = self.scn.metros
+        i = int(np.argmin(haversine_km(m.lat, m.lon, lat, lon)))
+        return sorted(set(m.region)).index(m.region[i])
+
     def _infra(self) -> None:
         inf = self.cfg.voss.infra
         self._place("orchestrator", inf.orchestrator)
@@ -90,11 +97,12 @@ class VossSystem:
         valid = {n: (p.assurance_base, p.session.valid_s) for n, p in self.profiles.items()}
         self._attach(Verifier("verifier", self.ctx, valid))
         self._attach(OpDb("orchestrator", self.ctx))
-        self._attach(Orchestrator("orchestrator", self.ctx))
+        self._attach(Orchestrator("orchestrator", self.ctx, self._region_of))
         self._attach(Registry("registry", self.ctx))
         for t in self.scn.catalog.tenants:
             self._attach(TenantKbs(f"kbs:{t.id}", self.ctx, TenantId(t.id)))
-        self.routers = [self._attach(Router(f"router:{c}", self.ctx, c)) for c in inf.routers]
+        origins = np.stack([self.scn.metros.lat, self.scn.metros.lon], axis=1)
+        self.routers = [self._attach(Router(f"router:{c}", self.ctx, c, origins)) for c in inf.routers]
 
     def _workers(self) -> None:
         wt, hw = self.scn.workers, load_hw_classes(list(self.scn.workers.hw_names))

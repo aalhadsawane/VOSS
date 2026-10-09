@@ -33,6 +33,7 @@ class Inflight:
     failures: int = 0
     t_window: float | None = None
     batch_wait: float = 0.0
+    t_in: float = 0.0  # when this scheduler received the ENQUEUE (its own clock)
 
     def live_on(self, w: WorkerId) -> list[Copy]:
         return [c for c in self.copies.values() if c.worker == w]

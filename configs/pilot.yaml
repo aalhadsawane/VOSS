@@ -1,0 +1,10 @@
+# Pilot base for P5+ experiments (doc 06 §1 pilots): VOSS defaults (greedy/flow placers), 600 workers, 15 min.
+# The planner is ``greedy`` for pilot runtime (the MILP is ~3.5 s wall per cluster solve in this container); full
+# experiments use the MILP (P8).
+extends: base.yaml
+horizon_s: 900
+scenario:
+  workers: 600
+  load: {regime: load_default, rate: 20}
+voss:
+  planner: {name: greedy}

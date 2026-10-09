@@ -56,6 +56,7 @@ class Attempt:
     port: AgentPort
     batch_wait: float = 0.0
     sources: tuple[WorkerId, ...] = ()
+    scheduler: Addr = ("sched", -1)
     input_at: float | None = None
     level: str = ""
     tier: str = ""

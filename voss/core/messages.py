@@ -1,6 +1,6 @@
 """Typed messages between actors (doc 08 §4). One frozen dataclass per message kind.
 
-Sizes (``SIZE``) are nominal wire sizes in bytes used by ``net.send``; payload messages carry their own size.
+Nominal wire sizes live in ``voss.core.wire``; payload messages carry their own size.
 """
 
 from __future__ import annotations
@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from voss.core.ids import Addr, ClusterId, FnId, InvId, TenantId, WorkerId
-from voss.core.types import Invocation, Outcome, WorkerState
+from voss.core.types import ClusterCard, Invocation, Outcome, WorkerState
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +36,14 @@ class Assigned(Message):
     worker: WorkerId
     epoch: int
     token: int
+    cluster: int = -1
+
+
+@dataclass(frozen=True, slots=True)
+class Withdraw(Message):
+    """Router → scheduler: the invocation spilled over to another cluster; drop it and cancel its copies."""
+
+    inv: InvId
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,6 +111,7 @@ class Dispatch(Message):
     scheduler: Addr
     batch_wait: float = 0.0
     sources: tuple[WorkerId, ...] = ()
+    cluster: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,6 +136,7 @@ class EpochInstall(Message):
 class Stale(Message):
     worker: WorkerId
     epoch: int
+    cluster: int = -1
 
 
 @dataclass(frozen=True, slots=True)
@@ -192,6 +202,40 @@ class Join(Message):
     slots: int
     domain: int
     reply_to: Addr
+    lat: float = 0.0
+    lon: float = 0.0
+
+
+@dataclass(frozen=True, slots=True)
+class Assign(Message):
+    """Orchestrator → worker: your cluster (doc 03 §2); the worker then accepts that cluster's epochs only."""
+
+    cluster: ClusterId
+
+
+@dataclass(frozen=True, slots=True)
+class Summaries(Message):
+    """Orchestrator → routers: per-cluster cards for routing (doc 03 §3)."""
+
+    cards: tuple[ClusterCard, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class RouterStats(Message):
+    """Router → orchestrator: per-cluster completions and SLO misses since the last report (doc 03 §2)."""
+
+    stats: tuple[tuple[int, int, int], ...]
+    home: tuple[tuple[int, str, int], ...] = ()  # (nearest cluster, forecaster key, arrivals): regional demand
+
+
+@dataclass(frozen=True, slots=True)
+class HomeDemand(Message):
+    """Orchestrator → scheduler: arrival rates (1/s) of invocations whose nearest cluster is this one, wherever they
+    were routed (D-32), so a cluster's planner warms trust for its region's demand."""
+
+    cluster: ClusterId
+    epoch: int
+    rates: tuple[tuple[str, float], ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -219,6 +263,7 @@ class Membership(Message):
     cluster: ClusterId
     epoch: int
     members: tuple[WorkerId, ...]
+    moved: tuple[WorkerId, ...] = ()  # left this cluster but alive: their in-flight work still reports here
 
 
 @dataclass(frozen=True, slots=True)
@@ -234,6 +279,16 @@ class KeepaliveSummary(Message):
     worker: WorkerId
     attested: int
     load: float
+    free_slots: int = 0
+    overhead_s: float = 0.0
+    trust_warm: tuple[tuple[str, float], ...] = ()
+    warm_fns: tuple[tuple[str, int], ...] = ()
+    diversity: int = 0
+    infeasible: bool = False
+    forecast: float = 0.0  # forecast concurrent demand quantile / slots (doc 03 §2 ``Forecast`` trigger)
+    cold_trust_s: float = 3.0  # measured trust + start-up of trust-cold attempts (D-33)
+    cold_fn_s: float = 0.5  # measured start-up of cold (not warm) attempts
+    backlog_s: float = 0.0  # queued work per slot ahead of a new arrival
 
 
 # --- tenant keys (worker ⇄ KBS) --------------------------------------------------------------------------------
@@ -329,54 +384,3 @@ class DbCasResult(Message):
 @dataclass(frozen=True, slots=True)
 class DbAppendReceipts(Message):
     rows: tuple[tuple[Receipt, float, str], ...] = field(default_factory=tuple)
-
-
-SIZE: dict[type[Message], int] = {
-    Invoke: 600,
-    Enqueue: 400,
-    Assigned: 120,
-    Reject: 100,
-    Accepted: 120,
-    SchedulerAddr: 100,
-    Dispatch: 500,
-    OutcomeMsg: 300,
-    EpochInstall: 200,
-    Stale: 64,
-    Cancel: 64,
-    Attest: 6144,
-    SessionCert: 2048,
-    Requote: 4096,
-    RevokeSession: 128,
-    Join: 512,
-    Leave: 128,
-    DrainNotice: 128,
-    Appoint: 2048,
-    Membership: 1024,
-    Revoke: 64,
-    KeepaliveSummary: 512,
-    KeyRequest: 2048,
-    Key: 1024,
-    Fetch: 200,
-    Prepare: 400,
-    PinSnapshot: 200,
-    Warm: 120,
-    Release: 100,
-    DbCasEpoch: 200,
-    DbCasResult: 200,
-}
-
-
-def size_of(msg: Message) -> int:
-    """Nominal wire size: payload-carrying messages report their own size."""
-    size = SIZE.get(type(msg))
-    if size is not None:
-        return size
-    if isinstance(msg, Input | Chunk):
-        return msg.nbytes
-    if isinstance(msg, Result):
-        return msg.nbytes + 512
-    if isinstance(msg, Heartbeat):
-        return 400 + 40 * len(msg.state.cache)
-    if isinstance(msg, DbAppendReceipts):
-        return 64 + 256 * len(msg.rows)
-    return 256

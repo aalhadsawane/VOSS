@@ -72,10 +72,16 @@ class InfraConfig(Frozen):
 
 
 class RouterConfig(Frozen):
-    """Doc 03 §3, doc 07 §2 (dispatch watchdog)."""
+    """Doc 03 §3, doc 07 §2 (dispatch watchdog, spillover)."""
 
-    name: str = "single"
+    name: str = "score"
+    cold_penalty_s: float = 3.0  # prior price of a trust-cold start until a cluster measured one  # TODO verify
+    exposure_s: float = 0.5  # exposure increment of a trust-cold spill (seconds-equivalent)
+    health_s: float = 5.0  # seconds per unit of router-observed SLO miss rate
+    cold_fn_s: float = 0.5  # prior price of a cold function start until measured  # TODO verify
     T_dispatch: float = 1.0
+    T_spill: float = 1.5
+    stats_s: float = 5.0
     max_resends: int = 3
     give_up_s: dict[str, float] = Field(default_factory=lambda: {"sync": 30.0, "async": 300.0, "filler": 900.0})
     receipt_batch_s: float = 1.0
@@ -177,10 +183,30 @@ class WorkerConfig(Frozen):
 
 
 class OrchestratorConfig(Frozen):
-    """Doc 03 §2, doc 07 §3 (P2: one cluster; keepalive-based re-appointment)."""
+    """Doc 03 §2, doc 07 §3."""
 
     keepalive_timeout_s: float = 5.0
     check_s: float = 1.0
+    summaries_s: float = 1.0
+
+
+class ClustersConfig(Frozen):
+    """Cluster arrangement (doc 03 §2). ``mode``: ``dynamic`` (triggers on), ``static_kmeans`` (formed once),
+    ``static_regions`` (one cluster per world region), ``none_global`` (a single cluster)."""
+
+    mode: str = "dynamic"
+    target_size: int = 30
+    min_size: int = 10
+    max_size: int = 60
+    d_min: int = 3
+    dwell_s: float = 600.0
+    max_moves: int = 10
+    period_s: float = 30.0
+    bootstrap_s: float = 3.0
+    slo_theta: float = 0.2
+    slo_periods: int = 3
+    imbalance_delta: float = 0.4
+    max_moves_per_h: int = 3
 
 
 class CacheConfig(Frozen):
@@ -207,6 +233,7 @@ class VossConfig(Frozen):
     scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
     worker: WorkerConfig = Field(default_factory=WorkerConfig)
     orchestrator: OrchestratorConfig = Field(default_factory=OrchestratorConfig)
+    clusters: ClustersConfig = Field(default_factory=ClustersConfig)
     cache: CacheConfig = Field(default_factory=CacheConfig)
 
 

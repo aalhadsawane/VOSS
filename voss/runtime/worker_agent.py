@@ -10,6 +10,7 @@ import numpy as np
 from voss.core.ids import Addr, ClusterId, FnId, TenantId, WorkerId
 from voss.core.messages import (
     Accepted,
+    Assign,
     Cancel,
     Chunk,
     Dispatch,
@@ -80,6 +81,7 @@ class WorkerAgent(PlannedMixin, FetchMixin, SessionMixin, Actor):
         self.attempts: dict[tuple[int, int], Attempt] = {}
         self.early_inputs: dict[tuple[int, int], float] = {}
         self.drain_deadline: float | None = None
+        self.pending_install: dict[int, EpochInstall] = {}
         self.op_gen = self.ctx.rng.stream("worker.ops", self.host.worker, self.host.session)
         self.attest_cont: Callable[[], None] | None = None
         self.hb_on = False
@@ -153,8 +155,7 @@ class WorkerAgent(PlannedMixin, FetchMixin, SessionMixin, Actor):
             )
             self.send(att.router, Result(out, rcpt, int(att.fn.out_kb * 1024)))
             self._after_success(att)
-        if self.sched is not None:
-            self.send(self.sched, OutcomeMsg(out))
+        self.send(att.scheduler, OutcomeMsg(out))
 
     def _after_success(self, att: Attempt) -> None:
         h = self.host
@@ -191,6 +192,8 @@ class WorkerAgent(PlannedMixin, FetchMixin, SessionMixin, Actor):
             self._serve(msg)
         elif isinstance(msg, Prepare | PinSnapshot | Warm | Release):
             self._plan_action(msg)
+        elif isinstance(msg, Assign):
+            self._assign(msg)
         elif isinstance(msg, EpochInstall):
             self._epoch_install(msg)
         elif isinstance(msg, SessionCert):
@@ -205,8 +208,10 @@ class WorkerAgent(PlannedMixin, FetchMixin, SessionMixin, Actor):
     def _dispatch(self, m: Dispatch) -> None:
         if not self.host.cert_valid(self.now):
             return
-        if m.epoch < self.epoch:
-            self.send(m.scheduler, Stale(self.host.worker, self.epoch))
+        if m.cluster != self.cluster or m.epoch < self.epoch:
+            self.send(
+                m.scheduler, Stale(self.host.worker, self.epoch, -1 if self.cluster is None else int(self.cluster))
+            )
             return
         self.epoch = max(self.epoch, m.epoch)
         key = (int(m.inv.id), m.inv.attempt)
@@ -225,13 +230,13 @@ class WorkerAgent(PlannedMixin, FetchMixin, SessionMixin, Actor):
             self,
             m.batch_wait,
             m.sources,
+            m.scheduler,
         )
         self.attempts[key] = att
         self._log_exec_guard(att)
         acc = Accepted(att.inv.id, att.inv.attempt, self.host.worker, att.token)
         self.send(att.router, acc)
-        if self.sched is not None:
-            self.send(self.sched, acc)
+        self.send(att.scheduler, acc)
         att.start()
         if key in self.early_inputs:
             att.input_arrived(self.early_inputs.pop(key))
@@ -268,10 +273,24 @@ class WorkerAgent(PlannedMixin, FetchMixin, SessionMixin, Actor):
         for cont in self.key_waiters.pop(m.tenant, []):
             cont(m.ok)
 
-    def _epoch_install(self, m: EpochInstall) -> None:
-        if m.epoch < self.epoch or not self.host.attested:
+    def _assign(self, m: Assign) -> None:
+        """The orchestrator moved us (doc 03 §2): only this cluster's epochs count from now on."""
+        if not self.host.attested or m.cluster == self.cluster:
             return
-        self.epoch, self.cluster, self.sched, self.sched_cert = m.epoch, m.cluster, m.scheduler, m.cert_id
+        self.cluster, self.epoch, self.sched, self.sched_cert = m.cluster, 0, None, ""
+        pending = self.pending_install.pop(int(m.cluster), None)
+        if pending is not None:
+            self._epoch_install(pending)
+
+    def _epoch_install(self, m: EpochInstall) -> None:
+        if not self.host.attested:
+            return
+        if self.cluster is None or m.cluster != self.cluster:
+            self.pending_install[int(m.cluster)] = m  # the Assign may still be on its way
+            return
+        if m.epoch < self.epoch:
+            return
+        self.epoch, self.sched, self.sched_cert = m.epoch, m.scheduler, m.cert_id
         self._heartbeat()
 
     # --- heartbeats ---------------------------------------------------------------------------------------------

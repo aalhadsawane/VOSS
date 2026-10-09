@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import csv
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
@@ -35,6 +35,16 @@ class Metros:
     def weights(self) -> np.ndarray:
         w: np.ndarray = self.pop / self.pop.sum()
         return w
+
+    def restrict(self, regions: tuple[str, ...]) -> Metros:
+        """Geographic dispersion (E05): only metros in ``regions`` host workers and demand; the table (and hence
+        infrastructure placement) is kept."""
+        if not regions:
+            return self
+        keep = np.isin(np.array(self.region), list(regions))
+        if not keep.any():
+            raise ValueError(f"no metros in regions {regions}")
+        return replace(self, pop=np.where(keep, self.pop, 0.0))
 
 
 def load_metros(path: str | Path = "geo/metros.csv") -> Metros:

@@ -46,6 +46,7 @@ class TwoScaleForecaster:
         self.short: dict[str, float] = {}
         self.long: dict[str, float] = {}
         self.service: dict[str, float] = {}
+        self.home: dict[str, float] = {}
         self.bin_start = 0.0
 
     def observe(self, key: str, t: float, service_s: float | None = None) -> None:
@@ -56,6 +57,11 @@ class TwoScaleForecaster:
 
     def observe_service(self, key: str, service_s: float) -> None:
         self.service[key] = 0.9 * self.service.get(key, service_s) + 0.1 * service_s
+
+    def set_home(self, rates: dict[str, float]) -> None:
+        """Regional demand reported by the routers (D-32), smoothed; the forecast is the larger of the two."""
+        keys = sorted(set(self.home) | set(rates))
+        self.home = {k: 0.5 * self.home.get(k, 0.0) + 0.5 * rates.get(k, 0.0) for k in keys}
 
     def _roll(self, t: float) -> None:
         while t >= self.bin_start + self.bin_s:
@@ -68,7 +74,7 @@ class TwoScaleForecaster:
 
     def forecast(self, now: float) -> Demand:
         self._roll(now)
-        keys = sorted(self.short)
-        rate = {k: max(self.short[k], self.long.get(k, 0.0)) for k in keys}
+        keys = sorted(set(self.short) | set(self.home))
+        rate = {k: max(self.short.get(k, 0.0), self.long.get(k, 0.0), self.home.get(k, 0.0)) for k in keys}
         q = {k: float(poisson_quantile(rate[k] * self.service.get(k, 1.0), self.q)) for k in keys}
         return Demand(rate, q)

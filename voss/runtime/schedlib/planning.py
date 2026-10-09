@@ -13,6 +13,7 @@ from voss.core.config import VossConfig
 from voss.core.ids import FnId, TenantId, WorkerId
 from voss.core.registry import create
 from voss.core.types import ClusterView
+from voss.policy.cache_value import source_score
 from voss.policy.cost.inputs import CostContext
 from voss.policy.plan import registry as _planners  # noqa: F401  (registers planners)
 from voss.policy.plan.diff import PlanAction, diff, rate_limit
@@ -201,12 +202,19 @@ def sources_for(
     level: tuple[str, ...] = ("L1", "L2", "L3"),
     tenant: str | None = None,
 ) -> tuple[WorkerId, ...]:
-    """Peers holding ``fn`` at ``level`` (same snapshot class and trust-warm for snapshots), nearest first."""
+    """Peers holding ``fn`` at ``level`` (same snapshot class and trust-warm for snapshots), fastest expected pull
+    first (doc 02 §6 source choice). Artifacts the registry also serves only use peers that beat the registry: a
+    residential uplink is often slower than the registry, so the nearest peer is not the fastest source."""
     if not view.static or k <= 0:
         return ()
     me = view.static[target]
-    if me is None:
+    info = ctx.fns.get(fn)
+    if me is None or info is None:
         return ()
+    nbytes = (info.snapshot_mb if tenant is not None else info.bundle_mb + info.rootfs_mb) * 2**20
+    down = max(me.down_bps, 1.0)
+    reg = float(ctx.geo.rtt(np.array([ctx.registry[0]]), np.array([ctx.registry[1]]), me.lat, me.lon)[0])
+    limit = float("inf") if tenant is not None else reg + nbytes * 8 / down
     found = []
     for j, c in enumerate(view.cache):
         e = c.get(FnId(fn))
@@ -216,5 +224,7 @@ def sources_for(
         if tenant is not None and (st.snapshot_class != me.snapshot_class or tenant not in view.trust[j]):
             continue
         rtt = float(ctx.geo.rtt(np.array([st.lat]), np.array([st.lon]), me.lat, me.lon)[0])
-        found.append((rtt + 0.1 * view.busy[j], int(view.workers[j])))
+        t = source_score(rtt, nbytes, min(st.up_bps, down), int(view.busy[j]), e.tier or "ssd")
+        if t < limit:
+            found.append((t, int(view.workers[j])))
     return tuple(WorkerId(w) for _, w in sorted(found)[:k])
