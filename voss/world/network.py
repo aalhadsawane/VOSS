@@ -64,6 +64,11 @@ class MsgStats:
     count: int = 0
     bytes: int = 0
     drops: int = 0
+    delivered: int = 0
+
+    @property
+    def in_flight(self) -> int:
+        return self.count - self.drops - self.delivered
 
 
 class Network:
@@ -206,4 +211,5 @@ class Network:
         if not hd.up or hd.incarnation != inc or hs.partition != hd.partition or handler is None:
             self.stats[type(msg).__name__].drops += 1
             return
+        self.stats[type(msg).__name__].delivered += 1
         handler(msg)

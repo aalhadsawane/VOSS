@@ -87,6 +87,7 @@ def cost_context(
         eps=c.eps,
         lambda_exposure=c.lambda_exposure,
         K=cfg.voss.placer.K,
+        lifecycle_aware=c.lifecycle_aware,
     )
 
 

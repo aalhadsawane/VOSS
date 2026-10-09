@@ -7,3 +7,4 @@ runs/
 .ruff_cache/
 .claude/
 calibration/raw/
+/figures/

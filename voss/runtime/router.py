@@ -250,7 +250,7 @@ class Router(Actor):
         """End of run: still-pending invocations get a terminal ``unfinished`` row."""
         for _, p in sorted(self.pending.items()):
             self._finalize(p, "unfinished", None)
-        self._flush()
+        self.flush()
 
     def _finalize(self, p: Pending, status: str, o: Outcome | None) -> None:
         for h in p.timers:
@@ -277,10 +277,10 @@ class Router(Actor):
         self.after(self.ctx.cfg.voss.router.stats_s, self._stats_tick)
 
     def _flush_tick(self) -> None:
-        self._flush()
+        self.flush()
         self.after(self.ctx.cfg.voss.router.receipt_batch_s, self._flush_tick)
 
-    def _flush(self) -> None:
+    def flush(self) -> None:
         """Batched, asynchronous append to the DB after the signature checks' CPU time (doc 08 §3.2, E13)."""
         if self.batch:
             verified = sum(1 for b in self.batch if b.receipt is not None)

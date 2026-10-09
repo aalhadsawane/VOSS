@@ -29,6 +29,7 @@ class Manifest:
     clock_mode: str
     result_hash: str
     versions: dict[str, str] = field(default_factory=dict)
+    wall_s: float = 0.0  # simulator wall time (metadata, not part of the result)
 
     def write(self, path: Path) -> None:
         path.write_text(json.dumps(asdict(self), indent=2, sort_keys=True))

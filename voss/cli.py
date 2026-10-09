@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 from pathlib import Path
 
 from voss.core.config import RunConfig, load_config
@@ -16,8 +17,10 @@ REPO = Path(__file__).resolve().parent.parent
 
 def cmd_run(cfg: RunConfig, out: Path | None) -> Manifest:
     """Run one config, write its logs and manifest under ``runs/<config_hash>`` (or ``out``)."""
+    t0 = time.perf_counter()
     result = run_system(cfg)
     manifest = build_manifest(cfg, result.scenario_hash, result.recorder.result_hash(), REPO)
+    manifest.wall_s = time.perf_counter() - t0
     run_dir = out or Path(cfg.out_dir) / cfg.config_hash()[:16]
     result.recorder.write(run_dir)
     manifest.write(run_dir / "manifest.json")

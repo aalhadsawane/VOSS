@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
@@ -105,6 +105,12 @@ def generate(cfg: RunConfig) -> Scenario:
     faults = control_faults(sc.faults)
     h = _hash(_tables(workers, sessions, adv, arrivals, faults), catalog, horizon)
     return Scenario(h, horizon, metros, catalog, workers, sessions, adv, arrivals, faults)
+
+
+def with_world(scn: Scenario, workers: WorkerTable, sessions: SessionTrace, adversary: AdversaryTrace) -> Scenario:
+    """The same workload on another worker population (reference clouds, doc 02 §9), rehashed."""
+    h = _hash(_tables(workers, sessions, adversary, scn.arrivals, scn.control_faults), scn.catalog, scn.horizon)
+    return replace(scn, hash=h, workers=workers, sessions=sessions, adversary=adversary)
 
 
 def store(scn: Scenario, root: Path) -> Path:

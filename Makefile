@@ -32,11 +32,14 @@ repro-smoke:
 	$(RUN) voss run configs/toy.yaml --out runs/repro-smoke
 	$(RUN) voss repro runs/repro-smoke/manifest.json
 
+JOBS ?= 4
+
 sweep:
-	@echo "sweep runner arrives in P8 (EXP=$(EXP))"; exit 1
+	@test -n "$(EXP)" || (echo "usage: make sweep EXP=E19 [JOBS=4]"; exit 2)
+	$(RUN) python -m experiments.sweep $(EXP) --jobs $(JOBS)
 
 figs:
-	@echo "figure registry arrives in P8"; exit 1
+	$(RUN) python -m experiments.figures $(if $(EXP),--exp $(EXP),)
 
 paper:
 	@echo "paper pipeline arrives in P10"; exit 1

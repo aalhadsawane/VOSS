@@ -1,0 +1,5 @@
+# Provider-side cost of the VOSS orchestrator tier for E17 (doc 06 §5): routers, orchestrator, DB/verifier and
+# registry on general-purpose cloud VMs. Volunteers are paid in non-monetary credits (doc 09 §4), reported apart.
+provenance: {default: assumed, note: "node price: AWS m5.large on-demand list price (literature)"}
+node_per_h: 0.096     # tag: literature  # TODO verify
+extra_nodes: 3        # orchestrator, DB + verifier, registry (one router per region on top)

@@ -66,3 +66,13 @@ def test_no_candidate_is_partial() -> None:
     v = view(n=1)
     pl = create("placer", "random").place(PlaceRequest((inv(0, frozenset({WorkerId(0)})),), v, 0.0, stream(1, "p")))
     assert pl.status == "partial" and not pl.assign
+
+
+def test_k8s_default_spreads_and_binpack_packs() -> None:
+    """kube-scheduler profiles: LeastAllocated + topology spread vs MostAllocated bin-packing."""
+    reqs = (inv(0), inv(1), inv(2))
+    got = create("placer", "k8s_default").place(PlaceRequest(reqs, view(busy=[1, 0, 0, 0]), 0.0, stream(1, "p")))
+    assert len(set(got.assign.values())) == 3 and WorkerId(0) not in got.assign.values()
+    packed = create("placer", "k8s_binpack").place(PlaceRequest(reqs, view(busy=[1, 0, 0, 0]), 0.0, stream(1, "p")))
+    assert packed.assign[InvId(0)] == WorkerId(0)  # the fullest feasible node first
+    assert len(set(packed.assign.values())) <= 2
