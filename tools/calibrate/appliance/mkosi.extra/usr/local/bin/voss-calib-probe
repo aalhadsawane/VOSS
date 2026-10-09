@@ -1,0 +1,21 @@
+#!/bin/sh
+# Appliance one-shot probe: agent ready → TPM quote → local verification → systemd-analyze → reboot back.
+# Times are /proc/uptime (seconds since kernel start); tools/calibrate/suites/appliance.py parses this log.
+set -u
+LOG_DEV=/dev/disk/by-label/VOSS-LOG
+mkdir -p /mnt/voss-log && mount "$LOG_DEV" /mnt/voss-log || exit 1
+n=$(ls /mnt/voss-log/appliance-*.log 2>/dev/null | wc -l)
+log=/mnt/voss-log/$(printf 'appliance-%04d.log' "$n")
+t() { echo "VOSS_T $1 $(cut -d' ' -f1 /proc/uptime)" >> "$log"; }
+t agent_ready
+w=$(mktemp -d)
+tpm2_createek -c "$w/ek.ctx" -G rsa -u "$w/ek.pub" >/dev/null
+tpm2_createak -C "$w/ek.ctx" -c "$w/ak.ctx" -G rsa -g sha256 -s rsassa -u "$w/ak.pub" -n "$w/ak.name" >/dev/null
+nonce=$(openssl rand -hex 16)
+tpm2_quote -c "$w/ak.ctx" -l sha256:0,1,2,3,4,5,6,7,10,11 -q "$nonce" -m "$w/q.msg" -s "$w/q.sig" -o "$w/q.pcrs" -g sha256 >/dev/null
+t quote_done
+tpm2_checkquote -u "$w/ak.pub" -m "$w/q.msg" -s "$w/q.sig" -f "$w/q.pcrs" -g sha256 -q "$nonce" >/dev/null && t verifier_ok
+until systemd-analyze >> "$log" 2>/dev/null; do sleep 1; done
+sync
+umount /mnt/voss-log
+systemctl reboot

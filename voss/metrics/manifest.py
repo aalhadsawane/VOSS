@@ -12,6 +12,7 @@ from typing import Any
 
 from voss.core.config import RunConfig
 from voss.core.hashing import hash_dir
+from voss.core.paths import config_path
 
 _PKGS = ("numpy", "scipy", "pandas", "pyarrow", "pydantic")
 
@@ -64,7 +65,7 @@ def versions() -> dict[str, str]:
 def calibration_hash(cfg: RunConfig) -> str | None:
     if cfg.calibration is None:
         return None
-    path = Path(cfg.calibration)
+    path = config_path(cfg.calibration)
     return hash_dir(path) if path.is_dir() else None
 
 

@@ -97,7 +97,7 @@ class VossSystem:
         self.routers = [self._attach(Router(f"router:{c}", self.ctx, c)) for c in inf.routers]
 
     def _workers(self) -> None:
-        wt, hw = self.scn.workers, load_hw_classes(list(self.scn.workers.hw_names))
+        wt, hw = self.scn.workers, load_hw_classes(list(self.scn.workers.hw_names), self.cfg.calibration)
         catalog = {FnId(f.name): f for f in self.scn.catalog.functions}
         touched = self.bundle["snapshot_touched_frac"].mean() if "snapshot_touched_frac" in self.bundle else 0.3
         ep = ExecParams.model_validate(self.cfg.scenario.execution)

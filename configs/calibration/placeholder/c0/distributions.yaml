@@ -1,5 +1,5 @@
 # PLACEHOLDER calibration bundle for node C0 (doc 10). Not measured: every value is literature or assumed and is
-# replaced by `voss calibrate ingest` output under configs/calibration/measured/<host>/ in P9.
+# replaced by `python -m tools.calibrate.ingest` output under configs/calibration/measured/<host>/ in P9.
 provenance: {default: assumed, note: "placeholder until P9; see per-entry tag/source"}
 host: c0-placeholder
 harness_version: none

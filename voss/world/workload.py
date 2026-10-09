@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from voss.core.config import ScenarioConfig
 from voss.core.paths import load_data_yaml
 from voss.core.rng import RngFactory
+from voss.world.calibration import function_overrides
 from voss.world.config_merge import merged
 from voss.world.geo import Metros, diurnal, local_hour
 
@@ -101,8 +102,12 @@ class ArrivalTrace:
         return len(self.frame)
 
 
-def load_catalog(sc: ScenarioConfig) -> Catalog:
-    fns = tuple(FunctionSpec.model_validate(f) for f in load_data_yaml(sc.functions)["functions"])
+def load_catalog(sc: ScenarioConfig, calibration: str | None = None) -> Catalog:
+    """Functions and tenants; measured function profiles from the calibration bundle replace literature seeds."""
+    meas = function_overrides(calibration)
+    fns = tuple(
+        FunctionSpec.model_validate(f | meas.get(f["name"], {})) for f in load_data_yaml(sc.functions)["functions"]
+    )
     ten = tuple(TenantSpec.model_validate(t) for t in load_data_yaml(sc.tenants)["tenants"])
     known = {t.id for t in ten}
     for f in fns:

@@ -71,8 +71,8 @@ def generate(cfg: RunConfig) -> Scenario:
     """Doc 01 §4. Order: workers → adversaries → sessions (fake drains) → arrivals; each uses its own streams."""
     sc, rng, horizon = cfg.scenario, RngFactory(cfg.seed), cfg.horizon_s
     metros = load_metros(GeoParams.model_validate(sc.geo).metros)
-    catalog = load_catalog(sc)
-    workers = generate_workers(sc, metros, load_hw_classes(sorted(sc.hw_mix)), rng)
+    catalog = load_catalog(sc, cfg.calibration)
+    workers = generate_workers(sc, metros, load_hw_classes(sorted(sc.hw_mix), cfg.calibration), rng)
     adv = generate_adversaries(sc, workers, horizon, rng)
     params = load_adversary_regime(sc).params
     fake = np.flatnonzero(adv.behavior == BEHAVIORS.index("fake_signals"))

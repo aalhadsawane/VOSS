@@ -1,0 +1,25 @@
+#!/bin/sh
+# Guest init for the calibration suites (doc 10 §3). The first line marks "userspace reached" for fc_boot/qemu_vm.
+echo "VOSS_MARK init"
+mount -t proc proc /proc 2>/dev/null
+mount -t sysfs sys /sys 2>/dev/null
+mount -t tmpfs tmp /tmp 2>/dev/null
+mode=$(sed -n 's/.*voss\.mode=\([a-z]*\).*/\1/p' /proc/cmdline)
+case "$mode" in
+  boot)
+    echo "VOSS_MARK done"
+    ;;
+  serve)
+    # fc_snapshot: snapshot is taken while blocked here; after restore the host writes a probe and times the echo
+    echo "VOSS_MARK ready"
+    while read -r line; do echo "VOSS_ACK $line"; done
+    ;;
+  sebs)
+    /usr/local/bin/python3 /voss/fnrunner.py || echo "VOSS_ERR fnrunner exited $?"
+    ;;
+  *)
+    echo "VOSS_ERR unknown mode '$mode'"
+    ;;
+esac
+sync
+busybox reboot -f 2>/dev/null || echo b > /proc/sysrq-trigger

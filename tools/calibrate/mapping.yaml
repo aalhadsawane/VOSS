@@ -1,0 +1,21 @@
+# Which raw probes become which calibration-bundle entries (doc 10 §1). Read by tools/calibrate/ingest.py.
+# `where` filters on a record's config; `phase` pairs the two runs of a manual on/off suite. Entries without data
+# keep the placeholder bundle's value and tag (literature/assumed), as doc 10 §2 requires.
+distributions:
+  tpm2_quote: {suite: tpm, probe: tpm2_quote, note: "one tpm2_quote process (includes tool start-up, see probe baseline)"}
+  verify_s: {suite: attest_local, probe: attest_verify, note: "checkquote + Ed25519 certificate signature; no Keylime policy evaluation"}
+  fc_boot: {suite: fc_boot, probe: fc_boot, where: {mem_mb: 256, tier: ssd, cache: warm}}
+  fc_restore: {suite: fc_snapshot, probe: fc_restore_api, where: {mem_mb: 512, tier: ssd, cache: warm}, note: "load API; page reads are modeled separately"}
+  fc_snapshot_create: {suite: fc_snapshot, probe: fc_snapshot_create, where: {mem_mb: 512, tier: ssd}}
+  reboot_to_kernel: {suite: appliance, probe: reboot_to_kernel, note: "firmware + loader + kernel (systemd-analyze)"}
+  appliance_userspace: {suite: appliance, probe: appliance_userspace}
+  verify_s_per_MB: {suite: disk, probe: sha256_MBps, transform: inverse, as: const, note: "single-core SHA-256"}
+ratios:
+  tme_mem_factor: {suite: tme, probe: stream_triad, num: {phase: "off"}, den: {phase: "on"}, note: "triad bandwidth off/on"}
+  tme_cpu_factor: {suite: tme, probe: sebs_exec, num: {phase: "on"}, den: {phase: "off"}, group: [fn, size_kb], note: "SeBS subset exec on/off, geometric mean"}
+hardware:
+  C0:
+    ssd_read_MBps: {suite: disk, probe: ssd_seq_read_MBps}
+    ssd_write_MBps: {suite: disk, probe: ssd_seq_write_MBps}
+    hdd_read_MBps: {suite: disk, probe: hdd_seq_read_MBps}
+    hdd_write_MBps: {suite: disk, probe: hdd_seq_write_MBps}

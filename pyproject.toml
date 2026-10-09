@@ -68,6 +68,7 @@ strict = true
 warn_unreachable = true
 plugins = ["pydantic.mypy"]
 files = ["voss", "experiments", "tools"]
+exclude = ["tools/calibrate/guest/"]  # guest code: runs inside the microVM with its own dependencies
 
 [[tool.mypy.overrides]]
 module = ["scipy.*", "pyarrow.*", "matplotlib.*", "grimp.*", "pandas.*"]
