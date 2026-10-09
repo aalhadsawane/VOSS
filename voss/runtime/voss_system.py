@@ -228,10 +228,14 @@ class VossSystem:
             r.finalize_all()
         self.kernel.after(2.0, self.acct.settle_now)  # final settlement once the last receipt batches landed
         self.kernel.run(self.kernel.now + 5.0)
+        for r in self.routers:
+            r.flush()  # receipts of results that arrived after the end
+        self.kernel.run(self.kernel.now + 1.0)
         for kind, st in sorted(self.net.stats.items()):
             self.rec.log(Table.MESSAGES, kind=kind, count=st.count, bytes=st.bytes, drops=st.drops)
         give_up = {i: self.cfg.voss.router.give_up_s[c] for i, c in enumerate(SLO_CLASSES)}
-        drops = self.net.stats["Result"].drops if "Result" in self.net.stats else 0
+        res = self.net.stats.get("Result")
+        drops = res.drops + res.in_flight if res is not None else 0  # lost, or still uploading at the end
         for v in check_invariants(self.rec, self.scn, len(arr), give_up, end, drops):
             self.rec.log(Table.EVENTS, t=self.kernel.now, kind="invariant_violation", worker=-1, value=0.0, detail=v)
         return RunResult(self.rec, self.scn.hash, self.kernel.events_run)

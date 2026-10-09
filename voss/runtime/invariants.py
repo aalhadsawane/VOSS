@@ -109,7 +109,7 @@ def receipts_complete(rec: Recorder) -> list[str]:
 def receipts_match_ground_truth(rec: Recorder, end: float, result_drops: int) -> list[str]:
     """Doc 09 §3: a verified receipt exists iff an attested appliance produced the result. Sound: every ``ok`` or
     ``duplicate`` row matches a result the worker sent. Complete: every result sent before the end is logged unless
-    the network lost it or its session certificate was revoked before it arrived."""
+    the network lost it, it was still uploading at the end, or its session certificate was revoked first."""
     sent = _events(rec, "result_sent")
     rc = rec.frame(Table.RECEIPTS)
     if sent.empty and rc.empty:
@@ -124,14 +124,14 @@ def receipts_match_ground_truth(rec: Recorder, end: float, result_drops: int) ->
         out.append(f"{len(paid) - len(got)} receipts logged twice")
     rej = _events(rec, "receipt_rejected")
     excused = set(zip(rej.inv.astype(int), rej.value.astype(int), strict=True)) if len(rej) else set()
-    early = sent[sent.t < end - 2.0] if len(sent) else sent
+    early = sent[sent.t < end] if len(sent) else sent
     lost = [
         k
         for k in zip(early.inv.astype(int), early.value.astype(int), early.worker.astype(int), strict=True)
         if k not in got and (k[0], k[1]) not in excused
     ]
     if len(lost) > result_drops:
-        out.append(f"{len(lost)} results without receipts ({result_drops} lost in the network), e.g. {lost[:5]}")
+        out.append(f"{len(lost)} results without receipts ({result_drops} lost or in flight), e.g. {lost[:5]}")
     return out
 
 
