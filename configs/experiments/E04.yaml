@@ -1,0 +1,18 @@
+# E04 pilot (doc 06 §5, RQ2/RQ9): planner comparison on the same scenarios (paired), two churn regimes.
+experiment: E04
+base: ../smoke.yaml
+overrides:
+  - horizon_s=900
+  - scenario.workers=200
+  - scenario.load.rate=10
+systems:
+  plan_none: [voss.planner.name=none, voss.worker.warm_ttl_s=0]
+  keepalive_ttl: [voss.planner.name=keepalive_ttl]
+  plan_greedy: [voss.planner.name=greedy]
+  plan_milp: [voss.planner.name=milp]
+  milp_no_robust: [voss.planner.name=milp, voss.planner.params.use_robust=false]
+  milp_no_exposure: [voss.planner.name=milp, voss.planner.params.use_exposure=false]
+  milp_no_domain: [voss.planner.name=milp, voss.planner.params.use_domain_cap=false]
+grid:
+  scenario.regime: [churn_med, churn_high]
+seeds: [1, 2, 3, 4, 5]
