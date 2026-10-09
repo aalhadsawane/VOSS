@@ -25,6 +25,7 @@ from voss.core.messages import (
     Summaries,
     Withdraw,
 )
+from voss.core.messages_acct import ReceiptRow
 from voss.core.messages_ft import Stall
 from voss.core.registry import REGISTRY
 from voss.core.types import ClusterCard, Invocation, Outcome, SloClass
@@ -32,7 +33,7 @@ from voss.metrics.schema import Table
 from voss.policy import route as _routes  # noqa: F401  (registers routing policies)
 from voss.policy.route import RouteRequest, home_cluster
 from voss.runtime.actor import Actor, ActorContext
-from voss.runtime.routerlib.pending import Pending, row
+from voss.runtime.routerlib.pending import InvCtx, Pending, inv_ctx, row
 from voss.world.workload import SLO_CLASSES
 
 
@@ -49,9 +50,9 @@ class Router(Actor):
         self.cards: dict[int, ClusterCard] = {}
         self.pending: dict[InvId, Pending] = {}
         self.unrouted: list[InvId] = []
-        self.finished: set[InvId] = set()
+        self.finished: dict[InvId, InvCtx] = {}
         self.revoked: set[str] = set()
-        self.batch: list[tuple[Receipt, float, str]] = []
+        self.batch: list[ReceiptRow] = []
         self.stats: dict[int, list[int]] = {}
         self.home: dict[tuple[int, str], int] = {}
         self.fires: dict[int, list[tuple[float, InvId]]] = {}
@@ -220,19 +221,24 @@ class Router(Actor):
 
     # --- completion ---------------------------------------------------------------------------------------------
     def _result(self, o: Outcome, r: Receipt) -> None:
+        """Doc 09 §3: verify the receipt against the session certificate (revocation list) and log it; a result of
+        an invocation that already finished (a hedge loser that completed) is logged as ``duplicate``."""
         p = self.pending.get(o.inv)
-        if p is None:
-            if o.inv in self.finished:
-                self.ctx.rec.log(
-                    Table.EVENTS, t=self.now, kind="duplicate_result", worker=o.worker, value=o.attempt, inv=int(o.inv)
-                )
+        ic = inv_ctx(p) if p is not None else self.finished.get(o.inv)
+        if ic is None:
             return
         if r.cert_id in self.revoked or r.inv != o.inv:
             self.ctx.rec.log(
                 Table.EVENTS, t=self.now, kind="receipt_rejected", worker=o.worker, value=o.attempt, inv=int(o.inv)
             )
             return
-        self.batch.append((r, self.now, self.region))
+        status = "ok" if p is not None else "duplicate"
+        self.batch.append(ReceiptRow(r.inv, r.attempt, r.worker, status, self.now, self.region, r, *ic))
+        if p is None:
+            self.ctx.rec.log(
+                Table.EVENTS, t=self.now, kind="duplicate_result", worker=o.worker, value=o.attempt, inv=int(o.inv)
+            )
+            return
         self._finalize(p, "ok", o)
 
     def _give_up(self, inv_id: InvId) -> None:
@@ -250,7 +256,11 @@ class Router(Actor):
         for h in p.timers:
             self.ctx.kernel.cancel(h)
         del self.pending[p.inv.id]
-        self.finished.add(p.inv.id)
+        ic = self.finished[p.inv.id] = inv_ctx(p)
+        won = o.attempt if o is not None else -1
+        for a, w in sorted(p.workers.items()):
+            if a != won:  # doc 09 §3: attempts without the accepted result
+                self.batch.append(ReceiptRow(p.inv.id, a, w, "no_result", self.now, self.region, None, *ic))
         r = row(p, self.region, status, o, self.now)
         self.ctx.rec.log(Table.INVOCATIONS, **r)
         if p.cluster is not None:
@@ -271,6 +281,9 @@ class Router(Actor):
         self.after(self.ctx.cfg.voss.router.receipt_batch_s, self._flush_tick)
 
     def _flush(self) -> None:
+        """Batched, asynchronous append to the DB after the signature checks' CPU time (doc 08 §3.2, E13)."""
         if self.batch:
-            self.send(self.ctx.directory.opdb, DbAppendReceipts(tuple(self.batch)))
+            verified = sum(1 for b in self.batch if b.receipt is not None)
+            delay = self.ctx.clock.charge("verify", work=verified)
+            self.after(delay, self.send, self.ctx.directory.opdb, DbAppendReceipts(tuple(self.batch)))
             self.batch = []

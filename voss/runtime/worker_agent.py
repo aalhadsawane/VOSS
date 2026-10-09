@@ -171,7 +171,16 @@ class WorkerAgent(RecoveryMixin, PlannedMixin, FetchMixin, SessionMixin, Actor):
                 att.ref_units,
                 f"out:{int(att.inv.id)}",
             )
-            self.send(att.router, Result(out, rcpt, int(att.fn.out_kb * 1024)))
+            sent = self.send(att.router, Result(out, rcpt, int(att.fn.out_kb * 1024)))
+            self.ctx.rec.log(  # ground truth for receipt completeness (doc 09 §3)
+                Table.EVENTS,
+                t=self.now,
+                kind="result_sent",
+                worker=self.host.worker,
+                inv=int(att.inv.id),
+                value=float(att.inv.attempt),
+                reason="" if sent else "dropped",
+            )
             self._after_success(att)
         self.send(att.scheduler, OutcomeMsg(out))
         self._finished(att, out)

@@ -33,6 +33,7 @@ class WatchdogMixin:
     suspects: dict[WorkerId, float]
     streak: dict[WorkerId, int]
     unaccepted: deque[tuple[float, WorkerId]]
+    change_points: list[WorkerId]
 
     if TYPE_CHECKING:
 
@@ -115,6 +116,8 @@ class WatchdogMixin:
         self.ctx.rec.log(Table.EVENTS, t=self.now, kind="watchdog", worker=w, value=0.0, inv=int(inv), reason=reason)
         cp = self.models.omission.update(int(w), True, self.now)
         self.streak[w] = self.streak.get(w, 0) + 1
+        if cp is not None:
+            self.change_points.append(w)  # omission burst: reported to the orchestrator (doc 09 §2)
         if cp is not None or self.streak[w] >= self.ctx.cfg.voss.detection.suspect_streak:
             self._suspect(w, "change_point" if cp is not None else reason)
 

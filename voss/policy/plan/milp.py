@@ -88,11 +88,13 @@ class _Rows:
 def _objective(inp: PlanInput, L: Layout) -> np.ndarray:
     p = inp.params
     obj = np.zeros(L.n)
+    pref = 2.0 - inp.preference()  # reputation tie-break: reputable workers cost slightly less to trust or add
     for t in range(L.T):
         obj[L.u(t)] = inp.cold_penalty[t]
         for j in range(L.J):
-            obj[L.y(t, j)] = p.exposure_weight * inp.sigma[t] * (1 - inp.assurance[j]) if p.use_exposure else 0.0
-            obj[L.z(t, j)] = p.kappa_switch
+            expo = p.exposure_weight * inp.sigma[t] * (1 - inp.assurance[j]) if p.use_exposure else 0.0
+            obj[L.y(t, j)] = expo * pref[j]
+            obj[L.z(t, j)] = p.kappa_switch * pref[j]
     for f in range(L.F):
         for j in range(L.J):
             obj[L.w(f, j)] = p.rho_mem * inp.fn_mem[f] - p.beta_warm * inp.fn_benefit[f]

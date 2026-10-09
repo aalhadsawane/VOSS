@@ -15,3 +15,5 @@ class Table(StrEnum):
     MESSAGES = "messages"
     RECEIPTS = "receipts"
     PREDICTIONS = "predictions"
+    CREDITS = "credits"
+    REPUTATION = "reputation"

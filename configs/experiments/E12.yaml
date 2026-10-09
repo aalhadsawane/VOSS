@@ -1,0 +1,27 @@
+# E12 pilot (doc 06 §5, doc 09 §2): reputation dynamics — rule variants × tie-break strength over a long horizon
+# with on-off identities (good 10 min, bad 5 min). Time-compressed: half-life 15 min and probation 6 min stand in
+# for the default 168 h and 24 h so that decay and probation act within one hour. Starvation, concentration (Gini,
+# Jain), the on-off identities' share of work and scores.
+experiment: E12
+base: ../pilot.yaml
+overrides:
+  - horizon_s=3600
+  - scenario.workers=300
+  - scenario.load.rate=10
+  - voss.reputation.half_life_h=0.25
+  - voss.reputation.probation_h=0.1
+  - voss.reputation.push_s=30
+systems:
+  beta_decay: []
+  no_decay: [voss.reputation.name=no_decay]
+  success_rate: [voss.reputation.name=success_rate]
+  ewma: [voss.reputation.name=ewma]
+  survival_informed: [voss.reputation.name=survival_informed]
+  eigentrust_lite: [voss.reputation.name=eigentrust_lite]
+  none: [voss.reputation.name=none]
+grid:
+  voss.reputation.tie_break: [0.02, 0.2]
+  scenario.adversary:
+    - {regime: adversary_mixed, alpha: 0.2, mix: {on_off: 1.0, black_hole: 0.0, omit_random: 0.0},
+       params: {on_off_good_s: 600, on_off_bad_s: 300}}
+seeds: [1, 2, 3]

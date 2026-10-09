@@ -55,3 +55,21 @@ def latency_metrics(inv: pd.DataFrame, warmup_s: float = 60.0) -> dict[str, floa
 
 def fmt(m: float, lo: float, hi: float, digits: int = 3) -> str:
     return f"{m:.{digits}f} [{lo:.{digits}f}, {hi:.{digits}f}]"
+
+
+def report_table(exp: str, df: pd.DataFrame, keys: list[str], cols: list[str], notes: dict[str, str]) -> str:
+    """Markdown table: one row per key combination, mean and 95% bootstrap CI over seeds per column."""
+    note = "; ".join(f"`{c}` = {notes[c]}" for c in cols if c in notes)
+    lines = [
+        f"# {exp} pilot",
+        "",
+        f"Mean and 95% bootstrap CI over seeds; warm-up (first 60 s) excluded from latency. {note}.",
+        "",
+        f"| {' | '.join(keys)} | seeds | {' | '.join(cols)} |",
+        "|" + "---|" * (len(keys) + 1 + len(cols)),
+    ]
+    for raw, g in df.groupby(keys[::-1]):
+        key = (raw if isinstance(raw, tuple) else (raw,))[::-1]
+        cells = [fmt(*bootstrap_ci(g[c].dropna().to_numpy()), digits=3) for c in cols]
+        lines.append(f"| {' | '.join(map(str, key))} | {len(g)} | {' | '.join(cells)} |")
+    return "\n".join(lines) + "\n"

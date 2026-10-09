@@ -30,6 +30,7 @@ class PlanParams:
     use_domain_cap: bool = True
     use_freshness: bool = True
     exposure_weight: float = 1.0
+    tie_break: float = 0.0  # reputation tie-break strength (doc 09 §1: tie-breaks only)
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,14 @@ class PlanInput:
     fn_units: np.ndarray  # [F] warm VMs worth keeping cluster-wide (demand bound)
     y_prev: np.ndarray  # [T, J] previous trust-warm sets
     params: PlanParams = field(default_factory=PlanParams)
+    rep: np.ndarray | None = None  # [J] reputation tie-break scores in [0, 1] (doc 09 §2)
+
+    def preference(self) -> np.ndarray:
+        """``[J]`` tie-break multiplier ``1 + tie_break × score`` (1 without reputation)."""
+        if self.rep is None or self.params.tie_break == 0:
+            return np.ones(len(self.workers))
+        out: np.ndarray = 1.0 + self.params.tie_break * self.rep
+        return out
 
     @property
     def fn_snaps(self) -> np.ndarray:

@@ -46,6 +46,15 @@ from voss.core.messages import (
     Warm,
     Withdraw,
 )
+from voss.core.messages_acct import (
+    DbAccrual,
+    ReportEvents,
+    ReputationScores,
+    RoleRecord,
+    Settled,
+    SettleRead,
+    SettleRows,
+)
 from voss.core.messages_ft import Handover, Lease, Pong, Probe, PutCheckpoint, RollCallReport, Stall, Standby
 
 SIZE: dict[type[Message], int] = {
@@ -88,6 +97,8 @@ SIZE: dict[type[Message], int] = {
     Release: 100,
     DbCasEpoch: 200,
     DbCasResult: 200,
+    RoleRecord: 128,
+    SettleRead: 64,
 }
 
 
@@ -114,4 +125,16 @@ def size_of(msg: Message) -> int:
         return 64 + 40 * len(msg.rates)
     if isinstance(msg, Summaries):
         return 64 + 200 * len(msg.cards)
+    return _acct_size(msg)
+
+
+def _acct_size(msg: Message) -> int:
+    if isinstance(msg, ReportEvents):
+        return 64 + 16 * len(msg.pinned_mb_s) + 8 * (len(msg.change_points) + len(msg.suspects))
+    if isinstance(msg, DbAccrual | Settled):
+        return 64 + 24 * len(msg.rows)
+    if isinstance(msg, ReputationScores):
+        return 64 + 12 * len(msg.scores)
+    if isinstance(msg, SettleRows):
+        return 64 + 256 * len(msg.receipts) + 64 * len(msg.roles) + 24 * len(msg.accruals)
     return 256
