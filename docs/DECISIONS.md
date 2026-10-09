@@ -167,12 +167,15 @@ the orchestrator forwards these rates each period (`HOME_DEMAND`), and the arriv
 max(local, home) per tenant and function. In equilibrium local ≈ home, so nothing is double counted. *Rejected:*
 routing exploration (wastes cold starts), dropping the trust-cold term (removes priced spillover).
 
-**D-33 Cluster cards carry measured in-cluster overhead** (P5). `E[completion_c(f)]` in the routing score is
-execution (the same in every cluster up to speed) plus the cluster's overhead. Cards report an EWMA of decision time
-plus slot wait as measured by the scheduler (excluding the router hop, which `rtt` already counts, and trust and
-start-up, which the trust-warm and warm-function terms price), decaying to a prior when idle so stale values cannot
-lock traffic out. The health penalty applies only above the unhealthy threshold θ (doc 03 §2). *Rejected:* the
-scheduler's mean service time (reflects each cluster's function mix, not its quality).
+**D-33 Cluster cards carry measured prices** (P5). `E[completion_c(f)]` in the routing score is execution (the same
+in every cluster up to speed) plus the cluster's overhead; the trust-cold term is "expected key release + cold start"
+(doc 03 §3). Fixed constants overpriced both (pilot: `score` lost to `nearest` by 18-30%), so each scheduler reports
+EWMAs of what it measured: in-cluster decision + slot wait of **sync** attempts (async batching would bias it), the
+trust + start-up actually paid by trust-cold attempts, the start-up of cold attempts, and the backlog per slot when
+over-full (`svc × (load − 1)`). Config values are only priors for clusters without measurements. The overhead prior
+is **optimistic** (0) and stale overhead decays to it: a pessimistic prior kept idle clusters idle. The health
+penalty applies only above the unhealthy threshold θ (doc 03 §2). *Rejected:* the scheduler's mean service time
+(reflects each cluster's function mix, not its quality).
 
 **D-34 Hard per-worker migration budget** (P5 exit: bounded migrations). Dwell time and a cap per period bound
 rebalancing moves but not structural ones (merge/split). The orchestrator also enforces `max_moves_per_h` (default
