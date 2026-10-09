@@ -17,6 +17,7 @@ from voss.core.rng import RngFactory
 from voss.core.types import WorkerStatic
 from voss.metrics.recorder import Recorder
 from voss.metrics.schema import Table
+from voss.runtime.accounting import Accounting
 from voss.runtime.actor import ActorContext, Directory
 from voss.runtime.drivers import TraceDriver, client_handler, invocations, owner_event, session_events
 from voss.runtime.faultdriver import FaultDriver
@@ -100,6 +101,7 @@ class VossSystem:
         valid = {n: (p.assurance_base, p.session.valid_s) for n, p in self.profiles.items()}
         self._attach(Verifier("verifier", self.ctx, valid))
         self._attach(OpDb("orchestrator", self.ctx))
+        self.acct = self._attach(Accounting("orchestrator", self.ctx))
         self.orch = self._attach(Orchestrator("orchestrator", self.ctx, self._region_of))
         self._attach(Registry("registry", self.ctx))
         for t in self.scn.catalog.tenants:
@@ -128,6 +130,8 @@ class VossSystem:
                 up=False,
             )
             adv = Adversary.of(self.scn.adversary, w, self.rng.stream("adversary.effects", w))
+            if adv is not None:  # ground truth for analysis (who is adversarial), never read by the system
+                self.rec.log(Table.EVENTS, t=0.0, kind="adversary", worker=w, value=0.0, reason=adv.name)
             self.agents[wid] = self._attach(WorkerAgent(host, self.ctx, catalog, params, adv))
             self.scheds[wid] = self._attach(SchedulerRole(host, self.ctx, self.cost, self.priors))
 
@@ -219,13 +223,16 @@ class VossSystem:
         faults = FaultDriver(self.kernel, self.net, self.rec, self.orch, self.scheds, self._owner)
         faults.start(self.scn.control_faults.to_dict("records"))
         self.kernel.run(self.scn.horizon + self.cfg.drain_s)
+        end = self.kernel.now
         for r in self.routers:
             r.finalize_all()
+        self.kernel.after(2.0, self.acct.settle_now)  # final settlement once the last receipt batches landed
         self.kernel.run(self.kernel.now + 5.0)
         for kind, st in sorted(self.net.stats.items()):
             self.rec.log(Table.MESSAGES, kind=kind, count=st.count, bytes=st.bytes, drops=st.drops)
         give_up = {i: self.cfg.voss.router.give_up_s[c] for i, c in enumerate(SLO_CLASSES)}
-        for v in check_invariants(self.rec, self.scn, len(arr), give_up, self.kernel.now):
+        drops = self.net.stats["Result"].drops if "Result" in self.net.stats else 0
+        for v in check_invariants(self.rec, self.scn, len(arr), give_up, end, drops):
             self.rec.log(Table.EVENTS, t=self.kernel.now, kind="invariant_violation", worker=-1, value=0.0, detail=v)
         return RunResult(self.rec, self.scn.hash, self.kernel.events_run)
 

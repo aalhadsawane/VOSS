@@ -1,0 +1,20 @@
+# E13 pilot (doc 06 §5, RQ13, doc 09 §3-4): accounting cost and completeness — receipt volume, verification CPU,
+# settlement period × receipt batching, with and without scheduler faults plus 10% omitting owners. Completeness is
+# checked against the workers' ground truth (results sent) in every run.
+experiment: E13
+base: ../pilot.yaml
+systems:
+  s10_b1: [voss.accounting.settle_s=10]
+  s60_b1: [voss.accounting.settle_s=60]
+  s300_b1: [voss.accounting.settle_s=300]
+  s60_b02: [voss.accounting.settle_s=60, voss.router.receipt_batch_s=0.2]
+  s60_b5: [voss.accounting.settle_s=60, voss.router.receipt_batch_s=5]
+grid:
+  scenario.faults:
+    - []
+    - [{t: 200, kind: sched_crash, target: 'cluster:0', duration_s: 60},
+       {t: 400, kind: sched_partition, target: 'cluster:1', duration_s: 60},
+       {t: 600, kind: sched_blackhole, target: 'cluster:2', duration_s: 60}]
+  scenario.adversary:
+    - {regime: adversary_mixed, alpha: 0.1}
+seeds: [1, 2, 3]

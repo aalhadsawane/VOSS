@@ -8,6 +8,8 @@ from voss.core.ids import WorkerId
 from voss.core.kernel import Handle
 from voss.core.types import Invocation, Outcome
 
+InvCtx = tuple[int, str, str, float, float]  # cluster, fn, tenant, t_arrive, deadline (receipt row context)
+
 
 @dataclass
 class Pending:
@@ -21,6 +23,11 @@ class Pending:
     excluded: set[int] = field(default_factory=set)
     workers: dict[int, WorkerId] = field(default_factory=dict)
     timers: list[Handle] = field(default_factory=list)
+
+
+def inv_ctx(p: Pending) -> InvCtx:
+    inv = p.inv
+    return (-1 if p.cluster is None else p.cluster, str(inv.fn), str(inv.tenant), inv.t_arrive, inv.deadline)
 
 
 def row(p: Pending, region: str, status: str, o: Outcome | None, now: float) -> dict[str, object]:

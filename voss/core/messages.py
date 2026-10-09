@@ -206,6 +206,7 @@ class Join(Message):
     reply_to: Addr
     lat: float = 0.0
     lon: float = 0.0
+    tier: str = ""  # declared tier: the commitment reputation holds the identity to (doc 09 §2)
 
 
 @dataclass(frozen=True, slots=True)
@@ -390,4 +391,4 @@ class DbCasResult(Message):
 
 @dataclass(frozen=True, slots=True)
 class DbAppendReceipts(Message):
-    rows: tuple[tuple[Receipt, float, str], ...] = field(default_factory=tuple)
+    rows: tuple[object, ...] = field(default_factory=tuple)  # messages_acct.ReceiptRow

@@ -41,7 +41,8 @@ class Planning:
         if pc.name == "milp":
             kw = {"time_limit": pc.T_solve, "node_limit": pc.node_limit}
         self.planner: Any = create("planner", pc.name, **kw)
-        self.params = PlanParams(**pc.params)
+        self.params = PlanParams(**{"tie_break": cfg.reputation.tie_break, **pc.params})
+        self.rep: dict[int, float] = {}  # orchestrator-pushed tie-break scores
         self.prev: Plan | None = None
         self._last_sig: tuple[object, ...] = ()
 
@@ -78,8 +79,7 @@ class Planning:
         k, lam, start, tz, drain = self.models._static(view)
         hour = np.mod(self.start_utc_h + now / 3600 + tz[idx], 24)
         survival = self.models.survival.p_alive_arr(k[idx], lam[idx], now - start[idx], horizon, hour, drain[idx], now)
-        n = len(idx)
-        f_default = math.ceil(pc.f_from_alpha * n) if n else 0
+        f_default = math.ceil(pc.f_from_alpha * len(idx))
         prev_y = self._prev_y(tenants, workers)
         return PlanInput(
             now=now,
@@ -108,6 +108,7 @@ class Planning:
             fn_units=np.array([float(poisson_quantile(fn_rates[f] * self._svc(f), 0.95)) for f in fns]),
             y_prev=prev_y,
             params=self.params,
+            rep=np.array([self.rep.get(int(w), 0.0) for w in workers]) if self.rep else None,
         )
 
     def _svc(self, fn: str) -> float:

@@ -28,6 +28,8 @@ class AppointMixin:
         def now(self) -> float: ...
         def send(self, dst: Addr, msg: Any) -> bool: ...
         def after(self, dt: float, fn: Any, *args: Any) -> Any: ...
+        def _role_record(self, c: Cluster, holder: WorkerId, standby: WorkerId | None, epoch: int) -> None: ...
+        def _send_scores(self, cid: int) -> None: ...
 
     # --- detection --------------------------------------------------------------------------------------------
     def _suspect_scheduler(self, c: Cluster, reason: str) -> None:
@@ -150,6 +152,8 @@ class AppointMixin:
         self.send(("sched", m.holder), appoint)
         if standby is not None:
             self.send(("sched", standby), Standby(ClusterId(c.cid), m.epoch, members))
+        self._role_record(c, m.holder, standby, m.epoch)
+        self._send_scores(c.cid)
         self.ctx.rec.log(
             Table.EVENTS, t=self.now, kind="appoint", worker=m.holder, cert=m.cert_id, value=m.epoch, cluster=c.cid
         )

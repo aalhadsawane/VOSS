@@ -10,7 +10,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from experiments.analysis.common import bootstrap_ci, fmt, get, latency_metrics, manifest, table
+from experiments.analysis.common import get, latency_metrics, manifest, report_table, table
 
 KEYS = {
     "E08": ("label", "scenario.adversary"),
@@ -95,21 +95,7 @@ def collect(exp: str, runs: list[Path]) -> pd.DataFrame:
 
 
 def report(exp: str, df: pd.DataFrame) -> str:
-    keys, cols = list(KEYS[exp]), list(COLS[exp])
-    notes = "; ".join(f"`{c}` = {NOTES[c]}" for c in cols if c in NOTES)
-    lines = [
-        f"# {exp} pilot",
-        "",
-        f"Mean and 95% bootstrap CI over seeds; warm-up (first 60 s) excluded from latency. {notes}.",
-        "",
-        f"| {' | '.join(keys)} | seeds | {' | '.join(cols)} |",
-        "|" + "---|" * (len(keys) + 1 + len(cols)),
-    ]
-    for raw, g in df.groupby(keys[::-1]):
-        key = (raw if isinstance(raw, tuple) else (raw,))[::-1]
-        cells = [fmt(*bootstrap_ci(g[c].dropna().to_numpy()), digits=3) for c in cols]
-        lines.append(f"| {' | '.join(map(str, key))} | {len(g)} | {' | '.join(cells)} |")
-    return "\n".join(lines) + "\n"
+    return report_table(exp, df, list(KEYS[exp]), list(COLS[exp]), NOTES)
 
 
 def main() -> None:
