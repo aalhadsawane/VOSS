@@ -91,3 +91,17 @@ def test_bulk_transfers_share_the_access_link() -> None:
     net.send(("tx", "reg"), ("rx", "w"), Ping(2), 2_000_000)
     k.run(20.0)
     assert done[0] > 3.5 and done[1] > done[0]  # sharing doubles the time of the first transfer
+
+
+def test_upload_cut_by_power_off_counts_as_a_drop() -> None:
+    """An owner powering off mid-upload loses the transfer, and the loss is visible in the message stats."""
+    k, net = _net()
+    net.add_host("reg", 0.0, 0.0)
+    net.add_host("w", 0.0, 0.0, last_mile_s=0.0, up_bps=8e6, down_bps=8e6)  # 1 MB/s up
+    got: list[Message] = []
+    net.attach(("rx", "reg"), got.append)
+    assert net.send(("tx", "w"), ("rx", "reg"), Ping(1), 2_000_000)
+    k.run(1.0)
+    net.set_host_up("w", False)
+    k.run(10.0)
+    assert got == [] and net.stats["Ping"].drops == 1

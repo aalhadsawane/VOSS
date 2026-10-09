@@ -18,7 +18,17 @@ KEYS = {
 }
 COLS = {
     "E12": ("success", "p99_sync", "omits_k", "gini", "jain", "top10", "starved", "onoff_rate", "score_gap"),
-    "E13": ("receipts_s", "db_kb_s", "verify_ms_s", "settle_ms", "lat_p50", "lat_max", "complete", "p99_sync"),
+    "E13": (
+        "receipts_s",
+        "db_kb_s",
+        "verify_ms_s",
+        "settle_ms",
+        "lat_p50",
+        "lat_max",
+        "complete",
+        "missing",
+        "p99_sync",
+    ),
 }
 NOTES = {
     "omits_k": "results dropped by on-off owners per 1000 invocations",
@@ -35,6 +45,7 @@ NOTES = {
     "lat_p50": "median receipt → credit latency",
     "lat_max": "worst receipt → credit latency",
     "complete": "verified receipts ÷ results sent by workers (ground truth)",
+    "missing": "results sent before the end without a receipt",
 }
 
 
@@ -99,7 +110,14 @@ def _accounting(run: Path, ev: pd.DataFrame, horizon: float) -> dict[str, float]
         "lat_p50": float(st.lat_p50.mean()) if len(st) else np.nan,
         "lat_max": float(st.lat_max.max()) if len(st) else np.nan,
         "complete": len(paid) / max(len(sent), 1),
+        "missing": float(len(_missing(sent, paid, horizon))),
     }
+
+
+def _missing(sent: pd.DataFrame, paid: pd.DataFrame, end: float) -> set[tuple[int, int, int]]:
+    got = set(zip(paid.inv.astype(int), paid.attempt.astype(int), paid.worker.astype(int), strict=True))
+    early = sent[sent.t < end - 2.0]
+    return set(zip(early.inv.astype(int), early.value.astype(int), early.worker.astype(int), strict=True)) - got
 
 
 def run_metrics(run: Path) -> dict[str, float]:
