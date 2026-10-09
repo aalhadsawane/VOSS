@@ -44,14 +44,16 @@ class TraceDriver:
         self._arm()
 
 
-def session_events(scn: Scenario) -> pd.DataFrame:
-    """Owner events relevant to ``[0, horizon)``; sessions already running at 0 start (prebooted) at 0."""
+def session_events(scn: Scenario, until: float | None = None) -> pd.DataFrame:
+    """Owner events of ``[0, until)``: sessions starting before the horizon (prebooted at 0 if already running), and
+    their drains and ends up to ``until`` (default: the horizon). Owners keep powering off during the drain window."""
+    end = scn.horizon if until is None else until
     s = scn.sessions.sessions
     s = s[(s.end > 0) & (s.start < scn.horizon)]
-    g = s[s.drain_t.notna() & (s.drain_t < scn.horizon)]
-    e = s[s.end < scn.horizon]
+    g = s[s.drain_t.notna() & (s.drain_t < end)]
+    e = s[s.end < end]
     f = scn.sessions.fake_drains
-    f = f[(f.t >= 0) & (f.t < scn.horizon)]
+    f = f[(f.t >= 0) & (f.t < end)]
     parts = [
         pd.DataFrame({"t": s.start, "o": 1, "kind": "start", "worker": s.worker, "deadline": 0.0, "graceful": False}),
         pd.DataFrame(

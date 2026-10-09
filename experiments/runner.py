@@ -1,7 +1,8 @@
 """Experiment runner (doc 06 §1): a base config × a grid of overrides × seeds, one run per point, idempotent.
 
 ``python -m experiments.runner configs/experiments/E03.yaml`` runs every point not already present under
-``runs/<experiment>/<config_hash>/`` and prints the run directories. P8 extends this into the sweep runner.
+``runs/<experiment>/<config_hash>/`` and prints the run directories. ``experiments.sweep`` adds failure capture
+and a run index on top (``make sweep EXP=...``).
 """
 
 from __future__ import annotations
@@ -17,6 +18,18 @@ import yaml
 from voss.cli import cmd_run
 from voss.core.config import RunConfig, apply_overrides, load_yaml_tree
 
+ABLATIONS = Path(__file__).resolve().parents[1] / "configs" / "ablations.yaml"
+
+
+def systems(spec: dict[str, Any]) -> dict[str, list[str]]:
+    """``systems`` plus the switches named by ``ablations`` (``all`` or a list) from ``configs/ablations.yaml``."""
+    out: dict[str, list[str]] = dict(spec.get("systems", {"": []}))
+    names = spec.get("ablations")
+    if names:
+        table: dict[str, list[str]] = yaml.safe_load(ABLATIONS.read_text())
+        out |= {n: list(table[n]) for n in (sorted(table) if names == "all" else names)}
+    return out
+
 
 def points(spec: dict[str, Any]) -> list[list[str]]:
     """Override lists for every system × grid point × seed (keys sorted for stable order).
@@ -25,14 +38,14 @@ def points(spec: dict[str, Any]) -> list[list[str]]:
     """
     grid = spec.get("grid", {})
     keys = sorted(grid)
-    systems = spec.get("systems", {"": []})
+    systems_ = systems(spec)
     out = []
-    for label in sorted(systems):
+    for label in sorted(systems_):
         for values in itertools.product(*(grid[k] for k in keys)):
             gv = [f"{k}={json.dumps(v)}" for k, v in zip(keys, values, strict=True)]
             for seed in spec.get("seeds", [1]):
                 tag = [f"label={label}"] if label else []
-                out.append([*spec.get("overrides", []), *systems[label], *gv, f"seed={seed}", *tag])
+                out.append([*spec.get("overrides", []), *systems_[label], *gv, f"seed={seed}", *tag])
     return out
 
 

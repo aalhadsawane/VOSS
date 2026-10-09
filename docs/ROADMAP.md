@@ -140,3 +140,14 @@ From P7 (accounting and reputation):
 - Work concentration (E12): trust-warm planning gives ~94% of work credit to the top 10% of identities and none to
   ~60% of benign ones, with or without reputation. A tie-break cannot fix that; consider rotating trust-warm sets or an
   exploration quota inside the planner, and measure the latency and exposure cost.
+
+From P8:
+- Reject at admission (or at the router) when no reachable host can meet a tenant's assurance floor, instead of
+  waiting for give-up (substrate `none`).
+- E11 (prediction-error injection × heartbeat period) was not piloted in P6; the `instant` predictor and the
+  heartbeat knob exist, noise injection does not yet.
+- HDD tier and P2P effects need SSD pressure and longer horizons (E09, E19 show none at 15 min).
+- Routing herding at scale (E18): with ~1,000 inv/s, `score` routes each metro's demand to its trust-warm home
+  cluster on 1 s-stale cards; those clusters' queues explode (decide P99 12-27 s at 30k-100k workers). Candidate
+  fixes: router-side accounting of its own sends since the last card, power-of-d among near-equal clusters, or
+  spreading hot tenants' trust over several clusters per metro.

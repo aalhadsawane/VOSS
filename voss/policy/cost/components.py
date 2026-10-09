@@ -72,6 +72,8 @@ def static_parts(
     holder = cache.holder(view, inv.tenant)
     trust = np.where(holder | (a.trust_fixed == 0), 0.0, cache.rtt(ctx, t.kbs_lat, t.kbs_lon) + a.trust_fixed)
     fetch, rest = cache.startup(view, ctx, inv.fn)
+    if not ctx.lifecycle_aware:  # ablation: one startup estimate for every candidate (warmth is invisible)
+        fetch, rest = np.full_like(fetch, fetch.mean()), np.full_like(rest, rest.mean())
     rlat, rlon = ctx.routers.get(router, (float(a.lat.mean()), float(a.lon.mean())))
     net = cache.rtt(ctx, rlat, rlon) + inv.in_bytes * 8 / a.down + f.out_bytes * 8 / a.up
     return Static(ok, holder, trust, fetch, rest, net)

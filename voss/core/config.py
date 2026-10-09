@@ -118,6 +118,7 @@ class CostConfig(Frozen):
     lambda_exposure: float = 1.0
     sync_weight: float = 1.0
     sigma: dict[str, float] = Field(default_factory=lambda: {"low": 0.1, "medium": 1.0, "high": 3.0})
+    lifecycle_aware: bool = True  # False: ablation, placement sees one startup estimate for every candidate
 
 
 class HedgeConfig(Frozen):
@@ -167,6 +168,7 @@ class ModelsConfig(Frozen):
 class SchedulerConfig(Frozen):
     """Scheduler role timers (doc 08 §3.2, §5)."""
 
+    hetero_aware: bool = True  # False: ablation, predictions ignore worker speed
     heartbeat_s: float = 2.0
     keepalive_s: float = 1.0
     stale_after_s: float = 7.0
@@ -270,6 +272,7 @@ class ReputationConfig(Frozen):
     share_cap: float = 0.05  # no tie-break bonus above this share of settled work (concentration guard)
     tie_break: float = 0.02
     push_s: float = 30.0
+    in_cost: bool = False  # ablation (doc 09 §1): reputation also scales pFail (double counting)
     commit_s: dict[str, float] = Field(default_factory=lambda: {"dedicated": 86400.0, "nightly": 14400.0})
     breach_w: dict[str, float] = Field(default_factory=lambda: {"dedicated": 3.0, "nightly": 1.0})
     honor_w: float = 1.0
@@ -308,6 +311,7 @@ class RunConfig(Frozen):
     seed: int = 1
     horizon_s: float = 3600.0
     system: str = "voss"
+    reference: str = "ref_lambda_like"  # profile of ``system: reference_cloud`` (configs/references/)
     scenario: ScenarioConfig = Field(default_factory=ScenarioConfig)
     voss: VossConfig = Field(default_factory=VossConfig)
     drain_s: float = 30.0

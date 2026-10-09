@@ -264,3 +264,40 @@ next join. `survival_informed` also counts every abrupt end (the double-counting
 `1 + tie_break × score`; the MILP scales the trust-exposure and churn costs by `1 − tie_break × score`. Plan objective
 terms are reported without it. Newcomers in probation get the exploration floor `ε` as score. Reputation never enters
 `pFail`; the `reputation_in_cost` ablation belongs to the P8 ablation switches.
+
+**D-53 Reference clouds are a world transform plus a profile** (P8, doc 02 §9). `system: reference_cloud` keeps the
+VOSS scenario's workload (same arrivals, so comparisons are paired) and replaces the world: `hosts_per_region`
+always-on provider hosts (class `DC`) at each router metro, one session covering the run, no adversaries, no control
+faults. The reference's own choices live in `configs/references/<name>.yaml` as config overrides (keep-alive TTL,
+no planning, nearest routing, `warm_first`, no hedging); its ladder is a substrate profile with published cold-start
+figures, provider assurance 1 and no key release. Cost per million invocations uses list prices with the
+provider's billing granularity on startup + execution time.
+
+**D-54 Substrate `none` still registers a session** (P8). Workers without attestation need a platform session id
+to join, so `none` sends a registration RPC (no quote, assurance 0). Tenants with an assurance floor cannot be
+served on such hosts; their invocations wait until give-up (rejecting them up front is parked).
+
+**D-55 Ablation semantics** (P8, doc 06 §4). Switches live in `configs/ablations.yaml`. Where doc 06 names a
+mechanism without a knob: prediction → `instant` (last observed runtime per function, a point estimate, no speed or
+load model); lifecycle/cache awareness → placement sees one startup estimate (the candidates' mean) for every
+worker; heterogeneity → predictions ignore worker speed (scheduler side; the world stays heterogeneous);
+`reputation_in_cost` → `p_omit' = 1 − (1 − p)(0.5 + 0.5·score)`.
+
+**D-56 Scalability mode is configuration** (P8, doc 01 §9). `configs/scalability.yaml`: 10 s heartbeats with
+staleness bounds scaled to match, greedy planner and placers, 2 min horizon, load 0.01 inv/s per worker. 10⁵ workers
+take ~14 min and ~9 GB, so E18 runs one point at a time.
+
+**D-57 Completeness allows for results still uploading** (P8, fixes P7). Large outputs over slow residential uplinks
+can still be in transit when a run ends (one took 27 s in a 30k-worker run). The receipt invariant now excuses
+results the network has neither delivered nor dropped at the end (`MsgStats.in_flight`), and routers flush receipt
+batches once more after the drain window.
+
+**D-58 Figures carry their provenance** (P8, doc 01 §8). A figure is a registered function of an experiment's runs;
+its PDF metadata holds a digest of the runs' result hashes (no creation date, so output is deterministic) and a JSON
+sidecar lists every run with config, scenario and result hashes. Sweeps record failed points in `index.csv` instead of
+aborting.
+
+**D-59 Owners keep powering off during the drain window** (P8, fixes P2). The session driver replayed drains and ends
+only before the horizon, so a host whose session ended during the drain kept executing; the attested-execution
+invariant caught it in a 30k-worker run. Ends and drains now replay through `horizon + drain_s` (starts still stop at
+the horizon). Pilot reports of P5-P7 predate this fix; only invocations in flight at the horizon are affected.

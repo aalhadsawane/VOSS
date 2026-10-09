@@ -37,6 +37,8 @@ def keys_released(rec: Recorder) -> list[str]:
     """No tenant key used on a worker without a successful ``KEY_REQUEST`` in the same session, and not after the
     key was dropped (``RELEASE`` + linger) unless it was released again."""
     ex = _events(rec, "exec_start")
+    if ex.empty:
+        return []
     hist: dict[tuple[int, str, str], list[tuple[float, int]]] = {}
     for kind, sign in (("key_release", 1), ("key_dropped", -1)):
         ev = _events(rec, kind)
@@ -107,10 +109,14 @@ def receipts_complete(rec: Recorder) -> list[str]:
 def receipts_match_ground_truth(rec: Recorder, end: float, result_drops: int) -> list[str]:
     """Doc 09 §3: a verified receipt exists iff an attested appliance produced the result. Sound: every ``ok`` or
     ``duplicate`` row matches a result the worker sent. Complete: every result sent before the end is logged unless
-    the network lost it or its session certificate was revoked before it arrived."""
+    the network lost it, it was still uploading at the end, or its session certificate was revoked first."""
     sent = _events(rec, "result_sent")
     rc = rec.frame(Table.RECEIPTS)
-    paid = rc[rc.status.isin(["ok", "duplicate"])] if len(rc) else rc
+    if sent.empty and rc.empty:
+        return []
+    if sent.empty or rc.empty:
+        return [f"{len(sent)} results sent but {len(rc)} receipt rows"]
+    paid = rc[rc.status.isin(["ok", "duplicate"])]
     truth = set(zip(sent.inv.astype(int), sent.value.astype(int), sent.worker.astype(int), strict=True))
     got = set(zip(paid.inv.astype(int), paid.attempt.astype(int), paid.worker.astype(int), strict=True))
     out = [f"receipt without a result: {r}" for r in sorted(got - truth)[:5]]
@@ -118,14 +124,14 @@ def receipts_match_ground_truth(rec: Recorder, end: float, result_drops: int) ->
         out.append(f"{len(paid) - len(got)} receipts logged twice")
     rej = _events(rec, "receipt_rejected")
     excused = set(zip(rej.inv.astype(int), rej.value.astype(int), strict=True)) if len(rej) else set()
-    early = sent[sent.t < end - 2.0] if len(sent) else sent
+    early = sent[sent.t < end] if len(sent) else sent
     lost = [
         k
         for k in zip(early.inv.astype(int), early.value.astype(int), early.worker.astype(int), strict=True)
         if k not in got and (k[0], k[1]) not in excused
     ]
     if len(lost) > result_drops:
-        out.append(f"{len(lost)} results without receipts ({result_drops} lost in the network), e.g. {lost[:5]}")
+        out.append(f"{len(lost)} results without receipts ({result_drops} lost or in flight), e.g. {lost[:5]}")
     return out
 
 

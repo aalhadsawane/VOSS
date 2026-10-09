@@ -1,0 +1,23 @@
+# Reference cloud, AWS-Lambda-like (doc 02 §9): Firecracker sandboxes on provider hosts, code from regional storage,
+# no attestation or key release (the provider is trusted). Published cold-start figures only (doc 10 §5).
+provenance: {default: literature, source: "AWS Lambda docs (cold starts <100 ms to >1 s); Wang et al. ATC'18"}
+name: ref_lambda_like
+assurance_base: 1.0
+concurrent_owner_use: false
+session:
+  establish:
+    - {op: rpc, to: verifier, size: 1KB, reply: 1KB}   # fleet registration only
+  reattest: []
+  reattest_every_s: 1.0e9
+  valid_s: 1.0e12
+trust: []
+ladder:
+  levels: [L0, L1, L3, L4]
+  ready: L3
+  busy: L4
+  persistent: [L1]
+  transitions:
+    L0->L1: [{op: delay, dist: {dist: lognormal, median: 0.08, sigma: 0.5, tag: literature, source: "code download from regional storage"}}]
+    L1->L3: [{op: delay, dist: {dist: lognormal, median: 0.25, sigma: 0.5, tag: literature, source: "sandbox + runtime init, Python ~200-400 ms"}}, {op: cpu, work: fn.init_s}]
+    L3->L4: [{op: delay, dist: measured/dispatch}]
+slowdown: {cpu: 1.0, mem: 1.0, io: 1.0}

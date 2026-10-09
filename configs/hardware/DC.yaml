@@ -1,0 +1,15 @@
+# Cloud server class for the reference clouds (doc 02 §9): a current two-socket host's share used by one sandbox
+# fleet. tag: assumed (speed relative to C0's core; cloud vCPUs are hyperthreads of ~3 GHz server cores).
+provenance: {default: assumed}
+name: DC
+speed: 0.9
+cores: 32
+mem_gb: 128
+ssd_gb: 1000
+hdd_gb: 0
+ssd_read_MBps: 3000
+ssd_write_MBps: 2000
+hdd_read_MBps: 0
+hdd_write_MBps: 0
+cpu_model: server
+tpm: none

@@ -1,0 +1,16 @@
+# Reference system ref_lambda_like (doc 02 §9, doc 06 §4): regional always-on provider hosts at the router metros,
+# per-function keep-alive with a fixed idle TTL, nearest-region routing; same workload and engine as VOSS.
+provenance: {default: literature, note: "prices: AWS Lambda x86 on-demand list prices; TTL: Wang et al. ATC'18"}
+name: ref_lambda_like
+substrate: ref_lambda_like
+hw: DC
+hosts_per_region: 40          # tag: assumed (sized to never saturate at pilot loads)
+voss:
+  - voss.planner.name=keepalive_ttl
+  - voss.worker.warm_ttl_s=600         # idle sandboxes recycled after ~5-15 min
+  - voss.clusters.mode=static_regions
+  - voss.router.name=nearest
+  - voss.placer.sync=warm_first
+  - voss.placer.async=warm_first
+  - 'voss.hedge.name="off"'
+pricing: {per_m_requests: 0.20, per_gb_s: 0.0000166667, min_billed_ms: 1, mem_step_mb: 1, min_mem_mb: 128}

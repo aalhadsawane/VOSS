@@ -1,0 +1,15 @@
+# E19 pilot (doc 06 §5): ablations — every switch of configs/ablations.yaml against the full system, paired on the
+# same scenarios, under the default adversarial regime (10% mixed omitting owners) so that robustness, hedging and
+# detection have something to do.
+experiment: E19
+base: ../pilot.yaml
+overrides:
+  - 'scenario.adversary={regime: adversary_mixed, alpha: 0.1}'
+systems:
+  voss_full: []
+ablations: all
+seeds: [1, 2, 3]
+report:
+  keys: [label]
+  baseline: voss_full
+  metrics: [success, p50_sync, p99_sync, met, exposure, waste]

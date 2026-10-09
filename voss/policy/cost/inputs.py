@@ -77,3 +77,4 @@ class CostContext:
     eps: float = 0.05
     lambda_exposure: float = 1.0
     K: int = 12
+    lifecycle_aware: bool = True

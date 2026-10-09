@@ -6,6 +6,7 @@ concurrent_owner_use: true
 session:
   establish:
     - {op: delay, dist: {dist: lognormal, median: 1.0, sigma: 0.3, tag: assumed, source: "agent start"}}
+    - {op: rpc, to: verifier, size: 1KB, reply: 1KB}  # registration only: a session id, no quote (assurance 0)
   reattest: []
   reattest_every_s: 1.0e9
   valid_s: 1.0e12

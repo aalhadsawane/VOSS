@@ -28,10 +28,22 @@ class SchedModels:
         self.survival: Any = create("survival", cfg.models.survival)
         self.omission: Any = create("omission", cfg.models.omission, h=cfg.models.cusum_h)
         self.forecaster: Any = create("forecaster", "ewma2")
+        self.hetero_aware, self.rep_in_cost = cfg.scheduler.hetero_aware, cfg.reputation.in_cost
+        self.rep: dict[int, float] = {}  # orchestrator-pushed tie-break scores (doc 09)
         self.svc = 1.0
         self.survival_version = 0
         self._static_key: tuple[object, int] | None = None
         self._static_cache: tuple[np.ndarray, ...] = ()
+
+    def p_omit(self, workers: np.ndarray) -> np.ndarray:
+        """Omission probability; the ``reputation.in_cost`` ablation also folds reputation in (double counting,
+        doc 09 §1): ``1 − (1 − p)(0.5 + 0.5 r)``."""
+        p: np.ndarray = self.omission.p_omit(workers)
+        if not self.rep_in_cost or not self.rep:
+            return p
+        r = np.array([self.rep.get(int(w), 1.0) for w in workers])
+        out: np.ndarray = 1 - (1 - p) * (0.5 + 0.5 * r)
+        return out
 
     def observe(self, obs: ExecObs) -> None:
         self.predictor.update(obs)
@@ -46,12 +58,13 @@ class SchedModels:
 
         def fn(i: int, sub: np.ndarray) -> Preds:
             inv = invs[i]
-            d = self.predictor.predict(inv.fn, inv.in_bytes, workers[sub], view.speed[sub], load[sub])
+            speed = view.speed[sub] if self.hetero_aware else np.ones(len(sub))
+            d = self.predictor.predict(inv.fn, inv.in_bytes, workers[sub], speed, load[sub])
             mean = d.mean()
             alive = self.survival.p_alive_arr(
                 k[sub], lam[sub], now - start[sub], mean + 2.0, hour[sub], drain[sub], now
             )
-            return Preds(mean, d.var(), alive, self.omission.p_omit(workers[sub]))
+            return Preds(mean, d.var(), alive, self.p_omit(workers[sub]))
 
         return fn
 

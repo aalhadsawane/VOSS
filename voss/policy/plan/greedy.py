@@ -40,7 +40,7 @@ def _chunk(inp: PlanInput, t: int, avail: np.ndarray) -> float:
         return 1.0
     f, q = int(inp.f[t]), float(inp.q[t])
     n = int(min(len(e), max(f + 2, np.ceil(2 * q / max(float(e.mean() * inp.cap[avail].mean()), 1e-6)) + f)))
-    return max(0.5, q / (float(e.mean()) * max(1, n - f)))
+    return max(0.5, q / (max(float(e.mean()), 1e-6) * max(1, n - f)))  # all-zero contributions: no div by 0
 
 
 def _trust_sets(inp: PlanInput, y: np.ndarray, c: np.ndarray) -> None:

@@ -1,0 +1,16 @@
+# Reference system ref_azure_like (doc 02 §9, doc 06 §4): as ref_lambda_like with the Azure consumption plan's fixed
+# 20 min keep-alive (Shahrad et al. ATC'20), slower cold starts and its billing granularity.
+provenance: {default: literature, note: "prices: Azure Functions consumption plan list prices"}
+name: ref_azure_like
+substrate: ref_azure_like
+hw: DC
+hosts_per_region: 40          # tag: assumed
+voss:
+  - voss.planner.name=keepalive_ttl
+  - voss.worker.warm_ttl_s=1200
+  - voss.clusters.mode=static_regions
+  - voss.router.name=nearest
+  - voss.placer.sync=warm_first
+  - voss.placer.async=warm_first
+  - 'voss.hedge.name="off"'
+pricing: {per_m_requests: 0.20, per_gb_s: 0.000016, min_billed_ms: 100, mem_step_mb: 128, min_mem_mb: 128}
