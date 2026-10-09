@@ -130,6 +130,8 @@ class EpochInstall(Message):
     epoch: int
     scheduler: Addr
     cert_id: str
+    standby: Addr | None = None  # also heartbeat this warm standby (doc 07 §3)
+    roll_call: bool = False  # successor: answer with ROLL_CALL_REPORT
 
 
 @dataclass(frozen=True, slots=True)
@@ -256,6 +258,9 @@ class Appoint(Message):
     epoch: int
     cert_id: str
     members: tuple[WorkerId, ...]
+    checkpoint: object = None  # messages_ft.Checkpoint of the predecessor, if any
+    standby: Addr | None = None
+    succession: bool = False  # a predecessor existed: workers answer a roll call
 
 
 @dataclass(frozen=True, slots=True)
@@ -289,6 +294,8 @@ class KeepaliveSummary(Message):
     cold_trust_s: float = 3.0  # measured trust + start-up of trust-cold attempts (D-33)
     cold_fn_s: float = 0.5  # measured start-up of cold (not warm) attempts
     backlog_s: float = 0.0  # queued work per slot ahead of a new arrival
+    decide_p90_s: float = 0.0  # placement latency from attested timestamps (decision-latency SLO, doc 07 §2)
+    stuck_workers: int = 0  # distinct workers with own dispatches unaccepted past 2 × T_dispatch
 
 
 # --- tenant keys (worker ⇄ KBS) --------------------------------------------------------------------------------

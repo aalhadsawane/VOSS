@@ -8,6 +8,7 @@ import numpy as np
 
 from voss.core.ids import WorkerId
 from voss.core.messages import KeepaliveSummary
+from voss.core.messages_ft import Checkpoint
 from voss.core.types import ClusterCard
 from voss.policy.orchestrate import ClusterInfo
 from voss.policy.orchestrate_triggers import Member
@@ -44,6 +45,11 @@ class Cluster:
     bad_periods: int = 0
     slo_miss: float = 0.0
     home: dict[str, int] = field(default_factory=dict)
+    checkpoint: Checkpoint | None = None  # latest epoch-fenced PUT_CHECKPOINT (doc 08 §3)
+    standby: WorkerId | None = None
+    slow_periods: int = 0
+    handover_pending: bool = False
+    appointed_at: float = 0.0
 
 
 class Book:

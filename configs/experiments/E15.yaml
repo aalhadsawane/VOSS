@@ -1,0 +1,14 @@
+# E15 pilot (doc 06 §5, RQ10): scheduler faults — each kind injected on three clusters' schedulers for 60 s; progress
+# detection vs heartbeat-only. Detection time, failover time, invocations delayed or lost, P99 inside fault windows.
+experiment: E15
+base: ../pilot.yaml
+systems:
+  progress: []
+  heartbeat_only: [voss.detection.mode=heartbeat_only]
+grid:
+  scenario.faults:
+    - [{t: 200, kind: sched_crash, target: "cluster:0", duration_s: 60}, {t: 400, kind: sched_crash, target: "cluster:1", duration_s: 60}, {t: 600, kind: sched_crash, target: "cluster:2", duration_s: 60}]
+    - [{t: 200, kind: sched_blackhole, target: "cluster:0", duration_s: 60}, {t: 400, kind: sched_blackhole, target: "cluster:1", duration_s: 60}, {t: 600, kind: sched_blackhole, target: "cluster:2", duration_s: 60}]
+    - [{t: 200, kind: sched_partition, target: "cluster:0", duration_s: 60}, {t: 400, kind: sched_partition, target: "cluster:1", duration_s: 60}, {t: 600, kind: sched_partition, target: "cluster:2", duration_s: 60}]
+    - [{t: 200, kind: sched_slow, target: "cluster:0", duration_s: 60, factor: 400}, {t: 400, kind: sched_slow, target: "cluster:1", duration_s: 60, factor: 400}, {t: 600, kind: sched_slow, target: "cluster:2", duration_s: 60, factor: 400}]
+seeds: [1, 2, 3, 4, 5]

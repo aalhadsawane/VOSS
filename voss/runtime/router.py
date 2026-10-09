@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from voss.core.ids import Addr, InvId, NodeId
+from voss.core.ids import Addr, ClusterId, InvId, NodeId
 from voss.core.messages import (
     Accepted,
     Assigned,
@@ -25,6 +25,7 @@ from voss.core.messages import (
     Summaries,
     Withdraw,
 )
+from voss.core.messages_ft import Stall
 from voss.core.registry import REGISTRY
 from voss.core.types import ClusterCard, Invocation, Outcome, SloClass
 from voss.metrics.schema import Table
@@ -53,6 +54,9 @@ class Router(Actor):
         self.batch: list[tuple[Receipt, float, str]] = []
         self.stats: dict[int, list[int]] = {}
         self.home: dict[tuple[int, str], int] = {}
+        self.fires: dict[int, list[tuple[float, InvId]]] = {}
+        self.stalled: dict[int, float] = {}
+        self.last_accept: dict[int, float] = {}
         rc = ctx.cfg.voss.router
         self.after(rc.receipt_batch_s, self._flush_tick)
         self.after(rc.stats_s, self._stats_tick)
@@ -66,6 +70,8 @@ class Router(Actor):
             p = self.pending.get(msg.inv)
             if p is not None:
                 p.accepted = True
+                if p.cluster is not None:
+                    self.last_accept[p.cluster] = self.now
         elif isinstance(msg, Result):
             self._result(msg.outcome, msg.receipt)
         elif isinstance(msg, SchedulerAddr):
@@ -145,6 +151,8 @@ class Router(Actor):
         if p is None or p.accepted:
             return
         rc = self.ctx.cfg.voss.router
+        if p.cluster is not None:
+            self._stall(p.cluster, inv_id)
         if p.inv.slo_class == SloClass.SYNC and self.now - p.t_cluster >= rc.T_spill and len(self.scheds) > 1:
             assert p.cluster is not None
             if p.cluster in self.scheds:
@@ -161,6 +169,24 @@ class Router(Actor):
                 Table.EVENTS, t=self.now, kind="dispatch_watchdog", worker=-1, value=p.resends, inv=int(inv_id)
             )
             self._enqueue(inv_id)
+
+    def _stall(self, cluster: int, inv_id: InvId) -> None:
+        """Doc 07 §2 cluster stall: dispatch-watchdog fires for ``stall_n`` distinct invocations of one cluster
+        within ``stall_window_s`` → ``STALL`` to the orchestrator (progress evidence, not a heartbeat)."""
+        dc = self.ctx.cfg.voss.detection
+        if dc.mode != "progress" or cluster not in self.scheds:
+            return
+        fires = [(t, i) for t, i in self.fires.get(cluster, []) if self.now - t < dc.stall_window_s and i != inv_id]
+        fires.append((self.now, inv_id))
+        self.fires[cluster] = fires
+        if len(fires) >= dc.stall_n and self.now - self.stalled.get(cluster, -1e9) >= dc.stall_window_s:
+            self.fires[cluster], self.stalled[cluster] = [], self.now
+            epoch = self.scheds[cluster][0]
+            self.ctx.rec.log(
+                Table.EVENTS, t=self.now, kind="stall", worker=-1, value=float(len(fires)), cluster=cluster
+            )
+            idle = self.now - self.last_accept.get(cluster, -1e9)
+            self.send(self.ctx.directory.orchestrator, Stall(ClusterId(cluster), epoch, len(fires), idle))
 
     def _scheduler(self, m: SchedulerAddr) -> None:
         cid = int(m.cluster)

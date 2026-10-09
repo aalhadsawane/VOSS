@@ -34,11 +34,12 @@ class PlannerMixin:
         def now(self) -> float: ...
         def send(self, dst: Addr, msg: Any) -> bool: ...
         def after(self, dt: float, fn: Any, *args: Any) -> Any: ...
+        def eligible(self) -> set[WorkerId]: ...
 
     def _plan_tick(self) -> None:
         if not self.active:
             return
-        view = self.views.view(self.members, self.now)
+        view = self.views.view(self.eligible(), self.now)
         t0 = time.perf_counter()
         rnd = self.planning.run(view, self.now)
         wall = time.perf_counter() - t0
@@ -70,7 +71,7 @@ class PlannerMixin:
             shortfall=slack,
             **{f"term_{k}": v for k, v in sorted(p.cost_terms.items())},
         )
-        view = self.views.view(self.members, self.now)
+        view = self.views.view(self.eligible(), self.now)
         idx = view.index()
         for a in rnd.actions:
             if a.worker in idx:
@@ -93,7 +94,7 @@ class PlannerMixin:
         """P2P source hints for a dispatch whose target lacks the artifacts (doc 08 §4 ``DISPATCH``)."""
         if not self.ctx.cfg.voss.cache.p2p:
             return ()
-        view = self.views.view(self.members, self.now)
+        view = self.views.view(self.eligible(), self.now)
         idx = view.index()
         j = idx.get(w)
         if j is None:

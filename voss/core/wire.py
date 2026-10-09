@@ -46,6 +46,7 @@ from voss.core.messages import (
     Warm,
     Withdraw,
 )
+from voss.core.messages_ft import Handover, Lease, Pong, Probe, PutCheckpoint, RollCallReport, Stall, Standby
 
 SIZE: dict[type[Message], int] = {
     Invoke: 600,
@@ -60,6 +61,11 @@ SIZE: dict[type[Message], int] = {
     Stale: 64,
     Cancel: 64,
     Withdraw: 64,
+    Stall: 64,
+    Probe: 64,
+    Pong: 64,
+    Lease: 64,
+    Handover: 64,
     Attest: 6144,
     SessionCert: 2048,
     Requote: 4096,
@@ -98,6 +104,12 @@ def size_of(msg: Message) -> int:
         return 400 + 40 * len(msg.state.cache)
     if isinstance(msg, DbAppendReceipts):
         return 64 + 256 * len(msg.rows)
+    if isinstance(msg, PutCheckpoint):
+        return msg.checkpoint.size
+    if isinstance(msg, RollCallReport):
+        return 400 + 40 * len(msg.state.cache) + 200 * len(msg.running) + 120 * len(msg.outcomes)
+    if isinstance(msg, Standby):
+        return 64 + 8 * len(msg.members)
     if isinstance(msg, HomeDemand):
         return 64 + 40 * len(msg.rates)
     if isinstance(msg, Summaries):
