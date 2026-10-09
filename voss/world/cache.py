@@ -60,6 +60,8 @@ class WorkerCache:
         self.version = 0
         self.stats = CacheStats()
         self.value: Callable[[Entry], float] = lambda e: e.last_used  # LRU
+        self.on_evict: Callable[[Entry], None] = lambda e: None
+        self.warm_pins: dict[str, int] = {}  # fn → warm VMs the plan wants kept
 
     # --- disk tiers ------------------------------------------------------------------------------------------
     def used(self, tier: DiskTier) -> float:
@@ -136,6 +138,7 @@ class WorkerCache:
                 break
             if tier == "ssd" and self.budget["hdd"] > 0 and self._demote(e, now):
                 continue
+            self.on_evict(e)
             self.remove(e.digest)
             self.stats.evictions += 1
         return self.free(tier) >= size_mb
@@ -173,10 +176,18 @@ class WorkerCache:
             del self.warm[fn]
         return v
 
+    def _evictable_warm(self) -> list[WarmVm]:
+        """Idle VMs beyond the plan's pinned counts."""
+        out = []
+        for fn, vs in self.warm.items():
+            keep = self.warm_pins.get(fn, 0)
+            out.extend(vs[: max(0, len(vs) - keep)])
+        return out
+
     def park_warm(self, fn: str, mem_mb: float, now: float) -> bool:
-        """Keep a finished VM warm if RAM allows (evicting the least recently idle VMs)."""
-        while self.mem_free() < mem_mb and self.warm:
-            oldest = min(self._all_warm(), key=lambda v: (v.idle_since, v.fn))
+        """Keep a finished VM warm if RAM allows (evicting the least recently idle unpinned VMs)."""
+        while self.mem_free() < mem_mb and self._evictable_warm():
+            oldest = min(self._evictable_warm(), key=lambda v: (v.idle_since, v.fn))
             self.version += 1
             self.warm[oldest.fn].remove(oldest)
             if not self.warm[oldest.fn]:
@@ -189,9 +200,12 @@ class WorkerCache:
         return True
 
     def expire_warm(self, now: float, ttl: float) -> int:
+        """Drop VMs idle longer than ``ttl`` (keep-alive), except the plan's pinned ones (most recent first)."""
         dropped = 0
         for fn in sorted(self.warm):
-            keep = [v for v in self.warm[fn] if now - v.idle_since < ttl]
+            vs = self.warm[fn]
+            pinned = self.warm_pins.get(fn, 0)
+            keep = [v for i, v in enumerate(vs) if now - v.idle_since < ttl or i >= len(vs) - pinned]
             dropped += len(self.warm[fn]) - len(keep)
             if keep:
                 self.warm[fn] = keep
@@ -201,7 +215,10 @@ class WorkerCache:
         return dropped
 
     def session_end(self) -> None:
-        """RAM state is lost; disk state survives as ciphertext (doc 02 §5)."""
+        """RAM state is lost; disk state survives as ciphertext (doc 02 §5). Plan pins end with the session."""
         self.warm.clear()
+        self.warm_pins.clear()
+        for e in self.disk.values():
+            e.pinned = False
         self.running_mb = 0.0
         self.version += 1

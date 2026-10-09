@@ -1,0 +1,12 @@
+# E23 pilot (doc 06 §5, RQ3/RQ4): latency × exposure × robustness — exposure weight and robustness level f.
+experiment: E23
+base: ../smoke.yaml
+overrides:
+  - horizon_s=900
+  - scenario.workers=200
+  - scenario.load.rate=10
+  - voss.planner.name=milp
+grid:
+  voss.planner.params.exposure_weight: [0.1, 1.0, 10.0]
+  voss.planner.f_from_alpha: [0.0, 0.1, 0.2]
+seeds: [1, 2, 3, 4, 5]

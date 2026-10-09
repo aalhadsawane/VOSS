@@ -60,6 +60,9 @@ class WorkerStatic:
     ssd_read_MBps: float
     hdd_read_MBps: float
     session_start: float
+    mem_mb: float = 0.0
+    ssd_mb: float = 0.0
+    snapshot_class: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +86,7 @@ class WorkerState:
     as_of: float
     cert_id: str = ""
     static: WorkerStatic | None = None
+    pinned: frozenset[str] = frozenset()  # tenants whose PREPARE completed (confirmed plan state)
 
 
 @dataclass(frozen=True)
@@ -106,6 +110,7 @@ class ClusterView:
     inflight: np.ndarray = field(default_factory=lambda: np.zeros(0))
     static: tuple[WorkerStatic | None, ...] = ()
     drain_deadline: tuple[float | None, ...] = ()
+    pinned: tuple[frozenset[str], ...] = ()
 
     def __len__(self) -> int:
         return len(self.workers)
@@ -127,6 +132,24 @@ class ClusterSummary:
     trust_warm_capacity: Mapping[TenantId, float] = field(default_factory=dict)
     robust_slack: float = 0.0
     diversity: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class ClusterCard:
+    """What routers know about one cluster (doc 03 §3): pushed by the orchestrator from scheduler summaries."""
+
+    cluster: int
+    lat: float
+    lon: float
+    load: float
+    free_slots: int
+    slo_miss: float
+    overhead_s: float  # measured in-cluster decision + dispatch + slot wait (D-33)
+    trust_warm: Mapping[str, float] = field(default_factory=dict)
+    warm_fns: Mapping[str, int] = field(default_factory=dict)
+    cold_trust_s: float = 3.0  # measured price of a trust-cold start here
+    cold_fn_s: float = 0.5  # measured price of a cold function start here
+    backlog_s: float = 0.0  # queued work per slot when over-full
 
 
 @dataclass(frozen=True, slots=True)

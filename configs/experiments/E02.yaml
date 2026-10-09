@@ -1,0 +1,14 @@
+# E02 pilot (doc 06 §5, RQ9): planning-pool size (cluster size proxy until P5) × T_plan × solver time × latency.
+# Measured decision clock: solver wall time enters simulated time (doc 01 §7).
+experiment: E02
+base: ../smoke.yaml
+overrides:
+  - horizon_s=900
+  - scenario.workers=300
+  - scenario.load.rate=10
+  - voss.planner.name=milp
+  - decision_clock.mode=measured
+grid:
+  voss.planner.max_plan_workers: [10, 20, 40, 80]
+  voss.planner.T_plan: [15, 60]
+seeds: [1, 2, 3, 4, 5]

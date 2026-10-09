@@ -32,6 +32,7 @@ from voss.runtime.verifier import Verifier
 from voss.runtime.worker_agent import WorkerAgent
 from voss.runtime.workerlib.host import HostLocal, make_host
 from voss.world.execution import ExecParams, noise_matrix
+from voss.world.geo import haversine_km
 from voss.world.hardware import HwClass, load_hw_classes
 from voss.world.network import Network, NetworkParams
 from voss.world.scenario import Scenario, generate
@@ -74,6 +75,12 @@ class VossSystem:
         self.net.attach(actor.addr, actor.on_message)
         return actor
 
+    def _region_of(self, lat: float, lon: float) -> int:
+        """World region of the nearest metro (``static_regions`` clustering baseline)."""
+        m = self.scn.metros
+        i = int(np.argmin(haversine_km(m.lat, m.lon, lat, lon)))
+        return sorted(set(m.region)).index(m.region[i])
+
     def _infra(self) -> None:
         inf = self.cfg.voss.infra
         self._place("orchestrator", inf.orchestrator)
@@ -90,11 +97,12 @@ class VossSystem:
         valid = {n: (p.assurance_base, p.session.valid_s) for n, p in self.profiles.items()}
         self._attach(Verifier("verifier", self.ctx, valid))
         self._attach(OpDb("orchestrator", self.ctx))
-        self._attach(Orchestrator("orchestrator", self.ctx))
+        self._attach(Orchestrator("orchestrator", self.ctx, self._region_of))
         self._attach(Registry("registry", self.ctx))
         for t in self.scn.catalog.tenants:
             self._attach(TenantKbs(f"kbs:{t.id}", self.ctx, TenantId(t.id)))
-        self.routers = [self._attach(Router(f"router:{c}", self.ctx, c)) for c in inf.routers]
+        origins = np.stack([self.scn.metros.lat, self.scn.metros.lon], axis=1)
+        self.routers = [self._attach(Router(f"router:{c}", self.ctx, c, origins)) for c in inf.routers]
 
     def _workers(self) -> None:
         wt, hw = self.scn.workers, load_hw_classes(list(self.scn.workers.hw_names), self.cfg.calibration)
@@ -150,6 +158,9 @@ class VossSystem:
             hc.ssd_read_MBps,
             hc.hdd_read_MBps,
             0.0,
+            mem_mb=caps["mem_mb"],
+            ssd_mb=caps["ssd_mb"],
+            snapshot_class=meta[2],
         )
         return host
 
@@ -169,7 +180,32 @@ class VossSystem:
         att = sum(1 for a in self.agents.values() if a.host.attested)
         pending = sum(len(r.pending) for r in self.routers)
         self.rec.log(Table.SAMPLES, t=self.kernel.now, hosts_up=up, attested=att, pending=pending)
+        self._sample_cache()
         self.kernel.after(60.0, self._sample)
+
+    def _sample_cache(self) -> None:
+        """Doc 06 §2 ``cache`` table: cluster-wide bytes per tier, hits, evictions, promotions, P2P bytes, keys."""
+        hosts = [a.host for a in self.agents.values()]
+        live = [a for a in self.agents.values() if a.host.attested]
+        hits: dict[str, int] = {}
+        for h in hosts:
+            for tier, n in h.cache.stats.hits.items():
+                hits[tier] = hits.get(tier, 0) + n
+        self.rec.log(
+            Table.CACHE,
+            t=self.kernel.now,
+            ssd_mb=sum(h.cache.used("ssd") for h in hosts),
+            hdd_mb=sum(h.cache.used("hdd") for h in hosts),
+            warm_mb=sum(h.cache.warm_mb() for h in hosts if h.up),
+            hits_ssd=hits.get("ssd", 0),
+            hits_hdd=hits.get("hdd", 0),
+            evictions=sum(h.cache.stats.evictions for h in hosts),
+            demotions=sum(h.cache.stats.demotions for h in hosts),
+            promotions=sum(h.cache.stats.promotions for h in hosts),
+            p2p_mb=sum(h.extra.get("p2p_bytes", 0.0) for h in hosts) / 2**20,
+            key_holders=sum(len(a.keys) for a in live),
+            exposure=sum(len(a.keys) * (1 - a.host.assurance) for a in live),
+        )
 
     def run(self) -> RunResult:
         TraceDriver(self.kernel, session_events(self.scn), self._owner).start()

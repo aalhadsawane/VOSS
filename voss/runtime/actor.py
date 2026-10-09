@@ -13,8 +13,9 @@ from voss.core.config import RunConfig
 from voss.core.decision_clock import DecisionClock
 from voss.core.ids import Addr, NodeId, TenantId
 from voss.core.kernel import Handle, Kernel
-from voss.core.messages import Message, size_of
+from voss.core.messages import Message
 from voss.core.rng import RngFactory
+from voss.core.wire import size_of
 from voss.metrics.recorder import Recorder
 from voss.world.network import Network
 

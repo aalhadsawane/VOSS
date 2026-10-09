@@ -26,6 +26,7 @@ class GeoParams(BaseModel):
     jitter_km: float = Field(default=30.0, ge=0)
     asns_per_city: int = Field(default=3, ge=1)
     asn_zipf: float = Field(default=1.0, ge=0)
+    regions: tuple[str, ...] = ()  # empty = world; else workers and demand only in these regions (E05 dispersion)
 
 
 class LinkParams(BaseModel):

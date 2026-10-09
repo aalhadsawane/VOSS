@@ -35,4 +35,5 @@ def build_view(
         inflight=np.array([inflight.get(w, 0) for w in ws], dtype=np.int64),
         static=tuple(s.static for s in st),
         drain_deadline=tuple(s.drain_deadline for s in st),
+        pinned=tuple(s.pinned for s in st),
     )

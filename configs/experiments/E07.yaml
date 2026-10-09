@@ -1,0 +1,15 @@
+# E07 pilot (doc 06 §5, RQ8): routing policies with and without a flash crowd (5x the top function from London for
+# 5 minutes, doc 02 §8). Spillover after T_spill and trust-cold pricing are what ``score`` adds.
+experiment: E07
+base: ../pilot.yaml
+systems:
+  score: [voss.router.name=score]
+  nearest: [voss.router.name=nearest]
+  least_loaded: [voss.router.name=least_loaded]
+  po2_nearby: [voss.router.name=po2_nearby]
+  warm_aware: [voss.router.name=warm_aware]
+grid:
+  scenario.load.flash_crowds:
+    - []
+    - [{t: 300, duration_s: 300, mult: 5.0, fn: top, city: London}]
+seeds: [1, 2, 3, 4, 5]

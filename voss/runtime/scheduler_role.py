@@ -20,6 +20,7 @@ from voss.core.messages import (
     Enqueue,
     EpochInstall,
     Heartbeat,
+    HomeDemand,
     KeepaliveSummary,
     Membership,
     Message,
@@ -27,9 +28,11 @@ from voss.core.messages import (
     Reject,
     Revoke,
     Stale,
+    Withdraw,
 )
-from voss.core.types import Outcome, SloClass
+from voss.core.types import ClusterView, Outcome, SloClass
 from voss.metrics.schema import Table
+from voss.observe.summaries import summarize
 from voss.policy.cost.inputs import CostContext
 from voss.policy.predict.base import ExecObs, FnPrior
 from voss.policy.retry import BasicRetry
@@ -37,11 +40,14 @@ from voss.runtime.actor import Actor, ActorContext
 from voss.runtime.schedlib.decide import Decider, Decision
 from voss.runtime.schedlib.inflight import Copy, Inflight
 from voss.runtime.schedlib.models import SchedModels
+from voss.runtime.schedlib.planner_mixin import PlannerMixin
+from voss.runtime.schedlib.planning import Planning
+from voss.runtime.schedlib.prices import Prices, backlog_s
 from voss.runtime.schedlib.viewcache import ViewCache
 from voss.runtime.workerlib.host import HostLocal
 
 
-class SchedulerRole(Actor):
+class SchedulerRole(PlannerMixin, Actor):
     role = "sched"
 
     def __init__(self, host: HostLocal, ctx: ActorContext, cost: CostContext, priors: dict[str, FnPrior]) -> None:
@@ -63,9 +69,12 @@ class SchedulerRole(Actor):
         self.busy_until = 0.0
         self.models = SchedModels(cfg, self.priors)
         self.decider = Decider(cfg, self.cost, self.models, self.ctx.cfg.scenario.start_utc_h)
+        self.planning = Planning(cfg, self.cost, self.models, self.ctx.cfg.scenario.start_utc_h)
         self.retry = BasicRetry(cfg.scheduler.max_attempts, cfg.scheduler.retry_backoff_s)
         self.gen = self.ctx.rng.stream("sched.place", self.hl.worker, self.hl.session)
         self.token = 0
+        rc = cfg.router
+        self.prices = Prices(cold_trust=rc.cold_penalty_s, cold_fn=rc.cold_fn_s)  # measured card prices (D-33)
 
     # --- membership and epochs ----------------------------------------------------------------------------
     def on_message(self, msg: Message) -> None:
@@ -74,6 +83,11 @@ class SchedulerRole(Actor):
                 self.views.heard(msg.state, self.now)
         elif isinstance(msg, Enqueue):
             self._enqueue(msg)
+        elif isinstance(msg, Withdraw):
+            self._withdraw(msg.inv)
+        elif isinstance(msg, HomeDemand):
+            if self.active and msg.epoch == self.epoch and msg.cluster == self.cluster:
+                self.models.forecaster.set_home(dict(msg.rates))
         elif isinstance(msg, OutcomeMsg):
             self._outcome(msg.outcome)
         elif isinstance(msg, Accepted):
@@ -84,7 +98,7 @@ class SchedulerRole(Actor):
             self._appoint(msg)
         elif isinstance(msg, Membership):
             self._membership(msg)
-        elif isinstance(msg, Revoke | Stale):
+        elif isinstance(msg, Revoke) or (isinstance(msg, Stale) and msg.cluster == int(self.cluster)):
             self._deactivate(msg.epoch)
         elif isinstance(msg, DrainNotice):
             pass  # hint only: the view's drain flag arrives with the next heartbeat (doc 07 §4)
@@ -100,6 +114,7 @@ class SchedulerRole(Actor):
         cfg = self.ctx.cfg.voss
         self.after(cfg.scheduler.heartbeat_s, self._check_silent)
         self.after(cfg.models.refit_s, self._refit)
+        self.after(cfg.planner.T_plan, self._plan_tick)
 
     def _membership(self, m: Membership) -> None:
         if not self.active or m.epoch != self.epoch:
@@ -107,8 +122,12 @@ class SchedulerRole(Actor):
         new = set(m.members)
         for w in sorted(new - self.members):
             self.send(("agent", w), EpochInstall(self.cluster, self.epoch, self.addr, self.hl.cert_id))
+        moved = set(m.moved)
         for w in sorted(self.members - new):
-            self._lost(w)
+            if w in moved:
+                self.views.lost(w)  # alive elsewhere: its in-flight copies still report to us
+            else:
+                self._lost(w)
         self.members = new
         self.views.members_changed()
 
@@ -118,12 +137,43 @@ class SchedulerRole(Actor):
             self.reset()
 
     def _keepalive(self) -> None:
+        """``KEEPALIVE+SUMMARY`` (doc 08 §4): load, free capacity, trust-warm capacity per tenant, warm functions."""
         if not self.active:
             return
-        st = self.views.store.states.values()
-        msg = KeepaliveSummary(self.cluster, self.epoch, self.hl.worker, len(st), float(sum(s.busy for s in st)))
+        view = self.views.view(self.members, self.now)
+        summ = summarize(self.cluster, view)
+        self.prices.decay(self.ctx.cfg.voss.scheduler.keepalive_s)
+        warm: dict[str, int] = {}
+        for c in view.cache:
+            for fn, e in c.items():
+                if e.level == "L3":
+                    warm[str(fn)] = warm.get(str(fn), 0) + 1
+        prev = self.planning.prev
+        msg = KeepaliveSummary(
+            self.cluster,
+            self.epoch,
+            self.hl.worker,
+            summ.attested,
+            summ.load,
+            summ.free_slots,
+            self.prices.overhead,
+            tuple(sorted((str(t), v) for t, v in summ.trust_warm_capacity.items())),
+            tuple(sorted(warm.items())),
+            summ.diversity,
+            bool(prev is not None and prev.cost_terms.get("shortfall", 0.0) > 1e-6),
+            self._forecast_load(view),
+            self.prices.cold_trust,
+            self.prices.cold_fn,
+            backlog_s(summ.load, float(self.models.svc)),
+        )
         self.send(self.ctx.directory.orchestrator, msg)
         self.after(self.ctx.cfg.voss.scheduler.keepalive_s, self._keepalive)
+
+    def _forecast_load(self, view: ClusterView) -> float:
+        """Forecast concurrent demand (sum of per-function capacity quantiles) over attested slots."""
+        d = self.models.forecaster.forecast(self.now)
+        need = sum(q for k, q in d.q.items() if k.startswith("fn:"))
+        return float(need / max(1, int(view.slots.sum())))
 
     def _check_silent(self) -> None:
         if not self.active:
@@ -159,12 +209,15 @@ class SchedulerRole(Actor):
         rec = self.inflight.get(m.inv.id)
         if rec is not None:
             for c in rec.copies.values():  # duplicate ENQUEUE (router watchdog): re-announce assignments
-                self.send(rec.router, Assigned(rec.inv.id, c.attempt, c.worker, self.epoch, self.token))
+                self.send(
+                    rec.router, Assigned(rec.inv.id, c.attempt, c.worker, self.epoch, self.token, int(self.cluster))
+                )
             return
-        self.inflight[m.inv.id] = Inflight(m.inv, m.router, m.t_sent)
+        self.inflight[m.inv.id] = Inflight(m.inv, m.router, m.t_sent, t_in=self.now)
         if m.inv.slo_class == SloClass.FILLER:
             self.fillers.add(m.inv.id)
         self.models.forecaster.observe(m.inv.tenant, self.now)
+        self.models.forecaster.observe(f"fn:{m.inv.fn}", self.now)
         if m.inv.slo_class == SloClass.SYNC:
             self._decide([m.inv.id], windowed=False)
             return
@@ -172,6 +225,16 @@ class SchedulerRole(Actor):
         self.window.append(m.inv.id)
         if len(self.window) == 1:
             self.after(self.ctx.cfg.voss.placer.window_s, self._flush_window)
+
+    def _withdraw(self, inv_id: InvId) -> None:
+        """Spilled to another cluster (doc 03 §3): forget it and cancel any copies already dispatched."""
+        rec = self.inflight.pop(inv_id, None)
+        if rec is None:
+            return
+        self.done.add(inv_id)
+        self.fillers.discard(inv_id)
+        for c in rec.copies.values():
+            self.send(("agent", c.worker), Cancel(inv_id, c.attempt))
 
     def _flush_window(self) -> None:
         ids, self.window = self.window, []
@@ -224,11 +287,22 @@ class SchedulerRole(Actor):
         rec.copies[a] = Copy(a, w, self.now, hedge, mu=mu, sigma=var, load=load)
         self.views.dispatched(w, self.now)
         inv = replace(rec.inv, attempt=a)
+        src = self.dispatch_sources(inv.fn, w)
         d = Dispatch(
-            inv, self.epoch, self.token, rec.router, self.hl.cert_id, rec.t_enqueue, self.now, self.addr, rec.batch_wait
+            inv,
+            self.epoch,
+            self.token,
+            rec.router,
+            self.hl.cert_id,
+            rec.t_enqueue,
+            self.now,
+            self.addr,
+            rec.batch_wait,
+            src,
+            int(self.cluster),
         )
         self.send(("agent", w), d)
-        self.send(rec.router, Assigned(inv.id, a, w, self.epoch, self.token))
+        self.send(rec.router, Assigned(inv.id, a, w, self.epoch, self.token, int(self.cluster)))
         if inv.slo_class == SloClass.SYNC:
             self._preempt_filler(w)
 
@@ -258,6 +332,7 @@ class SchedulerRole(Actor):
             return
         del self.inflight[o.inv]
         self.done.add(o.inv)
+        self.prices.outcome(o, c.t_dispatch - rec.t_in if rec.inv.slo_class == SloClass.SYNC else None)
         for other in sorted(rec.copies.values(), key=lambda x: x.attempt):
             if other.attempt != o.attempt:
                 self.send(("agent", other.worker), Cancel(o.inv, other.attempt))
@@ -268,6 +343,8 @@ class SchedulerRole(Actor):
         speed = st.speed if st else 1.0
         obs = ExecObs(rec.inv.fn, int(c.worker), rec.inv.in_bytes, speed, c.load, o.timings.exec, self.now)
         self.models.observe(obs)
+        self.models.forecaster.observe_service(rec.inv.tenant, o.timings.exec)
+        self.models.forecaster.observe_service(f"fn:{rec.inv.fn}", o.timings.exec)
         cp = self.models.omission.update(int(c.worker), False, self.now)
         if cp is not None:
             self.ctx.rec.log(Table.EVENTS, t=self.now, kind="change_point", worker=c.worker, value=cp.statistic)

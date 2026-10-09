@@ -1,15 +1,16 @@
-"""Regional router (doc 03 §3, doc 07 §2, doc 09 §3): pending table, ``ENQUEUE``/``ASSIGNED``/``INPUT``, dispatch
-watchdog, results with attested receipts (batched to the DB), and the per-invocation latency breakdown."""
+"""Regional router (doc 03 §3, doc 07 §2, doc 09 §3): picks a cluster per invocation from orchestrator-pushed
+summaries (priced trust-cold spillover), keeps the pending table, runs the dispatch watchdog with spillover after
+``T_spill``, verifies attested receipts (batched to the DB), and reports per-cluster SLO health."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import numpy as np
 
-from voss.core.ids import Addr, InvId, NodeId, WorkerId
-from voss.core.kernel import Handle
+from voss.core.ids import Addr, InvId, NodeId
 from voss.core.messages import (
     Accepted,
     Assigned,
+    Cancel,
     DbAppendReceipts,
     Enqueue,
     Input,
@@ -19,39 +20,42 @@ from voss.core.messages import (
     Reject,
     Result,
     RevokeSession,
+    RouterStats,
     SchedulerAddr,
+    Summaries,
+    Withdraw,
 )
-from voss.core.types import Invocation, Outcome
+from voss.core.registry import REGISTRY
+from voss.core.types import ClusterCard, Invocation, Outcome, SloClass
 from voss.metrics.schema import Table
+from voss.policy import route as _routes  # noqa: F401  (registers routing policies)
+from voss.policy.route import RouteRequest, home_cluster
 from voss.runtime.actor import Actor, ActorContext
+from voss.runtime.routerlib.pending import Pending, row
 from voss.world.workload import SLO_CLASSES
-
-
-@dataclass
-class Pending:
-    inv: Invocation
-    t_route: float = 0.0
-    t_first_enqueue: float | None = None
-    resends: int = 0
-    accepted: bool = False
-    workers: dict[int, WorkerId] = field(default_factory=dict)
-    timers: list[Handle] = field(default_factory=list)
 
 
 class Router(Actor):
     role = "router"
 
-    def __init__(self, host: NodeId, ctx: ActorContext, region: str) -> None:
+    def __init__(self, host: NodeId, ctx: ActorContext, region: str, origins: np.ndarray) -> None:
         super().__init__(host, ctx)
-        self.region = region
-        self.sched: Addr | None = None
-        self.epoch = 0
+        self.region, self.origins = region, origins  # origins[i] = (lat, lon) of metro i
+        self.policy = REGISTRY.get("route", ctx.cfg.voss.router.name)
+        self.gen = ctx.rng.stream("router", region)
+        self.scheds: dict[int, tuple[int, Addr]] = {}
+        self.epochs: dict[int, int] = {}
+        self.cards: dict[int, ClusterCard] = {}
         self.pending: dict[InvId, Pending] = {}
         self.unrouted: list[InvId] = []
         self.finished: set[InvId] = set()
         self.revoked: set[str] = set()
         self.batch: list[tuple[Receipt, float, str]] = []
-        self.after(ctx.cfg.voss.router.receipt_batch_s, self._flush_tick)
+        self.stats: dict[int, list[int]] = {}
+        self.home: dict[tuple[int, str], int] = {}
+        rc = ctx.cfg.voss.router
+        self.after(rc.receipt_batch_s, self._flush_tick)
+        self.after(rc.stats_s, self._stats_tick)
 
     def on_message(self, msg: Message) -> None:
         if isinstance(msg, Invoke):
@@ -66,6 +70,8 @@ class Router(Actor):
             self._result(msg.outcome, msg.receipt)
         elif isinstance(msg, SchedulerAddr):
             self._scheduler(msg)
+        elif isinstance(msg, Summaries):
+            self.cards = {c.cluster: c for c in msg.cards}
         elif isinstance(msg, RevokeSession):
             self.revoked.add(msg.cert_id)
         elif isinstance(msg, Reject):
@@ -79,31 +85,77 @@ class Router(Actor):
         self.pending[inv.id] = p
         give_up = self.ctx.cfg.voss.router.give_up_s[SLO_CLASSES[int(inv.slo_class)]]
         p.timers.append(self.after(max(0.0, inv.t_arrive + give_up - self.now), self._give_up, inv.id))
-        self.after(self.ctx.clock.charge("route", work=1), self._route, inv.id)
+        self.after(self.ctx.clock.charge("route", work=max(1, len(self.scheds))), self._route, inv.id)
+
+    def _choose(self, p: Pending) -> int | None:
+        live = [c for c in sorted(self.scheds) if c not in p.excluded]
+        if not live:
+            return None
+        cards = tuple(self.cards[c] for c in live if c in self.cards)
+        if not cards:
+            return live[0]
+        lat, lon = self.origins[p.inv.origin]
+        rc = self.ctx.cfg.voss.router
+        req = RouteRequest(
+            (float(lat), float(lon)),
+            p.inv.tenant,
+            p.inv.fn,
+            cards,
+            frozenset(p.excluded),
+            rc.exposure_s,
+            rc.health_s,
+            self.ctx.cfg.voss.clusters.slo_theta,
+        )
+        choice: int | None = self.policy(req, self.gen)
+        return choice if choice in self.scheds else live[0]
 
     def _route(self, inv_id: InvId) -> None:
-        if inv_id not in self.pending:
+        p = self.pending.get(inv_id)
+        if p is None:
             return
-        if self.sched is None:
+        cluster = self._choose(p)
+        if cluster is None:
             self.unrouted.append(inv_id)
             return
+        if p.cluster is None:
+            self._count_home(p)
+        p.cluster, p.t_cluster, p.accepted = cluster, self.now, False
         self._enqueue(inv_id)
+
+    def _count_home(self, p: Pending) -> None:
+        lat, lon = self.origins[p.inv.origin]
+        home = home_cluster((float(lat), float(lon)), tuple(self.cards[c] for c in sorted(self.cards)))
+        if home is not None:
+            for key in (str(p.inv.tenant), f"fn:{p.inv.fn}"):
+                self.home[(home, key)] = self.home.get((home, key), 0) + 1
 
     def _enqueue(self, inv_id: InvId) -> None:
         p = self.pending.get(inv_id)
-        if p is None or self.sched is None:
+        if p is None or p.cluster not in self.scheds:
             return
         if p.t_first_enqueue is None:
             p.t_first_enqueue = self.now
-        self.send(self.sched, Enqueue(p.inv, self.addr, self.now))
+        self.send(self.scheds[p.cluster][1], Enqueue(p.inv, self.addr, self.now))
         p.timers.append(self.after(self.ctx.cfg.voss.router.T_dispatch, self._watchdog, inv_id))
 
     def _watchdog(self, inv_id: InvId) -> None:
-        """Doc 07 §2: no ``ACCEPTED`` within ``T_dispatch`` → re-send (bounded)."""
+        """Doc 07 §2: no ``ACCEPTED`` within ``T_dispatch`` → re-send; after ``T_spill`` a sync invocation spills
+        over to the next-best cluster (doc 03 §3)."""
         p = self.pending.get(inv_id)
         if p is None or p.accepted:
             return
-        if p.resends < self.ctx.cfg.voss.router.max_resends:
+        rc = self.ctx.cfg.voss.router
+        if p.inv.slo_class == SloClass.SYNC and self.now - p.t_cluster >= rc.T_spill and len(self.scheds) > 1:
+            assert p.cluster is not None
+            if p.cluster in self.scheds:
+                self.send(self.scheds[p.cluster][1], Withdraw(inv_id))
+            p.excluded.add(p.cluster)
+            p.spills += 1
+            self.ctx.rec.log(
+                Table.EVENTS, t=self.now, kind="spillover", worker=-1, value=float(p.cluster), inv=int(inv_id)
+            )
+            self._route(inv_id)
+        elif p.resends < rc.max_resends:
             p.resends += 1
             self.ctx.rec.log(
                 Table.EVENTS, t=self.now, kind="dispatch_watchdog", worker=-1, value=p.resends, inv=int(inv_id)
@@ -111,20 +163,30 @@ class Router(Actor):
             self._enqueue(inv_id)
 
     def _scheduler(self, m: SchedulerAddr) -> None:
-        if m.epoch < self.epoch:
+        cid = int(m.cluster)
+        if m.epoch < self.epochs.get(cid, -1):
             return
-        self.sched, self.epoch = m.addr, m.epoch
-        if self.sched is None:
-            return
+        self.epochs[cid] = m.epoch
+        if m.addr is None:
+            self.scheds.pop(cid, None)
+            self.cards.pop(cid, None)
+        else:
+            self.scheds[cid] = (m.epoch, m.addr)
         waiting, self.unrouted = self.unrouted, []
         for inv_id in waiting:
-            self._enqueue(inv_id)
+            self._route(inv_id)
         for inv_id, p in sorted(self.pending.items()):
-            if p.t_first_enqueue is not None and not p.accepted:
-                self._enqueue(inv_id)
+            if p.cluster == cid and p.t_first_enqueue is not None and not p.accepted:
+                if m.addr is None:
+                    self._route(inv_id)
+                else:
+                    self._enqueue(inv_id)
 
     def _assigned(self, m: Assigned) -> None:
         p = self.pending.get(m.inv)
+        if p is not None and 0 <= m.cluster != p.cluster:
+            self.send(("agent", m.worker), Cancel(m.inv, m.attempt))  # a cluster we spilled away from
+            return
         if p is None or m.attempt in p.workers:
             return  # unknown, finished, or a re-announced assignment whose input is already on its way
         p.workers[m.attempt] = m.worker
@@ -163,48 +225,20 @@ class Router(Actor):
             self.ctx.kernel.cancel(h)
         del self.pending[p.inv.id]
         self.finished.add(p.inv.id)
-        self.ctx.rec.log(Table.INVOCATIONS, **self._row(p, status, o))
+        r = row(p, self.region, status, o, self.now)
+        self.ctx.rec.log(Table.INVOCATIONS, **r)
+        if p.cluster is not None:
+            s = self.stats.setdefault(p.cluster, [0, 0])
+            s[0] += 1
+            s[1] += int(not r["met"])
 
-    def _row(self, p: Pending, status: str, o: Outcome | None) -> dict[str, object]:
-        inv, now = p.inv, self.now
-        first = p.t_first_enqueue if p.t_first_enqueue is not None else now
-        row: dict[str, object] = {
-            "inv": int(inv.id),
-            "fn": inv.fn,
-            "tenant": inv.tenant,
-            "origin": inv.origin,
-            "router": self.region,
-            "slo_class": int(inv.slo_class),
-            "t_arrive": inv.t_arrive,
-            "t_done": now,
-            "e2e": now - inv.t_arrive,
-            "deadline": inv.deadline,
-            "outcome": status,
-            "resends": p.resends,
-            "route": first - inv.t_arrive,
-        }
-        if o is None:
-            row.update(worker=-1, attempts=len(p.workers), met=False, start_level="", tier="", trust_cold=False)
-            return row
-        t = o.timings
-        row.update(
-            worker=int(o.worker),
-            attempts=o.attempt + 1,
-            met=now - inv.t_arrive <= inv.deadline,
-            retry=t.t_enqueue - first,
-            batch_wait=t.batch_wait,
-            decide=t.t_dispatch - t.t_enqueue - t.batch_wait,
-            net_in=(t.t_received - t.t_dispatch) + t.input_wait,
-            wait=t.wait,
-            trust=t.trust,
-            startup=t.startup,
-            exec=t.exec,
-            net_out=now - t.t_sent,
-            start_level=o.start_level,
-            tier=o.tier,
-            trust_cold=o.trust_cold,
-        )
-        return row
+    def _stats_tick(self) -> None:
+        if self.stats or self.home:
+            stats = tuple((c, n, m) for c, (n, m) in sorted(self.stats.items()))
+            home = tuple((c, k, n) for (c, k), n in sorted(self.home.items()))
+            self.send(self.ctx.directory.orchestrator, RouterStats(stats, home))
+            self.stats, self.home = {}, {}
+        self.after(self.ctx.cfg.voss.router.stats_s, self._stats_tick)
 
     def _flush_tick(self) -> None:
         self._flush()

@@ -10,6 +10,7 @@ import numpy as np
 from voss.core.ids import Addr, ClusterId, FnId, TenantId, WorkerId
 from voss.core.messages import (
     Accepted,
+    Assign,
     Cancel,
     Chunk,
     Dispatch,
@@ -22,16 +23,23 @@ from voss.core.messages import (
     Message,
     OutcomeMsg,
     OwnerEvent,
+    PinSnapshot,
+    Prepare,
     Receipt,
+    Release,
     Result,
     SessionCert,
     Stale,
+    Warm,
 )
 from voss.core.types import CacheEntry, Outcome, WorkerState
 from voss.metrics.schema import Table
+from voss.policy.cache_value import GdsfState
 from voss.runtime.actor import Actor, ActorContext
 from voss.runtime.workerlib.attempt import Attempt
+from voss.runtime.workerlib.fetching import FetchMixin
 from voss.runtime.workerlib.host import HostLocal
+from voss.runtime.workerlib.planned import PlannedMixin
 from voss.runtime.workerlib.session import SessionMixin
 from voss.world.execution import ExecParams
 from voss.world.lifecycle import artifact_digests, artifact_sizes, cache_level
@@ -40,7 +48,7 @@ from voss.world.workload import FunctionSpec
 MB = 1024 * 1024
 
 
-class WorkerAgent(SessionMixin, Actor):
+class WorkerAgent(PlannedMixin, FetchMixin, SessionMixin, Actor):
     role = "agent"
 
     def __init__(
@@ -55,6 +63,9 @@ class WorkerAgent(SessionMixin, Actor):
         self.digests = {fid: artifact_digests(fn, host.snapshot_class) for fid, fn in catalog.items()}
         self._inventory: dict[FnId, CacheEntry] = {}
         self._inv_version = -1
+        self.gdsf = GdsfState()
+        if ctx.cfg.voss.cache.value == "gdsf":
+            self.use_gdsf()
         self._init_session_state()
 
     def _init_session_state(self) -> None:
@@ -65,10 +76,12 @@ class WorkerAgent(SessionMixin, Actor):
         self.keys = set()
         self.key_waiters: dict[str, list[Callable[[bool], None]]] = {}
         self.fetch_waiters: dict[str, list[Callable[[], None]]] = {}
-        self.fetch_kind: dict[str, tuple[str, float]] = {}
+        self.fetch_kind: dict[str, tuple[str, float, float]] = {}
+        self.prepared: set[str] = set()
         self.attempts: dict[tuple[int, int], Attempt] = {}
         self.early_inputs: dict[tuple[int, int], float] = {}
         self.drain_deadline: float | None = None
+        self.pending_install: dict[int, EpochInstall] = {}
         self.op_gen = self.ctx.rng.stream("worker.ops", self.host.worker, self.host.session)
         self.attest_cont: Callable[[], None] | None = None
         self.hb_on = False
@@ -115,27 +128,6 @@ class WorkerAgent(SessionMixin, Actor):
             h = self.host
             self.send(kbs, KeyRequest(h.worker, TenantId(tenant), h.cert_id, h.cert_expiry, self.addr))
 
-    def fetch(self, fn: FunctionSpec, artifacts: tuple[str, ...], cont: Callable[[], None]) -> None:
-        digests, sizes = self.digests[FnId(fn.name)], artifact_sizes(fn, self.touched_frac())
-        missing = [a for a in artifacts if self.host.cache.touch(digests[a], self.now) is None]
-        remaining = {"n": len(missing)}
-
-        def one() -> None:
-            remaining["n"] -= 1
-            if remaining["n"] == 0:
-                cont()
-
-        if not missing:
-            self.kernel.after(0.0, cont)
-            return
-        for a in missing:
-            d = digests[a]
-            waiters = self.fetch_waiters.setdefault(d, [])
-            waiters.append(one)
-            if len(waiters) == 1:
-                self.fetch_kind[d] = (a, sizes[a] / MB)
-                self.send(self.ctx.directory.registry, Fetch(d, int(sizes[a]), self.addr))
-
     def finish(self, att: Attempt, status: str) -> None:
         key = (int(att.inv.id), att.inv.attempt)
         self.attempts.pop(key, None)
@@ -163,8 +155,7 @@ class WorkerAgent(SessionMixin, Actor):
             )
             self.send(att.router, Result(out, rcpt, int(att.fn.out_kb * 1024)))
             self._after_success(att)
-        if self.sched is not None:
-            self.send(self.sched, OutcomeMsg(out))
+        self.send(att.scheduler, OutcomeMsg(out))
 
     def _after_success(self, att: Attempt) -> None:
         h = self.host
@@ -197,6 +188,12 @@ class WorkerAgent(SessionMixin, Actor):
             self._key(msg)
         elif isinstance(msg, Chunk):
             self._chunk(msg)
+        elif isinstance(msg, Fetch):
+            self._serve(msg)
+        elif isinstance(msg, Prepare | PinSnapshot | Warm | Release):
+            self._plan_action(msg)
+        elif isinstance(msg, Assign):
+            self._assign(msg)
         elif isinstance(msg, EpochInstall):
             self._epoch_install(msg)
         elif isinstance(msg, SessionCert):
@@ -211,8 +208,10 @@ class WorkerAgent(SessionMixin, Actor):
     def _dispatch(self, m: Dispatch) -> None:
         if not self.host.cert_valid(self.now):
             return
-        if m.epoch < self.epoch:
-            self.send(m.scheduler, Stale(self.host.worker, self.epoch))
+        if m.cluster != self.cluster or m.epoch < self.epoch:
+            self.send(
+                m.scheduler, Stale(self.host.worker, self.epoch, -1 if self.cluster is None else int(self.cluster))
+            )
             return
         self.epoch = max(self.epoch, m.epoch)
         key = (int(m.inv.id), m.inv.attempt)
@@ -230,13 +229,14 @@ class WorkerAgent(SessionMixin, Actor):
             self.op_gen,
             self,
             m.batch_wait,
+            m.sources,
+            m.scheduler,
         )
         self.attempts[key] = att
         self._log_exec_guard(att)
         acc = Accepted(att.inv.id, att.inv.attempt, self.host.worker, att.token)
         self.send(att.router, acc)
-        if self.sched is not None:
-            self.send(self.sched, acc)
+        self.send(att.scheduler, acc)
         att.start()
         if key in self.early_inputs:
             att.input_arrived(self.early_inputs.pop(key))
@@ -273,16 +273,24 @@ class WorkerAgent(SessionMixin, Actor):
         for cont in self.key_waiters.pop(m.tenant, []):
             cont(m.ok)
 
-    def _chunk(self, m: Chunk) -> None:
-        kind, size_mb = self.fetch_kind.pop(m.digest, ("bundle", m.nbytes / MB))
-        self.host.cache.insert(m.digest, kind, size_mb, self.now)
-        for cont in self.fetch_waiters.pop(m.digest, []):
-            cont()
+    def _assign(self, m: Assign) -> None:
+        """The orchestrator moved us (doc 03 §2): only this cluster's epochs count from now on."""
+        if not self.host.attested or m.cluster == self.cluster:
+            return
+        self.cluster, self.epoch, self.sched, self.sched_cert = m.cluster, 0, None, ""
+        pending = self.pending_install.pop(int(m.cluster), None)
+        if pending is not None:
+            self._epoch_install(pending)
 
     def _epoch_install(self, m: EpochInstall) -> None:
-        if m.epoch < self.epoch or not self.host.attested:
+        if not self.host.attested:
             return
-        self.epoch, self.cluster, self.sched, self.sched_cert = m.epoch, m.cluster, m.scheduler, m.cert_id
+        if self.cluster is None or m.cluster != self.cluster:
+            self.pending_install[int(m.cluster)] = m  # the Assign may still be on its way
+            return
+        if m.epoch < self.epoch:
+            return
+        self.epoch, self.sched, self.sched_cert = m.epoch, m.scheduler, m.cert_id
         self._heartbeat()
 
     # --- heartbeats ---------------------------------------------------------------------------------------------
@@ -314,6 +322,7 @@ class WorkerAgent(SessionMixin, Actor):
             as_of=self.now,
             cert_id=h.cert_id,
             static=h.static,
+            pinned=frozenset(self.prepared),
         )
 
     def _heartbeat(self) -> None:

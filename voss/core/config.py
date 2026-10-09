@@ -31,7 +31,7 @@ class DecisionClockConfig(Frozen):
     # modeled cost: seconds = a + b * work, per kind. TODO verify: seeds, refit from E02 measured runs.
     coeffs: dict[str, tuple[float, float]] = Field(
         default_factory=lambda: {
-            "plan": (0.005, 2e-5),
+            "plan": (0.02, 5e-5),
             "place": (0.0002, 2e-5),
             "route": (0.0001, 1e-5),
             "orchestrate": (0.001, 1e-4),
@@ -72,10 +72,16 @@ class InfraConfig(Frozen):
 
 
 class RouterConfig(Frozen):
-    """Doc 03 §3, doc 07 §2 (dispatch watchdog)."""
+    """Doc 03 §3, doc 07 §2 (dispatch watchdog, spillover)."""
 
-    name: str = "single"
+    name: str = "score"
+    cold_penalty_s: float = 3.0  # prior price of a trust-cold start until a cluster measured one  # TODO verify
+    exposure_s: float = 0.5  # exposure increment of a trust-cold spill (seconds-equivalent)
+    health_s: float = 5.0  # seconds per unit of router-observed SLO miss rate
+    cold_fn_s: float = 0.5  # prior price of a cold function start until measured  # TODO verify
     T_dispatch: float = 1.0
+    T_spill: float = 1.5
+    stats_s: float = 5.0
     max_resends: int = 3
     give_up_s: dict[str, float] = Field(default_factory=lambda: {"sync": 30.0, "async": 300.0, "filler": 900.0})
     receipt_batch_s: float = 1.0
@@ -126,6 +132,26 @@ class AdmissionConfig(Frozen):
     defer_s: float = 1.0
 
 
+class PlannerConfig(Frozen):
+    """Slow loop (doc 03 §4, doc 05 §6). Objective weights are in ``params`` (``policy.plan.types.PlanParams``)."""
+
+    name: str = "milp"
+    T_plan: float = 30.0
+    T_solve: float = 2.0
+    node_limit: int = 50
+    max_plan_workers: int = 40
+    replan_tolerance: float = 0.2
+    hot_top_k: int = 20
+    hot_fn_k: int = 50
+    min_rate: float = 0.01
+    f_from_alpha: float = 0.1
+    horizon_factor: float = 2.0
+    cold_penalty: float = 10.0
+    max_parallel_prepares: int = 2
+    T_linger: float = 30.0
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
 class ModelsConfig(Frozen):
     """Survival and omission models (doc 03 §6.3-6.4)."""
 
@@ -157,18 +183,39 @@ class WorkerConfig(Frozen):
 
 
 class OrchestratorConfig(Frozen):
-    """Doc 03 §2, doc 07 §3 (P2: one cluster; keepalive-based re-appointment)."""
+    """Doc 03 §2, doc 07 §3."""
 
     keepalive_timeout_s: float = 5.0
     check_s: float = 1.0
+    summaries_s: float = 1.0
+
+
+class ClustersConfig(Frozen):
+    """Cluster arrangement (doc 03 §2). ``mode``: ``dynamic`` (triggers on), ``static_kmeans`` (formed once),
+    ``static_regions`` (one cluster per world region), ``none_global`` (a single cluster)."""
+
+    mode: str = "dynamic"
+    target_size: int = 30
+    min_size: int = 10
+    max_size: int = 60
+    d_min: int = 3
+    dwell_s: float = 600.0
+    max_moves: int = 10
+    period_s: float = 30.0
+    bootstrap_s: float = 3.0
+    slo_theta: float = 0.2
+    slo_periods: int = 3
+    imbalance_delta: float = 0.4
+    max_moves_per_h: int = 3
 
 
 class CacheConfig(Frozen):
     """Doc 02 §6."""
 
-    value: str = "lru"
+    value: str = "gdsf"
     hdd_tier: bool = True
-    p2p: bool = False
+    p2p: bool = True
+    max_sources: int = 3
 
 
 class VossConfig(Frozen):
@@ -182,9 +229,11 @@ class VossConfig(Frozen):
     hedge: HedgeConfig = Field(default_factory=HedgeConfig)
     admission: AdmissionConfig = Field(default_factory=AdmissionConfig)
     models: ModelsConfig = Field(default_factory=ModelsConfig)
+    planner: PlannerConfig = Field(default_factory=PlannerConfig)
     scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
     worker: WorkerConfig = Field(default_factory=WorkerConfig)
     orchestrator: OrchestratorConfig = Field(default_factory=OrchestratorConfig)
+    clusters: ClustersConfig = Field(default_factory=ClustersConfig)
     cache: CacheConfig = Field(default_factory=CacheConfig)
 
 
@@ -200,9 +249,10 @@ class RunConfig(Frozen):
     decision_clock: DecisionClockConfig = Field(default_factory=DecisionClockConfig)
     calibration: str | None = None
     out_dir: str = "runs"
+    label: str = ""
 
     def config_hash(self) -> str:
-        return hash_obj(self.model_dump(mode="json", exclude={"out_dir"}))
+        return hash_obj(self.model_dump(mode="json", exclude={"out_dir", "label"}))
 
 
 def deep_merge(base: dict[str, Any], over: dict[str, Any]) -> dict[str, Any]:

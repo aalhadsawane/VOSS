@@ -146,6 +146,58 @@ are reproduced through `replay` of their charged latencies (doc 01 §7).
 effect after its charged latency; decisions queue behind each other (`busy_until`), so decision latency includes
 queueing on a busy scheduler. Async/filler invocations wait in a window (`placer.window_s`) logged as `batch_wait`.
 
+**D-30 The MILP is bounded by construction** (P4). With exposure fixed costs, robust top-f coverage and warm-state
+benefits the full MILP took 20-35 s with large gaps on 200 workers. Three bounds keep it tractable, each a choice the
+greedy planner already makes implicitly: a *planning pool* of at most `max_plan_workers` live workers (previous
+holders first, then capacity × assurance; P5 clusters bound it further); *candidate* workers per tenant (previous
+holders plus the best by the greedy score, 3× what robust coverage needs); and `fn_snaps` = warm units + 1 snapshot
+copies per function. The solver gets a node limit and the greedy plan as a competing incumbent; the better objective
+is kept (status `greedy_incumbent:*`), so the MILP is never worse than greedy (P4 exit test). An unchanged input
+signature (workers, hot set, demand buckets) reuses the previous plan (status `reused`).
+
+**D-31 The planner runs beside the fast loop** (P4). A plan is computed on the view at its start and applied after its
+charged latency (decision clock kind `plan`), but it does not hold the scheduler's `busy_until`: the slow loop runs
+on its own core, so placements are not delayed by a solve. Its actions are diffed against the workers' confirmed
+state (heartbeat `pinned`, cache inventory), not against the previous plan.
+**D-32 Clusters plan for their region's demand** (P5). With priced spillover (doc 03 §3) a cluster that receives no
+traffic for a tenant never becomes trust-warm for it, so it keeps paying the trust-cold penalty and keeps receiving
+no traffic: in the first multi-cluster pilot one cluster served 80% of the world and `nearest` routing beat `score`.
+Routers therefore count every invocation against its *home* cluster (nearest by RTT, whatever it was routed to);
+the orchestrator forwards these rates each period (`HOME_DEMAND`), and the arrival forecaster plans for
+max(local, home) per tenant and function. In equilibrium local ≈ home, so nothing is double counted. *Rejected:*
+routing exploration (wastes cold starts), dropping the trust-cold term (removes priced spillover).
+
+**D-33 Cluster cards carry measured prices** (P5). `E[completion_c(f)]` in the routing score is execution (the same
+in every cluster up to speed) plus the cluster's overhead; the trust-cold term is "expected key release + cold start"
+(doc 03 §3). Fixed constants overpriced both (pilot: `score` lost to `nearest` by 18-30%), so each scheduler reports
+EWMAs of what it measured: in-cluster decision + slot wait of **sync** attempts (async batching would bias it), the
+trust + start-up actually paid by trust-cold attempts, the start-up of cold attempts, and the backlog per slot when
+over-full (`svc × (load − 1)`). Config values are only priors for clusters without measurements. The overhead prior
+is **optimistic** (0) and stale overhead decays to it: a pessimistic prior kept idle clusters idle. The health
+penalty applies only above the unhealthy threshold θ (doc 03 §2). *Rejected:* the scheduler's mean service time
+(reflects each cluster's function mix, not its quality).
+
+**D-34 Hard per-worker migration budget** (P5 exit: bounded migrations). Dwell time and a cap per period bound
+rebalancing moves but not structural ones (merge/split). The orchestrator also enforces `max_moves_per_h` (default
+3) per worker over a sliding hour, across sessions: merges wait until every member is eligible, splits move only
+eligible members (and only if at least `min_size` remain eligible). A property test drives the trigger policy
+through random churn and summaries and checks the bound in every one-hour window.
+
+**D-35 Moves are explicit and fenced by cluster** (P5). The orchestrator moves a worker with `ASSIGN(cluster)`; the
+worker accepts `EPOCH_INSTALL` and `DISPATCH` only for its assigned cluster (an install that arrives before the
+`ASSIGN` is held) and answers others with `STALE(cluster)`. The source scheduler gets the worker in `MEMBERSHIP.moved`
+and drops it from its view without retrying its in-flight copies: they still report to the scheduler that
+dispatched them. *Rejected:* treating a move as a loss (needless retries and duplicate execution).
+
+**D-36 Spillover withdraws the invocation** (P5). On spillover (no `ACCEPTED` within `T_spill`) the router sends
+`WITHDRAW` to the previous cluster's scheduler, which forgets the invocation and cancels any copies already
+dispatched; an `ASSIGNED` that still arrives from a cluster the router spilled away from is cancelled. Otherwise
+both clusters could run it and the router could pair an input with the wrong attempt.
+
+**D-37 P2P sources must beat the registry** (P5, fixes P4). Residential uplinks are often slower than the registry, so
+the nearest peer is not the fastest source (a 175 MB bundle at 6 Mbps up takes ~230 s). Source hints rank peers by
+expected pull time (RTT + bytes / min(peer uplink / (1 + busy), target downlink)) and keep only peers faster than the
+registry estimate; snapshots, which the registry does not serve, keep the fastest eligible peers.
 **D-38 The harness runs remotely and the node side is stdlib-only** (P9). C0 is reached over SSH and is not the
 agent's machine, so `tools/calibrate/remote.py` copies the harness, runs suites there and pulls raw logs back; the
 node needs only Python ≥ 3.10 and the measured tools. Reboots are never automated beyond one per invocation:

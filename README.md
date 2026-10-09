@@ -33,4 +33,7 @@ consumer node (Intel i7 12th gen, TPM 2.0). No frontend, no real multi-machine d
 
 ## Status
 
-Architecture final (2026-10-09). Implementation starts at Roadmap P0; calibration (P9) can start once P1 is done.
+Architecture final (2026-10-09). Implemented: P0 scaffold, P1 world and scenarios, P2 attested vertical slice, P3
+prediction and fast loop, P4 trust and warm-state planner with cache policy, P5 geo hierarchy (pilots in
+[`docs/pilots/`](docs/pilots/)).
+Calibration (P9) waits for SSH access to node C0; until then C0 values are literature/assumed placeholders.
