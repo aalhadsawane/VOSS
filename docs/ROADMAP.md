@@ -147,3 +147,7 @@ From P8:
 - E11 (prediction-error injection × heartbeat period) was not piloted in P6; the `instant` predictor and the
   heartbeat knob exist, noise injection does not yet.
 - HDD tier and P2P effects need SSD pressure and longer horizons (E09, E19 show none at 15 min).
+- Routing herding at scale (E18): with ~1,000 inv/s, `score` routes each metro's demand to its trust-warm home
+  cluster on 1 s-stale cards; those clusters' queues explode (decide P99 12-27 s at 30k-100k workers). Candidate
+  fixes: router-side accounting of its own sends since the last card, power-of-d among near-equal clusters, or
+  spreading hot tenants' trust over several clusters per metro.

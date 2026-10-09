@@ -216,7 +216,7 @@ class VossSystem:
         )
 
     def run(self) -> RunResult:
-        TraceDriver(self.kernel, session_events(self.scn), self._owner).start()
+        TraceDriver(self.kernel, session_events(self.scn, self.scn.horizon + self.cfg.drain_s), self._owner).start()
         arr = invocations(self.scn)
         TraceDriver(self.kernel, arr, client_handler(self.net, self.scn, list(self.directory.routers))).start()
         self.kernel.at(0.0, self._sample)
