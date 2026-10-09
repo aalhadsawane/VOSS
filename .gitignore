@@ -6,4 +6,4 @@ runs/
 .pytest_cache/
 .ruff_cache/
 .claude/
-figures/
+/figures/
