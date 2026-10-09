@@ -102,10 +102,8 @@ class Router(Actor):
             p.inv.fn,
             cards,
             frozenset(p.excluded),
-            rc.cold_penalty_s,
             rc.exposure_s,
             rc.health_s,
-            rc.cold_fn_s,
             self.ctx.cfg.voss.clusters.slo_theta,
         )
         choice: int | None = self.policy(req, self.gen)

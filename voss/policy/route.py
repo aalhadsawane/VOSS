@@ -3,7 +3,8 @@
 ``score(c) = rtt(origin, c) + E[completion_c] + penalty(health_c) + trust_cold_penalty(c, t)``: a cluster without
 trust-warm capacity for the tenant pays the expected key release and cold start plus an exposure increment, so
 spillover is a priced decision. ``E[completion_c]`` minus the (cluster-independent) execution time is the
-cluster's measured overhead, inflated by overload, plus a cold-function term when ``f`` has no warm instance.
+cluster's measured overhead plus its backlog when over-full, plus a cold-function term when ``f`` has no warm
+instance. Cold prices are what this cluster measured such starts to cost (D-33), not constants.
 Baselines: ``nearest``, ``least_loaded``, ``po2_nearby``, ``warm_aware`` (warm state but no trust pricing).
 """
 
@@ -28,10 +29,8 @@ class RouteRequest:
     fn: str
     cards: tuple[ClusterCard, ...]
     excluded: frozenset[int] = frozenset()
-    cold_penalty_s: float = 3.0
-    exposure_s: float = 0.5
-    health_s: float = 5.0
-    cold_fn_s: float = 0.5  # no warm instance of the function in the cluster  # TODO verify
+    exposure_s: float = 0.5  # exposure increment of a trust-cold spill, in seconds  # TODO verify
+    health_s: float = 5.0  # seconds per unit of miss rate above the threshold
     slo_theta: float = 0.2  # miss rate above which a cluster is unhealthy (doc 03 §2)
 
 
@@ -67,15 +66,18 @@ def home_cluster(origin: tuple[float, float], cards: tuple[ClusterCard, ...]) ->
 @register("route", "score")
 def route_score(req: RouteRequest, gen: np.random.Generator) -> int | None:
     trust = np.array(
-        [0.0 if c.trust_warm.get(req.tenant, 0.0) > 0 else req.cold_penalty_s + req.exposure_s for c in req.cards]
+        [0.0 if c.trust_warm.get(req.tenant, 0.0) > 0 else c.cold_trust_s + req.exposure_s for c in req.cards]
     )
-    load = np.array([c.overhead_s * (1 + max(0.0, c.load - 1.0)) for c in req.cards])
     health = np.array([req.health_s * max(0.0, c.slo_miss - req.slo_theta) for c in req.cards])
-    return _pick(req, _rtt(req) + load + health + trust + _cold_fn(req))
+    return _pick(req, _rtt(req) + _queue(req) + health + trust + _cold_fn(req))
+
+
+def _queue(req: RouteRequest) -> np.ndarray:
+    return np.array([c.overhead_s + c.backlog_s for c in req.cards])
 
 
 def _cold_fn(req: RouteRequest) -> np.ndarray:
-    return np.array([0.0 if c.warm_fns.get(req.fn, 0) > 0 else req.cold_fn_s for c in req.cards])
+    return np.array([0.0 if c.warm_fns.get(req.fn, 0) > 0 else c.cold_fn_s for c in req.cards])
 
 
 @register("route", "nearest")
@@ -101,4 +103,4 @@ def route_po2(req: RouteRequest, gen: np.random.Generator, nearby: int = 4) -> i
 
 @register("route", "warm_aware")
 def route_warm(req: RouteRequest, gen: np.random.Generator) -> int | None:
-    return _pick(req, _rtt(req) + _cold_fn(req) + np.array([c.overhead_s for c in req.cards]))
+    return _pick(req, _rtt(req) + _cold_fn(req) + _queue(req))

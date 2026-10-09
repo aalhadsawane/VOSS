@@ -280,12 +280,15 @@ class KeepaliveSummary(Message):
     attested: int
     load: float
     free_slots: int = 0
-    overhead_s: float = 0.2
+    overhead_s: float = 0.0
     trust_warm: tuple[tuple[str, float], ...] = ()
     warm_fns: tuple[tuple[str, int], ...] = ()
     diversity: int = 0
     infeasible: bool = False
     forecast: float = 0.0  # forecast concurrent demand quantile / slots (doc 03 §2 ``Forecast`` trigger)
+    cold_trust_s: float = 3.0  # measured trust + start-up of trust-cold attempts (D-33)
+    cold_fn_s: float = 0.5  # measured start-up of cold (not warm) attempts
+    backlog_s: float = 0.0  # queued work per slot ahead of a new arrival
 
 
 # --- tenant keys (worker ⇄ KBS) --------------------------------------------------------------------------------

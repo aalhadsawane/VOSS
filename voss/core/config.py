@@ -75,10 +75,10 @@ class RouterConfig(Frozen):
     """Doc 03 §3, doc 07 §2 (dispatch watchdog, spillover)."""
 
     name: str = "score"
-    cold_penalty_s: float = 3.0  # expected key release + cold start when not trust-warm  # TODO verify
+    cold_penalty_s: float = 3.0  # prior price of a trust-cold start until a cluster measured one  # TODO verify
     exposure_s: float = 0.5  # exposure increment of a trust-cold spill (seconds-equivalent)
     health_s: float = 5.0  # seconds per unit of router-observed SLO miss rate
-    cold_fn_s: float = 0.5  # no warm instance of the function in the cluster  # TODO verify
+    cold_fn_s: float = 0.5  # prior price of a cold function start until measured  # TODO verify
     T_dispatch: float = 1.0
     T_spill: float = 1.5
     stats_s: float = 5.0

@@ -130,5 +130,16 @@ class Book:
             return None
         lat, lon = self.centroid(c)
         return ClusterCard(
-            c.cid, lat, lon, s.load, s.free_slots, c.slo_miss, s.overhead_s, dict(s.trust_warm), dict(s.warm_fns)
+            c.cid,
+            lat,
+            lon,
+            s.load,
+            s.free_slots,
+            c.slo_miss,
+            s.overhead_s,
+            dict(s.trust_warm),
+            dict(s.warm_fns),
+            s.cold_trust_s,
+            s.cold_fn_s,
+            s.backlog_s,
         )

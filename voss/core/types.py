@@ -144,9 +144,12 @@ class ClusterCard:
     load: float
     free_slots: int
     slo_miss: float
-    overhead_s: float  # measured completion − execution (routing, decision, network, wait, trust, startup)
+    overhead_s: float  # measured in-cluster decision + dispatch + slot wait (D-33)
     trust_warm: Mapping[str, float] = field(default_factory=dict)
     warm_fns: Mapping[str, int] = field(default_factory=dict)
+    cold_trust_s: float = 3.0  # measured price of a trust-cold start here
+    cold_fn_s: float = 0.5  # measured price of a cold function start here
+    backlog_s: float = 0.0  # queued work per slot when over-full
 
 
 @dataclass(frozen=True, slots=True)

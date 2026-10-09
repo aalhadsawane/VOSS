@@ -6,7 +6,6 @@ the decision latency (doc 01 §7); keeps only soft state (in-flight copies, lear
 
 from __future__ import annotations
 
-import math
 import time
 from dataclasses import replace
 
@@ -43,10 +42,9 @@ from voss.runtime.schedlib.inflight import Copy, Inflight
 from voss.runtime.schedlib.models import SchedModels
 from voss.runtime.schedlib.planner_mixin import PlannerMixin
 from voss.runtime.schedlib.planning import Planning
+from voss.runtime.schedlib.prices import Prices, backlog_s
 from voss.runtime.schedlib.viewcache import ViewCache
 from voss.runtime.workerlib.host import HostLocal
-
-OVERHEAD_PRIOR_S = 0.2  # card prior: decision + dispatch hop  # TODO verify
 
 
 class SchedulerRole(PlannerMixin, Actor):
@@ -75,7 +73,8 @@ class SchedulerRole(PlannerMixin, Actor):
         self.retry = BasicRetry(cfg.scheduler.max_attempts, cfg.scheduler.retry_backoff_s)
         self.gen = self.ctx.rng.stream("sched.place", self.hl.worker, self.hl.session)
         self.token = 0
-        self.overhead = OVERHEAD_PRIOR_S  # decision + dispatch + queue wait; trust and cold starts are priced apart
+        rc = cfg.router
+        self.prices = Prices(cold_trust=rc.cold_penalty_s, cold_fn=rc.cold_fn_s)  # measured card prices (D-33)
 
     # --- membership and epochs ----------------------------------------------------------------------------
     def on_message(self, msg: Message) -> None:
@@ -143,8 +142,7 @@ class SchedulerRole(PlannerMixin, Actor):
             return
         view = self.views.view(self.members, self.now)
         summ = summarize(self.cluster, view)
-        decay = math.exp(-self.ctx.cfg.voss.scheduler.keepalive_s / 60.0)  # stale measurements fade to the prior
-        self.overhead = OVERHEAD_PRIOR_S + (self.overhead - OVERHEAD_PRIOR_S) * decay
+        self.prices.decay(self.ctx.cfg.voss.scheduler.keepalive_s)
         warm: dict[str, int] = {}
         for c in view.cache:
             for fn, e in c.items():
@@ -158,12 +156,15 @@ class SchedulerRole(PlannerMixin, Actor):
             summ.attested,
             summ.load,
             summ.free_slots,
-            self.overhead,
+            self.prices.overhead,
             tuple(sorted((str(t), v) for t, v in summ.trust_warm_capacity.items())),
             tuple(sorted(warm.items())),
             summ.diversity,
             bool(prev is not None and prev.cost_terms.get("shortfall", 0.0) > 1e-6),
             self._forecast_load(view),
+            self.prices.cold_trust,
+            self.prices.cold_fn,
+            backlog_s(summ.load, float(self.models.svc)),
         )
         self.send(self.ctx.directory.orchestrator, msg)
         self.after(self.ctx.cfg.voss.scheduler.keepalive_s, self._keepalive)
@@ -331,8 +332,7 @@ class SchedulerRole(PlannerMixin, Actor):
             return
         del self.inflight[o.inv]
         self.done.add(o.inv)
-        t = o.timings
-        self.overhead += 0.05 * ((c.t_dispatch - rec.t_in) + t.wait - self.overhead)  # in-cluster only
+        self.prices.outcome(o, c.t_dispatch - rec.t_in if rec.inv.slo_class == SloClass.SYNC else None)
         for other in sorted(rec.copies.values(), key=lambda x: x.attempt):
             if other.attempt != o.attempt:
                 self.send(("agent", other.worker), Cancel(o.inv, other.attempt))

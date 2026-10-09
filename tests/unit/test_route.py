@@ -11,9 +11,14 @@ from voss.policy.route import RouteRequest
 LONDON, PARIS, NYC = (51.5, -0.1), (48.9, 2.3), (40.7, -74.0)
 
 
-def _card(cid: int, at: tuple[float, float], load: float = 0.3, warm: bool = True, free: int = 10) -> ClusterCard:
+def _card(
+    cid: int, at: tuple[float, float], load: float = 0.3, warm: bool = True, free: int = 10, cold: float = 3.0
+) -> ClusterCard:
     trust = {"t0": 1.0} if warm else {}
-    return ClusterCard(cid, at[0], at[1], load, free, 0.0, 0.5, trust, {"f": 2} if warm else {})
+    backlog = 0.5 * max(0.0, load - 1.0)
+    return ClusterCard(
+        cid, at[0], at[1], load, free, 0.0, 0.1, trust, {"f": 2} if warm else {}, cold, cold / 6, backlog
+    )
 
 
 def _route(name: str, req: RouteRequest, seed: int = 0) -> int | None:
@@ -29,8 +34,8 @@ def test_score_prefers_near_trust_warm() -> None:
 def test_score_prices_trust_cold_spillover() -> None:
     near_cold, far_warm = _card(0, PARIS, warm=False), _card(1, NYC)
     assert _route("score", RouteRequest(LONDON, "t0", "f", (near_cold, far_warm))) == 1
-    cheap = RouteRequest(LONDON, "t0", "f", (near_cold, far_warm), cold_penalty_s=0.0, exposure_s=0.0, cold_fn_s=0.0)
-    assert _route("score", cheap) == 0
+    cheap_cold = _card(0, PARIS, warm=False, cold=0.0)  # this cluster measured cold starts as nearly free
+    assert _route("score", RouteRequest(LONDON, "t0", "f", (cheap_cold, far_warm), exposure_s=0.0)) == 0
     assert _route("nearest", RouteRequest(LONDON, "t0", "f", (near_cold, far_warm))) == 0
 
 
@@ -52,5 +57,5 @@ def test_po2_is_seeded_and_warm_aware_ignores_trust() -> None:
     cards = (_card(0, PARIS), _card(1, NYC, load=0.1), _card(2, LONDON, load=0.9))
     req = RouteRequest(LONDON, "t0", "f", cards)
     assert _route("po2_nearby", req, 3) == _route("po2_nearby", req, 3)
-    cold_trust = ClusterCard(0, PARIS[0], PARIS[1], 0.3, 10, 0.0, 0.5, {}, {"f": 2})
+    cold_trust = ClusterCard(0, PARIS[0], PARIS[1], 0.3, 10, 0.0, 0.1, {}, {"f": 2})
     assert _route("warm_aware", RouteRequest(LONDON, "t0", "f", (cold_trust, _card(1, NYC)))) == 0
