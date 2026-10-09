@@ -56,8 +56,8 @@ def report(exp: str, df: pd.DataFrame) -> str:
         f"| {head} |",
         "|" + "---|" * (len(keys) + 1 + len(COLS)),
     ]
-    for key, g in df.groupby(keys):
-        key = key if isinstance(key, tuple) else (key,)
+    for raw, g in df.groupby(keys):
+        key = raw if isinstance(raw, tuple) else (raw,)
         cells = [fmt(*bootstrap_ci(g[c].to_numpy()), digits=3) for c in COLS]
         lines.append(f"| {' | '.join(map(str, key))} | {len(g)} | {' | '.join(cells)} |")
     return "\n".join(lines) + "\n"
