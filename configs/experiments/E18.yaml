@@ -1,0 +1,15 @@
+# E18 pilot (doc 06 §5, RQ14): scalability, 10² → 10⁵ workers in scalability mode (configs/scalability.yaml:
+# coarse heartbeats, greedy placement, 2 min), load proportional to the population (0.01 inv/s per worker).
+# Overheads per attested worker, placement and orchestrator decision costs, and simulator speed.
+experiment: E18
+base: ../scalability.yaml
+systems:
+  n100: [scenario.workers=100, scenario.load.rate=1]
+  n1k: [scenario.workers=1000, scenario.load.rate=10]
+  n10k: [scenario.workers=10000, scenario.load.rate=100]
+  n30k: [scenario.workers=30000, scenario.load.rate=300]
+  n100k: [scenario.workers=100000, scenario.load.rate=1000]
+seeds: [1, 2]
+report:
+  keys: [label]
+  metrics: [workers, attested, success, p50_sync, p99_sync, ctrl_msgs_ws, ctrl_kb_ws, decide_p99, route_p99, orch_cpu_s, sim_s_per_s]

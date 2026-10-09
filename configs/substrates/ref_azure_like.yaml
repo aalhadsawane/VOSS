@@ -1,0 +1,23 @@
+# Reference cloud, Azure-Functions-consumption-like (doc 02 §9): shared function hosts scaled out on demand, no
+# attestation or key release. Published cold-start figures only (doc 10 §5).
+provenance: {default: literature, source: "Shahrad et al. ATC'20; Manner et al. 2018 (consumption cold starts 1-5 s)"}
+name: ref_azure_like
+assurance_base: 1.0
+concurrent_owner_use: false
+session:
+  establish:
+    - {op: rpc, to: verifier, size: 1KB, reply: 1KB}   # fleet registration only
+  reattest: []
+  reattest_every_s: 1.0e9
+  valid_s: 1.0e12
+trust: []
+ladder:
+  levels: [L0, L1, L3, L4]
+  ready: L3
+  busy: L4
+  persistent: [L1]
+  transitions:
+    L0->L1: [{op: delay, dist: {dist: lognormal, median: 0.3, sigma: 0.6, tag: literature, source: "package mount from storage"}}]
+    L1->L3: [{op: delay, dist: {dist: lognormal, median: 1.5, sigma: 0.6, tag: literature, source: "host allocation + runtime start"}}, {op: cpu, work: fn.init_s}]
+    L3->L4: [{op: delay, dist: measured/dispatch}]
+slowdown: {cpu: 1.0, mem: 1.0, io: 1.0}

@@ -37,6 +37,8 @@ def keys_released(rec: Recorder) -> list[str]:
     """No tenant key used on a worker without a successful ``KEY_REQUEST`` in the same session, and not after the
     key was dropped (``RELEASE`` + linger) unless it was released again."""
     ex = _events(rec, "exec_start")
+    if ex.empty:
+        return []
     hist: dict[tuple[int, str, str], list[tuple[float, int]]] = {}
     for kind, sign in (("key_release", 1), ("key_dropped", -1)):
         ev = _events(rec, kind)
@@ -110,7 +112,11 @@ def receipts_match_ground_truth(rec: Recorder, end: float, result_drops: int) ->
     the network lost it or its session certificate was revoked before it arrived."""
     sent = _events(rec, "result_sent")
     rc = rec.frame(Table.RECEIPTS)
-    paid = rc[rc.status.isin(["ok", "duplicate"])] if len(rc) else rc
+    if sent.empty and rc.empty:
+        return []
+    if sent.empty or rc.empty:
+        return [f"{len(sent)} results sent but {len(rc)} receipt rows"]
+    paid = rc[rc.status.isin(["ok", "duplicate"])]
     truth = set(zip(sent.inv.astype(int), sent.value.astype(int), sent.worker.astype(int), strict=True))
     got = set(zip(paid.inv.astype(int), paid.attempt.astype(int), paid.worker.astype(int), strict=True))
     out = [f"receipt without a result: {r}" for r in sorted(got - truth)[:5]]

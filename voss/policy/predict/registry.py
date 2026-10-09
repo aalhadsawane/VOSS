@@ -7,6 +7,7 @@ from typing import Any
 from voss.core.registry import create
 from voss.policy.predict import blr as _blr  # noqa: F401  (registers predictors)
 from voss.policy.predict import ewma as _ewma  # noqa: F401
+from voss.policy.predict import instant as _instant  # noqa: F401
 from voss.policy.predict import means as _means  # noqa: F401
 from voss.policy.predict.base import FnPrior
 

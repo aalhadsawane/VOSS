@@ -1,0 +1,15 @@
+# E17 pilot (doc 06 §5, RQ15): VOSS vs AWS-Lambda-like and Azure-consumption-like reference clouds on the same
+# workload (paired arrivals), benign volunteers, across load. Sync latency, success and cost per million
+# invocations (published list prices for the references; orchestrator-tier VMs for VOSS, volunteer credits apart).
+experiment: E17
+base: ../pilot.yaml
+systems:
+  voss: []
+  ref_lambda_like: [system=reference_cloud, reference=ref_lambda_like]
+  ref_azure_like: [system=reference_cloud, reference=ref_azure_like]
+grid:
+  scenario.load.rate: [10, 20, 40]
+seeds: [1, 2, 3]
+report:
+  keys: [label, scenario.load.rate]
+  metrics: [success, p50_sync, p99_sync, met, cost_per_m, credits_per_m]

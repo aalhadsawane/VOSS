@@ -1,0 +1,15 @@
+# Ablation switches (doc 06 §4 "Ablations (MUST)"): each name removes one VOSS mechanism from the full system.
+# E19 runs every switch paired against `voss_full` on the same scenarios; `make sweep EXP=E19` expands them.
+no_geo: [voss.clusters.mode=none_global]                     # geo-clustering → one global scheduler
+no_dynamic: [voss.clusters.mode=static_kmeans]               # dynamic orchestration → static clusters
+no_planning: [voss.planner.name=none]                        # trust and warm-state planning → reactive
+no_robustness: [voss.planner.f_from_alpha=0.0, voss.planner.params.use_robust=false]
+no_exposure: [voss.planner.params.use_exposure=false, voss.cost.lambda_exposure=0.0]
+no_hedging: ['voss.hedge.name="off"']
+no_progress: [voss.detection.mode=heartbeat_only]            # progress detection → heartbeats only
+no_prediction: [voss.predictor.name=instant, voss.predictor.conformal=false]
+no_lifecycle: [voss.cost.lifecycle_aware=false]              # lifecycle/cache awareness in placement
+no_heterogeneity: [voss.scheduler.hetero_aware=false]        # predictions ignore worker speed
+no_hdd: [voss.cache.hdd_tier=false]
+no_p2p: [voss.cache.p2p=false]
+reputation_in_cost: [voss.reputation.in_cost=true]           # double-counting ablation (doc 09 §1)

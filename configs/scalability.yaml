@@ -1,0 +1,11 @@
+# Scalability mode (doc 01 §9, E18): 10⁵ workers with greedy placement, coarse heartbeats and a short horizon.
+# Heartbeats every 10 s (staleness bounds scaled with them), greedy planner and placers, modeled decision clock.
+extends: pilot.yaml
+horizon_s: 120
+drain_s: 20
+decision_clock: {mode: modeled}
+voss:
+  scheduler: {heartbeat_s: 10.0, stale_after_s: 35.0, keepalive_s: 2.0}
+  orchestrator: {keepalive_timeout_s: 8.0}
+  planner: {name: greedy, T_plan: 60}
+  placer: {sync: greedy, async: greedy}

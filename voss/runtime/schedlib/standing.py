@@ -77,4 +77,4 @@ class EventsMixin:
 
     def _scores(self, m: ReputationScores) -> None:
         if self.active and m.cluster == self.cluster and m.epoch == self.epoch:
-            self.planning.rep = {int(w): s for w, s in m.scores}
+            self.planning.models.rep = {int(w): s for w, s in m.scores}

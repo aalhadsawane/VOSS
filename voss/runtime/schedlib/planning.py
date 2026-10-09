@@ -42,7 +42,6 @@ class Planning:
             kw = {"time_limit": pc.T_solve, "node_limit": pc.node_limit}
         self.planner: Any = create("planner", pc.name, **kw)
         self.params = PlanParams(**{"tie_break": cfg.reputation.tie_break, **pc.params})
-        self.rep: dict[int, float] = {}  # orchestrator-pushed tie-break scores
         self.prev: Plan | None = None
         self._last_sig: tuple[object, ...] = ()
 
@@ -89,7 +88,7 @@ class Planning:
             mem_mb=np.array([s.mem_mb if s else 0.0 for s in st]),
             ssd_mb=np.array([s.ssd_mb if s else 0.0 for s in st]),
             survival=survival,
-            p_omit=self.models.omission.p_omit(workers),
+            p_omit=self.models.p_omit(workers),
             assurance=view.assurance[idx],
             domain=view.domain[idx],
             fresh_ok=view.session_expiry[idx] > now + min(horizon, 300.0),
@@ -108,7 +107,7 @@ class Planning:
             fn_units=np.array([float(poisson_quantile(fn_rates[f] * self._svc(f), 0.95)) for f in fns]),
             y_prev=prev_y,
             params=self.params,
-            rep=np.array([self.rep.get(int(w), 0.0) for w in workers]) if self.rep else None,
+            rep=np.array([self.models.rep.get(int(w), 0.0) for w in workers]) if self.models.rep else None,
         )
 
     def _svc(self, fn: str) -> float:
