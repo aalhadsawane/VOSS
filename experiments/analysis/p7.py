@@ -46,6 +46,7 @@ NOTES = {
     "lat_max": "worst receipt → credit latency",
     "complete": "verified receipts ÷ results sent by workers (ground truth)",
     "missing": "results sent before the end without a receipt",
+    "unexplained": "missing receipts not accounted for by results lost in the network (owner powered off mid-upload)",
 }
 
 
@@ -110,7 +111,8 @@ def _accounting(run: Path, ev: pd.DataFrame, horizon: float) -> dict[str, float]
         "lat_p50": float(st.lat_p50.mean()) if len(st) else np.nan,
         "lat_max": float(st.lat_max.max()) if len(st) else np.nan,
         "complete": len(paid) / max(len(sent), 1),
-        "missing": float(len(_missing(sent, paid, horizon))),
+        "missing": float(len(miss := _missing(sent, paid, horizon))),
+        "unexplained": float(max(0, len(miss) - int(msg[msg.kind == "Result"].drops.sum()))) if len(msg) else np.nan,
     }
 
 
