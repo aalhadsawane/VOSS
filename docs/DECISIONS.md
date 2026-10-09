@@ -217,3 +217,67 @@ inside an offline microVM the guest runs small kernels with the same libraries a
 `distributions.yaml`, a measured bundle may carry `hardware.yaml` (fields of hardware classes, e.g. C0 disk speeds)
 and `functions.yaml` (per-function profile fields); loaders overlay them on the literature YAMLs when a run's
 `calibration` points at that bundle. The placeholder bundle has neither, so existing runs are unchanged.
+
+**D-42 Stalls are judged on router evidence, with a grace period** (P6). A router reports `STALL` when dispatch
+watchdogs fire for `stall_n` distinct invocations of one cluster within `stall_window_s` (rate-limited), and includes
+how long since it last saw an `ACCEPTED` from that cluster. The orchestrator suspects the scheduler only if that idle
+time exceeds `T_dispatch` (an over-full cluster still gets new dispatches accepted: a capacity problem for the
+triggers, not a reason to replace its scheduler) and only after a grace period following an appointment (a new
+scheduler without a view defers everything). *Rejected:* the scheduler's self-reported load (a black-holed scheduler
+looks over-full because its own lost dispatches count as in flight).
+
+**D-43 Retries skip admission** (P6). Admission (doc 03 §5.4, D-27) decides whether new load enters. A retry was
+admitted already; past its deadline the overload test is trivially true and would turn a recovered fault into a
+rejection. Retries are placed whenever a feasible candidate exists.
+
+**D-44 Schedulers report their own lost dispatches** (P6). A copy without `ACCEPTED` after 2 × `T_dispatch` is failed
+and retried elsewhere (scheduler-side dispatch watchdog). The keepalive reports how many distinct workers had such
+losses recently; at `stall_n` the orchestrator suspects the scheduler (`unaccepted`). The attested scheduler code
+cannot stop its host from dropping messages, but it can notice and say so. Routers otherwise route around a
+black-holed cluster (its summary shows no free slots) and its stalls become rare: detection fell from 33 s to ~2-8 s.
+
+**D-45 Probe replies come from the attested agent** (P6). The result watchdog fires at `slack × q90` of the predicted
+execution; the scheduler probes and the agent answers `running`, `done` (with the time it sent the result) or
+`unknown`. `done` long ago without an outcome is direct evidence of omission on the host's network; an omitting
+owner drops the probe reply along with the result, so no reply also fails the copy. A fenced (zombie) scheduler draws
+no conclusions from its own unanswered probes.
+
+**D-46 What a successor inherits** (P6). Checkpoints carry the last plan and a frozen copy of the learned models
+(predictor, survival, omission, forecaster), epoch-fenced at the orchestrator. On appointment with a predecessor,
+workers answer `EPOCH_INSTALL(roll_call)` with their running attempts (adopted with fresh watchdogs, their outcomes
+re-pointed to the successor) and their retained outcomes (replayed into the predictor). One warm standby per cluster
+receives heartbeats and is promoted first, keeping its view. Leases ride on keepalive replies; a scheduler without a
+fresh lease stops dispatching.
+
+**D-47 The decision-latency SLO is absolute** (P6, doc 07 §6). `T_decide_max` = 200 ms on the p90 of placement
+latency (queueing on the scheduler included) over consecutive keepalive periods with decisions. With modeled
+placement costs of 1-2 ms, only a severe slowdown (≥ 100×) breaches it; E15 injects 400×.
+
+**D-48 Receipt statuses** (P7, doc 09 §3). The router writes one `receipts` row per attempt: `ok` (the verified result
+that finished the invocation), `duplicate` (a verified result of an already finished invocation: a hedge loser that
+completed) and `no_result` (every other attempt, written when the invocation reaches its terminal outcome; for a
+timeout that is the router's give-up). Duplicates are credited like `ok`: the scheduler asked for the work and the
+receipt proves it was done. Signature checks are charged as router CPU (`verify`) on the asynchronous batch path.
+
+**D-49 Settlement is its own actor reading the DB journal** (P7, doc 09 §4). The `credits` batch job runs in the
+orchestrator tier as a separate actor: every `settle_s` it reads, by cursor, the receipts, scheduler-role records and
+cache accruals appended since its last read, pays after the charged CPU time (`settle`), and returns verified on-time
+and late reference work to the orchestrator for reputation. Scheduler time is credited from each role record until the
+cluster's next record (a crashed holder keeps accruing until its successor's appointment, a few seconds).
+
+**D-50 The share cap guards the reputation bonus, not credits** (P7, doc 09 §2 guards). Capping paid credits would
+confiscate verified work: in the first pilot the cap clipped over half of all work credit, because trust-warm sets
+concentrate work on few workers by design. Instead, an identity holding more than `share_cap` of the last settlement's
+verified work gets no tie-break bonus (when the cap is feasible, i.e. at least `1/share_cap` identities earned).
+
+**D-51 Reputation inputs and weights** (P7, doc 09 §1-2). Disjoint from survival and omission: a session shorter than
+its declared tier's commitment (`dedicated` 24 h, `nightly` 4 h; `idle` declares none) is a breach (β 3 / 1, half with
+a graceful notice), any other session end is honored (α 1); verified on-time work adds α 0.1 per reference unit, late
+work β 0.05 per unit (the delivered-vs-declared shortfall the simulator can observe); omission change points add β 2
+and suspicions β 1 (the long-run omission summary). Abrupt ends are seen at certificate expiry or at the identity's
+next join. `survival_informed` also counts every abrupt end (the double-counting variant). All weights `assumed`.
+
+**D-52 How reputation breaks ties** (P7, doc 09 §1). Greedy multiplies a worker's selection score by
+`1 + tie_break × score`; the MILP scales the trust-exposure and churn costs by `1 − tie_break × score`. Plan objective
+terms are reported without it. Newcomers in probation get the exploration floor `ε` as score. Reputation never enters
+`pFail`; the `reputation_in_cost` ablation belongs to the P8 ablation switches.

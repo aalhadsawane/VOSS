@@ -7,9 +7,10 @@ the decision latency (doc 01 §7); keeps only soft state (in-flight copies, lear
 from __future__ import annotations
 
 import time
+from collections import deque
 from dataclasses import replace
 
-from voss.core.ids import ClusterId, InvId, TenantId, WorkerId
+from voss.core.ids import Addr, ClusterId, InvId, TenantId, WorkerId
 from voss.core.messages import (
     Accepted,
     Appoint,
@@ -21,7 +22,6 @@ from voss.core.messages import (
     EpochInstall,
     Heartbeat,
     HomeDemand,
-    KeepaliveSummary,
     Membership,
     Message,
     OutcomeMsg,
@@ -30,9 +30,10 @@ from voss.core.messages import (
     Stale,
     Withdraw,
 )
-from voss.core.types import ClusterView, Outcome, SloClass
+from voss.core.messages_acct import ReputationScores
+from voss.core.messages_ft import Handover, Lease, Pong, RollCallReport, Standby
+from voss.core.types import Outcome, SloClass
 from voss.metrics.schema import Table
-from voss.observe.summaries import summarize
 from voss.policy.cost.inputs import CostContext
 from voss.policy.predict.base import ExecObs, FnPrior
 from voss.policy.retry import BasicRetry
@@ -42,12 +43,16 @@ from voss.runtime.schedlib.inflight import Copy, Inflight
 from voss.runtime.schedlib.models import SchedModels
 from voss.runtime.schedlib.planner_mixin import PlannerMixin
 from voss.runtime.schedlib.planning import Planning
-from voss.runtime.schedlib.prices import Prices, backlog_s
+from voss.runtime.schedlib.prices import Prices
+from voss.runtime.schedlib.report import ReportMixin
+from voss.runtime.schedlib.standing import EventsMixin
+from voss.runtime.schedlib.succession import SuccessionMixin
 from voss.runtime.schedlib.viewcache import ViewCache
+from voss.runtime.schedlib.watchdog import WatchdogMixin
 from voss.runtime.workerlib.host import HostLocal
 
 
-class SchedulerRole(PlannerMixin, Actor):
+class SchedulerRole(WatchdogMixin, SuccessionMixin, EventsMixin, ReportMixin, PlannerMixin, Actor):
     role = "sched"
 
     def __init__(self, host: HostLocal, ctx: ActorContext, cost: CostContext, priors: dict[str, FnPrior]) -> None:
@@ -55,13 +60,22 @@ class SchedulerRole(PlannerMixin, Actor):
         self.hl, self.cost, self.priors = host, cost, priors
         self.reset()
 
-    def reset(self) -> None:
-        """Host loss: all soft state is gone (doc 07 §3)."""
+    def reset(self, keep_view: bool = False) -> None:
+        """Host loss: all soft state is gone (doc 07 §3). A promoted standby keeps its warm view."""
         self.cancel_timers()
         cfg = self.ctx.cfg.voss
         self.active, self.cluster, self.epoch = False, ClusterId(0), 0
-        self.members: set[WorkerId] = set()
-        self.views = ViewCache(cfg.scheduler.view_refresh_s)
+        if not keep_view:
+            self.members: set[WorkerId] = set()
+            self.views = ViewCache(cfg.scheduler.view_refresh_s)
+        self.suspects: dict[WorkerId, float] = {}
+        self.streak: dict[WorkerId, int] = {}
+        self.unaccepted: deque[tuple[float, WorkerId]] = deque()
+        self.decide_lat: deque[float] = deque(maxlen=256)
+        self._init_standing()
+        self.lease_until, self.fenced_logged, self.roll_call = 0.0, False, False
+        self.standby: Addr | None = None
+        self.standby_for: tuple[ClusterId, int] | None = None
         self.inflight: dict[InvId, Inflight] = {}
         self.done: set[InvId] = set()
         self.window: list[InvId] = []
@@ -79,7 +93,7 @@ class SchedulerRole(PlannerMixin, Actor):
     # --- membership and epochs ----------------------------------------------------------------------------
     def on_message(self, msg: Message) -> None:
         if isinstance(msg, Heartbeat):
-            if self.active:
+            if self.active or self.standby_for is not None:
                 self.views.heard(msg.state, self.now)
         elif isinstance(msg, Enqueue):
             self._enqueue(msg)
@@ -92,25 +106,48 @@ class SchedulerRole(PlannerMixin, Actor):
             self._outcome(msg.outcome)
         elif isinstance(msg, Accepted):
             rec = self.inflight.get(msg.inv)
-            if rec is not None and msg.attempt in rec.copies:
+            if rec is not None and msg.attempt in rec.copies and not rec.copies[msg.attempt].accepted:
                 rec.copies[msg.attempt].accepted = True
+                self._arm(rec, rec.copies[msg.attempt])
+        elif isinstance(msg, Pong):
+            self._pong(msg)
+        elif isinstance(msg, Lease):
+            self._lease(msg)
+        elif isinstance(msg, RollCallReport):
+            self._roll_call(msg)
+        elif isinstance(msg, Standby):
+            self._standby(msg)
+        elif isinstance(msg, Handover):
+            if msg.epoch == self.epoch:
+                self._handover()
         elif isinstance(msg, Appoint):
             self._appoint(msg)
         elif isinstance(msg, Membership):
             self._membership(msg)
         elif isinstance(msg, Revoke) or (isinstance(msg, Stale) and msg.cluster == int(self.cluster)):
             self._deactivate(msg.epoch)
+        elif isinstance(msg, ReputationScores):
+            self._scores(msg)
         elif isinstance(msg, DrainNotice):
             pass  # hint only: the view's drain flag arrives with the next heartbeat (doc 07 §4)
 
     def _appoint(self, m: Appoint) -> None:
         if m.cert_id != self.hl.cert_id or m.epoch <= self.epoch or not self.hl.attested:
             return
-        self.reset()
+        warm = self.standby_for is not None and self.standby_for[0] == m.cluster
+        self.reset(keep_view=warm)
         self.active, self.cluster, self.epoch = True, m.cluster, m.epoch
-        self.ctx.rec.log(Table.EVENTS, t=self.now, kind="scheduler_active", worker=self.hl.worker, value=m.epoch)
+        reason = "standby" if warm else "cold"
+        self.ctx.rec.log(
+            Table.EVENTS, t=self.now, kind="scheduler_active", worker=self.hl.worker, value=m.epoch, reason=reason
+        )
+        self._restore(m)
+        self.roll_call = m.succession
+        if warm:
+            self.members = set()  # re-install every member under the new epoch
         self._membership(Membership(m.cluster, m.epoch, m.members))
         self._keepalive()
+        self._start_reports()
         cfg = self.ctx.cfg.voss
         self.after(cfg.scheduler.heartbeat_s, self._check_silent)
         self.after(cfg.models.refit_s, self._refit)
@@ -121,7 +158,8 @@ class SchedulerRole(PlannerMixin, Actor):
             return
         new = set(m.members)
         for w in sorted(new - self.members):
-            self.send(("agent", w), EpochInstall(self.cluster, self.epoch, self.addr, self.hl.cert_id))
+            install = EpochInstall(self.cluster, self.epoch, self.addr, self.hl.cert_id, self.standby, self.roll_call)
+            self.send(("agent", w), install)
         moved = set(m.moved)
         for w in sorted(self.members - new):
             if w in moved:
@@ -136,50 +174,12 @@ class SchedulerRole(PlannerMixin, Actor):
             self.ctx.rec.log(Table.EVENTS, t=self.now, kind="scheduler_inactive", worker=self.hl.worker, value=epoch)
             self.reset()
 
-    def _keepalive(self) -> None:
-        """``KEEPALIVE+SUMMARY`` (doc 08 §4): load, free capacity, trust-warm capacity per tenant, warm functions."""
-        if not self.active:
-            return
-        view = self.views.view(self.members, self.now)
-        summ = summarize(self.cluster, view)
-        self.prices.decay(self.ctx.cfg.voss.scheduler.keepalive_s)
-        warm: dict[str, int] = {}
-        for c in view.cache:
-            for fn, e in c.items():
-                if e.level == "L3":
-                    warm[str(fn)] = warm.get(str(fn), 0) + 1
-        prev = self.planning.prev
-        msg = KeepaliveSummary(
-            self.cluster,
-            self.epoch,
-            self.hl.worker,
-            summ.attested,
-            summ.load,
-            summ.free_slots,
-            self.prices.overhead,
-            tuple(sorted((str(t), v) for t, v in summ.trust_warm_capacity.items())),
-            tuple(sorted(warm.items())),
-            summ.diversity,
-            bool(prev is not None and prev.cost_terms.get("shortfall", 0.0) > 1e-6),
-            self._forecast_load(view),
-            self.prices.cold_trust,
-            self.prices.cold_fn,
-            backlog_s(summ.load, float(self.models.svc)),
-        )
-        self.send(self.ctx.directory.orchestrator, msg)
-        self.after(self.ctx.cfg.voss.scheduler.keepalive_s, self._keepalive)
-
-    def _forecast_load(self, view: ClusterView) -> float:
-        """Forecast concurrent demand (sum of per-function capacity quantiles) over attested slots."""
-        d = self.models.forecaster.forecast(self.now)
-        need = sum(q for k, q in d.q.items() if k.startswith("fn:"))
-        return float(need / max(1, int(view.slots.sum())))
-
     def _check_silent(self) -> None:
         if not self.active:
             return
         for w in self.views.store.silent_since(self.now, self.ctx.cfg.voss.scheduler.stale_after_s):
             self._lost(w)
+        self._expire_suspicion()
         self.after(self.ctx.cfg.voss.scheduler.heartbeat_s, self._check_silent)
 
     def _refit(self) -> None:
@@ -248,18 +248,26 @@ class SchedulerRole(PlannerMixin, Actor):
             r.deciding = True
             if r.t_window is not None:
                 r.batch_wait, r.t_window = self.now - r.t_window, None
-        view = self.views.view(self.members, self.now)
+        view = self.views.view(self.eligible(), self.now)
         routers = tuple(str(r.router[1]) for r in recs)
         t0 = time.perf_counter()
         d = self.decider.decide(tuple(r.inv for r in recs), view, self.now, routers, self.gen, windowed, self.views.idx)
         wall = time.perf_counter() - t0
         delay = self.ctx.clock.charge("place", work=d.work, host_speed=self.hl.speed, wall_s=wall)
+        if self.now < self.hl.extra.get("slow_until", 0.0):
+            delay *= self.hl.extra["slow_factor"]  # a throttled scheduler host (doc 07 §2 decision-latency SLO)
         start = max(self.now, self.busy_until)
         self.busy_until = start + delay
+        self.decide_lat.append(self.busy_until - self.now)
         self.after(self.busy_until - self.now, self._apply, d, [r.inv.id for r in recs], windowed)
 
     def _apply(self, d: Decision, ids: list[InvId], windowed: bool) -> None:
         cfg = self.ctx.cfg.voss
+        if self.fenced():
+            for inv_id in ids:  # no lease: never dispatch; the router re-sends to whoever holds the cluster
+                if inv_id in self.inflight:
+                    self.inflight[inv_id].deciding = False
+            return
         for inv_id in ids:
             rec = self.inflight.get(inv_id)
             if rec is None:
@@ -303,6 +311,7 @@ class SchedulerRole(PlannerMixin, Actor):
         )
         self.send(("agent", w), d)
         self.send(rec.router, Assigned(inv.id, a, w, self.epoch, self.token, int(self.cluster)))
+        self._arm_dispatch(rec, rec.copies[a])
         if inv.slo_class == SloClass.SYNC:
             self._preempt_filler(w)
 
@@ -332,6 +341,7 @@ class SchedulerRole(PlannerMixin, Actor):
             return
         del self.inflight[o.inv]
         self.done.add(o.inv)
+        self.streak.pop(c.worker, None)
         self.prices.outcome(o, c.t_dispatch - rec.t_in if rec.inv.slo_class == SloClass.SYNC else None)
         for other in sorted(rec.copies.values(), key=lambda x: x.attempt):
             if other.attempt != o.attempt:

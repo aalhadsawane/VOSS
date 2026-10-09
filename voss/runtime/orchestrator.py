@@ -10,9 +10,7 @@ import numpy as np
 
 from voss.core.ids import ClusterId, NodeId, WorkerId
 from voss.core.messages import (
-    Appoint,
     Assign,
-    DbCasEpoch,
     DbCasResult,
     DrainNotice,
     HomeDemand,
@@ -27,17 +25,20 @@ from voss.core.messages import (
     SchedulerAddr,
     Summaries,
 )
+from voss.core.messages_acct import ReportEvents, Settled
+from voss.core.messages_ft import PutCheckpoint, Stall
 from voss.metrics.schema import Table
 from voss.policy.orchestrate import ClusterParams, form_clusters, nearest_cluster
 from voss.policy.orchestrate_triggers import NEW_CLUSTER, step
-from voss.policy.succession_rank import rank
 from voss.runtime.actor import Actor, ActorContext
+from voss.runtime.orchlib.appoint import AppointMixin
 from voss.runtime.orchlib.book import Book, Cluster, MemberRec
+from voss.runtime.orchlib.standing import StandingMixin
 
 RegionOf = Callable[[float, float], int]
 
 
-class Orchestrator(Actor):
+class Orchestrator(StandingMixin, AppointMixin, Actor):
     role = "orch"
 
     def __init__(self, host: NodeId, ctx: ActorContext, region_of: RegionOf) -> None:
@@ -66,21 +67,23 @@ class Orchestrator(Actor):
         self.after(cc.period_s, self._push_home)
         if self.mode == "dynamic":
             self.after(cc.period_s, self._period)
+        self._init_standing()
 
     # --- messages -------------------------------------------------------------------------------------------
     def on_message(self, msg: Message) -> None:
         if isinstance(msg, Join):
             self._join(msg)
         elif isinstance(msg, Leave | RevokeSession):
-            self._remove(msg.worker, msg.cert_id)
+            if self._remove(msg.worker, msg.cert_id):
+                self._session_end(msg.worker, abrupt=isinstance(msg, RevokeSession))
         elif isinstance(msg, DrainNotice):
-            m = self.book.members.get(msg.worker)
-            if m is not None:
-                m.draining = True  # hint: deprioritized for appointment only (doc 07 §4)
+            self._drain(msg.worker)
         elif isinstance(msg, KeepaliveSummary):
-            c = self.book.clusters.get(int(msg.cluster))
-            if c is not None and c.holder is not None and msg.epoch == c.epoch and msg.worker == c.holder[0]:
-                c.last_keepalive, c.summary = self.now, msg
+            self._keepalive(msg)
+        elif isinstance(msg, Stall):
+            self._stall(msg)
+        elif isinstance(msg, PutCheckpoint):
+            self._checkpoint(msg)
         elif isinstance(msg, RouterStats):
             for cid, n, missed in msg.stats:
                 c = self.book.clusters.get(cid)
@@ -92,9 +95,25 @@ class Orchestrator(Actor):
                     c.home[key] = c.home.get(key, 0) + n
         elif isinstance(msg, DbCasResult):
             self._cas_result(msg)
+        elif isinstance(msg, ReportEvents):
+            self._report_events(msg)
+        elif isinstance(msg, Settled):
+            self._settled(msg)
+
+    def _drain(self, w: WorkerId) -> None:
+        """A hint (doc 07 §4): deprioritized for appointment; a draining scheduler hands over (planned)."""
+        m = self.book.members.get(w)
+        if m is None:
+            return
+        m.draining = True
+        c = self.book.clusters.get(m.cluster)
+        if c is not None and c.holder is not None and c.holder[0] == w:
+            self._handover(c, "drain")
 
     def _join(self, m: Join) -> None:
-        self._remove(m.worker, None)
+        if self._remove(m.worker, None):
+            self._session_end(m.worker, abrupt=True)  # the previous session ended unannounced
+        self._session_start(m.worker, m.tier)
         self.book.members[m.worker] = MemberRec(
             m.cert_id, m.expiry, m.assurance, m.speed, m.slots, m.domain, m.lat, m.lon
         )
@@ -105,18 +124,19 @@ class Orchestrator(Actor):
             return
         self._assign(m.worker, self._home(m.worker))
 
-    def _remove(self, w: WorkerId, cert_id: str | None) -> None:
+    def _remove(self, w: WorkerId, cert_id: str | None) -> bool:
         m = self.book.members.get(w)
         if m is None or (cert_id is not None and m.cert_id != cert_id):
-            return
+            return False
         if w in self.pending:
             self.pending.remove(w)
         c = self.book.remove(w)
         if c is None:
-            return
+            return True
         if c.holder is not None and c.holder[0] == w:
             self._appoint(c, frozenset({w}))
         self._changed(c)
+        return True
 
     # --- arrangement ----------------------------------------------------------------------------------------
     def _form(self) -> None:
@@ -208,59 +228,10 @@ class Orchestrator(Actor):
     def _dissolve(self, c: Cluster) -> None:
         if c.holder is not None:
             self.send(("sched", c.holder[0]), Revoke(ClusterId(c.cid), c.epoch + 1))
+            self._role_record(c, WorkerId(-1), None, c.epoch + 1)
         del self.book.clusters[c.cid]
         for r in self.ctx.directory.routers:
             self.send(r, SchedulerAddr(ClusterId(c.cid), c.epoch + 1, None))
-
-    # --- appointment ----------------------------------------------------------------------------------------
-    def _check(self) -> None:
-        cfg = self.ctx.cfg.voss.orchestrator
-        for cid in sorted(self.book.clusters):
-            c = self.book.clusters[cid]
-            if c.holder is not None and self.now - c.last_keepalive > cfg.keepalive_timeout_s:
-                self.ctx.rec.log(
-                    Table.EVENTS, t=self.now, kind="scheduler_timeout", worker=c.holder[0], value=c.epoch, cluster=cid
-                )
-                self._appoint(c, frozenset({c.holder[0]}))
-        self.after(cfg.check_s, self._check)
-
-    def _appoint(self, c: Cluster, exclude: frozenset[WorkerId]) -> None:
-        if c.cas_pending:
-            return
-        mem = self.book.members
-        cands = {w: (mem[w].speed, mem[w].assurance * (0.5 if mem[w].draining else 1.0)) for w in c.members}
-        order = rank(cands, exclude)
-        if not order:
-            return
-        w = order[0]
-        c.cas_pending = True
-        delay = self.ctx.clock.charge("orchestrate", work=len(c.members))
-        cas = DbCasEpoch(ClusterId(c.cid), c.epoch, c.epoch + 1, w, mem[w].cert_id, self.addr)
-        self.after(delay, self.send, self.ctx.directory.opdb, cas)
-
-    def _cas_result(self, m: DbCasResult) -> None:
-        c = self.book.clusters.get(int(m.cluster))
-        if c is None:
-            return
-        c.cas_pending = False
-        if not m.ok:
-            c.epoch = m.epoch
-            self._appoint(c, frozenset())
-            return
-        old, c.epoch = c.holder, m.epoch
-        rec = self.book.members.get(m.holder)
-        if rec is None or rec.cert_id != m.cert_id or m.holder not in c.members:
-            self._appoint(c, frozenset())  # the appointee left or moved meanwhile
-            return
-        if old is not None:
-            self.send(("sched", old[0]), Revoke(ClusterId(c.cid), m.epoch))
-        c.holder, c.last_keepalive, c.summary = (m.holder, m.cert_id), self.now, None
-        self.send(("sched", m.holder), Appoint(ClusterId(c.cid), m.epoch, m.cert_id, tuple(sorted(c.members))))
-        self.ctx.rec.log(
-            Table.EVENTS, t=self.now, kind="appoint", worker=m.holder, cert=m.cert_id, value=m.epoch, cluster=c.cid
-        )
-        for r in self.ctx.directory.routers:
-            self.send(r, SchedulerAddr(ClusterId(c.cid), m.epoch, ("sched", m.holder)))
 
     def _push_home(self) -> None:
         """Regional demand per cluster to its scheduler's planner (D-32)."""

@@ -32,14 +32,17 @@ from voss.core.messages import (
     Stale,
     Warm,
 )
+from voss.core.messages_ft import Probe
 from voss.core.types import CacheEntry, Outcome, WorkerState
 from voss.metrics.schema import Table
 from voss.policy.cache_value import GdsfState
 from voss.runtime.actor import Actor, ActorContext
 from voss.runtime.workerlib.attempt import Attempt
+from voss.runtime.workerlib.faults import Adversary
 from voss.runtime.workerlib.fetching import FetchMixin
 from voss.runtime.workerlib.host import HostLocal
 from voss.runtime.workerlib.planned import PlannedMixin
+from voss.runtime.workerlib.recovery import RecoveryMixin
 from voss.runtime.workerlib.session import SessionMixin
 from voss.world.execution import ExecParams
 from voss.world.lifecycle import artifact_digests, artifact_sizes, cache_level
@@ -48,14 +51,19 @@ from voss.world.workload import FunctionSpec
 MB = 1024 * 1024
 
 
-class WorkerAgent(PlannedMixin, FetchMixin, SessionMixin, Actor):
+class WorkerAgent(RecoveryMixin, PlannedMixin, FetchMixin, SessionMixin, Actor):
     role = "agent"
 
     def __init__(
-        self, host: HostLocal, ctx: ActorContext, catalog: dict[FnId, FunctionSpec], params: dict[str, object]
+        self,
+        host: HostLocal,
+        ctx: ActorContext,
+        catalog: dict[FnId, FunctionSpec],
+        params: dict[str, object],
+        adversary: Adversary | None = None,
     ) -> None:
         super().__init__(host.worker, ctx)
-        self.host = host
+        self.host, self.adversary = host, adversary
         self.kernel = ctx.kernel
         self.catalog = catalog
         self.params = params
@@ -85,6 +93,8 @@ class WorkerAgent(PlannedMixin, FetchMixin, SessionMixin, Actor):
         self.op_gen = self.ctx.rng.stream("worker.ops", self.host.worker, self.host.session)
         self.attest_cont: Callable[[], None] | None = None
         self.hb_on = False
+        self.standby: Addr | None = None
+        self._init_recovery()
 
     # --- port for attempts ----------------------------------------------------------------------------------
     def exec_params(self) -> ExecParams:
@@ -99,6 +109,9 @@ class WorkerAgent(PlannedMixin, FetchMixin, SessionMixin, Actor):
 
     def touched_frac(self) -> float:
         return float(self.params["touched_frac"])  # type: ignore[arg-type]
+
+    def exec_factor(self) -> float:
+        return self.adversary.exec_factor(self.now) if self.adversary is not None else 1.0
 
     def on_exec_start(self, att: Attempt) -> None:
         h = self.host
@@ -131,6 +144,11 @@ class WorkerAgent(PlannedMixin, FetchMixin, SessionMixin, Actor):
     def finish(self, att: Attempt, status: str) -> None:
         key = (int(att.inv.id), att.inv.attempt)
         self.attempts.pop(key, None)
+        if self.adversary is not None and self.adversary.omits(att.inv.tenant, self.now):
+            self.omitted.add(key)  # the owner drops the result, the outcome and any probe reply (doc 07 §1)
+            self._finished(att, None)
+            self.ctx.rec.log(Table.EVENTS, t=self.now, kind="adv_omit", worker=self.host.worker, inv=int(att.inv.id))
+            return
         out = Outcome(
             att.inv.id,
             att.inv.attempt,
@@ -153,9 +171,19 @@ class WorkerAgent(PlannedMixin, FetchMixin, SessionMixin, Actor):
                 att.ref_units,
                 f"out:{int(att.inv.id)}",
             )
-            self.send(att.router, Result(out, rcpt, int(att.fn.out_kb * 1024)))
+            sent = self.send(att.router, Result(out, rcpt, int(att.fn.out_kb * 1024)))
+            self.ctx.rec.log(  # ground truth for receipt completeness (doc 09 §3)
+                Table.EVENTS,
+                t=self.now,
+                kind="result_sent",
+                worker=self.host.worker,
+                inv=int(att.inv.id),
+                value=float(att.inv.attempt),
+                reason="" if sent else "dropped",
+            )
             self._after_success(att)
         self.send(att.scheduler, OutcomeMsg(out))
+        self._finished(att, out)
 
     def _after_success(self, att: Attempt) -> None:
         h = self.host
@@ -198,6 +226,8 @@ class WorkerAgent(PlannedMixin, FetchMixin, SessionMixin, Actor):
             self._epoch_install(msg)
         elif isinstance(msg, SessionCert):
             self._session_cert(msg)
+        elif isinstance(msg, Probe):
+            self._probe(msg)
         elif isinstance(msg, Cancel):
             att = self.attempts.pop((int(msg.inv), msg.attempt), None)
             if att is not None:
@@ -231,7 +261,10 @@ class WorkerAgent(PlannedMixin, FetchMixin, SessionMixin, Actor):
             m.batch_wait,
             m.sources,
             m.scheduler,
+            m.cluster,
         )
+        if self.adversary is not None:
+            self.adversary.dispatched(m.inv.tenant)
         self.attempts[key] = att
         self._log_exec_guard(att)
         acc = Accepted(att.inv.id, att.inv.attempt, self.host.worker, att.token)
@@ -290,7 +323,8 @@ class WorkerAgent(PlannedMixin, FetchMixin, SessionMixin, Actor):
             return
         if m.epoch < self.epoch:
             return
-        self.epoch, self.sched, self.sched_cert = m.epoch, m.scheduler, m.cert_id
+        self.epoch, self.sched, self.sched_cert, self.standby = m.epoch, m.scheduler, m.cert_id, m.standby
+        self._successor(m)
         self._heartbeat()
 
     # --- heartbeats ---------------------------------------------------------------------------------------------
@@ -331,7 +365,10 @@ class WorkerAgent(PlannedMixin, FetchMixin, SessionMixin, Actor):
         h = self.host
         if h.cache.warm:
             h.cache.expire_warm(self.now, self.ctx.cfg.voss.worker.warm_ttl_s)
-        self.send(self.sched, Heartbeat(self.state()))
+        hb = Heartbeat(self.state())
+        self.send(self.sched, hb)
+        if self.standby is not None:
+            self.send(self.standby, hb)
         if not self.hb_on:
             self.hb_on = True
             self.after(self.ctx.cfg.voss.scheduler.heartbeat_s, self._hb_tick)

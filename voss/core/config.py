@@ -35,6 +35,8 @@ class DecisionClockConfig(Frozen):
             "place": (0.0002, 2e-5),
             "route": (0.0001, 1e-5),
             "orchestrate": (0.001, 1e-4),
+            "verify": (0.0, 5e-5),  # receipt signature check per row (Ed25519 ~50 µs)  # TODO verify
+            "settle": (0.01, 2e-6),
         }
     )
 
@@ -60,6 +62,7 @@ class ScenarioConfig(Frozen):
     execution: dict[str, Any] = Field(default_factory=dict)
     functions: str = "functions.yaml"
     tenants: str = "tenants.yaml"
+    faults: list[dict[str, Any]] = Field(default_factory=list)  # control-plane faults (doc 07 §5, E15)
 
 
 class InfraConfig(Frozen):
@@ -218,6 +221,64 @@ class CacheConfig(Frozen):
     max_sources: int = 3
 
 
+class DetectionConfig(Frozen):
+    """Progress-based detection (doc 07 §2, §6). ``mode``: ``progress`` or ``heartbeat_only`` (ablation)."""
+
+    mode: str = "progress"
+    watchdog_slack: float = 1.2  # result watchdog at predicted q90 × slack (doc 07 §6: q90 + 20%)
+    watchdog_min_s: float = 3.0
+    probe_timeout_s: float = 2.0
+    stall_n: int = 3  # dispatch-watchdog fires per cluster ...
+    stall_window_s: float = 5.0  # ... within this window → STALL
+    suspect_streak: int = 2  # watchdog failures in a row → suspected
+    suspect_s: float = 600.0  # suspicion lasts this long (then probation)
+    T_decide_max: float = 0.2
+    decide_periods: int = 3
+
+
+class SuccessionConfig(Frozen):
+    """Scheduler succession (doc 07 §3, §6)."""
+
+    T_ckpt: float = 30.0
+    lease_s: float = 5.0
+    standbys: int = 1
+    handover_wait_s: float = 1.0
+    retain_outcomes: int = 64
+
+
+class AccountingConfig(Frozen):
+    """Receipts and credits (doc 09 §3-4). tag: assumed."""
+
+    settle_s: float = 60.0
+    late_factor: float = 0.5  # timeliness multiplier for results past their deadline
+    cache_per_gb_h: float = 0.1  # credit per pinned GB-hour of warm state
+    sched_per_assign: float = 0.01
+    sched_per_h: float = 1.0
+    standby_per_h: float = 0.25
+    report_s: float = 5.0
+
+
+class ReputationConfig(Frozen):
+    """Doc 09 §2. Reputation feeds rewards and planner tie-breaks only, never ``pFail``. Weights tag: assumed."""
+
+    name: str = "beta_decay"
+    half_life_h: float = 168.0
+    prior: tuple[float, float] = (1.0, 2.0)  # pessimistic
+    quantile: float = 0.05  # score = lower credible bound
+    probation_h: float = 24.0
+    explore_floor: float = 0.3  # newcomers' tie-break score floor (exploration quota ε)
+    share_cap: float = 0.05  # no tie-break bonus above this share of settled work (concentration guard)
+    tie_break: float = 0.02
+    push_s: float = 30.0
+    commit_s: dict[str, float] = Field(default_factory=lambda: {"dedicated": 86400.0, "nightly": 14400.0})
+    breach_w: dict[str, float] = Field(default_factory=lambda: {"dedicated": 3.0, "nightly": 1.0})
+    honor_w: float = 1.0
+    result_w: float = 0.1  # α per reference work unit delivered on time
+    late_w: float = 0.05  # β per reference work unit delivered late (envelope shortfall)
+    change_point_w: float = 2.0
+    suspect_w: float = 1.0
+
+
 class VossConfig(Frozen):
     """The ``voss`` section: scheduler-side choices (doc 05 §6). Grows phase by phase."""
 
@@ -235,6 +296,10 @@ class VossConfig(Frozen):
     orchestrator: OrchestratorConfig = Field(default_factory=OrchestratorConfig)
     clusters: ClustersConfig = Field(default_factory=ClustersConfig)
     cache: CacheConfig = Field(default_factory=CacheConfig)
+    detection: DetectionConfig = Field(default_factory=DetectionConfig)
+    succession: SuccessionConfig = Field(default_factory=SuccessionConfig)
+    accounting: AccountingConfig = Field(default_factory=AccountingConfig)
+    reputation: ReputationConfig = Field(default_factory=ReputationConfig)
 
 
 class RunConfig(Frozen):

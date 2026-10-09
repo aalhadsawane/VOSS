@@ -134,3 +134,12 @@ From the P5 pilots (to revisit in P8):
   cross-cluster robustness (borrowing covered capacity from a neighbor) instead of independent f-robust sets.
 - Routing price calibration: amortize the trust-cold price over the expected follow-up demand, and damp herding on
   stale cards (`po2_nearby`/`warm_aware` handled the flash crowd better than `score`).
+
+From P7 (accounting and reputation):
+- `reputation_in_cost` ablation (doc 09 §1 double counting) with the P8 ablation switches.
+- Probation as low-stakes work (keep newcomers off high-σ tenants' trust sets); P7 implements only the exploration
+  floor on tie-break scores.
+- Delivered-vs-declared envelope beyond lateness (slots and storage actually offered vs declared at join).
+- Work concentration (E12): trust-warm planning gives ~94% of work credit to the top 10% of identities and none to
+  ~60% of benign ones, with or without reputation. A tie-break cannot fix that; consider rotating trust-warm sets or an
+  exploration quota inside the planner, and measure the latency and exposure cost.

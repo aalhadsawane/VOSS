@@ -77,6 +77,9 @@ class Network:
         self._fifo: dict[tuple[Addr, Addr], float] = {}
         self._channels: set[tuple[Addr, Addr, int, int]] = set()
         self._rtt: dict[tuple[Hashable, Hashable], float] = {}
+        self.filters: dict[Hashable, Callable[[Addr, Addr, Message], bool]] = {}
+        self._on_link: dict[Hashable, dict[int, str]] = {}  # bulk transfers queued on a host's access link
+        self._bulk_seq = 0
 
     def add_host(
         self,
@@ -109,7 +112,16 @@ class Network:
             h.incarnation += 1
         if not up and h.link is not None:
             h.link.reset()
+            for kind in self._on_link.pop(host, {}).values():
+                self.stats[kind].drops += 1
         h.up = up
+
+    def set_filter(self, host: Hashable, drop: Callable[[Addr, Addr, Message], bool] | None) -> None:
+        """An owner silently dropping some of its host's outgoing messages (omission faults, doc 07 §1)."""
+        if drop is None:
+            self.filters.pop(host, None)
+        else:
+            self.filters[host] = drop
 
     def set_partition(self, host: Hashable, group: int) -> None:
         self.hosts[host].partition = group
@@ -142,6 +154,10 @@ class Network:
         if not hs.up or hs.partition != hd.partition or not hd.up:
             st.drops += 1
             return False
+        drop = self.filters.get(src[1])
+        if drop is not None and drop(src, dst, msg):
+            st.drops += 1
+            return True  # silently lost on the way: the sender cannot tell
         if src[1] == dst[1]:
             self.k.after(self.p.local_delay_s, self._deliver, src, dst, msg, hd.incarnation)
             return True
@@ -174,7 +190,15 @@ class Network:
         if side is None:
             self.k.after(one_way + size * 8 / min(hs.up_bps, hd.down_bps), self._deliver, src, dst, msg, inc)
             return
-        side.submit(size, lambda: self.k.after(one_way, self._deliver, src, dst, msg, inc))
+        owner = src[1] if hs.link is not None and side is hs.link.up else dst[1]
+        key, self._bulk_seq = self._bulk_seq, self._bulk_seq + 1
+        self._on_link.setdefault(owner, {})[key] = type(msg).__name__
+
+        def sent() -> None:
+            self._on_link.get(owner, {}).pop(key, None)
+            self.k.after(one_way, self._deliver, src, dst, msg, inc)
+
+        side.submit(size, sent)
 
     def _deliver(self, src: Addr, dst: Addr, msg: Message, inc: int) -> None:
         hs, hd = self.hosts[src[1]], self.hosts[dst[1]]

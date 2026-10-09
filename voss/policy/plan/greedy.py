@@ -1,9 +1,9 @@
 """Greedy trust & warm-state planner (doc 03 §4.3): baseline and MILP fallback.
 
 For each hot tenant in decreasing ``λ_t × ColdPenalty_t``: add the worker with the best
-``S_j(1−p_j)·a_j / (memory cost + σ_t(1−a_j))`` (assurance floor, freshness, domain cap) until coverage with the
-``f_t`` largest contributions removed reaches ``q_t``; then add warm VMs and snapshots by value density until the
-budgets bind.
+``S_j(1−p_j)·a_j / (memory cost + σ_t(1−a_j))`` × reputation tie-break (assurance floor, freshness, domain cap)
+until coverage with the ``f_t`` largest contributions removed reaches ``q_t``; then add warm VMs and snapshots by
+value density until the budgets bind.
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ def _trust_sets(inp: PlanInput, y: np.ndarray, c: np.ndarray) -> None:
         fns = inp.fn_tenant == t
         mem_cost = inp.params.rho_mem * float(inp.fn_mem[fns].mean()) if fns.any() else 0.0
         exposure = inp.params.exposure_weight * inp.sigma[t] * (1 - inp.assurance) if inp.params.use_exposure else 0.0
-        base = e * inp.assurance / (mem_cost + exposure + 1e-6)
+        base = e * inp.assurance / (mem_cost + exposure + 1e-6) * inp.preference()
         for _ in range(4):  # fill, cap domains, refill what the cap removed
             _fill(inp, t, y, c, free, base)
             before = c[t].copy()

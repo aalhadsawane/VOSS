@@ -74,6 +74,20 @@ def one_terminal_outcome(rec: Recorder, n: int) -> list[str]:
     return out
 
 
+def no_lost(rec: Recorder, give_up: dict[int, float], end: float) -> list[str]:
+    """Doc 07 exit: every invocation reaches a terminal outcome by its give-up time; ``unfinished`` is only allowed
+    for invocations whose give-up time lies beyond the end of the run."""
+    inv = rec.frame(Table.INVOCATIONS)
+    if inv.empty:
+        return []
+    lim = inv.slo_class.map(give_up).astype(float)
+    lost = inv[(inv.outcome == "unfinished") & (inv.t_arrive + lim < end - 1e-6)]
+    return [
+        f"lost invocation {int(r.inv)} (class {int(r.slo_class)}, t={r.t_arrive:.1f})"
+        for r in lost.head(20).itertuples()
+    ]
+
+
 def no_stale_epoch(rec: Recorder) -> list[str]:
     acc = _events(rec, "dispatch_accepted")
     bad = acc[acc.epoch < acc.epoch_installed] if len(acc) else acc
@@ -84,13 +98,48 @@ def receipts_complete(rec: Recorder) -> list[str]:
     inv = rec.frame(Table.INVOCATIONS)
     ok = inv[inv.outcome == "ok"] if len(inv) else inv
     rc = rec.frame(Table.RECEIPTS)
+    rc = rc[rc.status == "ok"] if len(rc) else rc
     have = set(zip(rc.inv, rc.attempt, strict=True)) if len(rc) else set()
     missing = [int(r.inv) for r in ok.itertuples() if (r.inv, r.attempts - 1) not in have]
     return [f"{len(missing)} successful invocations without receipts (e.g. {missing[:5]})"] if missing else []
 
 
-def check_invariants(rec: Recorder, scn: Scenario, n_invocations: int) -> list[str]:
+def receipts_match_ground_truth(rec: Recorder, end: float, result_drops: int) -> list[str]:
+    """Doc 09 §3: a verified receipt exists iff an attested appliance produced the result. Sound: every ``ok`` or
+    ``duplicate`` row matches a result the worker sent. Complete: every result sent before the end is logged unless
+    the network lost it or its session certificate was revoked before it arrived."""
+    sent = _events(rec, "result_sent")
+    rc = rec.frame(Table.RECEIPTS)
+    paid = rc[rc.status.isin(["ok", "duplicate"])] if len(rc) else rc
+    truth = set(zip(sent.inv.astype(int), sent.value.astype(int), sent.worker.astype(int), strict=True))
+    got = set(zip(paid.inv.astype(int), paid.attempt.astype(int), paid.worker.astype(int), strict=True))
+    out = [f"receipt without a result: {r}" for r in sorted(got - truth)[:5]]
+    if len(paid) != len(got):
+        out.append(f"{len(paid) - len(got)} receipts logged twice")
+    rej = _events(rec, "receipt_rejected")
+    excused = set(zip(rej.inv.astype(int), rej.value.astype(int), strict=True)) if len(rej) else set()
+    early = sent[sent.t < end - 2.0] if len(sent) else sent
+    lost = [
+        k
+        for k in zip(early.inv.astype(int), early.value.astype(int), early.worker.astype(int), strict=True)
+        if k not in got and (k[0], k[1]) not in excused
+    ]
+    if len(lost) > result_drops:
+        out.append(f"{len(lost)} results without receipts ({result_drops} lost in the network), e.g. {lost[:5]}")
+    return out
+
+
+def check_invariants(
+    rec: Recorder,
+    scn: Scenario,
+    n_invocations: int,
+    give_up: dict[int, float] | None = None,
+    end: float = 0.0,
+    result_drops: int = 0,
+) -> list[str]:
     return [
+        *(no_lost(rec, give_up, end) if give_up else []),
+        *(receipts_match_ground_truth(rec, end, result_drops) if end > 0 else []),
         *attested_execution(rec, scn),
         *keys_released(rec),
         *components_sum(rec),
