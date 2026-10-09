@@ -296,3 +296,8 @@ batches once more after the drain window.
 its PDF metadata holds a digest of the runs' result hashes (no creation date, so output is deterministic) and a JSON
 sidecar lists every run with config, scenario and result hashes. Sweeps record failed points in `index.csv` instead of
 aborting.
+
+**D-59 Owners keep powering off during the drain window** (P8, fixes P2). The session driver replayed drains and ends
+only before the horizon, so a host whose session ended during the drain kept executing; the attested-execution
+invariant caught it in a 30k-worker run. Ends and drains now replay through `horizon + drain_s` (starts still stop at
+the horizon). Pilot reports of P5-P7 predate this fix; only invocations in flight at the horizon are affected.
