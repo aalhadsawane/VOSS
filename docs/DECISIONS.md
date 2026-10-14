@@ -318,3 +318,14 @@ aborting.
 only before the horizon, so a host whose session ended during the drain kept executing; the attested-execution
 invariant caught it in a 30k-worker run. Ends and drains now replay through `horizon + drain_s` (starts still stop at
 the horizon). Pilot reports of P5-P7 predate this fix; only invocations in flight at the horizon are affected.
+
+**D-60 Host-mode appliance measurement on a stand-in machine** (P9, doc 10 §3.1, rule 14). The designed appliance is
+a UKI with a dm-verity root built by `mkosi`; that image is untested and needs boot-entry changes. For the throwaway
+laptop the owner approved reboots, so `appliance` gained a host mode: a minimal one-shot systemd target on the
+machine's own kernel runs the same TPM attestation round (EK, AK, quote, check) and logs wall-clock stamps, because
+GRUB gives systemd no firmware or loader times. Reboot time is `btime - prev_end` (last journal line of the previous
+boot) plus the kernel time, ±1 s; records carry `method: wallclock`. Safety: the restore service puts the original
+default target back before anything else in the measured boot; the driver loop stops on a STOP file, N completed
+boots, N+3 armed boots, or two unfinished boots in a row; install refuses a LUKS root and saves the original target.
+The loop lives in `appliance/host/` and `laptop/voss-calib.sh appliance`, never in the harness module. The image mode
+stays for the i7 node.
