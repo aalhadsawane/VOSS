@@ -11,17 +11,17 @@ run one script, wait, and send back one `.tar.gz`.
 
 | Does | Does not |
 |---|---|
-| Installs packages (`setup`, with a yes/no question first) | Reboot, power off, or touch BIOS/UEFI settings |
+| Installs packages (`setup`, with a yes/no question first) | Reboot or power off (`smoke`, `full`, `run` never do), or touch BIOS/UEFI settings |
 | Starts the docker service for this boot only (not enabled; it listens on a local socket only) | Partition or format any disk, or write boot entries |
 | Downloads Firecracker + a test kernel (pinned versions) | Touch your files outside `~/voss-calib-work` |
 | Builds a small Linux guest image with docker (docker's own copy takes 2–3 GB under `/var/lib/docker`) | Open network ports |
 | Writes up to ~12 GB of temporary files under `~/voss-calib-work/scratch`, then deletes them | Send data anywhere (you copy the result file yourself) |
 | Runs short tests: disk speed, TPM, TLS, Firecracker/QEMU micro-VMs, test functions | Run the two **manual** suites, `appliance` (reboots) and `tme` (BIOS toggle) |
 | Briefly drops the kernel page cache and makes temporary loop/encrypted test devices (needs `sudo`) | |
+| **Only `appliance run`:** installs a few systemd units, then reboots the laptop ~10 times (see below) | Change the BIOS itself: `tme` only tells you what to toggle |
 
-**Left out on purpose:** the `appliance` (reboot-to-attested) and `tme` suites. The appliance image is still a draft
-and untested, and an old laptop most likely has no memory-encryption (TME) to toggle. The `caps` suite reports
-whether the laptop has either; we decide afterwards.
+**The two manual suites** are separate commands, run after `full`: `appliance run` (reboots, below) and `tme`
+(skipped with an explanation when the CPU has no memory encryption, which an old i3 almost certainly lacks).
 
 If the laptop freezes, hold the power button. Nothing the script writes is needed by the operating system, so the
 worst case is a filesystem check at the next boot and leftover files that `cleanup` removes.
@@ -49,7 +49,10 @@ bash $S check            # 1. looks only, changes nothing. Fix anything marked F
 bash $S setup            # 2. installs packages (asks first), downloads Firecracker, builds the guest image (10-30 min, mostly downloads)
 bash $S smoke            # 3. every suite at 10% repetitions: finds problems early
 bash $S full             # 4. the real run (use the smoke time as a guide: at most ~10x longer)
-bash $S pack             # 5. makes one .tar.gz with the results
+bash $S appliance run    # 5. OPTIONAL, reboots the laptop ~10 times by itself (read the section below first)
+bash $S finish           # 6. collects the reboot timings, removes scratch files, makes one .tar.gz with the results
+
+# or, instead of steps 2-4:  bash $S all      (setup with the ML image, smoke, then full after one question)
 ```
 
 Notes:
@@ -80,6 +83,44 @@ qemu_vm             0  error                                <- see error.txt nex
 - `qemu_vm` is the one most likely to fail: it boots the Firecracker kernel under QEMU, which not every kernel
   allows. A failure there is acceptable.
 - Look at `~/voss-calib-work/raw/<id>/<suite>/<time>/error.txt` and paste its content into the chat if something fails.
+
+## The reboot test (`appliance run`) — read before running
+
+It measures what the design calls "reboot to attested": reboot command → firmware → kernel → a minimal systemd
+target → TPM attestation round → ready. Each measured boot is followed by a normal boot, so the laptop is back in
+its usual system between measurements.
+
+```
+normal boot ── driver waits 60 s ── arm: stamp time, default target := voss-calib.target, reboot
+     ▲                                                          │
+     │                                              measured boot (restore target first,
+     └──────────── probe done: reboot ◀──────────── probe: TPM quote, timestamps, systemd-analyze)
+```
+
+- **Before:** plug in the charger, save and close everything, make sure `smoke` and `full` are finished. A login
+  screen will appear between boots; you need not log in. Expect about 4 minutes per round on a slow machine
+  (`appliance run 5` does 5 rounds; the default is 10, at most 40).
+- **Stop at any time** (from the normal system, a terminal): `bash $S appliance abort`. It removes everything it
+  installed and keeps the timings so far. Or create the file `/var/lib/voss-calib/appliance/STOP`
+  (`sudo touch ...`): the loop stops at the next boot.
+- **It stops by itself** after N completed boots, after two unfinished boots in a row, or after N+3 boots in total.
+- **If a boot hangs:** hold the power button until it switches off, switch on again. The first thing every measured
+  boot does is put the original default target back, so the next boot is your normal system. The loop only
+  continues from a normal boot, so a hang cannot repeat.
+- **It refuses** an encrypted (LUKS) root disk, where an unattended reboot would stop at the passphrase prompt.
+- **What it touches:** `/etc/systemd/system/voss-calib*`, `/usr/local/sbin/voss-calib-*`, `/var/lib/voss-calib/`,
+  and the default boot target (saved first). Not the bootloader, the partition table, or any other file.
+  `bash $S appliance uninstall` removes all of it; `bash $S appliance status` shows where it stands.
+- **How it is measured:** the laptop's own kernel and a minimal target, no dm-verity, times from the wall clock
+  (±1 s) because GRUB gives systemd no firmware time. The numbers are an approximation of the appliance image's
+  cost and are labelled `method: wallclock`.
+
+After the last round, `bash $S finish` collects the timings and packs everything.
+
+## TME (memory encryption)
+
+`bash $S tme` tells you in one line whether this CPU can do it. If not (expected), there is nothing to do. If it
+can, it prints the two BIOS steps; each is followed by `bash $S tme off` / `bash $S tme on`.
 
 ## Sending the results back
 

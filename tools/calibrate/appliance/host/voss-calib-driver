@@ -1,0 +1,43 @@
+#!/bin/sh
+# Bounded reboot loop (doc 10 §6, D-60). Runs once per normal boot: decides to measure again or stop.
+# Stops on: STOP file, N completed boots, N+3 armed boots (hard cap), or two unfinished boots in a row.
+# VOSS_DRY=1 prints the decision instead of acting (used by tests).
+set -eu
+CONF=${VOSS_CALIB_CONF:-/var/lib/voss-calib/config}
+D=${VOSS_CALIB_DIR:-/var/lib/voss-calib/appliance}
+BIN=${VOSS_CALIB_BIN:-/usr/local/sbin}
+# shellcheck disable=SC1090
+. "$CONF"
+: "${N:=20}" "${SETTLE:=60}"
+dry=${VOSS_DRY:-0}
+
+say() { echo "voss-calib-driver: $*"; }
+count() { find "$D" -maxdepth 1 -name "$1" | wc -l; }
+act() { if [ "$dry" = 1 ]; then say "would: $*"; else "$@"; fi; }
+
+stop() {
+    say "stop: $1"
+    touch "$D/STOP"
+    exit 0
+}
+
+finish() {
+    say "finished: $1"
+    act systemctl disable voss-calib-driver.service
+    act systemctl set-default "$ORIG_TARGET"
+    touch "$D/DONE"
+    exit 0
+}
+
+mkdir -p "$D"
+[ -e "$D/STOP" ] && stop "STOP file present"
+[ "$dry" = 1 ] || sleep "$SETTLE"
+[ -e "$D/STOP" ] && stop "STOP file present"
+
+armed=$(count 'arm-*.epoch')
+done_=$(count 'complete-*')
+[ $((armed - done_)) -ge 2 ] && stop "two unfinished boots (armed=$armed complete=$done_)"
+[ "$done_" -ge "$N" ] && finish "$done_ boots completed"
+[ "$armed" -ge $((N + 3)) ] && finish "hard cap reached (armed=$armed)"
+say "boot $((armed + 1)) of $N"
+act "$BIN/voss-calib-arm"

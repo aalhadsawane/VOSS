@@ -6,7 +6,10 @@ Steps (``--set step=...``):
 - ``arm``: reboot **once** into the appliance boot entry; its one-shot service logs ``systemd-analyze`` and
   attestation timestamps to the log directory and reboots back. The harness never installs a reboot loop: repeat
   ``arm`` per boot (``remote.py --boots N`` waits for SSH between boots);
-- ``collect``: parse the logs into records.
+- ``collect``: parse the logs into records. Two sources: image mode (``appliance-*.log``) and the host-mode probe
+  (``probe-*.log``, D-60), which runs the same TPM attestation round in a minimal one-shot systemd target on the
+  machine's own kernel and measures reboot time from wall-clock stamps (±1 s). The bounded reboot loop for host mode
+  lives in ``appliance/host/`` and is driven by ``laptop/voss-calib.sh appliance``, never by this module.
 
 Rebooting the user's machine needs ``--allow-reboot`` **and** the user's explicit approval (AGENTS.md rule 14).
 """
@@ -46,21 +49,37 @@ def events(log: str) -> dict[str, float]:
     return {e: float(t) for e, t in re.findall(r"^VOSS_T (\w+) ([0-9.]+)$", log, re.M)}
 
 
+def wall(log: str) -> dict[str, float]:
+    """``VOSS_E <name> <epoch seconds>`` evidence lines of the host-mode probe (D-60); ``none`` values are dropped."""
+    return {e: float(t) for e, t in re.findall(r"^VOSS_E (\w+) ([0-9.]+)$", log, re.M)}
+
+
 def collect(ctx: Ctx, log_dir: Path) -> int:
+    """Parse ``probe-*.log`` (host mode, D-60: wall-clock stamps, ±1 s) and legacy ``appliance-*.log`` (image mode)."""
     n = 0
-    for i, f in enumerate(sorted(log_dir.glob("appliance-*.log"))):
+    for i, f in enumerate(sorted([*log_dir.glob("probe-*.log"), *log_dir.glob("appliance-*.log")])):
         text = f.read_text(errors="replace")
-        parts = startup(text)
-        ev = events(text)
-        if not parts or "verifier_ok" not in ev:
+        parts, ev, ws = startup(text), events(text), wall(text)
+        if "verifier_ok" not in ev and "agent_ready" not in ev:
             ctx.rec.add("boot_incomplete", 1.0, unit="bool", rep=i, file=f.name)
             continue
-        kernel_done = parts.get("firmware", 0.0) + parts.get("loader", 0.0) + parts.get("kernel", 0.0)
+        kernel = parts.get("kernel", 0.0)
         extra: dict[str, Any] = dict(sorted(parts.items()))
-        ctx.rec.add("reboot_to_kernel", kernel_done, rep=i, **extra)
+        if "firmware" in parts:  # image mode: the firmware/loader times come from systemd-analyze
+            ctx.rec.add("reboot_to_kernel", parts["firmware"] + parts.get("loader", 0.0) + kernel, rep=i, **extra)
+        elif {"arm", "btime", "prev_end"} <= ws.keys():  # host mode: wall clock, GRUB gives systemd no firmware time
+            fw = ws["btime"] - ws["prev_end"]
+            ctx.rec.add("shutdown", ws["prev_end"] - ws["arm"], rep=i, method="wallclock")
+            ctx.rec.add("firmware_loader", fw, rep=i, method="wallclock")
+            ctx.rec.add("reboot_cmd_to_kernel", ws["btime"] - ws["arm"], rep=i, method="wallclock")
+            ctx.rec.add("reboot_to_kernel", fw + kernel, rep=i, method="wallclock", **extra)
+        else:
+            ctx.rec.add("boot_incomplete", 1.0, unit="bool", rep=i, file=f.name, why="no timing evidence")
+            continue
         # CLOCK_MONOTONIC starts at kernel start, so userspace-to-attested is the verifier-OK stamp minus kernel time
-        ctx.rec.add("appliance_userspace", ev["agent_ready"] - parts.get("kernel", 0.0), rep=i)
-        ctx.rec.add("appliance_attested", ev["verifier_ok"] - parts.get("kernel", 0.0), rep=i)
+        ctx.rec.add("appliance_userspace", ev["agent_ready"] - kernel, rep=i)
+        if "verifier_ok" in ev:
+            ctx.rec.add("appliance_attested", ev["verifier_ok"] - kernel, rep=i)
         n += 1
     return n
 

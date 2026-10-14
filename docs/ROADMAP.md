@@ -109,8 +109,9 @@ map): P0 → P4, then P6 and P10, with P9 in parallel.
   still need explicit user approval (AGENTS.md rule 14). Until then, simulator phases use `literature`/`assumed`
   placeholder values for C0.
 - **Stand-in laptop (2026-10-14):** a spare Linux laptop, run locally without SSH via `tools/calibrate/laptop/`
-  (non-reboot suites only; the reboot and BIOS suites are not part of it). Its bundle describes that laptop, not the
-  i7 node; the C0 label is decided at ingest.
+  (`appliance run` reboots it ~10 times via a bounded, abortable systemd loop, D-60; `tme` is skipped when the CPU
+  lacks memory encryption). The owner approved reboots and data loss for this machine only (rule 14). Its bundle
+  describes that laptop, not the i7 node; the C0 label is decided at ingest.
 - **Status (2026-10-09):** harness implemented and tested without the node (`--dry-run` of every suite; `tpm` and
   `attest_local` against swtpm; `disk` and `tls` locally; ingest on synthetic logs). Next, once SSH access exists:
   `caps` → `--quick` → full suites → `ingest` → E-CS1 measured; manual suites only with approval; E01 needs P9b.

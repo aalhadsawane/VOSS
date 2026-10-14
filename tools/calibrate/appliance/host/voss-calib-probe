@@ -1,0 +1,46 @@
+#!/bin/sh
+# Measurement boot probe (doc 10 §6, D-60). Logs wall-clock evidence lines (VOSS_E) and uptime-based
+# milestones (VOSS_T), runs one TPM attestation round, appends systemd-analyze, marks the boot
+# complete. Any failure writes VOSS_ERR and exits non-zero (FailureAction=reboot, the driver counts it).
+set -u
+D=${VOSS_CALIB_DIR:-/var/lib/voss-calib/appliance}
+n=$(find "$D" -maxdepth 1 -name 'arm-*.epoch' | wc -l)
+tag=$(printf '%04d' "$n")
+LOG=$D/probe-$tag.log
+: >"$LOG"
+
+emit() { echo "$*" >>"$LOG"; }
+up() { cut -d' ' -f1 /proc/uptime; }
+fail() { emit "VOSS_ERR $*"; sync; exit 1; }
+tmark() { emit "VOSS_T $1 $(up)"; }
+
+[ -s "$D/arm-$tag.epoch" ] || fail "no arm stamp for boot $tag"
+emit "VOSS_E arm $(cat "$D/arm-$tag.epoch")"
+emit "VOSS_E btime $(awk '/^btime/ {print $2}' /proc/stat)"
+prev=$(journalctl -b -1 -n 1 -o short-unix --no-pager 2>/dev/null | awk 'NR==1 {print $1}')
+emit "VOSS_E prev_end ${prev:-none}"
+tmark agent_ready
+
+W=$(mktemp -d)
+trap 'rm -rf "$W"' EXIT
+if [ -e /dev/tpmrm0 ] && command -v tpm2_createek >/dev/null 2>&1; then
+    export TPM2TOOLS_TCTI=device:/dev/tpmrm0
+    cd "$W" || fail "workdir"
+    tpm2_createek -c ek.ctx -G rsa >/dev/null 2>&1 || fail "createek"
+    tpm2_createak -C ek.ctx -c ak.ctx -G rsa -g sha256 -s rsassa -u ak.pub -n ak.name >/dev/null 2>&1 || fail "createak"
+    tpm2_quote -c ak.ctx -l sha256:0,1,2,3 -q probe -m quote.msg -s quote.sig -o quote.pcr -g sha256 >/dev/null 2>&1 || fail "quote"
+    tmark quote_done
+    tpm2_checkquote -u ak.pub -m quote.msg -s quote.sig -f quote.pcr -g sha256 -q probe >/dev/null 2>&1 || fail "checkquote"
+    tmark verifier_ok
+else
+    emit "VOSS_SKIP tpm no_device_or_tools"
+fi
+
+{
+    echo "VOSS_ANALYZE_BEGIN"
+    systemd-analyze 2>&1 | head -n 3
+    echo "VOSS_ANALYZE_END"
+} >>"$LOG"
+: >"$D/complete-$tag"
+sync
+exit 0

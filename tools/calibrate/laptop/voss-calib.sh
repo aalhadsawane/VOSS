@@ -9,10 +9,16 @@
 #   voss-calib.sh summary               status of every suite's newest run
 #   voss-calib.sh pack                  one .tar.gz with the results (user and host names removed)
 #   voss-calib.sh cleanup [--all]       remove scratch files (--all: also the downloaded assets)
+#   voss-calib.sh all                   setup --with-ml + smoke + full (asks once between smoke and full)
+#   voss-calib.sh appliance run [N]     REBOOTS the laptop N (default 10) times, unattended, to time boot + attestation
+#   voss-calib.sh appliance status|abort|collect|uninstall
+#   voss-calib.sh tme [on|off]          TME comparison (only if the CPU has it; BIOS toggled by you)
+#   voss-calib.sh finish                collect appliance logs, clean scratch, pack
 #
-# It never reboots, never changes BIOS/UEFI settings, partitions, boot entries or other users' files. It writes only
-# under $VOSS_WORK (default ~/voss-calib-work), except for installing packages in `setup` and for the kernel's
+# smoke/full/run never reboot, never change BIOS/UEFI settings, partitions, boot entries or other users' files. They
+# write only under $VOSS_WORK (default ~/voss-calib-work), except for installing packages in `setup` and for the kernel's
 # page-cache drop and the temporary loop/dm devices of the disk suite (both undone by the suite itself).
+# Only `appliance run` reboots (systemd units + a bounded loop, removable with `appliance abort`); see README.md.
 set -Eeuo pipefail
 
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -314,7 +320,7 @@ cmd_run() {
   say "Do not use the laptop meanwhile: other load distorts the timings."
   for s in "${names[@]}"; do
     say; say "=== $s"
-    harness --suite "$s" ${quick[@]+"${quick[@]}"} "${ARGS[@]}" || warn "$s: harness exit code $? (the other suites continue)"
+    harness --suite "$s" ${quick[@]+"${quick[@]}"} ${PHASE_ARGS[@]+"${PHASE_ARGS[@]}"} "${ARGS[@]}" || warn "$s: harness exit code $? (the other suites continue)"
   done
   stop_keepalive
   stop_inhibit
@@ -351,6 +357,9 @@ cmd_cleanup() {
   say "Docker keeps its images; to free that space: sudo docker rmi voss-guest   (and: sudo docker image prune)"
 }
 
+# shellcheck source=voss-calib-boot.sh
+. "$HERE/voss-calib-boot.sh"
+
 case "${1:-help}" in
   check) cmd_check ;;
   setup) shift; cmd_setup "$@" ;;
@@ -360,5 +369,9 @@ case "${1:-help}" in
   summary) (cd "$REPO" && python3 -m tools.calibrate.report summary "$RAW") ;;
   pack) cmd_pack ;;
   cleanup) shift; cmd_cleanup "$@" ;;
-  *) sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 2 ;;
+  all) cmd_all ;;
+  appliance) shift; cmd_appliance "$@" ;;
+  tme) shift; cmd_tme "$@" ;;
+  finish) cmd_finish ;;
+  *) sed -n '2,21p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac

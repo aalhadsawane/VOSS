@@ -1,0 +1,9 @@
+# One-shot measurement boot target (doc 10 §6, D-60). Selected by `systemctl set-default`; the
+# restore service puts the original default back before anything else runs, so this target is
+# used for exactly one boot.
+[Unit]
+Description=VOSS calibration boot (minimal)
+Requires=basic.target
+After=basic.target
+Wants=voss-calib-restore.service voss-calib-probe.service
+AllowIsolate=yes

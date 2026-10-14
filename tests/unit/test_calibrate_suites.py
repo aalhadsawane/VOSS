@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 from pathlib import Path
 
 import pytest
 from tools.calibrate import run as harness
+from tools.calibrate.common import Records, Shell
 from tools.calibrate.fc import MARK, boot_args
-from tools.calibrate.suites import appliance, caps, disk, sebs, tme
+from tools.calibrate.suites import Ctx, appliance, caps, disk, sebs, tme
 
 GETCAP = (
     'TPM2_PT_FAMILY_INDICATOR:\n  raw: 0x322E3000\n  value: "2.0"\n'
@@ -85,8 +88,7 @@ def test_reboot_and_bios_suites_refuse_without_flags(tmp_path: Path, capsys: pyt
 
 
 def test_appliance_arm_needs_allow_reboot_even_inside_the_suite(tmp_path: Path) -> None:
-    from tools.calibrate.common import Records, Shell, SuiteSkipped
-    from tools.calibrate.suites import Ctx
+    from tools.calibrate.common import SuiteSkipped
 
     ctx = Ctx(Shell(dry_run=True), Records(tmp_path / "r.jsonl", "appliance"), tmp_path, {"step": "arm"})
     with pytest.raises(SuiteSkipped):
@@ -107,8 +109,6 @@ def test_dry_run_of_every_safe_suite(suite: str, tmp_path: Path) -> None:
 
 
 def _ctx(tmp_path: Path, **opts: str):  # type: ignore[no-untyped-def]
-    from tools.calibrate.common import Records, Shell
-    from tools.calibrate.suites import Ctx
 
     return Ctx(Shell(dry_run=True), Records(tmp_path / "r.jsonl", "t"), tmp_path, dict(opts))
 
@@ -212,4 +212,105 @@ def test_scrub_is_whole_word_and_path_first() -> None:
     # a user called "root": the word goes, the word "rootfs" stays
     assert scrub_text("root hash rootfs /root/a", {"/root": "/home/USER", "root": "USER"}) == (
         "USER hash rootfs /home/USER/a"
+    )
+
+
+HOST = Path(__file__).resolve().parents[2] / "tools" / "calibrate" / "appliance" / "host"
+PROBE_LOG = (
+    "VOSS_E arm 1000.0\nVOSS_E btime 1012\nVOSS_E prev_end 1004.5\nVOSS_T agent_ready 9.0\n"
+    "VOSS_T quote_done 9.4\nVOSS_T verifier_ok 9.5\nVOSS_ANALYZE_BEGIN\n"
+    "Startup finished in 2.0s (kernel) + 6.0s (userspace) = 8.0s\nVOSS_ANALYZE_END\n"
+)
+
+
+def test_appliance_host_probe_log_becomes_wallclock_records(tmp_path: Path) -> None:
+    """D-60: no firmware/loader in systemd-analyze under GRUB, so reboot time comes from wall-clock stamps."""
+    (tmp_path / "probe-0001.log").write_text(PROBE_LOG)
+    (tmp_path / "probe-0002.log").write_text("VOSS_E arm 2000.0\nVOSS_ERR createek\n")
+    ctx = Ctx(Shell(dry_run=True), Records(tmp_path / "r.jsonl", "appliance"), tmp_path, {})
+    assert appliance.collect(ctx, tmp_path) == 1
+    rows = {r["probe"]: r for r in map(json.loads, (tmp_path / "r.jsonl").read_text().splitlines())}
+    assert rows["shutdown"]["value"] == pytest.approx(4.5)
+    assert rows["firmware_loader"]["value"] == pytest.approx(7.5)
+    assert rows["reboot_cmd_to_kernel"]["value"] == pytest.approx(12.0)
+    assert (
+        rows["reboot_to_kernel"]["value"] == pytest.approx(9.5)
+        and rows["reboot_to_kernel"]["config"]["method"] == "wallclock"
+    )
+    assert rows["appliance_userspace"]["value"] == pytest.approx(7.0)
+    assert rows["appliance_attested"]["value"] == pytest.approx(7.5)
+    assert rows["boot_incomplete"]["config"]["file"] == "probe-0002.log"
+
+
+def _driver(tmp_path: Path, n: int = 3, **env: str) -> tuple[str, Path]:
+    conf = tmp_path / "config"
+    conf.write_text(f"ORIG_TARGET=graphical.target\nN={n}\nSETTLE=0\n")
+    d = tmp_path / "d"
+    e = {
+        "PATH": os.environ["PATH"],
+        "VOSS_DRY": "1",
+        "VOSS_CALIB_CONF": str(conf),
+        "VOSS_CALIB_DIR": str(d),
+        "VOSS_CALIB_BIN": str(HOST),
+        **env,
+    }
+    out = subprocess.run(["sh", str(HOST / "voss-calib-driver")], env=e, capture_output=True, text=True, check=True)
+    return out.stdout, d
+
+
+def _arm(tmp_path: Path) -> None:
+    e = {"PATH": os.environ["PATH"], "VOSS_DRY": "1", "VOSS_CALIB_DIR": str(tmp_path / "d")}
+    subprocess.run(["sh", str(HOST / "voss-calib-arm")], env=e, check=True, capture_output=True)
+
+
+def test_driver_arms_then_finishes_after_n_completed_boots(tmp_path: Path) -> None:
+    out, d = _driver(tmp_path)
+    assert "boot 1 of 3" in out and "voss-calib-arm" in out
+    for i in (1, 2, 3):
+        _arm(tmp_path)
+        (d / f"complete-{i:04d}").touch()
+    out, d = _driver(tmp_path)
+    assert "finished" in out and "set-default graphical.target" in out and (d / "DONE").exists()
+
+
+def test_driver_stops_on_two_unfinished_boots_and_on_stop_file(tmp_path: Path) -> None:
+    _driver(tmp_path)
+    _arm(tmp_path)
+    _arm(tmp_path)
+    out, d = _driver(tmp_path)
+    assert "two unfinished boots" in out and (d / "STOP").exists()
+    out, _ = _driver(tmp_path)
+    assert "STOP file present" in out
+
+
+def test_probe_without_arm_stamp_fails_and_with_one_completes(tmp_path: Path) -> None:
+    d = tmp_path / "d"
+    d.mkdir()
+    e = {"PATH": os.environ["PATH"], "VOSS_CALIB_DIR": str(d)}
+    bad = subprocess.run(["sh", str(HOST / "voss-calib-probe")], env=e, capture_output=True, text=True, check=False)
+    assert bad.returncode == 1 and "VOSS_ERR" in (d / "probe-0000.log").read_text()
+    _arm(tmp_path)
+    ok = subprocess.run(["sh", str(HOST / "voss-calib-probe")], env=e, capture_output=True, text=True, check=False)
+    assert ok.returncode == 0 and (d / "complete-0001").exists()
+    assert "VOSS_E arm" in (d / "probe-0001.log").read_text()
+
+
+def test_systemd_units_are_one_shot_and_bounded() -> None:
+    probe = (HOST / "voss-calib-probe.service").read_text()
+    assert "SuccessAction=reboot" in probe and "RuntimeMaxSec=600" in probe
+    assert "STOP" in (HOST / "voss-calib-driver.service").read_text()
+
+
+def test_host_install_and_uninstall_into_a_staging_tree(tmp_path: Path) -> None:
+    e = {"PATH": os.environ["PATH"], "DESTDIR": str(tmp_path), "SETTLE": "5"}
+    sh = ["sh", str(HOST / "install.sh")]
+    subprocess.run([*sh, "install", "7"], env=e, check=True, capture_output=True)
+    conf = (tmp_path / "var/lib/voss-calib/config").read_text()
+    assert "N=7" in conf and "SETTLE=5" in conf and "ORIG_TARGET=" in conf
+    assert (tmp_path / "usr/local/sbin/voss-calib-driver").stat().st_mode & 0o111
+    assert (tmp_path / "etc/systemd/system/voss-calib.target").exists()
+    subprocess.run([*sh, "uninstall"], env=e, check=True, capture_output=True)
+    assert not (tmp_path / "etc/systemd/system/voss-calib.target").exists()
+    assert (
+        not (tmp_path / "var/lib/voss-calib/config").exists() and (tmp_path / "var/lib/voss-calib/appliance").is_dir()
     )
