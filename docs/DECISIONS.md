@@ -329,3 +329,14 @@ default target back before anything else in the measured boot; the driver loop s
 boots, N+3 armed boots, or two unfinished boots in a row; install refuses a LUKS root and saves the original target.
 The loop lives in `appliance/host/` and `laptop/voss-calib.sh appliance`, never in the harness module. The image mode
 stays for the i7 node.
+
+**D-61 Fixes from the first stand-in laptop run** (P9, doc 10 §3). Real hardware exposed six harness bugs that no stub
+could: Firecracker API sockets deeper than the 107-byte `AF_UNIX` limit (rep 10 of `fc_snapshot`); the `graph-mst`
+guest counting `spanning_tree(return_tree=False)`, which is a list; `tpm2_quote -q` needing hex qualifying data (every
+measured boot lost its attestation timing, and two unfinished boots stopped the loop); a machine that used to run
+Windows keeping its hardware clock in local time (a +5.5 h step corrupted wall-clock boot timings, so the install
+switches the RTC to UTC for the run and restores it, and `collect` rejects samples outside 0..600 s); `MemTotal`
+changing by a few kB between boots, which split one machine into three fingerprints (memory is now rounded to
+0.1 GB); and QEMU boot failures aborting the suite (now recorded with the console tail). A failed TPM step no longer
+discards a boot's timings. The pack also carries plain-text `debug/*.log` files (scrubbed). Records of the failed
+suites stay in the first-round data; round two (`voss-calib-auto.sh redo`) reruns only those suites and the reboot test.
