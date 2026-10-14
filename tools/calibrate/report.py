@@ -8,6 +8,7 @@ import argparse
 import getpass
 import hashlib
 import json
+import os
 import platform
 import re
 import sys
@@ -61,7 +62,11 @@ def scrub_text(text: str, secrets: dict[str, str]) -> str:
 
 def local_secrets() -> dict[str, str]:
     home = str(Path.home())
-    return {home: "/home/USER", getpass.getuser(): "USER", platform.node(): "HOST"}
+    out = {home: "/home/USER", getpass.getuser(): "USER", platform.node(): "HOST"}
+    sudo_user = os.environ.get("SUDO_USER")  # run through sudo: the invoking user is the person to hide
+    if sudo_user:
+        out[sudo_user] = "USER"
+    return out
 
 
 def pack(raw: Path, out: Path, secrets: dict[str, str] | None = None) -> Path:
@@ -73,8 +78,9 @@ def pack(raw: Path, out: Path, secrets: dict[str, str] | None = None) -> Path:
         for f in sorted(p for p in raw.rglob("*") if p.is_file()):
             rel = f.relative_to(raw)
             if f.name in (TOP if len(rel.parts) == 1 else KEEP):
-                (dst / rel).parent.mkdir(parents=True, exist_ok=True)
-                (dst / rel).write_text(scrub_text(f.read_text(errors="replace"), sec))
+                out_rel = Path(*(scrub_text(part, sec) for part in rel.parts))  # the host label may carry the user name
+                (dst / out_rel).parent.mkdir(parents=True, exist_ok=True)
+                (dst / out_rel).write_text(scrub_text(f.read_text(errors="replace"), sec))
         files = sorted(p for p in dst.rglob("*") if p.is_file())
         manifest = "".join(f"{hashlib.sha256(f.read_bytes()).hexdigest()}  {f.relative_to(dst)}\n" for f in files)
         (dst / "MANIFEST.sha256").write_text(manifest)

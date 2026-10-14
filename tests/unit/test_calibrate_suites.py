@@ -314,3 +314,46 @@ def test_host_install_and_uninstall_into_a_staging_tree(tmp_path: Path) -> None:
     assert (
         not (tmp_path / "var/lib/voss-calib/config").exists() and (tmp_path / "var/lib/voss-calib/appliance").is_dir()
     )
+
+
+def test_auto_stage_machine_resumes_across_reboots(tmp_path: Path) -> None:
+    """The one-command flow: stages persist in a state dir, the appliance stage hands over to the reboot loop and the
+    next boot continues where it left off (stubs for main script and systemctl; nothing is installed or rebooted)."""
+    auto = HOST.parents[1] / "laptop" / "voss-calib-auto.sh"
+    root, home = tmp_path / "root", tmp_path / "home"
+    (root / "etc/voss-calib").mkdir(parents=True)
+    home.mkdir()
+    (root / "etc/voss-calib/auto.env").write_text(f"TARGET_USER=tester\nTARGET_HOME={home}\nBOOTS=2\n")
+    calib = root / "var/lib/voss-calib"
+    stub = tmp_path / "main.sh"
+    stub.write_text(
+        f'#!/bin/sh\necho "$@" >>{tmp_path}/calls\n'
+        f'case "$1 $2" in\n'
+        f'  "appliance run") mkdir -p {calib}/appliance; touch {calib}/config;;\n'
+        f'  "pack ") mkdir -p {home}/voss-calib-work; echo x >{home}/voss-calib-work/voss-calib-t-1.tar.gz;;\n'
+        f"esac\n"
+    )
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    for tool in ("systemctl", "wall", "sh"):
+        if tool != "sh":
+            (bindir / tool).write_text("#!/bin/sh\nexit 0\n")
+            (bindir / tool).chmod(0o755)
+    env = {
+        "PATH": f"{bindir}:{os.environ['PATH']}",
+        "VOSS_AUTO_ROOT": str(root),
+        "VOSS_AUTO_MAIN": f"sh {stub}",
+        "VOSS_AUTO_REBOOT_WAIT": "0",
+    }
+    run = ["bash", str(auto), "stages"]
+    subprocess.run(run, env=env, check=True, capture_output=True)  # boot 1: setup, full, then the reboot test starts
+    state = root / "var/lib/voss-calib/auto"
+    assert (state / "stage").read_text().strip() == "appliance" and not (state / "DONE").exists()
+    (calib / "appliance").mkdir(parents=True, exist_ok=True)
+    (calib / "appliance" / "DONE").touch()  # the reboot loop finished by itself
+    subprocess.run(run, env=env, check=True, capture_output=True)  # a later boot: tme, finish
+    assert (state / "DONE").exists()
+    calls = (tmp_path / "calls").read_text().splitlines()
+    assert calls[0].startswith("setup") and "full" in calls and "appliance run 2" in calls
+    assert calls.index("full") < calls.index("appliance run 2") < calls.index("pack")
+    assert list(home.glob("voss-calib-tester-*.tar.gz")) and "SHA-256" in (home / "VOSS-CALIB-DONE.txt").read_text()

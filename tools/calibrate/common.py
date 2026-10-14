@@ -153,7 +153,8 @@ def _mem_kb() -> int:
 def fingerprint(meta: dict[str, Any]) -> str:
     """Stable host id for ``configs/calibration/measured/<fingerprint>/``: hardware and firmware, not software."""
     key = "|".join(str(meta.get(k, "")) for k in ("cpu_model", "board", "bios_version", "mem_kb"))
-    return "c0-" + hashlib.sha256(key.encode()).hexdigest()[:10]
+    node = re.sub(r"[^A-Za-z0-9_.]", "", os.environ.get("VOSS_NODE", "")) or "c0"  # laptop runs label it by user
+    return f"{node}-" + hashlib.sha256(key.encode()).hexdigest()[:10]
 
 
 def mem_available_mb() -> int:

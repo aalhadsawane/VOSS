@@ -1,5 +1,25 @@
 # Calibration on a spare Linux laptop — runbook
 
+## The short way: one command
+
+```sh
+tar -xzf voss-calib-tools.tar.gz
+sudo bash tools/calibrate/laptop/voss-calib-auto.sh
+```
+
+That is all. It installs what it needs, runs every suite, runs the reboot test (the laptop restarts itself about
+10 times), and leaves **`~/voss-calib-<user>-<date>.tar.gz`** plus `~/VOSS-CALIB-DONE.txt` in the home directory of
+the user who typed `sudo`. It runs as a systemd service, so closing the terminal or the reboots do not stop it.
+Expect several hours on a slow i3. Keep the charger plugged in.
+
+- Progress at any time (also after a reboot, from a new terminal): `sudo bash tools/calibrate/laptop/voss-calib-auto.sh status`
+- Cancel and undo the reboot loop: `sudo bash tools/calibrate/laptop/voss-calib-auto.sh stop`
+- Stages: setup → full run → reboot test → TME (skipped without CPU support) → pack. A failed stage is retried or
+  skipped, never blocks the rest. Stage logs: `/var/lib/voss-calib/auto/auto.log`.
+- The results are labelled with your user name inside the machine's folder name; packing replaces it by `USER`.
+
+Everything below is the manual way, for debugging one step at a time.
+
 This measures **one machine** (the laptop) and produces a folder of result files. Nobody connects to the laptop: you
 run one script, wait, and send back one `.tar.gz`.
 
