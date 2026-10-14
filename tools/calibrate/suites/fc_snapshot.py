@@ -53,6 +53,12 @@ def run(ctx: Ctx) -> None:
     for tier, d in sorted(tiers.items()):
         d.mkdir(parents=True, exist_ok=True)
         for mem in MEM_MB:
+            if mem > ctx.mem_budget_mb():
+                ctx.skip(f"fc_snapshot mem={mem}", mem, "guest memory over the RAM budget")
+                continue
+            if not ctx.has_room(d, mem + 64):
+                ctx.skip(f"fc_snapshot mem={mem} tier={tier}", mem + 64, "not enough free disk for the snapshot")
+                continue
             if ctx.sh.dry_run:
                 print(f"DRY firecracker snapshot create/restore mem={mem} tier={tier} caches={caches}")
                 continue

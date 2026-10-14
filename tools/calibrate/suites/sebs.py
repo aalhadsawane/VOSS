@@ -59,8 +59,13 @@ def run(ctx: Ctx) -> None:
     a = assets(ctx, "sebs_rootfs")
     fns = [f for f in ctx.opt("functions", ",".join(SIZES)).split(",") if f]
     reps = ctx.reps(30)
+    top = int(ctx.opt("max_concurrency", str(max(CONCURRENCY))))
     for fn in fns:
-        for n in CONCURRENCY:
+        for n in (c for c in CONCURRENCY if c <= top):
+            need = n * MEM_MB.get(fn, 512)
+            if need > ctx.mem_budget_mb():
+                ctx.skip(f"sebs fn={fn} concurrency={n}", need, "guests together over the RAM budget")
+                continue
             if ctx.sh.dry_run:
                 print(f"DRY sebs fn={fn} concurrency={n} reps={reps}")
                 continue

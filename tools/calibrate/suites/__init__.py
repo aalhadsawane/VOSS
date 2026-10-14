@@ -11,7 +11,10 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from tools.calibrate.common import Records, Shell
+from tools.calibrate.common import Records, Shell, free_mb, mem_available_mb
+
+RESERVE_MB = 2048  # space always left free on a scratch filesystem
+MEM_SHARE = 0.6  # share of the available RAM that guests may use together
 
 
 @dataclass
@@ -39,6 +42,21 @@ class Ctx:
             if d:
                 out[tier] = Path(d)
         return out
+
+    def mem_budget_mb(self) -> int:
+        """RAM the guests of one measurement may use together: ``--set mem_budget_mb=N`` or 60% of what is free."""
+        if "mem_budget_mb" in self.opts:
+            return int(self.opts["mem_budget_mb"])
+        return int(MEM_SHARE * mem_available_mb())
+
+    def has_room(self, d: Path, need_mb: float) -> bool:
+        """``need_mb`` plus a 2 GB reserve is free on ``d``'s filesystem (scratch files never fill a disk)."""
+        return free_mb(d) >= need_mb + RESERVE_MB
+
+    def skip(self, what: str, need_mb: float, reason: str) -> None:
+        """Record a measurement left out because the machine is too small (it never fails the suite)."""
+        self.rec.add("skipped", float(need_mb), unit="MB", what=what, reason=reason)
+        print(f"skip {what}: {reason} (needs {need_mb:.0f} MB)")
 
 
 @dataclass(frozen=True)

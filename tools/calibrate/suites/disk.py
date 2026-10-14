@@ -57,6 +57,16 @@ def _bench(ctx: Ctx, target: str, prefix: str, jobs: tuple[str, ...], **cfg: Any
                 ctx.rec.add(f"{prefix}_{job}_{metric}", v, unit=unit, rep=rep, **cfg)
 
 
+CRYPT_MB, VERITY_MB = 3072, 2200  # image file sizes of the dm-crypt and dm-verity tests
+
+
+def size_mb(text: str) -> float:
+    """fio-style size (``2G``, ``512M``) in MB; plain numbers are bytes."""
+    t = text.strip().upper()
+    scale = {"K": 1 / 1024, "M": 1.0, "G": 1024.0, "T": 1024.0**2}
+    return float(t[:-1]) * scale[t[-1]] if t[-1] in scale else float(t) / 2**20
+
+
 def sha256_MBps(mb: int = 256) -> float:
     buf = bytes(range(256)) * (mb * 4096)
     t0 = time.perf_counter()
@@ -114,6 +124,10 @@ def run(ctx: Ctx) -> None:
         ctx.rec.add("sha256_MBps", 0.0 if ctx.sh.dry_run else sha256_MBps(), unit="MBps", rep=rep)
     for tier, d in sorted(dirs.items()):
         d.mkdir(parents=True, exist_ok=True)
+        need = size_mb(ctx.opt("fio_size", "2G"))
+        if not ctx.has_room(d, need):
+            ctx.skip(f"disk fio tier={tier}", need, "not enough free disk")
+            continue
         target = str(d / "voss-fio.dat")
         _bench(ctx, target, tier, tuple(JOBS), tier=tier)
         Path(target).unlink(missing_ok=True)
@@ -121,9 +135,12 @@ def run(ctx: Ctx) -> None:
     if not (is_root() or ctx.sh.dry_run) or missing:
         ctx.rec.add("crypt_skipped", 1.0, unit="bool", reason="needs root" if not missing else f"missing {missing}")
         return
-    for _, d in sorted(dirs.items()):
-        _crypt(ctx, d)
-        _verity(ctx, d)
+    for tier, d in sorted(dirs.items()):
+        for what, need, fn in (("dm-crypt", CRYPT_MB, _crypt), ("dm-verity", VERITY_MB, _verity)):
+            if ctx.has_room(d, need):
+                fn(ctx, d)
+            else:
+                ctx.skip(f"disk {what} tier={tier}", need, "not enough free disk")
 
 
 SUITE = Suite("disk", run, "fio on SSD/HDD (+ dm-crypt, dm-verity), SHA-256 throughput")

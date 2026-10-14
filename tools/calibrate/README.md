@@ -9,6 +9,9 @@ local repo ◀──────────rsync raw/────────�
 python -m tools.calibrate.ingest --raw calibration/raw   →   configs/calibration/measured/<fingerprint>/
 ```
 
+> **Running it on a local laptop, without SSH?** Use [`laptop/README.md`](laptop/README.md): one script
+> (`laptop/voss-calib.sh`) with `check`, `setup`, `smoke`, `full`, `pack` and `cleanup`.
+
 ## Safety rules
 
 - **Non-destructive by default.** Everything except `appliance` (reboots) and `tme` (BIOS toggle) is safe to re-run.

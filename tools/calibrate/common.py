@@ -156,6 +156,20 @@ def fingerprint(meta: dict[str, Any]) -> str:
     return "c0-" + hashlib.sha256(key.encode()).hexdigest()[:10]
 
 
+def mem_available_mb() -> int:
+    """``MemAvailable`` from /proc/meminfo in MB (0 if unreadable)."""
+    m = re.search(r"^MemAvailable:\s*(\d+)", read_text("/proc/meminfo"), re.M)
+    return int(m.group(1)) // 1024 if m else 0
+
+
+def free_mb(path: Path) -> int:
+    """Free space in MB on the filesystem that holds (or would hold) ``path``."""
+    p = path
+    while not p.exists() and p != p.parent:
+        p = p.parent
+    return shutil.disk_usage(p).free // 2**20
+
+
 def is_root() -> bool:
     return hasattr(os, "geteuid") and os.geteuid() == 0
 

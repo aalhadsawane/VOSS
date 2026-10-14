@@ -104,3 +104,112 @@ def test_dry_run_of_every_safe_suite(suite: str, tmp_path: Path) -> None:
     meta = json.loads(next(tmp_path.rglob("meta.json")).read_text())
     assert meta["status"] == "ok" and meta["dry_run"] is True
     assert meta["harness_version"] and meta["suite"] == suite
+
+
+def _ctx(tmp_path: Path, **opts: str):  # type: ignore[no-untyped-def]
+    from tools.calibrate.common import Records, Shell
+    from tools.calibrate.suites import Ctx
+
+    return Ctx(Shell(dry_run=True), Records(tmp_path / "r.jsonl", "t"), tmp_path, dict(opts))
+
+
+def _skipped(ctx) -> list[str]:  # type: ignore[no-untyped-def]
+    rows = [json.loads(line) for line in ctx.rec.path.read_text().splitlines()] if ctx.rec.path.exists() else []
+    return [r["config"]["what"] for r in rows if r["probe"] == "skipped"]
+
+
+def _ran(out: str) -> list[str]:
+    return [
+        line.split(" reps=")[0].removeprefix("DRY sebs ") for line in out.splitlines() if line.startswith("DRY sebs")
+    ]
+
+
+def test_sebs_leaves_out_guest_sets_over_the_ram_budget(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    opts = {"kernel": "/a/k", "sebs_rootfs": "/a/r", "firecracker": "/a/fc", "functions": "dna-visualisation,graph-bfs"}
+    ctx = _ctx(tmp_path, mem_budget_mb="1100", **opts)
+    sebs.run(ctx)
+    # dna-visualisation: 1024 MB per guest → only 1 guest fits in 1100 MB; graph-bfs: 512 MB → 1 and 2 guests fit
+    assert _ran(capsys.readouterr().out) == [
+        "fn=dna-visualisation concurrency=1",
+        "fn=graph-bfs concurrency=1",
+        "fn=graph-bfs concurrency=2",
+    ]
+    assert "sebs fn=dna-visualisation concurrency=8" in _skipped(ctx)
+
+
+def test_sebs_max_concurrency_option(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    opts = {"kernel": "/a/k", "sebs_rootfs": "/a/r", "firecracker": "/a/fc", "functions": "graph-bfs"}
+    sebs.run(_ctx(tmp_path, mem_budget_mb="99999", max_concurrency="2", **opts))
+    assert _ran(capsys.readouterr().out) == ["fn=graph-bfs concurrency=1", "fn=graph-bfs concurrency=2"]
+
+
+def test_disk_leaves_out_tests_that_do_not_fit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    assert disk.size_mb("2G") == 2048 and disk.size_mb("512M") == 512 and disk.size_mb("1048576") == 1
+    # fio needs 2048 MB, dm-crypt 3072, dm-verity 2200, each plus the 2048 MB reserve
+    for free, expected in (
+        (3000, ["disk fio tier=ssd", "disk dm-crypt tier=ssd", "disk dm-verity tier=ssd"]),
+        (4500, ["disk dm-crypt tier=ssd"]),
+        (9000, []),
+    ):
+        monkeypatch.setattr("tools.calibrate.suites.free_mb", lambda d, f=free: f)
+        ctx = _ctx(tmp_path / str(free), ssd_dir=str(tmp_path / str(free) / "ssd"))
+        disk.run(ctx)
+        assert _skipped(ctx) == expected
+
+
+def _fake_raw(root: Path, host_name: str = "labbox") -> Path:
+    raw = root / "raw"
+    for suite, status in (("caps", "ok"), ("disk", "skipped: pass --set ssd_dir"), ("tpm", "error")):
+        for run_id in ("20261014T100000", "20261014T110000"):
+            d = raw / "c0-abc" / suite / run_id
+            d.mkdir(parents=True)
+            st = ("error" if run_id.endswith("100000") else "ok") if suite == "tpm" else status
+            meta = {"suite": suite, "status": st, "hostname": host_name, "options": {"kernel": "/home/alice/a/vmlinux"}}
+            (d / "meta.json").write_text(json.dumps(meta))
+            (d / "records.jsonl").write_text('{"probe": "x"}\n' * (3 if suite == "caps" else 1))
+            (d / "commands.txt").write_text("ls /home/alice\n")
+    (raw / "c0-abc" / "fc_boot").mkdir()
+    (raw / "c0-abc" / "fc_boot" / "voss-rootfs.ext4").write_bytes(b"\0" * 1000)  # a scratch image must never ship
+    (raw / "c0-abc" / "tpm" / "20261014T110000" / "ek.pub").write_text("endorsement key")  # hardware identifier
+    (raw / "env.txt").write_text("user alice on labbox")
+    return raw
+
+
+def test_report_summary_uses_each_suites_newest_run(tmp_path: Path) -> None:
+    from tools.calibrate import report
+
+    text = report.summary(_fake_raw(tmp_path))
+    assert "caps" in text and "all suites ok" not in text
+    assert "not ok: disk" in text and "tpm" not in text.split("not ok:")[1]  # tpm failed once; its newest run is ok
+    assert "no runs under" in report.summary(tmp_path / "empty")
+
+
+def test_report_pack_scrubs_identifying_strings_and_leaves_out_images(tmp_path: Path) -> None:
+    import tarfile
+
+    from tools.calibrate import report
+
+    raw = _fake_raw(tmp_path)
+    out = report.pack(raw, tmp_path / "x.tar.gz", {"/home/alice": "/home/USER", "alice": "USER", "labbox": "HOST"})
+    with tarfile.open(out) as tar:
+        names = tar.getnames()
+        members = [m for m in tar.getmembers() if m.isfile() and m.name.endswith((".json", ".txt"))]
+        blob = "".join(str(tar.extractfile(m).read(), "utf-8") for m in members)  # type: ignore[union-attr]
+    assert "raw/MANIFEST.sha256" in names and "raw/env.txt" in names
+    assert not any(n.endswith(("ek.pub", ".ext4")) for n in names)  # only whitelisted result files are archived
+    assert "alice" not in blob and "labbox" not in blob and "/home/USER/a/vmlinux" in blob
+    assert (raw / "c0-abc" / "caps" / "20261014T110000" / "meta.json").read_text().count("labbox") == 1  # original kept
+
+
+def test_scrub_is_whole_word_and_path_first() -> None:
+    from tools.calibrate.report import scrub_text
+
+    sec = {"/home/pi": "/home/USER", "pi": "USER", "alice": "USER", "box7": "HOST"}
+    text = '{"hostname": "box7", "p": "/home/pi/x", "note": "pipeline for alice, alice-ng, rootfs"}'
+    out = scrub_text(text, sec)
+    assert '"hostname": "HOST"' in out and "/home/USER/x" in out and "pipeline" in out  # 'pi' is too short to match
+    assert "for USER," in out and "alice-ng" in out  # whole words only
+    # a user called "root": the word goes, the word "rootfs" stays
+    assert scrub_text("root hash rootfs /root/a", {"/root": "/home/USER", "root": "USER"}) == (
+        "USER hash rootfs /home/USER/a"
+    )

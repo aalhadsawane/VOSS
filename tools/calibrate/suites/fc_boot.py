@@ -63,8 +63,15 @@ def run(ctx: Ctx) -> None:
     tiers = ctx.dirs() or {"default": Path(a.rootfs).parent}
     caches = ("warm", "cold") if is_root() or ctx.sh.dry_run else ("warm",)
     for tier, d in sorted(tiers.items()):
+        size_mb = Path(a.rootfs).stat().st_size / 2**20 if Path(a.rootfs).exists() else 0.0
+        if not ctx.has_room(d, size_mb):
+            ctx.skip(f"fc_boot tier={tier}", size_mb, "not enough free disk for a rootfs copy")
+            continue
         rootfs = rootfs_on(ctx, a, tier, d)
         for mem in MEM_MB:
+            if mem > ctx.mem_budget_mb():
+                ctx.skip(f"fc_boot mem={mem}", mem, "guest memory over the RAM budget")
+                continue
             for cache in caches:
                 for rep in range(ctx.reps(100)):
                     if cache == "cold":
