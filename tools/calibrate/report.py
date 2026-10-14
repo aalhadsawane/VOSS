@@ -77,7 +77,7 @@ def pack(raw: Path, out: Path, secrets: dict[str, str] | None = None) -> Path:
         dst = Path(tmp) / "raw"
         for f in sorted(p for p in raw.rglob("*") if p.is_file()):
             rel = f.relative_to(raw)
-            if f.name in (TOP if len(rel.parts) == 1 else KEEP):
+            if f.name in (TOP if len(rel.parts) == 1 else KEEP) or (rel.parts[0] == "debug" and f.suffix == ".log"):
                 out_rel = Path(*(scrub_text(part, sec) for part in rel.parts))  # the host label may carry the user name
                 (dst / out_rel).parent.mkdir(parents=True, exist_ok=True)
                 (dst / out_rel).write_text(scrub_text(f.read_text(errors="replace"), sec))

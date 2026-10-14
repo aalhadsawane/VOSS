@@ -15,6 +15,7 @@ import re
 import shutil
 import socket
 import subprocess
+import tempfile
 import threading
 import time
 from dataclasses import dataclass, field
@@ -62,7 +63,10 @@ class FcVm:
         if self.assets.jailer:
             argv, self.sock = self._jailed()
         else:
-            self.sock = str(self.workdir / f"{self.vm_id}.sock")
+            # AF_UNIX paths are limited to 107 bytes: a deep results directory would silently break (seen at rep 10)
+            sock_dir = Path(tempfile.gettempdir()) / "voss-fc"
+            sock_dir.mkdir(parents=True, exist_ok=True)
+            self.sock = str(sock_dir / f"{self.vm_id[-60:]}.sock")
             Path(self.sock).unlink(missing_ok=True)
             argv = [self.assets.firecracker, "--api-sock", self.sock, "--level", "Warning"]
         self.proc = subprocess.Popen(

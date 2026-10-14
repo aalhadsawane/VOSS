@@ -34,7 +34,13 @@ install_all() {
     orig=graphical.target
     [ -n "$DESTDIR" ] || orig=$(systemctl get-default)
     [ "$orig" != voss-calib.target ] || die "default target is already voss-calib.target; run uninstall first"
-    printf 'ORIG_TARGET=%s\nN=%s\nSETTLE=%s\n' "$orig" "$n" "${SETTLE:-60}" >"$STATE/config"
+    # A machine that used to run Windows keeps its hardware clock in local time; Linux then reads it wrong until NTP
+    # steps it, which corrupts wall-clock boot timings. Switch it to UTC for the run and put it back afterwards.
+    rtc=no
+    if [ -z "$DESTDIR" ] && command -v timedatectl >/dev/null 2>&1 && [ "$(timedatectl show -p LocalRTC --value 2>/dev/null)" = yes ]; then
+        timedatectl set-local-rtc 0 --adjust-system-clock && rtc=yes
+    fi
+    printf 'ORIG_TARGET=%s\nN=%s\nSETTLE=%s\nLOCALRTC=%s\n' "$orig" "$n" "${SETTLE:-60}" "$rtc" >"$STATE/config"
     rm -f "$STATE/appliance/STOP" "$STATE/appliance/DONE"
     sysctl_ daemon-reload
     sysctl_ enable voss-calib-driver.service
@@ -46,6 +52,7 @@ uninstall_all() {
         # shellcheck disable=SC1091
         . "$STATE/config"
         sysctl_ disable voss-calib-driver.service || true
+        [ "${LOCALRTC:-no}" != yes ] || timedatectl set-local-rtc 1 --adjust-system-clock || true
         [ "$(sysctl_ get-default 2>/dev/null || echo "$ORIG_TARGET")" != voss-calib.target ] || sysctl_ set-default "$ORIG_TARGET"
     fi
     for u in $LIST_UNITS; do rm -f "$UNITS/$u"; done

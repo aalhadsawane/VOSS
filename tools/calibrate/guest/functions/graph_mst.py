@@ -10,4 +10,4 @@ def make_input(size_kb: int) -> igraph.Graph:
 
 
 def handler(g: igraph.Graph) -> int:
-    return int(g.spanning_tree(None, False).ecount())
+    return len(g.spanning_tree(None, False))  # return_tree=False gives the list of tree edge ids

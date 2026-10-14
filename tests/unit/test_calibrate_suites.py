@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import subprocess
@@ -357,3 +358,31 @@ def test_auto_stage_machine_resumes_across_reboots(tmp_path: Path) -> None:
     assert calls[0].startswith("setup") and "full" in calls and "appliance run 2" in calls
     assert calls.index("full") < calls.index("appliance run 2") < calls.index("pack")
     assert list(home.glob("voss-calib-tester-*.tar.gz")) and "SHA-256" in (home / "VOSS-CALIB-DONE.txt").read_text()
+
+
+def test_fingerprint_ignores_memtotal_jitter_and_uses_the_node_label(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Seen on the stand-in laptop: MemTotal differed by a few kB between boots and split one machine into 3 folders."""
+    from tools.calibrate.common import fingerprint
+
+    meta = {"cpu_model": "x", "board": "b", "bios_version": "v", "mem_kb": 3907364}
+    monkeypatch.setenv("VOSS_NODE", "alice")
+    assert fingerprint(meta) == fingerprint({**meta, "mem_kb": 3907376}) and fingerprint(meta).startswith("alice-")
+    assert fingerprint(meta) != fingerprint({**meta, "mem_kb": 7814728})
+
+
+def test_appliance_collect_rejects_a_stepped_clock(tmp_path: Path) -> None:
+    (tmp_path / "probe-0001.log").write_text(PROBE_LOG.replace("prev_end 1004.5", "prev_end -18800.0"))
+    ctx = Ctx(Shell(dry_run=True), Records(tmp_path / "r.jsonl", "appliance"), tmp_path, {})
+    assert appliance.collect(ctx, tmp_path) == 0
+    assert "clock step" in (tmp_path / "r.jsonl").read_text()
+
+
+def test_firecracker_socket_path_stays_short_in_deep_directories(tmp_path: Path) -> None:
+    """AF_UNIX paths are limited to 107 bytes; a deep results directory broke rep 10 of fc_snapshot on the laptop."""
+    from tools.calibrate.fc import FcAssets, FcVm
+
+    deep = tmp_path / ("d" * 60) / ("e" * 60)
+    vm = FcVm(FcAssets("/bin/true", "k", "r"), deep, "snapr-128-hdd-warm-10")
+    with contextlib.suppress(RuntimeError):  # /bin/true exits at once: only the chosen socket path matters here
+        vm.spawn()
+    assert len(vm.sock.encode()) < 100

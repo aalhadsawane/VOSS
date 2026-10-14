@@ -31,7 +31,11 @@ def run(ctx: Ctx) -> None:
             if ctx.sh.dry_run:
                 ctx.sh.run(cmd)
                 break
-            ctx.rec.add("qemu_boot", time_to_marker(cmd, "VOSS_MARK init", 60.0), rep=rep, machine=machine)
+            try:
+                ctx.rec.add("qemu_boot", time_to_marker(cmd, "VOSS_MARK init", 120.0), rep=rep, machine=machine)
+            except TimeoutError as e:  # keep the other machine type and the reason (D-61)
+                ctx.rec.add("qemu_boot_failed", 1.0, unit="bool", rep=rep, machine=machine, why=str(e)[:600])
+                break
 
 
 SUITE = Suite("qemu_vm", run, "QEMU microvm/q35 boot to init (E-CS1 comparison)")

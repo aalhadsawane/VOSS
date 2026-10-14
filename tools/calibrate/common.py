@@ -152,7 +152,8 @@ def _mem_kb() -> int:
 
 def fingerprint(meta: dict[str, Any]) -> str:
     """Stable host id for ``configs/calibration/measured/<fingerprint>/``: hardware and firmware, not software."""
-    key = "|".join(str(meta.get(k, "")) for k in ("cpu_model", "board", "bios_version", "mem_kb"))
+    mem_gb = round(int(meta.get("mem_kb") or 0) / 2**20, 1)  # MemTotal differs by a few kB between boots
+    key = "|".join([*(str(meta.get(k, "")) for k in ("cpu_model", "board", "bios_version")), str(mem_gb)])
     node = re.sub(r"[^A-Za-z0-9_.]", "", os.environ.get("VOSS_NODE", "")) or "c0"  # laptop runs label it by user
     return f"{node}-" + hashlib.sha256(key.encode()).hexdigest()[:10]
 
@@ -187,6 +188,7 @@ def drop_caches(sh: Shell) -> None:
 def time_to_marker(argv: list[str], marker: str, timeout: float = 60.0) -> float:
     """Spawn a VMM whose serial console is stdout; seconds from spawn until a line containing ``marker``."""
     lines: queue.Queue[tuple[float, str]] = queue.Queue()
+    tail: list[str] = []
     t0 = time.monotonic()
     p = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
@@ -202,9 +204,10 @@ def time_to_marker(argv: list[str], marker: str, timeout: float = 60.0) -> float
                 t, line = lines.get(timeout=left)
             except queue.Empty:
                 break
+            tail = [*tail[-9:], line.rstrip()[:200]]
             if marker in line:
                 return t - t0
-        raise TimeoutError(f"{argv[0]}: no {marker!r} within {timeout} s")
+        raise TimeoutError(f"{argv[0]}: no {marker!r} within {timeout} s; last output: {' | '.join(tail) or 'none'}")
     finally:
         p.kill()
         p.wait(timeout=10)

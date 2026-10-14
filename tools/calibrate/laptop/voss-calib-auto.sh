@@ -4,6 +4,7 @@
 #     sudo bash voss-calib-auto.sh            install, start, and follow the progress
 #     sudo bash voss-calib-auto.sh status     where is it? (also works after a reboot)
 #     sudo bash voss-calib-auto.sh stop       cancel everything and undo the reboot loop
+#     sudo bash voss-calib-auto.sh redo       a second round after a fix: rerun the failed suites + reboot test, pack
 #
 # It copies the tools to /opt/voss-calib and runs the stages as a systemd service, so closing the terminal does not
 # stop it and the work resumes after every reboot (the reboot test restarts the laptop on its own):
@@ -22,6 +23,7 @@ APP_LOGS=$CALIB/appliance
 UNIT=voss-calib-auto.service
 LOG=$STATE/auto.log
 STAGES=(setup full appliance tme finish)
+RERUN_SUITES="fc_snapshot qemu_vm sebs"
 MAX_ATTEMPTS=3
 
 say() { printf '%s\n' "$*"; }
@@ -52,7 +54,8 @@ install_and_start() {
     cp -a "$HERE/../.." "$OPT/tools"           # HERE = tools/calibrate/laptop, so HERE/../.. = tools/
   fi
   chmod -R a+rX "$OPT"
-  printf 'TARGET_USER=%s\nTARGET_HOME=%s\nBOOTS=%s\n' "$user" "$home" "${VOSS_BOOTS:-10}" >"$CONF"
+  printf 'TARGET_USER=%s\nTARGET_HOME=%s\nBOOTS=%s\nSTAGE_LIST="%s"\n' \
+    "$user" "$home" "${VOSS_BOOTS:-10}" "${VOSS_AUTO_STAGES:-${STAGES[*]}}" >"$CONF"
   rm -f "$STATE"/{STOP,DONE,stage,attempts}
   touch "$STATE/RUN" "$LOG"
   mkdir -p "$ROOT/etc/systemd/system"
@@ -119,6 +122,7 @@ load_conf() {
   [ -r "$CONF" ] || die "$CONF missing: start with  sudo bash $0"
   # shellcheck disable=SC1090
   . "$CONF"
+  read -ra STAGES <<<"${STAGE_LIST:-${STAGES[*]}}"
   export HOME=$TARGET_HOME USER=$TARGET_USER LOGNAME=$TARGET_USER SUDO_USER=$TARGET_USER
   export VOSS_ALLOW_ROOT=1 VOSS_YES=1 VOSS_FORCE=1 VOSS_NODE=$TARGET_USER VOSS_BOOTS=$BOOTS
   export DEBIAN_FRONTEND=noninteractive
@@ -137,6 +141,7 @@ advance() { # move to the stage after $1 and reset the attempt counter
 bump() { local n; n=$(($(cat "$STATE/attempts" 2>/dev/null || echo 0) + 1)); echo "$n" >"$STATE/attempts"; echo "$n"; }
 
 stage_setup() { $MAIN setup --with-ml --yes || $MAIN setup --yes; }  # the ML image is optional: fall back without it
+stage_rerun() { $MAIN run $RERUN_SUITES; }
 stage_full() { timeout --signal=TERM 10h $MAIN full; }
 stage_tme() {
   if grep -qw tme /proc/cpuinfo; then
@@ -147,6 +152,13 @@ stage_tme() {
 }
 stage_finish() {
   [ ! -d "$APP_LOGS" ] || $MAIN appliance collect || log "appliance collect failed (continuing)"
+  local dbg=$WORKDIR/raw/debug d
+  mkdir -p "$dbg"  # plain-text logs for diagnosing a failed step (packed, scrubbed)
+  cp "$LOG" "$dbg/auto.log" 2>/dev/null || true
+  for d in "$APP_LOGS" "$APP_LOGS".prev-*; do
+    [ -d "$d" ] && for f in "$d"/probe-*.log; do [ -e "$f" ] && cp "$f" "$dbg/$(basename "$d")-$(basename "$f")"; done
+  done
+  journalctl -u 'voss-calib-*' --no-pager -o short-iso >"$dbg/units.log" 2>&1 || true
   $MAIN cleanup || true
   $MAIN pack
   local tgz out sum
@@ -164,8 +176,10 @@ stage_finish() {
 
 stage_appliance() { # the bounded reboot loop is driven by voss-calib-driver.service; here: start it, then wait
   if [ ! -e "$CALIB/config" ]; then
-    [ ! -e "$APP_LOGS/DONE" ] && [ ! -e "$APP_LOGS/STOP" ] || return 0
     local n; n=$(bump)
+    if [ -d "$APP_LOGS" ] && [ -n "$(ls -A "$APP_LOGS" 2>/dev/null)" ]; then  # logs of an earlier round: keep, restart numbering
+      mv "$APP_LOGS" "$APP_LOGS.prev-$(date +%s)"
+    fi
     [ "$n" -le "$MAX_ATTEMPTS" ] || { log "appliance: could not start after $MAX_ATTEMPTS tries, skipping"; return 0; }
     log "appliance: installing the reboot loop and rebooting now"
     $MAIN appliance run "$BOOTS" || { log "appliance: start failed"; return 0; }
@@ -210,5 +224,8 @@ case "${1:-start}" in
   status) show_status ;;
   stop) stop_all "$@" ;;
   stages) run_stages ;;
+  redo)
+    [ "$(id -u)" -eq 0 ] || exec sudo -E bash "$0" redo
+    VOSS_AUTO_STAGES="rerun appliance finish" install_and_start ;;
   *) sed -n '2,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac

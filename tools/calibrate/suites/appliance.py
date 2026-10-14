@@ -51,7 +51,7 @@ def events(log: str) -> dict[str, float]:
 
 def wall(log: str) -> dict[str, float]:
     """``VOSS_E <name> <epoch seconds>`` evidence lines of the host-mode probe (D-60); ``none`` values are dropped."""
-    return {e: float(t) for e, t in re.findall(r"^VOSS_E (\w+) ([0-9.]+)$", log, re.M)}
+    return {e: float(t) for e, t in re.findall(r"^VOSS_E (\w+) (-?[0-9.]+)$", log, re.M)}
 
 
 def collect(ctx: Ctx, log_dir: Path) -> int:
@@ -69,6 +69,9 @@ def collect(ctx: Ctx, log_dir: Path) -> int:
             ctx.rec.add("reboot_to_kernel", parts["firmware"] + parts.get("loader", 0.0) + kernel, rep=i, **extra)
         elif {"arm", "btime", "prev_end"} <= ws.keys():  # host mode: wall clock, GRUB gives systemd no firmware time
             fw = ws["btime"] - ws["prev_end"]
+            if not 0.0 <= fw <= 600.0:  # the clock was stepped between the two boots (RTC in local time, NTP): unusable
+                ctx.rec.add("boot_incomplete", 1.0, unit="bool", rep=i, file=f.name, why=f"clock step ({fw:.0f} s)")
+                continue
             ctx.rec.add("shutdown", ws["prev_end"] - ws["arm"], rep=i, method="wallclock")
             ctx.rec.add("firmware_loader", fw, rep=i, method="wallclock")
             ctx.rec.add("reboot_cmd_to_kernel", ws["btime"] - ws["arm"], rep=i, method="wallclock")
