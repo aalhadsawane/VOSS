@@ -1,0 +1,45 @@
+fio --name=seq_read --filename=/home/USER/voss-calib-work/scratch/hdd/voss-fio.dat --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=read --bs=1M --iodepth=8
+fio --name=seq_read --filename=/home/USER/voss-calib-work/scratch/hdd/voss-fio.dat --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=read --bs=1M --iodepth=8
+fio --name=seq_read --filename=/home/USER/voss-calib-work/scratch/hdd/voss-fio.dat --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=read --bs=1M --iodepth=8
+fio --name=seq_read --filename=/home/USER/voss-calib-work/scratch/hdd/voss-fio.dat --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=read --bs=1M --iodepth=8
+fio --name=seq_read --filename=/home/USER/voss-calib-work/scratch/hdd/voss-fio.dat --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=read --bs=1M --iodepth=8
+fio --name=seq_write --filename=/home/USER/voss-calib-work/scratch/hdd/voss-fio.dat --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=write --bs=1M --iodepth=8
+fio --name=seq_write --filename=/home/USER/voss-calib-work/scratch/hdd/voss-fio.dat --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=write --bs=1M --iodepth=8
+fio --name=seq_write --filename=/home/USER/voss-calib-work/scratch/hdd/voss-fio.dat --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=write --bs=1M --iodepth=8
+fio --name=seq_write --filename=/home/USER/voss-calib-work/scratch/hdd/voss-fio.dat --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=write --bs=1M --iodepth=8
+fio --name=seq_write --filename=/home/USER/voss-calib-work/scratch/hdd/voss-fio.dat --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=write --bs=1M --iodepth=8
+fio --name=rand_read_4k --filename=/home/USER/voss-calib-work/scratch/hdd/voss-fio.dat --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=randread --bs=4k --iodepth=32
+fio --name=rand_read_4k --filename=/home/USER/voss-calib-work/scratch/hdd/voss-fio.dat --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=randread --bs=4k --iodepth=32
+fio --name=rand_read_4k --filename=/home/USER/voss-calib-work/scratch/hdd/voss-fio.dat --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=randread --bs=4k --iodepth=32
+fio --name=rand_read_4k --filename=/home/USER/voss-calib-work/scratch/hdd/voss-fio.dat --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=randread --bs=4k --iodepth=32
+fio --name=rand_read_4k --filename=/home/USER/voss-calib-work/scratch/hdd/voss-fio.dat --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=randread --bs=4k --iodepth=32
+fio --name=rand_write_4k --filename=/home/USER/voss-calib-work/scratch/hdd/voss-fio.dat --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=randwrite --bs=4k --iodepth=32
+fio --name=rand_write_4k --filename=/home/USER/voss-calib-work/scratch/hdd/voss-fio.dat --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=randwrite --bs=4k --iodepth=32
+fio --name=rand_write_4k --filename=/home/USER/voss-calib-work/scratch/hdd/voss-fio.dat --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=randwrite --bs=4k --iodepth=32
+fio --name=rand_write_4k --filename=/home/USER/voss-calib-work/scratch/hdd/voss-fio.dat --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=randwrite --bs=4k --iodepth=32
+fio --name=rand_write_4k --filename=/home/USER/voss-calib-work/scratch/hdd/voss-fio.dat --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=randwrite --bs=4k --iodepth=32
+truncate -s 3G /home/USER/voss-calib-work/scratch/hdd/voss-crypt.img
+losetup --find --show /home/USER/voss-calib-work/scratch/hdd/voss-crypt.img
+cryptsetup luksFormat --batch-mode --type luks2 --key-file /home/USER/voss-calib-work/scratch/hdd/voss-crypt.key /dev/loop11
+cryptsetup open --key-file /home/USER/voss-calib-work/scratch/hdd/voss-crypt.key /dev/loop11 voss-crypt
+fio --name=seq_read --filename=/dev/mapper/voss-crypt --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=read --bs=1M --iodepth=8
+fio --name=seq_read --filename=/dev/mapper/voss-crypt --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=read --bs=1M --iodepth=8
+fio --name=seq_read --filename=/dev/mapper/voss-crypt --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=read --bs=1M --iodepth=8
+fio --name=seq_read --filename=/dev/mapper/voss-crypt --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=read --bs=1M --iodepth=8
+fio --name=seq_read --filename=/dev/mapper/voss-crypt --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=read --bs=1M --iodepth=8
+fio --name=seq_write --filename=/dev/mapper/voss-crypt --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=write --bs=1M --iodepth=8
+fio --name=seq_write --filename=/dev/mapper/voss-crypt --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=write --bs=1M --iodepth=8
+fio --name=seq_write --filename=/dev/mapper/voss-crypt --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=write --bs=1M --iodepth=8
+fio --name=seq_write --filename=/dev/mapper/voss-crypt --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=write --bs=1M --iodepth=8
+fio --name=seq_write --filename=/dev/mapper/voss-crypt --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=write --bs=1M --iodepth=8
+cryptsetup close voss-crypt
+losetup -d /dev/loop11
+dd if=/dev/urandom of=/home/USER/voss-calib-work/scratch/hdd/voss-verity.data bs=1M count=2048 status=none
+veritysetup format /home/USER/voss-calib-work/scratch/hdd/voss-verity.data /home/USER/voss-calib-work/scratch/hdd/voss-verity.hash
+veritysetup open /home/USER/voss-calib-work/scratch/hdd/voss-verity.data voss-verity /home/USER/voss-calib-work/scratch/hdd/voss-verity.hash 178b5331814dc1804ec983f469ff3a1350e08d26975faacf7c0c8fc5f882e565
+fio --name=seq_read --filename=/dev/mapper/voss-verity --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=read --bs=1M --iodepth=8
+fio --name=seq_read --filename=/dev/mapper/voss-verity --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=read --bs=1M --iodepth=8
+fio --name=seq_read --filename=/dev/mapper/voss-verity --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=read --bs=1M --iodepth=8
+fio --name=seq_read --filename=/dev/mapper/voss-verity --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=read --bs=1M --iodepth=8
+fio --name=seq_read --filename=/dev/mapper/voss-verity --size=2G --direct=1 --ioengine=libaio --runtime=15 --time_based --output-format=json --rw=read --bs=1M --iodepth=8
+veritysetup close voss-verity

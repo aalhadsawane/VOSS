@@ -93,8 +93,8 @@ def generate(cfg: RunConfig) -> Scenario:
     sc, rng, horizon = cfg.scenario, RngFactory(cfg.seed), cfg.horizon_s
     gp = GeoParams.model_validate(sc.geo)
     metros = load_metros(gp.metros).restrict(gp.regions)
-    catalog = load_catalog(sc)
-    workers = generate_workers(sc, metros, load_hw_classes(sorted(sc.hw_mix)), rng)
+    catalog = load_catalog(sc, cfg.calibration)
+    workers = generate_workers(sc, metros, load_hw_classes(sorted(sc.hw_mix), cfg.calibration), rng)
     adv = generate_adversaries(sc, workers, horizon, rng)
     params = load_adversary_regime(sc).params
     fake = np.flatnonzero(adv.behavior == BEHAVIORS.index("fake_signals"))

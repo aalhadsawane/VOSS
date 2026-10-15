@@ -1,0 +1,40 @@
+appliance_userspace:
+  ks: 0.12981475103222817
+  median: 30.695152065522212
+  n: 9.0
+  sigma: 0.022602008452583127
+fc_boot:
+  ks: 0.21675129270856552
+  median: 0.15547015603479494
+  n: 100.0
+  sigma: 0.02693675576738792
+fc_restore:
+  ks: 0.10198995757572665
+  median: 0.0067099893074749955
+  n: 50.0
+  sigma: 0.2793879892319659
+fc_snapshot_create:
+  n: 1.0
+provenance:
+  default: measured
+  note: ingested from raw logs of host laptop-b9212a4528 (rule 13)
+reboot_to_kernel:
+  ks: 0.14937338310311166
+  median: 21.035357464378116
+  n: 9.0
+  sigma: 0.04555917006831786
+tpm2_quote:
+  ks: 0.4030084606858041
+  median: 0.5138638449346573
+  n: 400.0
+  sigma: 0.11203743111578261
+verify_s:
+  ks: 0.2448448977101265
+  median: 0.03909204088100949
+  n: 100.0
+  sigma: 0.1438249146607883
+verify_s_per_MB:
+  ks: 0.16788060877072764
+  median: 0.0037329159790994173
+  n: 10.0
+  sigma: 0.017596589550542115

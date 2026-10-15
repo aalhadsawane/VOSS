@@ -1,0 +1,34 @@
+{
+  "cpu_flags": {
+    "aes": true,
+    "avx2": true,
+    "avx512f": false,
+    "sha_ni": false,
+    "svm": false,
+    "tme": false,
+    "vmx": true
+  },
+  "disks": [
+    {
+      "model": "ST1000LM035-1RK172",
+      "name": "sda",
+      "rotational": true,
+      "size_gb": 1000.2
+    },
+    {
+      "model": "",
+      "name": "zram0",
+      "rotational": false,
+      "size_gb": 1.2
+    }
+  ],
+  "free": "Mounted on                                       Avail\n/run                                         798244864\n/                                         903515054080\n/dev/shm                                    2000572416\n/run/credentials/systemd-journald.service      1048576\n/tmp                                        1996505088\n/run/credentials/systemd-resolved.service      1048576\n/run/user/1001                               400019456\n",
+  "iommu": true,
+  "kvm": true,
+  "secure_boot": false,
+  "tme_cpuid": null,
+  "tme_dmesg": false,
+  "tme_msr_0x982": null,
+  "tpm_device": true,
+  "tpm_vendor": "INTC"
+}

@@ -1,0 +1,29 @@
+Traceback (most recent call last):
+  File "/opt/voss-calib/tools/calibrate/run.py", line 59, in run_suite
+    s.run(ctx)
+    ~~~~~^^^^^
+  File "/opt/voss-calib/tools/calibrate/suites/sebs.py", line 73, in run
+    results = list(pool.map(lambda i, f=fn, k=n: one_guest(ctx, a, f, reps, f"{f}-{k}-{i}"), range(n)))
+  File "/usr/lib/python3.14/concurrent/futures/_base.py", line 639, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/usr/lib/python3.14/concurrent/futures/_base.py", line 311, in _result_or_cancel
+    return fut.result(timeout)
+           ~~~~~~~~~~^^^^^^^^^
+  File "/usr/lib/python3.14/concurrent/futures/_base.py", line 450, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.14/concurrent/futures/_base.py", line 395, in __get_result
+    raise self._exception
+  File "/usr/lib/python3.14/concurrent/futures/thread.py", line 86, in run
+    result = ctx.run(self.task)
+  File "/usr/lib/python3.14/concurrent/futures/thread.py", line 73, in run
+    return fn(*args, **kwargs)
+  File "/opt/voss-calib/tools/calibrate/suites/sebs.py", line 73, in <lambda>
+    results = list(pool.map(lambda i, f=fn, k=n: one_guest(ctx, a, f, reps, f"{f}-{k}-{i}"), range(n)))
+                                                 ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/voss-calib/tools/calibrate/suites/sebs.py", line 52, in one_guest
+    execs = vm.collect("EXEC", until="done", timeout=1800.0)
+  File "/opt/voss-calib/tools/calibrate/fc.py", line 198, in collect
+    raise RuntimeError(f"guest error: {m.group(2)}")
+RuntimeError: guest error: AttributeError: 'list' object has no attribute 'ecount'

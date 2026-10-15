@@ -5,6 +5,7 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field
 
 from voss.core.paths import load_data_yaml
+from voss.world.calibration import hardware_overrides
 
 
 class HwClass(BaseModel):
@@ -25,9 +26,11 @@ class HwClass(BaseModel):
     tpm: str
 
 
-def load_hw_class(name: str) -> HwClass:
-    return HwClass.model_validate(load_data_yaml(f"hardware/{name}.yaml"))
+def load_hw_class(name: str, calibration: str | None = None) -> HwClass:
+    """``configs/hardware/<name>.yaml`` with measured fields from the calibration bundle (doc 10 §1)."""
+    data = load_data_yaml(f"hardware/{name}.yaml") | hardware_overrides(calibration).get(name, {})
+    return HwClass.model_validate(data)
 
 
-def load_hw_classes(names: list[str]) -> dict[str, HwClass]:
-    return {n: load_hw_class(n) for n in sorted(names)}
+def load_hw_classes(names: list[str], calibration: str | None = None) -> dict[str, HwClass]:
+    return {n: load_hw_class(n, calibration) for n in sorted(names)}

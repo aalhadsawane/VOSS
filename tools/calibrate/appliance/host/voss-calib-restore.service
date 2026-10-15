@@ -1,0 +1,11 @@
+[Unit]
+Description=VOSS calibration: restore the original default target
+DefaultDependencies=no
+After=basic.target
+Before=voss-calib-probe.service
+ConditionPathExists=/var/lib/voss-calib/config
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/voss-calib-restore

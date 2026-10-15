@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "/opt/voss-calib/tools/calibrate/run.py", line 59, in run_suite
+    s.run(ctx)
+    ~~~~~^^^^^
+  File "/opt/voss-calib/tools/calibrate/suites/qemu_vm.py", line 34, in run
+    ctx.rec.add("qemu_boot", time_to_marker(cmd, "VOSS_MARK init", 60.0), rep=rep, machine=machine)
+                             ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/voss-calib/tools/calibrate/common.py", line 207, in time_to_marker
+    raise TimeoutError(f"{argv[0]}: no {marker!r} within {timeout} s")
+TimeoutError: qemu-system-x86_64: no 'VOSS_MARK init' within 60.0 s

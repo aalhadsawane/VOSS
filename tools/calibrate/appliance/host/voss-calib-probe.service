@@ -1,0 +1,12 @@
+[Unit]
+Description=VOSS calibration: attested-userspace probe, then reboot
+Requires=voss-calib-restore.service
+After=voss-calib-restore.service
+ConditionPathExists=/var/lib/voss-calib/config
+SuccessAction=reboot
+FailureAction=reboot
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/voss-calib-probe
+RuntimeMaxSec=600

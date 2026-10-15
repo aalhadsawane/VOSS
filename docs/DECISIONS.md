@@ -198,8 +198,25 @@ both clusters could run it and the router could pair an input with the wrong att
 the nearest peer is not the fastest source (a 175 MB bundle at 6 Mbps up takes ~230 s). Source hints rank peers by
 expected pull time (RTT + bytes / min(peer uplink / (1 + busy), target downlink)) and keep only peers faster than the
 registry estimate; snapshots, which the registry does not serve, keep the fastest eligible peers.
+**D-38 The harness runs remotely and the node side is stdlib-only** (P9). C0 is reached over SSH and is not the
+agent's machine, so `tools/calibrate/remote.py` copies the harness, runs suites there and pulls raw logs back; the
+node needs only Python ≥ 3.10 and the measured tools. Reboots are never automated beyond one per invocation:
+`--boots N` waits for SSH between reboots instead of installing a reboot loop on the owner's machine.
 
-*(D-38..D-41 are taken by the P9 calibration harness, branch `p9-harness`.)*
+**D-39 Local attestation without Keylime** (P9). `attest_local` measures the same cryptographic work as a
+Keylime-style verifier (TPM quote, `tpm2_checkquote`, an Ed25519 certificate signature) with tpm2-tools; Keylime's
+policy-engine overhead is not included and the `verify_s` entry says so in its `source`. *Rejected:* installing
+Keylime agent + verifier on the owner's machine for one number.
+
+**D-40 SeBS-equivalent kernels instead of SeBS code** (P9). SeBS benchmarks fetch inputs from cloud object storage;
+inside an offline microVM the guest runs small kernels with the same libraries and computation per function
+(Jinja2, Pillow, ffmpeg, zip, ResNet-50, igraph, squiggle) on generated inputs. Measured `init_s`, `work_ref_s`,
+`size_exp` and interference therefore describe these kernels. Node.js variants and Kata are not covered yet.
+
+**D-41 Measured hardware and function profiles live in the bundle** (P9, AGENTS.md rule 13). Besides
+`distributions.yaml`, a measured bundle may carry `hardware.yaml` (fields of hardware classes, e.g. C0 disk speeds)
+and `functions.yaml` (per-function profile fields); loaders overlay them on the literature YAMLs when a run's
+`calibration` points at that bundle. The placeholder bundle has neither, so existing runs are unchanged.
 
 **D-42 Stalls are judged on router evidence, with a grace period** (P6). A router reports `STALL` when dispatch
 watchdogs fire for `stall_n` distinct invocations of one cluster within `stall_window_s` (rate-limited), and includes
@@ -301,3 +318,36 @@ aborting.
 only before the horizon, so a host whose session ended during the drain kept executing; the attested-execution
 invariant caught it in a 30k-worker run. Ends and drains now replay through `horizon + drain_s` (starts still stop at
 the horizon). Pilot reports of P5-P7 predate this fix; only invocations in flight at the horizon are affected.
+
+**D-60 Host-mode appliance measurement on a stand-in machine** (P9, doc 10 §3.1, rule 14). The designed appliance is
+a UKI with a dm-verity root built by `mkosi`; that image is untested and needs boot-entry changes. For the throwaway
+laptop the owner approved reboots, so `appliance` gained a host mode: a minimal one-shot systemd target on the
+machine's own kernel runs the same TPM attestation round (EK, AK, quote, check) and logs wall-clock stamps, because
+GRUB gives systemd no firmware or loader times. Reboot time is `btime - prev_end` (last journal line of the previous
+boot) plus the kernel time, ±1 s; records carry `method: wallclock`. Safety: the restore service puts the original
+default target back before anything else in the measured boot; the driver loop stops on a STOP file, N completed
+boots, N+3 armed boots, or two unfinished boots in a row; install refuses a LUKS root and saves the original target.
+The loop lives in `appliance/host/` and `laptop/voss-calib.sh appliance`, never in the harness module. The image mode
+stays for the i7 node.
+
+**D-61 Fixes from the first stand-in laptop run** (P9, doc 10 §3). Real hardware exposed six harness bugs that no stub
+could: Firecracker API sockets deeper than the 107-byte `AF_UNIX` limit (rep 10 of `fc_snapshot`); the `graph-mst`
+guest counting `spanning_tree(return_tree=False)`, which is a list; `tpm2_quote -q` needing hex qualifying data (every
+measured boot lost its attestation timing, and two unfinished boots stopped the loop); a machine that used to run
+Windows keeping its hardware clock in local time (a +5.5 h step corrupted wall-clock boot timings, so the install
+switches the RTC to UTC for the run and restores it, and `collect` rejects samples outside 0..600 s); `MemTotal`
+changing by a few kB between boots, which split one machine into three fingerprints (memory is now rounded to
+0.1 GB); and QEMU boot failures aborting the suite (now recorded with the console tail). A failed TPM step no longer
+discards a boot's timings. The pack also carries plain-text `debug/*.log` files (scrubbed). Records of the failed
+suites stay in the first-round data; round two (`voss-calib-auto.sh redo`) reruns only those suites and the reboot test.
+
+**D-62 The stand-in laptop's bundle is labelled as the laptop** (P9, doc 10 §1, rule 13). The only measured machine is
+an i3-7020U laptop with one spinning disk, not the i7 node C0. Its bundle lives at
+`configs/calibration/measured/laptop-<hash>/`; the hash is over CPU, board, BIOS and memory rounded to 0.1 GB (D-61).
+`ingest --tier hdd` maps that machine's only tier onto the mapping's `ssd` role, so `fc_boot`, `fc_restore` and
+`fc_snapshot_create` are HDD numbers; `appliance_*` come from the host-mode probe (D-60) and bound a purpose-built
+image from above. Entries without data keep their `literature`/`assumed` tags. Measurements of a failed `sebs` run
+are kept (each function is written when finished); other failed suites are ignored. The scenario config still names
+the placeholder bundle by default (`configs/base.yaml`); experiments choose the measured one with
+`--set calibration=configs/calibration/measured/laptop-<hash>`. The usernames in raw paths were replaced by the host
+label before committing.

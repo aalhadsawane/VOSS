@@ -1,0 +1,30 @@
+{
+  "bios_version": "CSCN13WW",
+  "board": "LNVNB161216",
+  "cpu_model": "Intel(R) Core(TM) i3-7020U CPU @ 2.30GHz",
+  "dry_run": false,
+  "fio": "fio-3.41",
+  "firecracker": "absent",
+  "harness_version": "0.1.0",
+  "hostname": "HOST",
+  "iommu": true,
+  "kernel": "7.0.0-31-generic",
+  "mem_kb": 3907372,
+  "microcode": "0xf6",
+  "options": {
+    "firecracker": "/home/USER/voss-calib-work/assets/firecracker",
+    "hdd_dir": "/home/USER/voss-calib-work/scratch/hdd",
+    "kernel": "/home/USER/voss-calib-work/assets/vmlinux",
+    "rootfs": "/home/USER/voss-calib-work/assets/voss-guest.ext4",
+    "sebs_rootfs": "/home/USER/voss-calib-work/assets/voss-guest.ext4"
+  },
+  "phase": null,
+  "qemu": "QEMU emulator version 10.2.1 (Debian 1:10.2.1+ds-1ubuntu3.2)",
+  "run_id": "20261014T210254",
+  "secure_boot": false,
+  "status": "ok",
+  "suite": "tpm",
+  "t_utc": "2026-10-14T21:02:54Z",
+  "tme": false,
+  "tpm2_tools": "tool=\"tpm2_quote\" version=\"5.7\" tctis=\"libtss2-tctildr\" tcti-default=tcti-device"
+}

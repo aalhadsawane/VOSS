@@ -1,0 +1,1 @@
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout /home/USER/voss-calib-work/raw/laptop-b9212a4528/tls/20261015T031130/tls/tls.key -out /home/USER/voss-calib-work/raw/laptop-b9212a4528/tls/20261015T031130/tls/tls.crt -days 1 -subj /CN=localhost

@@ -1,0 +1,56 @@
+host:
+  bios_version: CSCN13WW
+  board: LNVNB161216
+  cpu_model: Intel(R) Core(TM) i3-7020U CPU @ 2.30GHz
+  dry_run: false
+  fio: fio-3.41
+  firecracker: absent
+  harness_version: 0.1.0
+  hostname: HOST
+  iommu: true
+  kernel: 7.0.0-31-generic
+  mem_kb: 3907376
+  microcode: '0xf6'
+  options:
+    firecracker: /home/USER/voss-calib-work/assets/firecracker
+    hdd_dir: /home/USER/voss-calib-work/scratch/hdd
+    kernel: /home/USER/voss-calib-work/assets/vmlinux
+    rootfs: /home/USER/voss-calib-work/assets/voss-guest.ext4
+    sebs_rootfs: /home/USER/voss-calib-work/assets/voss-guest.ext4
+  phase: null
+  qemu: QEMU emulator version 10.2.1 (Debian 1:10.2.1+ds-1ubuntu3.2)
+  run_id: 20261015T030848
+  secure_boot: false
+  status: ok
+  suite: tpm
+  t_utc: '2026-10-15T03:08:48Z'
+  tme: false
+  tpm2_tools: tool="tpm2_quote" version="5.7" tctis="libtss2-tctildr" tcti-default=tcti-device
+missing:
+- dispatch
+- drtm_launch
+- kbs_check_s
+- snapshot_touched_frac
+- tme_cpu_factor
+- tme_mem_factor
+provenance:
+  default: measured
+  note: ingested from raw logs of host laptop-b9212a4528 (rule 13)
+raw_files:
+  laptop-b9212a4528/appliance/20261015T060025/records.jsonl: e20a5e92e852f2162f73dd1ade51b7f3d0eed522f7769f7d2b3832033e4cedc1
+  laptop-b9212a4528/attest_local/20261014T210505/records.jsonl: 059b0bf8b71f696d25bd5609e60451cbff40f5c1add713b389a65a1c92af3e75
+  laptop-b9212a4528/attest_local/20261015T031051/records.jsonl: 32bb2ab5e84be86714e13dc6a6a866447c461a095bd698cca64063dd99da1ef4
+  laptop-b9212a4528/caps/20261014T205219/records.jsonl: a998068f08db0940df6d22db5bae659dbd4daa4dd3d244477d86c784bcbf4480
+  laptop-b9212a4528/caps/20261015T025213/records.jsonl: a998068f08db0940df6d22db5bae659dbd4daa4dd3d244477d86c784bcbf4480
+  laptop-b9212a4528/caps/20261015T025847/records.jsonl: a998068f08db0940df6d22db5bae659dbd4daa4dd3d244477d86c784bcbf4480
+  laptop-b9212a4528/disk/20261014T205219/records.jsonl: c9b140f389dd0dfc651f31e46e5204b60857959ab81d2701cb98fad32368a705
+  laptop-b9212a4528/disk/20261015T025848/records.jsonl: 470450c252397e05ab5ad563c961af47ba277982d3b8a317731652482c31ac7d
+  laptop-b9212a4528/fc_boot/20261015T031134/records.jsonl: 93b5d8726455c1e3a1c320c8721ed5a1b44fac71853b485525c665766b0f9691
+  laptop-b9212a4528/fc_snapshot/20261015T050632/records.jsonl: deec82dea54caae89e5bd118c13bdac00c7ec25998cc4ddb42a6beaa73d56b32
+  laptop-b9212a4528/qemu_vm/20261015T051115/records.jsonl: 5c1a6fd0a086fe7c74924fd6a06c3413c845551aceaa197970420c7ab8a8e8da
+  laptop-b9212a4528/sebs/20261014T220520/records.jsonl: 0404d132efbbd58be9a0c24a40941c3e7d484e89ebb6b74a848fa59c7ee0e152
+  laptop-b9212a4528/sebs/20261014T234517/records.jsonl: 35371b5e630d441263878b2798e4d377de760888d3c108adce230ed10d1d1e02
+  laptop-b9212a4528/tls/20261014T210546/records.jsonl: 592aae53630b276a1ef7607e2705abb4d4d1ad8451c004eb6496340979d5f625
+  laptop-b9212a4528/tls/20261015T031130/records.jsonl: 08a794be88b62a64c8ca1bbb352f158aa4fc20def6b588d36c1dda04eeef2c07
+  laptop-b9212a4528/tpm/20261014T210254/records.jsonl: 42d3614d85ef39d27d912a87f761e1e325041bcb43f1fd2efd0b99eb6ac15a5b
+  laptop-b9212a4528/tpm/20261015T030848/records.jsonl: 6526ccfb813a2c3e1bec72e97a696a5897c15c97e5afb4f6de07c2426f599b92

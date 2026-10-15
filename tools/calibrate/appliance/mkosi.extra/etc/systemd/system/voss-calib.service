@@ -1,0 +1,9 @@
+[Unit]
+Description=VOSS appliance calibration probe (doc 10 §3.1)
+After=local-fs.target
+ConditionPathExists=/dev/tpmrm0
+
+[Service]
+# simple, not oneshot: boot must finish so that systemd-analyze can report it
+Type=simple
+ExecStart=/usr/local/bin/voss-calib-probe

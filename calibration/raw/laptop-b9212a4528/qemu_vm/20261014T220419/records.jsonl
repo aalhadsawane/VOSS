@@ -1,0 +1,1 @@
+{"config": {"machine": "microvm"}, "probe": "qemu_boot", "rep": 0, "suite": "qemu_vm", "unit": "s", "value": 0.4649970030000077}

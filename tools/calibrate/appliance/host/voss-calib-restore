@@ -1,0 +1,11 @@
+#!/bin/sh
+# Runs first in the one-shot calibration boot: put the original default target back, so a hang or
+# power cycle during the measurement boots the normal system (doc 10 §6, D-60).
+set -eu
+CONF=${VOSS_CALIB_CONF:-/var/lib/voss-calib/config}
+# shellcheck disable=SC1090
+. "$CONF"
+cur=$(systemctl get-default)
+if [ "$cur" = "voss-calib.target" ]; then
+    systemctl set-default "$ORIG_TARGET"
+fi

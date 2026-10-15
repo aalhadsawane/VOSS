@@ -108,13 +108,21 @@ map): P0 → P4, then P6 and P10, with P9 in parallel.
   (copy `tools/calibrate/` to the node, run suites there, copy raw logs back, ingest locally). Reboot/BIOS suites
   still need explicit user approval (AGENTS.md rule 14). Until then, simulator phases use `literature`/`assumed`
   placeholder values for C0.
+- **Stand-in laptop (2026-10-14):** a spare Linux laptop, run locally without SSH via `tools/calibrate/laptop/`
+  (`appliance run` reboots it ~10 times via a bounded, abortable systemd loop, D-60; `tme` is skipped when the CPU
+  lacks memory encryption). The owner approved reboots and data loss for this machine only (rule 14). Its bundle
+  describes that laptop, not the i7 node; the C0 label is decided at ingest.
+- **Status (2026-10-15):** the stand-in laptop was calibrated in three rounds (D-60, D-61). Committed:
+  `calibration/raw/laptop-b9212a4528/`, the measured bundle `configs/calibration/measured/laptop-b9212a4528/` and
+  `docs/pilots/ECS1-measured.md`; validation notes in `docs/validation/`. Not measured: four SeBS functions, QEMU q35,
+  TME, SSD tier, CVM paths (see the notes). Still open: the i7 node C0 (re-ingest replaces the bundle), E01 (needs P9b).
 - `tools/calibrate/` suites (doc 10 §3), `ingest.py`, the measured calibration bundle for C0; manual suites `tme` and
   `appliance` (with user approval).
 - P9b (optional): single-box emulation testbed (doc 10 §4).
 - **Exit:**
-  - calibration bundle committed and hashed;
-  - E-CS1 measured table;
-  - E01 validation errors reported in `docs/validation/`.
+  - calibration bundle committed and hashed (done for the stand-in laptop);
+  - E-CS1 measured table (done, `docs/pilots/ECS1-measured.md`);
+  - E01 validation errors reported in `docs/validation/` (blocked on P9b; the notes say so).
 
 ## P10 · Paper experiments (M)
 - Freeze configs; run everything with ≥ 10 seeds; E20 viability map; Pareto fronts (E23); negative results.

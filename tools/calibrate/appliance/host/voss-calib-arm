@@ -1,0 +1,17 @@
+#!/bin/sh
+# Arm exactly one measured reboot: stamp the command time, select the one-shot target, reboot.
+# VOSS_DRY=1 stops before touching systemd (used by tests).
+set -eu
+D=${VOSS_CALIB_DIR:-/var/lib/voss-calib/appliance}
+mkdir -p "$D"
+n=$(find "$D" -maxdepth 1 -name 'arm-*.epoch' | wc -l)
+n=$((n + 1))
+tag=$(printf '%04d' "$n")
+date +%s.%N >"$D/arm-$tag.epoch"
+if [ "${VOSS_DRY:-0}" = 1 ]; then
+    echo "dry: armed $tag"
+    exit 0
+fi
+systemctl set-default voss-calib.target
+sync
+exec systemctl reboot

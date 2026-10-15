@@ -1,0 +1,14 @@
+[Unit]
+Description=VOSS calibration driver (bounded reboot loop; `touch /var/lib/voss-calib/appliance/STOP` stops it)
+After=multi-user.target
+ConditionPathExists=/var/lib/voss-calib/config
+ConditionPathExists=!/var/lib/voss-calib/appliance/STOP
+ConditionPathExists=!/var/lib/voss-calib/appliance/DONE
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/voss-calib-driver
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target

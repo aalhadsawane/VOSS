@@ -1,0 +1,57 @@
+functions:
+  compression:
+    init_s: 0.011695
+    interference:
+      1: 1.0
+      2: 1.0485420332645754
+    n: 180
+    size_exp: 0.9658736897713114
+    tag: measured
+    work_ref_s: 0.019700500000000003
+  dynamic-html:
+    init_s: 1.0756834999999998
+    interference:
+      1: 1.0
+      2: 1.5522379842765126
+    n: 180
+    size_exp: 0.8071281348442163
+    tag: measured
+    work_ref_s: 7.899999999999997e-05
+  graph-pagerank:
+    init_s: 0.455952
+    interference:
+      1: 1.0
+      2: 1.1093660174304965
+    n: 60
+    size_exp: 0.0
+    tag: measured
+    work_ref_s: 0.043487
+  thumbnailer:
+    init_s: 1.6725474999999999
+    interference:
+      1: 1.0
+      2: 1.035422994293002
+    n: 180
+    size_exp: 0.651105545833994
+    tag: measured
+    work_ref_s: 0.009386499999999996
+  uploader:
+    init_s: 0.0048895
+    interference:
+      1: 1.0
+      2: 1.4298423095778685
+    n: 180
+    size_exp: 0.3383784934769968
+    tag: measured
+    work_ref_s: 6.299999999999997e-05
+  video-processing:
+    init_s: 0.015909
+    interference:
+      1: 1.0
+    n: 90
+    size_exp: 0.10413379165015531
+    tag: measured
+    work_ref_s: 0.539925
+provenance:
+  default: measured
+  note: ingested from raw logs of host laptop-b9212a4528 (rule 13)
