@@ -68,7 +68,7 @@ def viability_table(exp: str, runs: Path, out: Path) -> Path | None:
     cell = [k for k in spec(exp)["report"]["keys"] if k != "label"]
     table = viability.cells(df, cell)
     dst = out / f"{exp}.md"
-    dst.write_text(viability.markdown(exp, cell, table, viability.system_stats(df, cell)))
+    dst.write_text(viability.markdown(exp, cell, table, viability.system_stats(df, cell), df))
     table.to_csv(dst.with_suffix(".csv"), index=False)
     return dst
 

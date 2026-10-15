@@ -52,5 +52,6 @@ def test_best_baseline_is_the_viable_one_with_the_lowest_p99() -> None:
 
 def test_markdown_lists_every_cell_and_counts_verdicts() -> None:
     df = _frame({("a", "voss"): (1.0, 0.99, 1.0), ("a", "simple"): (1.0, 0.99, 2.0)})
-    out = viability.markdown("E20x", ["cell"], viability.cells(df, ["cell"]), viability.system_stats(df, ["cell"]))
+    out = viability.markdown("E20x", ["cell"], viability.cells(df, ["cell"]), viability.system_stats(df, ["cell"]), df)
     assert "voss_better 1" in out and "| a | voss_better | simple |" in out
+    assert "Sensitivity to the deadline-met target" in out and "| 0.98 |" in out

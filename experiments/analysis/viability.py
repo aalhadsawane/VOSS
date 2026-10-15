@@ -22,6 +22,7 @@ from experiments.analysis.common import bootstrap_ci
 
 SUCCESS_MIN = 0.99
 MET_MIN = 0.95
+SENSITIVITY = (0.90, 0.95, 0.98)
 VERDICTS = ("voss_only", "voss_better", "tie", "baseline_better", "none")
 
 
@@ -29,7 +30,7 @@ def _lo(x: pd.Series) -> float:
     return bootstrap_ci(x.dropna().to_numpy())[1]
 
 
-def system_stats(df: pd.DataFrame, cell: list[str]) -> pd.DataFrame:
+def system_stats(df: pd.DataFrame, cell: list[str], met_min: float = MET_MIN) -> pd.DataFrame:
     """Mean, lower CI bound and viability per cell and system."""
     rows = []
     for (*c, label), g in df.groupby([*cell, "label"]):
@@ -38,7 +39,7 @@ def system_stats(df: pd.DataFrame, cell: list[str]) -> pd.DataFrame:
             if m in g:
                 row[m] = float(g[m].mean())
         row["success_lo"], row["met_lo"] = _lo(g.success), _lo(g.met)
-        row["viable"] = bool(row["success_lo"] >= SUCCESS_MIN and row["met_lo"] >= MET_MIN)
+        row["viable"] = bool(row["success_lo"] >= SUCCESS_MIN and row["met_lo"] >= met_min)
         rows.append(row)
     return pd.DataFrame(rows)
 
@@ -68,9 +69,9 @@ def verdict(df_cell: pd.DataFrame, stats: pd.DataFrame, focal: str) -> tuple[str
     return ("baseline_better" if lo > 0 else "tie"), best, d, lo, hi
 
 
-def cells(df: pd.DataFrame, cell: list[str], focal: str = "voss") -> pd.DataFrame:
+def cells(df: pd.DataFrame, cell: list[str], focal: str = "voss", met_min: float = MET_MIN) -> pd.DataFrame:
     """One row per cell: verdict, VOSS and best-baseline statistics."""
-    stats = system_stats(df, cell)
+    stats = system_stats(df, cell, met_min)
     out = []
     for raw, g in df.groupby(cell):
         key = raw if isinstance(raw, tuple) else (raw,)
@@ -96,7 +97,9 @@ def cells(df: pd.DataFrame, cell: list[str], focal: str = "voss") -> pd.DataFram
     return pd.DataFrame(out)
 
 
-def markdown(exp: str, cell: list[str], table: pd.DataFrame, stats: pd.DataFrame) -> str:
+def markdown(
+    exp: str, cell: list[str], table: pd.DataFrame, stats: pd.DataFrame, df: pd.DataFrame | None = None
+) -> str:
     """Per-cell verdict table plus the per-system statistics."""
     n = int(stats.n.max()) if len(stats) else 0
     lines = [
@@ -117,4 +120,20 @@ def markdown(exp: str, cell: list[str], table: pd.DataFrame, stats: pd.DataFrame
         )
     counts = table.verdict.value_counts().reindex(list(VERDICTS), fill_value=0)
     lines += ["", "Cells by verdict: " + ", ".join(f"{k} {v}" for k, v in counts.items()), ""]
+    if df is not None:
+        lines += [
+            "Sensitivity to the deadline-met target (cells by verdict):",
+            "",
+            "| target | " + " | ".join(VERDICTS) + " |",
+        ]
+        lines += ["|" + "---|" * (len(VERDICTS) + 1)]
+        for target in SENSITIVITY:
+            c = cells(df, cell, met_min=target).verdict.value_counts().reindex(list(VERDICTS), fill_value=0)
+            lines.append(f"| {target} | " + " | ".join(str(int(c[v])) for v in VERDICTS) + " |")
+        lines += [
+            "",
+            "`baseline_better` also covers cells where only the baseline reaches the target although VOSS's sync "
+            "P99 is lower: the target is deadline hits across all classes, P99 is the sync tail.",
+            "",
+        ]
     return "\n".join(lines)
