@@ -340,3 +340,14 @@ changing by a few kB between boots, which split one machine into three fingerpri
 0.1 GB); and QEMU boot failures aborting the suite (now recorded with the console tail). A failed TPM step no longer
 discards a boot's timings. The pack also carries plain-text `debug/*.log` files (scrubbed). Records of the failed
 suites stay in the first-round data; round two (`voss-calib-auto.sh redo`) reruns only those suites and the reboot test.
+
+**D-62 The stand-in laptop's bundle is labelled as the laptop** (P9, doc 10 §1, rule 13). The only measured machine is
+an i3-7020U laptop with one spinning disk, not the i7 node C0. Its bundle lives at
+`configs/calibration/measured/laptop-<hash>/`; the hash is over CPU, board, BIOS and memory rounded to 0.1 GB (D-61).
+`ingest --tier hdd` maps that machine's only tier onto the mapping's `ssd` role, so `fc_boot`, `fc_restore` and
+`fc_snapshot_create` are HDD numbers; `appliance_*` come from the host-mode probe (D-60) and bound a purpose-built
+image from above. Entries without data keep their `literature`/`assumed` tags. Measurements of a failed `sebs` run
+are kept (each function is written when finished); other failed suites are ignored. The scenario config still names
+the placeholder bundle by default (`configs/base.yaml`); experiments choose the measured one with
+`--set calibration=configs/calibration/measured/laptop-<hash>`. The usernames in raw paths were replaced by the host
+label before committing.
