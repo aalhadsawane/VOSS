@@ -1,0 +1,77 @@
+{
+  "experiment": "E18",
+  "figure": "E18_scalability",
+  "runs": [
+    {
+      "config_hash": "06b24673aba47666bc1ed3819eb991a6e5893f829e173d4e320fe2b23d601c51",
+      "git_sha": "69a714d0476e6cca5408dcf0f541d80690a923c9",
+      "result_hash": "ad62287800141820eb9fc9654f5d1072fde25dc1b4b9e2182cc9624e6b436325",
+      "run_dir": "runs/E18/06b24673aba47666",
+      "scenario_hash": "efb245365946576fcc26de1142c7e59a8048770627a232a3e56d6753f14a6c58"
+    },
+    {
+      "config_hash": "139fbf627cae15f5d28e4cd78d8da4c64cc795a1fd806da3809a35ba5f96e4ef",
+      "git_sha": "69a714d0476e6cca5408dcf0f541d80690a923c9",
+      "result_hash": "bb9970e2943983f696de62a04d72e3d95e4486b2c8352e2b7ea6adc8e5c1e6d1",
+      "run_dir": "runs/E18/139fbf627cae15f5",
+      "scenario_hash": "9cad36938f16e3aac37827daab777b1b1d02199c95321e139f52e5f672449eed"
+    },
+    {
+      "config_hash": "29cf38abb71a96b16a12a6008fcc433d49a7b462bba02e6a79c73ba32afbdbb2",
+      "git_sha": "69a714d0476e6cca5408dcf0f541d80690a923c9",
+      "result_hash": "a5fc699bfb06c66e7f7bc4a7dc10b2a7277b0e7c5c7fb659c47a2bf016fce09e",
+      "run_dir": "runs/E18/29cf38abb71a96b1",
+      "scenario_hash": "8134fb35bb72334ff320299cc60de5a22916c1f7719805a118d1446fc27a28c7"
+    },
+    {
+      "config_hash": "31f78b2d6d578c6bdc2fb71e902bc9ece1fed227005f65a5b8038b2250fb7d52",
+      "git_sha": "69a714d0476e6cca5408dcf0f541d80690a923c9",
+      "result_hash": "1a11613d60f1510203736a5e833d60d6abb13d2deea31488252f9d8189a53901",
+      "run_dir": "runs/E18/31f78b2d6d578c6b",
+      "scenario_hash": "a1d074c040035f42c3e082c64edc67b5dd1bd83cf12e540a1a0378503f100681"
+    },
+    {
+      "config_hash": "51dfadb293642ce7f24a25596cfdc8a533554ebcca7513d6c59106a4625f1868",
+      "git_sha": "69a714d0476e6cca5408dcf0f541d80690a923c9",
+      "result_hash": "9e7f755e8bb24bba9b35524eafd5cd56d000cd356e00fb57061cf86d88aa2ed4",
+      "run_dir": "runs/E18/51dfadb293642ce7",
+      "scenario_hash": "cbecc19a4e70d03426f2c84267149e392ae7008ee15a545a8cb37a3d0bf74fed"
+    },
+    {
+      "config_hash": "56fcec096fb1eb21e39b0a1d4fdb275a991c9ff2e5ae5e4d27284e453a0bae07",
+      "git_sha": "69a714d0476e6cca5408dcf0f541d80690a923c9",
+      "result_hash": "77a5c24b8f9dbae649167d84021dfd93d25c6c793d1448f09216f763052e4030",
+      "run_dir": "runs/E18/56fcec096fb1eb21",
+      "scenario_hash": "889552c80d11e7dd0b1968fe6bb81fdd9d9fc9a90c359c8e1a218615ad69e52f"
+    },
+    {
+      "config_hash": "73a972595c9c3eb6640ab1598956b6ac7d5b100685f2ff2d7159b471877ef922",
+      "git_sha": "69a714d0476e6cca5408dcf0f541d80690a923c9",
+      "result_hash": "96698be810581dfdb4b851c5e71fcb14597b207c297f4c4f57718e55b37fcbf0",
+      "run_dir": "runs/E18/73a972595c9c3eb6",
+      "scenario_hash": "eb3163acf11f0254e4981b7b11158db761548ba28ac182295598c1e612e20a3f"
+    },
+    {
+      "config_hash": "c3df589c7173eeccae4281ff8df70b0be4977b9592038502f45c7bfb93c8ffe3",
+      "git_sha": "69a714d0476e6cca5408dcf0f541d80690a923c9",
+      "result_hash": "ea1c0646d61ba26201ae785aabb6dae22aebf786c483c7f4522d37ff5ea79996",
+      "run_dir": "runs/E18/c3df589c7173eecc",
+      "scenario_hash": "341190969ecdfebec2d700cb52aa2a60ddcdb85a99fb32b1736abee351e3a4bb"
+    },
+    {
+      "config_hash": "cfa97dfea2cf793474125daec9759d6d52eb1dec08ee2c0afdc2f389a230f11a",
+      "git_sha": "69a714d0476e6cca5408dcf0f541d80690a923c9",
+      "result_hash": "fa2c8908f0c58ae7f965ce24c8894c732327e1094b12a8ad65bdd0199c7833dc",
+      "run_dir": "runs/E18/cfa97dfea2cf7934",
+      "scenario_hash": "a290547f1f55047cef65c4ba0a2ceee1f13e4c451ad874f2315c20d6558c8233"
+    },
+    {
+      "config_hash": "e7542f59c0962f7e156efdfc7c1a15e5fc1b467c7b539f0a9372b908771e556c",
+      "git_sha": "69a714d0476e6cca5408dcf0f541d80690a923c9",
+      "result_hash": "86f45bf2bddb8ca028d6ffcc5342496b8533a3707ec579ac6df4fee1c7732ad5",
+      "run_dir": "runs/E18/e7542f59c0962f7e",
+      "scenario_hash": "dcf4e90a6093990f9757718ea4b1cfe932fa9484b1ada1d9d2e61256c0335de9"
+    }
+  ],
+  "runs_digest": "e40601ee19b7c0f7"
+}

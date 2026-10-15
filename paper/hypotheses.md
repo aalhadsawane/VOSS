@@ -15,16 +15,16 @@ Paired by seed on the same scenarios; Δ = test − baseline with its 95% bootst
 | H5 | appliance warm start ≈ Firecracker without attestation (L3) | E-CS1 (sim) |  | ratio - 1 (mid-range) | p50 s | 1 | -0.0204 | -2.0% | supported |
 | H5 | appliance snapshot start ≈ Firecracker without attestation (L2) | E-CS1 (sim) |  | ratio - 1 (mid-range) | p50 s | 1 | +0.0252 | +2.5% | supported |
 | H5 | CVM classes are 10-100x slower than the appliance to establish trust | E-CS1 (sim) |  | ratio - 1 (mid-range) | p50 s | 1 | -0.927 | -92.7% | refuted |
-| H6 | GDSF + P2P + HDD tier beat LRU without P2P/HDD (sync P99) | E09 |  | lru_no_p2p_no_hdd vs gdsf_p2p_hdd | p99_sync | 0 | | | no data |
-| H6 | ... GDSF vs LRU alone | E09 |  | lru vs gdsf_p2p_hdd | p99_sync | 0 | | | no data |
+| H6 | GDSF + P2P + HDD tier beat LRU without P2P/HDD (sync P99) | E09 |  | lru_no_p2p_no_hdd vs gdsf_p2p_hdd | p99_sync | 10 | +0.0427 [-0.0376, +0.169] | +3.1% | inconclusive |
+| H6 | ... GDSF vs LRU alone | E09 |  | lru vs gdsf_p2p_hdd | p99_sync | 10 | +0.0252 [-0.00165, +0.0581] | +1.8% | inconclusive |
 | H7 | geo clusters reduce sync P99 vs one global scheduler (EU) | E05 | regions=[eu] | dynamic vs none_global | p99_sync | 10 | +0.176 [+0.115, +0.231] | +16.5% | refuted |
 | H7 | ... EU+NA | E05 | regions=[eu, na] | dynamic vs none_global | p99_sync | 10 | +0.189 [+0.0588, +0.377] | +16.6% | refuted |
 | H7 | ... world | E05 | regions=[] | dynamic vs none_global | p99_sync | 10 | +0.0568 [+0.0142, +0.106] | +4.7% | refuted |
 | H8 | planner MILP beats greedy by ≥5% sync P99 (high churn) | E04 | regime=churn_high | plan_milp vs plan_greedy | p99_sync | 10 | -0.0354 [-0.082, +0.00662] | -2.5% | inconclusive |
-| H9 | distribution-aware (quantile) beats expectation-only on P99 at high churn | E03 | regime=churn_high, name=blr | quantile vs expected | p99_sync | 0 | | | no data |
-| H10 | accounting is off the critical path: settlement period 10 s vs 300 s | E13 | faults=[] | s300_b1 vs s10_b1 | p99_sync | 0 | | | no data |
-| H10 | ... receipt batch 0.2 s vs 5 s | E13 | faults=[] | s60_b5 vs s60_b02 | p99_sync | 0 | | | no data |
-| H11 | simple baseline matches VOSS when homogeneous, stable and benign | E10 | hw_mix={C1: 1.0} | simple vs voss | p99_sync | 0 | | | no data |
+| H9 | distribution-aware (quantile) beats expectation-only on P99 at high churn | E03 | regime=churn_high, name=blr | quantile vs expected | p99_sync | 10 | -0.0389 [-0.0733, -0.0107] | -2.8% | weak |
+| H10 | accounting is off the critical path: settlement period 10 s vs 300 s | E13 | faults=[] | s300_b1 vs s10_b1 | p99_sync | 10 | +0.0207 [-0.0026, +0.0586] | +1.5% | supported |
+| H10 | ... receipt batch 0.2 s vs 5 s | E13 | faults=[] | s60_b5 vs s60_b02 | p99_sync | 10 | -0.0135 [-0.0446, +0.0135] | -1.0% | supported |
+| H11 | simple baseline matches VOSS when homogeneous, stable and benign | E10 | hw_mix={C1: 1.0} | simple vs voss | p99_sync | 10 | +1.5 [+0.594, +2.65] | +62.8% | refuted |
 | H-FT1 | progress detection vs heartbeat-only: success with a black-holed scheduler | E15 | faults=sched_blackhole | progress vs heartbeat_only | success | 10 | +0.0314 [+0.0266, +0.0363] | +3.2% | supported |
 | H-FT3 | risk-proportional hedging (θ=.3, 5%) cuts sync P99 under α=0.1 | E16 | adversary={alpha: 0.1, regime: adversary_mixed} | rp_t03_b005 vs hedge_off | p99_sync | 10 | -0.217 [-0.528, +0.0221] | -13.3% | inconclusive |
 | H-FT3 | ... at what extra-attempt cost | E16 | adversary={alpha: 0.1, regime: adversary_mixed} | rp_t03_b005 vs hedge_off | waste | 10 | +0.013 [+0.00941, +0.0171] | +253.1% | info |

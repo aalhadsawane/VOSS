@@ -1,6 +1,7 @@
 {
   "artifacts": [
     "paper/figures/E17_commercial.pdf",
+    "paper/figures/E18_scalability.pdf",
     "paper/figures/E19_ablations.pdf",
     "paper/figures/E20a_map.pdf",
     "paper/figures/E20b_map.pdf",
@@ -9,12 +10,21 @@
     "paper/figures/E24_calibration.pdf",
     "paper/hypotheses.md",
     "paper/negative-results.md",
+    "paper/tables/E03.md",
     "paper/tables/E04.md",
     "paper/tables/E05.md",
+    "paper/tables/E06.md",
+    "paper/tables/E07.md",
     "paper/tables/E08.md",
+    "paper/tables/E09.md",
+    "paper/tables/E10.md",
+    "paper/tables/E12.md",
+    "paper/tables/E13.md",
+    "paper/tables/E14.md",
     "paper/tables/E15.md",
     "paper/tables/E16.md",
     "paper/tables/E17.md",
+    "paper/tables/E18.md",
     "paper/tables/E19.md",
     "paper/tables/E20a.md",
     "paper/tables/E20b.md",
@@ -24,8 +34,12 @@
     "paper/tables/ECS1-measured.md",
     "paper/tables/ECS1-sim.md"
   ],
-  "git_sha": "5a8ea464f3f3a322691f590133ea4e3e4b4fa72b",
+  "git_sha": "69a714d0476e6cca5408dcf0f541d80690a923c9",
   "runs": {
+    "E03": {
+      "failed": 0,
+      "runs": 180
+    },
     "E04": {
       "failed": 0,
       "runs": 80
@@ -34,9 +48,37 @@
       "failed": 0,
       "runs": 120
     },
+    "E06": {
+      "failed": 0,
+      "runs": 60
+    },
+    "E07": {
+      "failed": 0,
+      "runs": 100
+    },
     "E08": {
       "failed": 0,
       "runs": 120
+    },
+    "E09": {
+      "failed": 0,
+      "runs": 50
+    },
+    "E10": {
+      "failed": 0,
+      "runs": 40
+    },
+    "E12": {
+      "failed": 0,
+      "runs": 40
+    },
+    "E13": {
+      "failed": 0,
+      "runs": 100
+    },
+    "E14": {
+      "failed": 0,
+      "runs": 80
     },
     "E15": {
       "failed": 0,
