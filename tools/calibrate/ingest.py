@@ -33,8 +33,11 @@ def load_raw(root: Path, host: str | None = None) -> tuple[pd.DataFrame, dict[st
     rows, meta, digests = [], {}, {}
     for rec in sorted(root.glob("*/*/*/records.jsonl")):
         run = rec.parent
+        if not (run / "meta.json").exists():  # the run was cut off (power loss, reboot) before it wrote its summary
+            continue
         info = json.loads((run / "meta.json").read_text())
-        if (host and run.parents[1].name != host) or info.get("dry_run") or str(info.get("status")) == "error":
+        # a run that ended in an error still wrote the measurements it finished (e.g. sebs stopping at a broken function)
+        if (host and run.parents[1].name != host) or info.get("dry_run"):
             continue
         meta = info
         digests[str(rec.relative_to(root))] = hashlib.sha256(rec.read_bytes()).hexdigest()
@@ -159,12 +162,16 @@ def functions(df: pd.DataFrame, ref_kb: dict[str, float]) -> dict[str, dict[str,
     return out
 
 
-def build(raw: Path, host: str | None, placeholder: Path) -> tuple[str, dict[str, Any]]:
+def build(raw: Path, host: str | None, placeholder: Path, tier: str | None = None) -> tuple[str, dict[str, Any]]:
     df, meta, digests = load_raw(raw, host)
     if df.empty:
         raise SystemExit(f"no usable records under {raw}")
     fp = host or str(df.host.iloc[0])
     mapping = yaml.safe_load((HERE / "mapping.yaml").read_text())
+    if tier:  # a machine without an SSD (the stand-in laptop): its only tier plays the SSD role of the mapping
+        for spec in mapping["distributions"].values():
+            if (spec.get("where") or {}).get("tier") == "ssd":
+                spec["where"]["tier"] = tier
     measured, fits = distributions(df, mapping, meta)
     base = yaml.safe_load((placeholder / "distributions.yaml").read_text())
     merged = dict(base["distributions"]) | measured
@@ -196,9 +203,10 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--raw", type=Path, required=True, help="directory with <fingerprint>/<suite>/<run>/ trees")
     p.add_argument("--host", default=None, help="fingerprint to ingest (default: the first found)")
     p.add_argument("--out", type=Path, default=Path("configs/calibration/measured"))
+    p.add_argument("--tier", default=None, help="disk tier standing in for 'ssd' in mapping.yaml (e.g. hdd)")
     p.add_argument("--placeholder", type=Path, default=Path("configs/calibration/placeholder/c0"))
     a = p.parse_args(argv)
-    fp, files = build(a.raw, a.host, a.placeholder)
+    fp, files = build(a.raw, a.host, a.placeholder, a.tier)
     out = a.out / fp
     out.mkdir(parents=True, exist_ok=True)
     for name, data in files.items():
