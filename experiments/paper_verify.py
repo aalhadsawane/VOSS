@@ -2,7 +2,8 @@
 
 ``paper/run-hashes.csv`` records, for every run behind the paper tables, the run directory (its config hash) and the
 result hash of the original sweep. ``python -m experiments.paper_verify`` compares each
-``runs/<EXP>/index.csv`` with it: identical hashes mean the rerun reproduced the logs the tables were drawn from, bit for bit.
+``runs/<EXP>/index.csv`` with it: identical hashes mean the rerun reproduced the logs the tables were drawn from,
+bit for bit.
 
 Usage: ``python -m experiments.paper_verify [--runs runs] [--only E04,E19]``; exits 1 on any mismatch or missing run.
 """
