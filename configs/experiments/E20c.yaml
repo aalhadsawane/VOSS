@@ -1,0 +1,21 @@
+# E20 viability map, panel C: population N × offered load (appliance, churn_med, 10% mixed omitting owners).
+experiment: E20c
+base: ../pilot.yaml
+overrides:
+  - horizon_s=600
+  - 'scenario.adversary={regime: adversary_mixed, alpha: 0.1}'
+systems:
+  voss: []
+  simple:
+    - voss.clusters.mode=static_regions
+    - voss.router.name=nearest
+    - voss.placer.sync=least_loaded
+    - voss.planner.name=keepalive_ttl
+    - 'voss.hedge.name="off"'
+grid:
+  scenario.workers: [100, 300, 900]
+  scenario.load.rate: [5, 10, 20, 40]
+seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+report:
+  keys: [label, scenario.workers, scenario.load.rate]
+  metrics: [success, met, p50_sync, p99_sync, exposure, waste, warm_mb]

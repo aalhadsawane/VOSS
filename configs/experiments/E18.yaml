@@ -9,7 +9,9 @@ systems:
   n10k: [scenario.workers=10000, scenario.load.rate=100]
   n30k: [scenario.workers=30000, scenario.load.rate=300]
   n100k: [scenario.workers=100000, scenario.load.rate=1000]
-seeds: [1, 2]
+seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+# the two largest scales take 6-20 wall minutes and up to 9 GB per run: 3 seeds (deviation from the 10-seed protocol, D-63)
+seeds_by_system: {n30k: [1, 2, 3], n100k: [1, 2, 3]}
 report:
   keys: [label]
   metrics: [workers, attested, success, p50_sync, p99_sync, ctrl_msgs_ws, ctrl_kb_ws, decide_p99, route_p99, orch_cpu_s, sim_s_per_s]

@@ -55,7 +55,7 @@ def plan(exp: str, out_root: Path, seeds: list[int] | None = None) -> tuple[list
     path = spec_path(exp)
     spec: dict[str, Any] = yaml.safe_load(path.read_text())
     if seeds is not None:
-        spec["seeds"] = seeds
+        spec["seeds"], spec["seeds_by_system"] = seeds, {}
     base = load_yaml_tree((path.parent / spec["base"]).resolve())
     pts, cfgs = [], []
     for ov in points(spec):

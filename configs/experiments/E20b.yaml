@@ -1,0 +1,28 @@
+# E20 viability map, panel B: attestation substrate × offered load (300 workers, churn_med, 10% mixed omitting owners, 10 min).
+# CVM classes use literature ranges at their midpoint (doc 10 §2), the appliance the placeholder bundle (E24 repeats
+# the key comparison with the measured laptop bundle).
+experiment: E20b
+base: ../pilot.yaml
+overrides:
+  - horizon_s=600
+  - scenario.workers=300
+  - 'scenario.adversary={regime: adversary_mixed, alpha: 0.1}'
+systems:
+  voss: []
+  simple:
+    - voss.clusters.mode=static_regions
+    - voss.router.name=nearest
+    - voss.placer.sync=least_loaded
+    - voss.planner.name=keepalive_ttl
+    - 'voss.hedge.name="off"'
+grid:
+  scenario.substrate_mix:
+    - {appliance_tpm: 1.0}
+    - {cvm_snp: 1.0}
+    - {coco_pool: 1.0}
+    - {drtm_hv: 1.0}
+  scenario.load.rate: [5, 10, 20, 40]
+seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+report:
+  keys: [label, scenario.substrate_mix, scenario.load.rate]
+  metrics: [success, met, p50_sync, p99_sync, exposure, waste, warm_mb]

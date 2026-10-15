@@ -9,7 +9,7 @@ systems:
   ref_azure_like: [system=reference_cloud, reference=ref_azure_like]
 grid:
   scenario.load.rate: [10, 20, 40]
-seeds: [1, 2, 3]
+seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 report:
   keys: [label, scenario.load.rate]
   metrics: [success, p50_sync, p99_sync, met, cost_per_m, credits_per_m]

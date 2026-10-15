@@ -7,7 +7,7 @@ UV ?= uv
 RUN = $(UV) run
 CONFIG ?= configs/smoke.yaml
 
-.PHONY: check lint type imports test run repro-smoke sweep figs paper
+.PHONY: check lint type imports test run repro-smoke sweep figs paper paper-analyze
 
 check: lint type imports test
 
@@ -41,5 +41,10 @@ sweep:
 figs:
 	$(RUN) python -m experiments.figures $(if $(EXP),--exp $(EXP),)
 
+# ROADMAP P10: every frozen spec (10 seeds, idempotent: finished runs are reused), then all tables, figures and the
+# hypothesis scorecard under paper/. Hours of CPU on a cold checkout; `make paper-analyze` redraws from runs/ in seconds.
 paper:
-	@echo "paper pipeline arrives in P10"; exit 1
+	$(RUN) python -m experiments.paper all --jobs $(JOBS)
+
+paper-analyze:
+	$(RUN) python -m experiments.paper analyze

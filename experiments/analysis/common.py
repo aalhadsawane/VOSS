@@ -61,9 +61,10 @@ def report_table(exp: str, df: pd.DataFrame, keys: list[str], cols: list[str], n
     """Markdown table: one row per key combination, mean and 95% bootstrap CI over seeds per column."""
     note = "; ".join(f"`{c}` = {notes[c]}" for c in cols if c in notes)
     lines = [
-        f"# {exp} pilot",
+        f"# {exp}",
         "",
-        f"Mean and 95% bootstrap CI over seeds; warm-up (first 60 s) excluded from latency. {note}.",
+        "Mean and 95% bootstrap CI over seeds; warm-up (first 60 s) excluded from latency."
+        + (f" {note}." if note else ""),
         "",
         f"| {' | '.join(keys)} | seeds | {' | '.join(cols)} |",
         "|" + "---|" * (len(keys) + 1 + len(cols)),
