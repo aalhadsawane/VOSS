@@ -1,0 +1,71 @@
+% VOSS manuscript, first draft. IEEE Transactions format (IEEEtran, journal mode).
+% Numbers and tables come from generated/ (python -m experiments.paper_tex); figures from figures/ (experiments.paper_figs).
+\documentclass[journal]{IEEEtran}
+
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit,calc}
+\usepackage[hidelinks]{hyperref}
+\usepackage{cite}
+
+\input{generated/macros}
+
+\newcommand{\voss}{\textsc{Voss}}
+\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+\newcommand{\Pn}[1]{\text{P#1}}
+
+\begin{document}
+
+\title{Scheduling Trust: Latency-Sensitive Serverless\\Computing on Attested Volunteer Machines}
+
+\author{Aalhad~Sawane%
+\thanks{\todo{author list, affiliations, funding and acknowledgments; this draft names only the repository owner.}}}
+
+\markboth{IEEE Transactions (target venue to be decided), Draft}{Sawane: Scheduling Trust on Attested Volunteer Machines}
+
+\maketitle
+
+\begin{abstract}
+Idle consumer machines could serve short serverless invocations close to users, but their owners are unreliable and
+possibly malicious. We argue that remote attestation of a locked appliance image reduces a malicious owner to an
+omission or timing fault, and that what remains is a scheduling problem in which \emph{trust is a perishable
+resource}: costly to establish, destroyed by churn, and exposing every host that holds a tenant's key. We present
+\voss{}, a two-timescale scheduler. A slow loop solves a robust mixed-integer program that decides where trust and warm
+state live, covering demand against \emph{any} $f$ defecting hosts. A fast loop places each invocation with a cost model
+and hedges risky ones. Progress-based failure detection, scheduler succession without volunteer consensus and attested
+receipts complete the design.
+We evaluate \voss{} in a deterministic simulator, calibrated with measurements from a real TPM-equipped machine
+(reboot to kernel \CalReboot\,s, quote \CalQuote\,s), over 21 experiments with 10 seeds each. With a sync P99 target of
+3\,s, \voss{} is viable in \ViabAPThreeVoss{} of \ViabACells{} and \ViabBPThreeVoss{} of \ViabBCells{} cells of two regime maps
+in which the strongest simple baseline never is. Against no planning the planner cuts sync P99 by \HOnePctNoneMed--\HOnePctNoneHigh\%
+and against keep-alive by \HOnePctKeepMed--\HOnePctKeepHigh\%, at about \MilpWarmRatio$\times$ the warm memory;
+progress detection holds success at \VossSuccAlpha\% under 20\% omitting owners where heartbeat-only detection drops to
+\HbSuccAlpha\%. Several expected benefits do not materialize: geo-clustering is \HSevenWorld--\HSevenEu\% slower than one
+global scheduler at our scale, reputation tie-breaking changes P99 by only \RepPNinetyninePct\%, \voss{}'s P99 is \CommPNinetyninePct\% above that
+of a commercial-style reference, and success degrades beyond $3\times10^4$ workers. All hypotheses, including the \ScoreRefuted{} refuted ones, are reported with
+paired confidence intervals.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Serverless computing, volunteer computing, remote attestation, trusted execution, scheduling, robust optimization,
+tail latency, simulation.
+\end{IEEEkeywords}
+
+\input{sections/intro}
+\input{sections/related}
+\input{sections/model}
+\input{sections/design}
+\input{sections/method}
+\input{sections/results}
+\input{sections/discussion}
+\input{sections/conclusion}
+
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+
+\end{document}

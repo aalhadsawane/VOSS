@@ -1,0 +1,60 @@
+\section{Introduction}
+\label{sec:intro}
+
+Most serverless invocations are short: in production traces a large share of functions run for well under a second
+\cite{shahrad2020wild}, and for such functions network distance and cold starts, not computation, dominate latency. Idle
+consumer machines are abundant, close to users, and owned by nobody who has to be paid in capital expenditure. Volunteer
+computing has harvested them for two decades \cite{anderson2002seti,anderson2004boinc}, but only for delay-tolerant batch
+work whose deadlines are hours or days. Serving \emph{latency-sensitive} functions from volunteer hardware raises two
+problems that batch systems avoid. The machines are \emph{unreliable}: owners reboot, unplug and reclaim them at will, so
+every warm sandbox is perishable. And they are \emph{untrusted}: an owner can read a tenant's code and data, return
+forged results, or defect at the worst moment.
+
+Classical volunteer systems answer the second problem with redundancy and voting, which triples cost and does not apply to
+functions with side effects. Our starting point is different. If tenant code and the scheduler's own code run only inside a
+measured, owner-locked appliance image whose TPM-backed attestation a verifier checks, a hostile owner can no longer read,
+forge or tamper; what remains is \emph{omission and timing}: power off, drop, delay, throttle. Attestation thus reduces
+Byzantine owners to the fault class that churn already forces a volunteer system to tolerate
+\cite{levin2009trinc,veronese2013minbft}. We make this reduction the foundation of the design rather than a footnote.
+
+The reduction changes what scheduling is about. \emph{Trust} becomes a resource with three properties.
+It is costly to establish: booting into the appliance, attesting, and releasing a tenant's key to a host all take time.
+It is perishable: all of it vanishes when the owner ends the donation session. And it is exposing: every additional host
+that holds a tenant's key widens that tenant's attack surface. Placing an invocation on a host that is not yet
+trusted for the tenant is therefore not a free choice, and neither is asking more hosts to hold the key.
+
+We present \voss{} (volunteer-oriented serverless scheduling), a scheduler built around this view. Our contributions are:
+\begin{enumerate}
+\item \textbf{A threat-reduction argument and substrate model} (Sec.~\ref{sec:model}): attestation maps malicious owners to
+omission/timing faults, and a data-driven substrate profile (TPM appliance, confidential VMs, DRTM, unattested) makes
+trust establishment, perishability, warm-state ladders and assurance explicit.
+\item \textbf{Two-timescale, trust-aware scheduling} (Sec.~\ref{sec:design}): a slow robust mixed-integer program plans
+\emph{where trust and warm state live}, with coverage that survives any $f$ defecting hosts, memory and exposure costs and
+failure-domain caps; a fast placer decides \emph{where each invocation runs} from a cost model over the same plan, with
+risk-proportional hedging.
+\item \textbf{Fault tolerance that treats liveness as a hint} (Sec.~\ref{sec:design}): progress-based detection, scheduler
+succession without volunteer consensus, and attested receipts that make accounting verifiable without a blockchain.
+\item \textbf{A deterministic, calibrated simulator and a mechanical evaluation} (Sec.~\ref{sec:method}): paired
+comparisons over 10 seeds, a viability map over churn, adversaries, substrates, load and population, a latency--exposure--robustness
+Pareto analysis, and a scorecard in which each hypothesis has a stated verdict rule, so that regimes where baselines win are
+reported by construction.
+\item \textbf{Measurements} from a TPM-equipped machine that parameterize attestation, boot and snapshot costs
+(Sec.~\ref{sec:method}).
+\end{enumerate}
+
+Our results (Sec.~\ref{sec:results}) are mixed, and we report them as such. Planning trust and warm state is the largest
+lever: removing it costs \AblPlanningP\,s of sync P99, and removing lifecycle-aware placement costs \AblLifecycleP\,s. Robust
+planning buys tail latency at the price of key exposure. Progress-based detection is decisive against omitting owners and
+black-holed schedulers. But geo-clustering, a design pillar of earlier volunteer-scheduling proposals, \emph{loses} to one
+global scheduler at our scale; reputation, tiered caches and the integer program over a greedy planner each give little
+or nothing measurable; a simple baseline holds about half of \voss{}'s key exposure; a commercial-style reference cloud has lower P99; and
+the system degrades at \ScaleBigSucc\% success at $10^5$ workers.
+
+\emph{Scope and honesty.} All results come from simulation. The simulator is calibrated with measurements from one
+TPM-equipped consumer laptop, not from the target node, and it has not been validated end to end against a real
+multi-machine testbed (Sec.~\ref{sec:threats}). Confidential-VM substrates use literature parameters. We therefore read our
+numbers as evidence about \emph{mechanisms and regimes}, not as performance predictions.
+
+The paper is organized as follows. Section~\ref{sec:related} positions the work. Sections~\ref{sec:model} and
+\ref{sec:design} describe the model and the design. Section~\ref{sec:method} describes the simulator, calibration and
+protocol, Section~\ref{sec:results} the results, and Sections~\ref{sec:discussion}--\ref{sec:conclusion} discuss limits and conclude.

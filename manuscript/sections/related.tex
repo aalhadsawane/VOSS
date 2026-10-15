@@ -1,0 +1,42 @@
+\section{Background and Related Work}
+\label{sec:related}
+
+\textbf{Volunteer and desktop-grid computing.} BOINC and SETI@home showed that idle machines can deliver large
+throughput \cite{anderson2002seti,anderson2004boinc}, and availability studies characterize heavy-tailed, time-of-day
+dependent session lengths \cite{javadi2013fta}. These systems target batch work with generous deadlines and defend
+against cheating with replication and validation. \voss{} borrows the availability model but targets sub-second
+invocations, and replaces replication with attestation.
+
+\textbf{Serverless scheduling and cold starts.} Production characterizations show skewed popularity and short executions
+\cite{shahrad2020wild}; microVMs such as Firecracker \cite{agache2020firecracker} and snapshot-based restore
+\cite{cadden2020seuss,ao2022faasnap}, container provisioning \cite{oakes2018sock} and keep-alive caching policies
+\cite{fuerst2021faascache} attack the cold start. All assume provider-owned, reliable machines. Work on harvested resources
+\cite{zhang2021harvest} tolerates evictions inside one provider; edge serverless schedulers handle heterogeneity and
+locality \cite{rausch2021edge}. We reuse the lifecycle ladder (artifacts, snapshot, warm VM) and a GreedyDual-style value
+function for eviction \cite{cao1997gdsf}, and add what volunteers need on top: perishable trust and an explicit
+exposure cost. Our workload kernels follow SeBS \cite{copik2021sebs}.
+
+\textbf{Confidential serverless computing.} Confidential VMs (AMD SEV-SNP \cite{amd2020snp}, Intel TDX) protect tenants from
+the host, at a price: boot is more than twice a plain VM \cite{misono2025cvm}, snapshot and templating techniques do not
+transfer because memory is per-VM encrypted, and network I/O pays a bounce-buffer tax \cite{li2023bifrost}. Systems such as
+SEVeriFast \cite{holmes2024severifast}, serverless confidential containers \cite{segarra2024sesame} and trustlet-based
+designs \cite{wallet2025} attack these costs, but all need server-class CPUs. Consumer hardware offers only TPM-based
+measured boot and, at best, memory encryption that is not attestable; physical attacks on fTPMs exist
+\cite{jacob2023faultpm}, which we exclude from the threat model. \voss{} is substrate-agnostic: the TPM appliance is the primary
+profile, and CVM classes enter as parameterized profiles whose numbers come from this literature.
+
+\textbf{Attestation and trusted hardware in distributed systems.} Keylime-style architectures combine measured boot, IMA
+and key release \cite{schear2016keylime}. Trusted counters and logs turn Byzantine behavior into omission
+\cite{levin2009trinc,veronese2013minbft}, which is the fault model \voss{} adopts; rollback of persisted state is the
+known caveat, and our schedulers therefore keep only soft state. We do not use a blockchain: receipts signed by attested
+session keys already make work third-party verifiable, and the trusted party could only withhold records.
+
+\textbf{Tail latency, hierarchy and optimization.} Hedged and tied requests are the standard defense against stragglers
+\cite{dean2013tail}; we make hedging risk-proportional and place the copy in another failure domain. Sparrow-style
+sampling \cite{ousterhout2013sparrow} and Borg-style cells \cite{verma2015borg} motivate hierarchical, partitioned
+scheduling; our clusters are geographic, which Sec.~\ref{sec:results} shows does not pay at our scale. The planner's robust
+coverage constraint is the budgeted-uncertainty construction of Bertsimas and Sim \cite{bertsimas2004price}, written with
+the dual form of the sum of the $f$ largest terms; we solve it with HiGHS \cite{huangfu2018highs}. Reputation systems
+\cite{kamvar2003eigentrust} and Sybil resistance \cite{douceur2002sybil} inform our identity model (one TPM, one
+identity). Failure detection builds on accrual detectors \cite{hayashibara2004phi}, but treats heartbeats as hints and
+progress as evidence.

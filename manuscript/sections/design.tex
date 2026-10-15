@@ -1,0 +1,102 @@
+\section{The \voss{} Design}
+\label{sec:design}
+
+\subsection{Why two timescales}
+Trust and warm state are set-valued and long-lived: a key released to a host stays for the session; exposure depends on
+\emph{how many distinct hosts} hold a key; and robustness to $f$ defectors is a worst case over subsets. None of these is a
+per-assignment additive cost, so none belongs in a per-request optimization. Placement, in contrast, is latency-critical and
+decomposes well. \voss{} therefore splits the decision (Fig.~\ref{fig:loops}): a \emph{slow loop} (the trust and warm-state
+planner, every 10--60\,s and on events) decides which hosts are trust-warm for which tenants, which snapshots and warm VMs
+to keep, and how many slots to earmark; a \emph{fast loop} places each invocation using that plan.
+
+\begin{figure}[t]
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tikzpicture}[
+  box/.style={draw, rounded corners=2pt, minimum height=6.5mm, align=center, font=\scriptsize, inner sep=2.5pt},
+  arr/.style={-{Latex[length=1.6mm]}, thick}]
+  \node[box, fill=blue!7] (fc) {Demand forecast\\per tenant};
+  \node[box, fill=blue!7, below=3mm of fc] (hs) {Survival, omission,\\assurance, caches};
+  \node[box, fill=blue!15, right=9mm of $(fc)!0.5!(hs)$] (plan) {\textbf{Slow loop}\\robust MILP / greedy};
+  \node[box, fill=green!10, right=9mm of plan] (p) {Plan\\$y,s,w,c$};
+  \node[box, below=6mm of p] (inv) {Invocation};
+  \node[box, fill=green!15, left=9mm of inv] (fast) {\textbf{Fast loop}\\cost matrix, greedy};
+  \node[box, right=7mm of inv] (disp) {Dispatch\\+ hedge?};
+  \draw[arr] (fc) -- (plan); \draw[arr] (hs) -- (plan); \draw[arr] (plan) -- (p);
+  \draw[arr] (p) -- (fast); \draw[arr] (inv) -- (fast); \draw[arr] (fast) -- (disp);
+\end{tikzpicture}}
+\caption{Two timescales. The planner decides where trust and warm state live; the placer decides where each
+invocation runs, over candidates and earmarks the plan provides.}
+\label{fig:loops}
+\end{figure}
+
+\subsection{Slow loop: trust and warm-state planning}
+\label{sec:planner}
+For one cluster with attested workers $J$ and \emph{hot} tenants and functions (those above a rate threshold; the long
+tail uses a cold path), the planner chooses
+$y[t,j]\in\{0,1\}$ (tenant $t$ is trust-warm on $j$), $s[f,j]\in\{0,1\}$ (snapshot of $f$ pinned on $j$),
+$w[f,j]\in\mathbb{Z}_{\ge0}$ (warm VMs of $f$ on $j$), and $c[t,j]\ge0$ (slots of $j$ earmarked for $t$).
+Inputs are estimates only: slots $\mathrm{cap}_j$, the survival probability $S_j(H)$ over the horizon, the omission rate
+$p_j$, assurance $a_j$, failure domain $d(j)$, the demand quantile $q_t$ (a Poisson quantile of the forecast arrival
+rate times service time), sensitivity $\sigma_t$, assurance floor $a_{\min,t}$ and robustness level $f_t$. The objective
+(minimized; terms are logged separately) is
+\begin{align}
+\min\;&\sum_t C_t u_t + \sum_j\Big(\rho_{\mathrm{mem}}\sum_f m_f w[f,j]+\rho_{\mathrm{ssd}}\sum_f z_f s[f,j]\Big)\nonumber\\
+&+\sum_{t,j}\sigma_t(1-a_j)\,y[t,j]+\kappa\!\sum_{t,j}(y[t,j]-y^{\mathrm{prev}}[t,j])^{+}\nonumber\\
+&-\sum_{f,j}\beta\,b_f\,(w[f,j]+\gamma s[f,j]),
+\label{eq:obj}
+\end{align}
+that is: uncovered demand $u_t$ priced at the cold penalty $C_t$, donor memory and storage, exposure, plan churn, and the
+start-up time saved by warm VMs and snapshots (memory $m_f$, snapshot size $z_f$, benefit $b_f$). The central constraint is
+robust coverage: with at most $f_t$ of the earmarked hosts defecting,
+\begin{align}
+&\sum_j c[t,j]\,S_j(H)(1-p_j)\;-\;\big(f_t\,\theta_t+\textstyle\sum_j \pi[t,j]\big)+u_t\;\ge\;q_t,\nonumber\\
+&\pi[t,j]\ge c[t,j]-\theta_t,\quad \pi[t,j]\ge0,
+\label{eq:robust}
+\end{align}
+where $f_t\theta_t+\sum_j\pi[t,j]$ equals the sum of the $f_t$ largest contributions by LP duality, the construction of
+\cite{bertsimas2004price}. Because the constraint holds against \emph{any} $f_t$ hosts, including ones with a perfect
+record, robustness does not depend on the omission model. Further constraints couple the variables ($c\le\mathrm{cap}\,y$,
+$w\le W_{\max}\,y$, $s\le y$), bound slots, memory and SSD per host, cap the share of earmarked capacity in any failure
+domain by $\kappa_{\mathrm{dom}}$, forbid $y[t,j]=1$ when $a_j<a_{\min,t}$ or the attestation expires within the horizon,
+and the default $f_t=\lceil\alpha_{\mathrm{assumed}}N_{\mathrm{cluster}}\rceil$. A cluster has about 30 workers, at most 20
+hot tenants and 50 hot functions, so the program has $10^3$--$3\cdot10^3$ integers; we solve it with HiGHS
+\cite{huangfu2018highs} within a time limit and fall back to the incumbent and then to a greedy planner that adds workers by
+value density until the robust coverage holds. The plan is diffed against its predecessor into idempotent actions
+(\textsc{prepare}, \textsc{pin-snapshot}, \textsc{warm}, \textsc{release}), rate-limited per worker; the fast loop only
+relies on state workers have \emph{confirmed}.
+
+\subsection{Fast loop: placement, hedging and routing}
+For an invocation of tenant $t$, candidates are the confirmed trust-warm workers (with earmarked slots) and, behind them,
+other attested workers meeting the assurance floor, which pay a key-release round trip and an exposure increment. Each
+pair $(i,j)$ gets a completion distribution (a moment-matched shifted lognormal over wait, trust, start-up by ladder
+level, network and execution) and a failure probability $p_{\mathrm{fail}}=1-S_j(T)(1-p_j)$. The default scalarization is
+$w_i\,p_{\mathrm{miss}}+\epsilon\,\mathbb{E}[T]+\lambda_{\mathrm{exp}}\,\mathrm{exposure}$. Execution time comes from a
+Bayesian log-linear predictor with hierarchical shrinkage and conformal calibration \cite{shafer2008conformal}. If
+$p_{\mathrm{miss}}$ of the best candidate exceeds a threshold $\theta$ and a per-cluster budget allows, \voss{} sends a
+\emph{tied} duplicate to the best trust-warm candidate in a \emph{different failure domain} and cancels the loser on the
+first result \cite{dean2013tail}; attested results make duplicates integrity-safe. Routers pick the cluster with a score
+$\mathrm{rtt}+\mathbb{E}[\mathrm{completion}]+\mathrm{health}+\mathrm{trust\_cold\_penalty}$, so spilling to a cluster
+without trust-warm capacity is a priced decision.
+
+\subsection{Fault tolerance: liveness is a hint, progress is evidence}
+\label{sec:ft}
+A black-holing owner keeps heartbeating, so heartbeats cannot be evidence. \voss{} detects \emph{progress}: routers (trusted)
+time \textsc{enqueue} without \textsc{accepted}; schedulers time \textsc{accepted} without \textsc{result} at the predicted
+completion quantile; the orchestrator watches the scheduler's attested placement latency; and a CUSUM change-point test
+over outcomes defeats on-off defection. A suspect worker loses new work and trust-warm eligibility and its in-flight work
+is hedged or retried; fake drain notices only make the scheduler more conservative and never excuse an omission.
+
+\emph{Succession without consensus.} Because the orchestrator is a reliable arbiter, a failed scheduler is replaced by an atomic
+compare-and-swap on the cluster epoch in the operational database; the appointment token binds the cluster, epoch and the
+\emph{session-certificate} of the successor, so a cloned image is not appointed, and workers fence lower epochs.
+Schedulers keep only soft state: undispatched invocations live in the router, running work in the workers (recovered by a
+roll call), and plan and learned state in a checkpoint. A restarted or rolled-back appliance is a new instance and must be
+re-appointed, which closes the rollback caveat of trusted-hardware protocols.
+
+\subsection{Receipts and credits}
+Each result carries a receipt signed by the worker's session key (invocation, attempt, worker, certificate, epoch, execution
+time, reference work units, output digest). A host cannot claim work it did not do, only fail to do work. Credits are paid
+in \emph{reference work units}, not elapsed time, so throttling earns nothing; donor caching earns a small credit only while
+the worker answers probes. Reputation, an identity-level long-run signal, feeds rewards and planner tie-breaks but never the
+failure probability $p_{\mathrm{fail}}$, which is fed separately by session survival and omission, to avoid double counting.

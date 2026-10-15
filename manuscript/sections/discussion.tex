@@ -1,0 +1,47 @@
+\section{Discussion}
+\label{sec:discussion}
+
+\medskip\noindent\textbf{What the evidence supports.}
+The central design claim holds in simulation: treating trust and warm state as a planned, perishable resource beats reactive policies.
+Planning cuts tail latency by half or more against no planning under churn, the lifecycle-aware placer and the planner are the two largest contributors in the ablation,
+and progress-based detection is what keeps success high when owners omit. These are statements about mechanisms and are
+supported by paired intervals. They hold across churn regimes and adversary fractions in the viability maps (Sec.~\ref{sec:res-viab}), not only at one operating point.
+
+\medskip\noindent\textbf{What it does not.}
+Four expected benefits did not materialize. (i)~Geo-clustering is slower than a single scheduler and holds several times the exposure. (ii)~The exact MILP
+is not demonstrably better than a greedy planner, so the solver's cost (\MilpSolveS\,s per cluster) is justified only by the coverage guarantee, which we
+could not show matters for \emph{success} (H2). (iii)~Caching sophistication and reputation tie-breaking change P99 by a few percent at most, and credit
+under the current rules is extremely concentrated. (iv)~A commercial-style reference has lower latency, and \voss{} is cheaper per invocation only once the
+fixed orchestrator tier is amortized over enough load. None of this contradicts the premise that volunteer hardware can serve latency-sensitive
+functions at some SLO; it narrows which components earn their complexity. A simpler \voss{} without geo-clustering, reputation and tiered caches is the
+version our evidence favors.
+
+\medskip\noindent\textbf{Exposure is the price.}
+Most latency gains are bought with exposure: planning, robustness and warm state all enlarge the set of hosts that hold a tenant's key. The simple baseline has about half
+of \voss{}'s exposure, and the Pareto front shows that moderate robustness captures most of the benefit. We deliberately report exposure as a separate axis; a deployer
+with high-sensitivity tenants would pick a lower $f$ and a higher exposure weight, accepting the latency cost shown in Fig.~\ref{fig:pareto}.
+
+\medskip\noindent\textbf{Why the attestation argument matters.}
+Every robustness result above uses omission and timing faults only. If attestation failed, for example through the physical attacks excluded in Sec.~\ref{sec:threat},
+adversaries could forge results and read keys, and exposure would no longer be a proxy for risk. The design's honesty is conditional on attestation holding, and we
+therefore treat liveness and owner notices as hints and verify progress.
+
+\subsection{Threats to validity}
+\label{sec:threats}
+\begin{itemize}
+\item \textbf{Simulation only.} No multi-machine deployment has validated the simulator end to end. Policies are the real code, but the world model (network, churn,
+adversaries) is a model. We therefore interpret differences between designs, not absolute latencies.
+\item \textbf{Calibration scope.} Calibration comes from one consumer laptop with a hard disk. Confidential-VM and DRTM parameters are literature values, and the laptop-measured
+appliance runs in host mode. E24 shows the main comparison survives a change of bundle, but a different CPU, SSD or firmware could shift the absolute costs.
+\item \textbf{Assumed workload and churn.} No public trace of consumer donation sessions exists; the churn shapes are assumed from availability studies and swept in E14.
+The function catalogue follows SeBS but its sizes are assumed. The adversary model is omission and timing only, with a fixed menu of strategies. An adaptive adversary that learns the scheduler could do worse.
+\item \textbf{Scale.} The two largest scalability points use three seeds and a cheaper simulator mode, and a $10^5$-worker deployment may behave differently.
+\item \textbf{Statistics and selection.} Ten seeds give wide intervals for tail metrics; several comparisons are inconclusive rather than null. We ran many experiments, and a
+verdict on a single comparison should be read with that in mind. Specifications were frozen before the final sweep, but pilots informed which cells to include (recorded in the decision log).
+\item \textbf{Bibliography and prior numbers.} Literature parameters (for example confidential-VM startup) are quoted from the cited studies and are tagged for re-verification.
+\end{itemize}
+
+\subsection{Future work}
+Validate on a small real testbed with end-to-end measurements (the first experiment in our plan, not yet run); measure confidential-VM hosts to replace literature parameters; shard
+the orchestrator tier and re-measure scalability; revisit geo-clustering at larger populations and with shared trust across clusters; and study adaptive adversaries and
+incentives given the observed credit concentration.

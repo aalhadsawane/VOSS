@@ -1,0 +1,8 @@
+\section{Conclusion}
+\label{sec:conclusion}
+Attestation turns malicious volunteer owners into omission and timing faults, and what remains is the scheduling of a perishable resource: trust. A two-timescale design, a robust
+slow-loop plan over trust and warm state plus a fast cost-based placer with progress-based failure detection, is viable in simulation in regimes where simple baselines are not
+(\ViabAPThreeVoss{} of \ViabACells{} and \ViabBPThreeVoss{} of \ViabBCells{} cells at a 3\,s sync P99 target), cuts tail latency by \HOnePctNoneMed--\HOnePctNoneHigh\% against no planning, and keeps success at \VossSuccAlpha\% with 20\% omitting
+owners. The advantage is not universal: on confidential-VM substrates at high load the simple baseline is the only viable system on the deadline-met criterion. Our paired, mechanically judged evaluation also shows what does not pay: geo-clustering, the exact solver over greedy planning, caching sophistication and reputation tie-breaking, and a
+commercial-style reference remains faster. The design is better read as a small core (attestation, planned trust and warm state, progress detection) than as the full catalog of mechanisms we explored.
+The next step is a real multi-machine testbed to validate the simulator, which this paper does not yet provide.
