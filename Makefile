@@ -7,7 +7,7 @@ UV ?= uv
 RUN = $(UV) run
 CONFIG ?= configs/smoke.yaml
 
-.PHONY: check lint type imports test run repro-smoke sweep figs paper paper-analyze manuscript manuscript-gen
+.PHONY: check lint type imports test run repro-smoke sweep figs paper paper-analyze paper-verify manuscript manuscript-gen
 
 check: lint type imports test
 
@@ -45,6 +45,10 @@ figs:
 # hypothesis scorecard under paper/. Hours of CPU on a cold checkout; `make paper-analyze` redraws from runs/ in seconds.
 paper:
 	$(RUN) python -m experiments.paper all --jobs $(JOBS)
+
+# Compare a rerun of the sweeps with the recorded result hashes (paper/run-hashes.csv): bit-for-bit reproduction check.
+paper-verify:
+	$(RUN) python -m experiments.paper_verify
 
 paper-analyze:
 	$(RUN) python -m experiments.paper analyze
