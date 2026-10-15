@@ -7,7 +7,7 @@ UV ?= uv
 RUN = $(UV) run
 CONFIG ?= configs/smoke.yaml
 
-.PHONY: check lint type imports test run repro-smoke sweep figs paper paper-analyze
+.PHONY: check lint type imports test run repro-smoke sweep figs paper paper-analyze manuscript manuscript-gen
 
 check: lint type imports test
 
@@ -48,3 +48,12 @@ paper:
 
 paper-analyze:
 	$(RUN) python -m experiments.paper analyze
+
+# Manuscript (ROADMAP P11): numbers and tables are generated from paper/ and configs/calibration/, figures from paper/tables;
+# needs a LaTeX distribution (latexmk, IEEEtran). `make manuscript-gen` regenerates the inputs only.
+manuscript-gen:
+	$(RUN) python -m experiments.paper_tex
+	$(RUN) python -m experiments.paper_figs
+
+manuscript: manuscript-gen
+	cd manuscript && latexmk -pdf -interaction=nonstopmode main.tex

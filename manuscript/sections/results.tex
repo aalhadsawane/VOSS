@@ -1,0 +1,255 @@
+\section{Results}
+\label{sec:results}
+
+Unless stated, differences are paired by seed over 10 seeds with 95\% bootstrap intervals; the complete list of
+hypotheses and verdicts is Table~\ref{tab:score}. Where a result contradicts a design claim we say so in the section where it appears.
+
+\subsection{Trust establishment and cold start (E-CS1)}
+\label{sec:res-cs1}
+Table~\ref{tab:cs1} gives, per substrate, the simulated time to establish a donation session and the start latency from each
+level of the warm-state ladder. Two facts shape everything that follows. First, the appliance pays a large \emph{one-off}
+cost per session (\SimApplSession\,s with the pre-measurement parameters; \CalAttested\,s measured end to end on the
+laptop), against \SimCvmSession\,s for a confidential VM and \SimCocoSession\,s for a confidential-container pool: trust on the appliance
+is expensive to establish and everything is lost when the session ends. Second, once the session exists the appliance is as fast as
+an unattested Firecracker host: warm and snapshot starts are within a few percent of the unattested figures (H5, supported), because
+attestation is paid per session rather than per invocation. Confidential VMs invert the trade: cheap sessions but slower
+lower ladder levels (Table~\ref{tab:cs1}). Our
+a-priori expectation that confidential-VM classes establish trust 10--100$\times$ \emph{slower} than the appliance is refuted:
+they are about 93\% faster, because the appliance's cost is a reboot. Measurements on the laptop agree with the simulated
+ladder: a warm Firecracker start takes \CalFcBootWarmMs\,ms, a cold-cache boot \CalFcBootColdS\,s, and creating a 512\,MB
+snapshot \CalSnapCreate\,s on a hard disk, which makes snapshots something to plan rather than to take on demand.
+
+\begin{table}[t]
+\caption{Simulated session establishment and start latency (s) from each warm-state level (L0 nothing cached, L3 warm idle
+VM; ``--'' not applicable). Pre-measurement parameters (Table~\ref{tab:calib}).}
+\label{tab:cs1}
+\centering\scriptsize
+\resizebox{\columnwidth}{!}{\input{generated/tab_ecs1_sim}}
+\end{table}
+
+\subsection{Where is the system viable? (E20)}
+\label{sec:res-viab}
+Averages hide the regimes in which a design fails, so we map viability (Sec.~\ref{sec:method}) over three two-dimensional
+panels. Figure~\ref{fig:viab} colors each cell by which system is viable under the default criterion (success $\ge0.99$ and deadline-met $\ge0.95$) and prints \voss{}'s P99.
+Table~\ref{tab:viab} counts \voss{}-viable cells under other targets.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/fig_viability}
+\caption{Viability maps (E20). Cell color: which of \voss{} and the best simple baseline is viable (success $\ge0.99$,
+deadline-met $\ge0.95$); numbers: \voss{} sync P99 in seconds. (a) churn regime against adversary fraction, (b) substrate against offered load (inv/s),
+(c) population against offered load.}
+\label{fig:viab}
+\end{figure*}
+
+\begin{table}[t]
+\caption{Number of cells in which \voss{} is viable, by target (deadline-met fraction, or absolute sync P99).}
+\label{tab:viab}
+\centering\scriptsize
+\resizebox{\columnwidth}{!}{\input{generated/tab_viability}}
+\end{table}
+
+\voss{} is the \emph{only} viable system in all \ViabACells{} cells of panel A, which spans three churn regimes and up to $20\%$ omitting owners, in
+\ViabBMetOnly{} of \ViabBCells{} cells of panel B and in \ViabCMetOnly{} of \ViabCCells{} cells of panel C. With an absolute sync P99 target of 3\,s
+it is viable in \ViabAPThreeVoss{} of \ViabACells, \ViabBPThreeVoss{} of \ViabBCells{} and \ViabCPThreeVoss{} of \ViabCCells{} cells, and the simple baseline in none of them; at
+5\,s \voss{} is viable in \ViabAPFiveVoss, \ViabBPFiveVoss{} and \ViabCPFiveVoss{} cells. The two criteria measure different things (a deadline is a multiple of the
+warm latency; the absolute target is what a user perceives), which is why a baseline can pass one and fail the other.
+
+The map also shows where \voss{} is \emph{not} the right choice. On confidential-VM and confidential-container substrates at higher load, the simple baseline
+is the only viable system in \ViabBMetBase{} cells (Fig.~\ref{fig:viab}b): we conjecture that with cheap session establishment there is little cold-start cost for planning to remove, while it still adds exposure and memory;
+we did not test this. With 100 workers no system is viable in any cell of panel C
+(\ViabCMetNoneFive{} cells), so the design needs a minimum population, and at a deadline-met target of 0.98 \emph{no} system is viable in any cell: the
+``98\% of sync invocations within $5\times$ warm latency'' service level is out of reach in this setting for \voss{} and the baselines alike.
+
+\subsection{Planning trust and warm state (E04, E19)}
+\label{sec:res-plan}
+Table~\ref{tab:plan} compares planners on the same scenarios under medium and high churn. Planning is the largest single lever: the robust MILP
+cuts sync P99 by \HOnePctNoneMed\% (medium churn) and \HOnePctNoneHigh\% (high churn) against no planning, and by \HOnePctKeepMed\% and
+\HOnePctKeepHigh\% against a keep-alive TTL (H1, supported). It pays with donor memory: about \MilpWarmRatio$\times$ the warm memory of
+keep-alive at medium churn. The comparison that
+motivates the integer program is weaker. The MILP is only \HEightPct\% better than the greedy planner at high churn (H8, interval includes
+zero, inconclusive) while its solve time is \MilpSolveS\,s per cluster against \GreedySolveMs\,ms. We cannot, on this evidence, claim that the
+exact solver pays for itself. What it gives, beyond latency, is the coverage guarantee of Eq.~\eqref{eq:robust}, whose value is shown below.
+
+\begin{table}[t]
+\caption{Planner comparison (E04): mean $\pm$ 95\% half-width over 10 seeds. Met: deadline-met fraction; Warm: GB of idle warm memory.}
+\label{tab:plan}
+\centering\scriptsize
+\resizebox{\columnwidth}{!}{\input{generated/tab_planners}}
+\end{table}
+
+Figure~\ref{fig:abl} removes one component of \voss{} at a time (E19). Removing lifecycle-aware placement costs
+\AblLifecycleP\,s of sync P99, removing planning \AblPlanningP\,s (and lowers exposure by \AblPlanningExp, because less is pre-warmed and fewer hosts hold keys), removing the robust
+constraint \AblRobustP\,s (exposure \AblRobustExp{} lower) and removing hedging \AblHedgeP\,s. Geo-clustering is the only component whose removal
+\emph{improves} P99 (\AblGeoP\,s lower), and it also cuts exposure by \AblGeoExp: Sec.~\ref{sec:res-geo}. Putting reputation into the cost matrix instead of using it
+as a tie-breaker raises exposure by \AblRepExp. The ablations also show where trust and latency trade against each other: the same components that buy P99
+(planning, robustness) raise exposure.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/fig_ablation}
+\caption{Ablations (E19): change when a component is removed, relative to full \voss{} (paired, 95\% intervals).
+Left: sync P99; right: key-holder exposure.}
+\label{fig:abl}
+\end{figure}
+
+\subsection{Faults, adversaries and the latency--exposure trade-off (E08, E15, E16, E23)}
+\label{sec:res-ft}
+
+\medskip\noindent\textbf{Detection.}
+Table~\ref{tab:faults} injects crashes, partitions, black-holing and slowed scheduler hosts. Heartbeats alone cannot see a black hole: the
+host keeps sending liveness while dropping work, so detection waits for the 60\,s timeout (\BhDetectHb\,s) and the run suffers \BhTimeoutsHb{} timeouts, against
+\BhDetectProg\,s and \BhTimeoutsProg{} with progress-based detection (H-FT1, supported). For plain crashes progress detection needs \CrashDetectProg\,s and
+failover \CrashFailover\,s. A slowed-but-live scheduler is the hardest case: failover takes \SlowFailover\,s on average because progress evidence must
+accumulate before the slowdown is distinguishable from load.
+
+\begin{table}[t]
+\caption{Scheduler faults (E15): time to detection, failover, success and P99 within the fault window.}
+\label{tab:faults}
+\centering\scriptsize
+\resizebox{\columnwidth}{!}{\input{generated/tab_faults}}
+\end{table}
+
+\medskip\noindent\textbf{Omitting owners.}
+Table~\ref{tab:adv} sweeps the fraction $\alpha$ of omitting owners. With $\alpha=0.2$ \voss{} keeps success at \VossSuccAlpha\%, whereas
+heartbeat-only detection with otherwise identical machinery drops to \HbSuccAlpha\% (H4, supported). Progress detection also gives
+\HbOmitRatio$\times$ fewer results dropped by omitting owners at $\alpha=0.2$. The hypothesis that the \emph{robust} planning constraint is what keeps success
+is not supported: setting $f=0$ changes success by only \FzeroSuccDelta{} percentage points (H2, inconclusive), though it lengthens P99 (Table~\ref{tab:adv}).
+Detection and re-dispatch, not redundant coverage, carry the success; robust planning buys tail latency.
+
+\begin{table}[t]
+\caption{Omitting owners (E08), mean $\pm$ 95\% half-width over 10 seeds. Omissions: results dropped by adversaries.}
+\label{tab:adv}
+\centering\scriptsize
+\resizebox{\columnwidth}{!}{\input{generated/tab_adversary}}
+\end{table}
+
+\medskip\noindent\textbf{Hedging.}
+Hedging duplicates risky invocations. Always hedging cuts P99 but wastes \AlwaysWastePct\% extra attempts. Risk-proportional hedging (hedge with probability
+tied to estimated risk, within a 5\% budget) wastes \RpWastePct\%, and its P99 is \HedgePNinetyninePct\% lower with $\alpha=0.1$ but with an interval from
+\HedgePNinetynineLo\% to $+$\HedgePNinetynineHi\% (H-FT3, inconclusive). It is cheap insurance, not demonstrated to be necessary.
+
+\medskip\noindent\textbf{Pareto front.}
+Robustness $f$ and the exposure weight trade latency against key-holder exposure (E23, Fig.~\ref{fig:pareto}). The aggregate front has \ParetoFrontN{}
+points. Exposure grows with $f$ (\ExpFZero, \ExpFOne{} and \ExpFTwo{} at $f=0$, $0.1$, $0.2$), consistent with covering any $f$ failures requiring more key-holding hosts. Aggregate sync P99 stays
+within \ParetoPNinetynineLo--\ParetoPNinetynineHi\,s across configurations, so the knee at $f=\ParetoKneeF$ saves \ParetoKneeExpSaved\% of exposure against the best-latency front point for
+\ParetoKneePNinetynineLoss\% more P99 (H3, supported): moderate exposure budgets are cheap. Per tenant class the picture is less benign. Low-sensitivity tenants stay at about \ParetoLowMax\,s or below, but for
+high-sensitivity tenants P99 reaches \ParetoHighMax\,s in one robust configuration, while an $f=0$ configuration has the lowest exposure at nearly the best P99. The aggregate knee therefore should not be applied to every class;
+sensitivity classes need their own operating point.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/fig_pareto}
+\caption{Latency--exposure--robustness (E23). Each point is a ($f$, exposure weight) configuration (marker size: weight) with 95\% error bars on exposure;
+the dashed line is the Pareto front per tenant sensitivity class.}
+\label{fig:pareto}
+\end{figure}
+
+\subsection{Geography, routing and caching (E05--E07, E09)}
+\label{sec:res-geo}
+The geographic hierarchy, a central idea of the design, does not pay off at the scale we simulate. Table~\ref{tab:geo} compares a single global scheduler
+against static regions, static $k$-means and dynamic clusters. Dynamic clusters have \emph{higher} P99 than the global scheduler by
+\HSevenEu\% (Europe), \HSevenEuNa\% (EU+NA) and \HSevenWorld\% (world) (H7, refuted at all three populations), and hold \GeoExpRatio$\times$ the key-holder
+exposure in Europe, since each of the \GeoClusters{} clusters must cover demand with its own key holders. The network share of latency
+does fall in some populations (Table~\ref{tab:geo}), but not enough to offset the cost of splitting the pool. We attribute this to fewer hosts per
+cluster for pooling warm state and keys, but did not isolate the mechanism. Our results show no population in which geo-clustering wins at the scale we simulate.
+
+\begin{table}[t]
+\caption{Geo-clustering (E05): mean $\pm$ 95\% half-width over 10 seeds.}
+\label{tab:geo}
+\centering\scriptsize
+\resizebox{\columnwidth}{!}{\input{generated/tab_geo}}
+\end{table}
+
+Routing matters more than clustering. Without flash crowds, nearest-region routing meets \RouteNearMet{} of deadlines (P99 \RouteNearPNinetynine\,s),
+whereas routing to the least-loaded cluster meets \RouteLeastMet{} (P99 \RouteLeastPNinetynine\,s) because it ignores distance. Spilling to other clusters is rare and priced (E07).
+For caching (E09) the cost-aware GDSF policy with peer-to-peer fetch and an HDD tier is at most \HSixPct\% better than LRU in sync P99
+and the intervals include zero (H6, inconclusive). All variants start about 98\% of invocations from a warm VM, which leaves little for the disk tiers to improve.
+
+\subsection{Is the machinery needed? Simple baseline and commercial references (E10, E17)}
+\label{sec:res-simple}
+Table~\ref{tab:simple} compares \voss{} with the simple baseline (least-loaded placement on the nearest attested worker, no planning). We expected the
+baseline to match \voss{} on homogeneous, stable, benign hardware. It does not: \voss{} has \HElevenPct\% lower P99 (H11, refuted), even though
+the pool is homogeneous; we attribute this to planning's pre-warming against churn, which the baseline lacks. The baseline, however, holds about half of \voss{}'s exposure (\voss{}
+is \SimpleExpRatio$\times$ higher) consistent with its placing keys on fewer hosts. Whether the latency is worth the exposure is a
+policy choice, and the E23 front (above) lets a deployer pick.
+
+\begin{table}[t]
+\caption{Simple baseline versus \voss{} (E10).}
+\label{tab:simple}
+\centering\scriptsize
+\resizebox{\columnwidth}{!}{\input{generated/tab_simple}}
+\end{table}
+
+Table~\ref{tab:comm} compares \voss{} with commercial-style references on the same workload and engine, priced with list prices. At 20\,inv/s
+\voss{}'s P99 is \CommPNinetyninePct\% and its P50 \CommPFiftyPct\% above the Lambda-like reference, which uses always-on datacenter hosts. We attribute the gap to
+perishable sandboxes and longer network paths on volunteer hardware. Cost per million invocations, including the
+orchestrator tier but excluding volunteer credits, falls from \CommCostTen{} USD at 10\,inv/s through \CommCostTwenty{} to \CommCostForty{} at 40\,inv/s as the fixed tier is amortized,
+against about \CommCostRef{} USD for the references. \voss{} is thus cost-competitive only above roughly 20\,inv/s on this workload, and it never has lower latency.
+
+\begin{table}[t]
+\caption{Commercial-style references versus \voss{} (E17). Met: deadline-met fraction; cost in USD per million invocations.}
+\label{tab:comm}
+\centering\scriptsize
+\resizebox{\columnwidth}{!}{\input{generated/tab_commercial}}
+\end{table}
+
+\subsection{Accounting and reputation (E12, E13)}
+\label{sec:res-acct}
+Attested receipts are off the critical path (H10, supported): lengthening the settlement period from 10 to 300\,s or the batch from 0.2 to 5\,s changes P99
+by no more than $\pm$\HTenPct\%. The stream is small, about \RecvRows{} rows/s and \RecvKBs\,KB/s at 20\,inv/s offered load, every receipt is accounted for (\RecvUnexplained{} unexplained
+receipts, at most \RecvMissingMax{} receipt missing at the end of a run) and verification costs \RecvVerifyMs\,ms per second. The settlement period sets the latency from receipt to credit:
+\RecvLatTen, \RecvLatSixty{} and \RecvLatThreeHundred\,s for 10, 60 and 300\,s periods.
+Reputation, however, adds little. Using a Beta-decay score only as a tie-breaker lowers P99 by \RepPNinetyninePct\% (E12, weak), and credit is highly concentrated: the Gini coefficient is
+\RepGini, the top 10\% of workers earn \RepTopTen\% of credit and \RepStarved\% earn almost none, which is a fairness problem for an incentive that relies on credits.
+
+\subsection{Scalability (E18)}
+\label{sec:res-scale}
+Figure~\ref{fig:scale} and Table~\ref{tab:scale} scale the population from $10^2$ to $10^5$ workers at constant load per worker (0.01\,inv/s) in a cheaper
+``scalability mode'' (coarse heartbeats, greedy planning, 2 simulated minutes). Up to $10^4$ workers success is
+\ScaleTenKSucc\%. At $3\times10^4$ it falls to \ScaleMidSucc\% with a decision P99 of \ScaleMidDecide\,s, and at $10^5$ to \ScaleBigSucc\% with sync P99 \ScaleBigPNinetynine\,s
+and decision P99 \ScaleBigDecide\,s: decision latency grows from about 0.1\,s to tens of seconds. Per-worker control traffic stays flat
+(\ScaleMsgLo--\ScaleMsgHi{} messages per second per worker), so the limit lies in the central decision path rather than in the message volume; we did not isolate
+which orchestrator or router component saturates first, and the two largest points use three seeds. We read this as a measured limit of the current orchestrator tier, not of the approach.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/fig_scale}
+\caption{Scalability (E18): sync P99 and success against population (log scale), mean with 95\% intervals; the two largest points use 3 seeds.}
+\label{fig:scale}
+\end{figure}
+
+\begin{table}[t]
+\caption{Scalability (E18): orchestrator and control-plane load.}
+\label{tab:scale}
+\centering\scriptsize
+\resizebox{\columnwidth}{!}{\input{generated/tab_scale}}
+\end{table}
+
+\subsection{Sensitivity to calibration (E24)}
+\label{sec:res-calib}
+Do conclusions depend on the measured values? We repeated the key comparison under the placeholder and the laptop-measured bundles (Table~\ref{tab:calibsens}).
+\voss{}'s P99 is \CalSensVossPNinetynineMeas\,s with measured parameters against \CalSensVossPNinetyninePlc\,s with placeholders, but the simple baseline moves from
+\CalSensSimplePNinetyninePlc\,s to \CalSensSimplePNinetynineMeas\,s: the advantage of planning \emph{grows} under the measured parameters. This shows that the main qualitative conclusion is not an artifact of the
+placeholders; absolute values should not be read as predictions.
+
+\begin{table}[t]
+\caption{Calibration sensitivity (E24): placeholder versus laptop-measured parameters.}
+\label{tab:calibsens}
+\centering\scriptsize
+\resizebox{\columnwidth}{!}{\input{generated/tab_calibsens}}
+\end{table}
+
+\subsection{Scorecard}
+\label{sec:res-score}
+Of the hypotheses stated before the runs, \ScoreSupported{} are supported, \ScoreWeak{} weak, \ScoreInconclusive{} inconclusive and \ScoreRefuted{} refuted (Table~\ref{tab:score}).
+The refuted and inconclusive entries are as informative as the supported ones: geo-clustering (H7), the simple baseline on homogeneous hosts (H11), and the
+trust-establishment cost ratio of confidential VMs (H5) were wrong in the direction predicted, and the robust constraint, the MILP over greedy planning, caching and hedging
+are inconclusive.
+
+\begin{table*}[t]
+\caption{Hypothesis scorecard. $\Delta$ rel.: paired relative change with 95\% bootstrap interval; verdict by the rules of Sec.~\ref{sec:method}. ``--'': cost-side information, no verdict.}
+\label{tab:score}
+\centering\scriptsize
+\input{generated/tab_scorecard}
+\end{table*}

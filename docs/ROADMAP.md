@@ -4,7 +4,7 @@ Build **one phase at a time**. Each phase ends with a demo command and **exit cr
 until *n* passes. Open a PR per phase and merge it yourself when the exit criteria pass. Sizes are relative (S/M/L).
 
 ```
-P0 ─ P1 ─ P2 ─ P3 ─ P4 ─ P5 ─ P6 ─ P7 ─ P8 ─ P10
+P0 ─ P1 ─ P2 ─ P3 ─ P4 ─ P5 ─ P6 ─ P7 ─ P8 ─ P10 ─ P11
       └──── P9 calibration (parallel from P1; needs the real node) ────┘
 ```
 
@@ -136,6 +136,16 @@ map): P0 → P4, then P6 and P10, with P9 in parallel.
 - Results worth knowing (details in `paper/`): H1, H3, H4, H-FT1 and H10 supported; H7 (geo vs global), H11 (simple
   matches VOSS) and the E-CS1 "CVM 10-100× slower" claim refuted at these sizes; H2, H6, H8, H-FT3 inconclusive at 10
   seeds; E20 verdicts depend on the SLO (absolute P99 targets and the deadline-met target are both reported).
+
+## P11 · Manuscript (S)
+- First draft of the paper (IEEE Transactions, `IEEEtran` journal mode) under `manuscript/`; numbers and tables are
+  generated from `paper/` and the measured bundle (D-65).
+- **Done (2026-10-16, draft 1):** `make manuscript` regenerates `manuscript/generated/` and `manuscript/figures/` and
+  builds `main.pdf` (11 pages). `tests/unit/test_manuscript.py` fails when the committed generated files are stale;
+  the generator fails when a result stops supporting a sentence of the draft.
+- **Open before submission:** verify every bibliography entry (written from memory, several marked TODO verify); fill
+  author, affiliation and funding; choose the target journal and adapt the class options and length; add related work
+  found by a proper literature search; real multi-machine validation (E01) so the simulator claims can be strengthened.
 
 ## Parked
 Workflows (SeBS-Flow), GPU functions (the node has 2 × RTX 4060 Ti; no confidential GPU path on consumer hardware),
