@@ -36,8 +36,10 @@ def load_raw(root: Path, host: str | None = None) -> tuple[pd.DataFrame, dict[st
         if not (run / "meta.json").exists():  # the run was cut off (power loss, reboot) before it wrote its summary
             continue
         info = json.loads((run / "meta.json").read_text())
-        # a run that ended in an error still wrote the measurements it finished (e.g. sebs stopping at a broken function)
-        if (host and run.parents[1].name != host) or info.get("dry_run"):
+        # sebs measures one function at a time and writes each when done, so the functions finished before a later
+        # one broke are valid; any other suite that errored may hold half-finished series and is ignored
+        failed = str(info.get("status")) == "error" and info.get("suite") != "sebs"
+        if (host and run.parents[1].name != host) or info.get("dry_run") or failed:
             continue
         meta = info
         digests[str(rec.relative_to(root))] = hashlib.sha256(rec.read_bytes()).hexdigest()
