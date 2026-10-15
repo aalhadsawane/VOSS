@@ -6,7 +6,7 @@ Status of the calibration against hardware, as of 2026-10-15. Section references
 
 One machine: a Lenovo laptop (board `LNVNB161216`), **Intel Core i3-7020U** (2 cores / 4 threads, 2.3 GHz), 3.9 GB RAM,
 one 1 TB **spinning disk**, TPM 2.0, Ubuntu 26.04 (kernel 7.0), VT-x, no TME, no AMD-V. It is **not** the i7 node "C0" of
-doc 10. Its bundle is `configs/calibration/measured/laptop-b9212a4528/` (`calibration_hash` in run manifests: `b1b5c3c73db6b2f2fd148f2d8117b731684b5127c345ac700b18935ebea2888f`);
+doc 10. Its bundle is `configs/calibration/measured/laptop-b9212a4528/` (`calibration_hash` in run manifests: `0083b37e59f44ac8fee1c1e04eb4272fecf00967d55eba4df7f894212d289c0f`);
 raw logs are in `calibration/raw/laptop-b9212a4528/`. Because the machine has no SSD, its only disk tier (`hdd`) fills
 the `ssd` role of `tools/calibrate/mapping.yaml` (`ingest --tier hdd`, D-62), so the entries named `fc_boot`,
 `fc_restore` and `fc_snapshot_create` are **HDD** numbers.

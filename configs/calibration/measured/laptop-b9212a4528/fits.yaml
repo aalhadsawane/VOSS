@@ -15,6 +15,9 @@ fc_restore:
   sigma: 0.2793879892319659
 fc_snapshot_create:
   n: 1.0
+provenance:
+  default: measured
+  note: ingested from raw logs of host laptop-b9212a4528 (rule 13)
 reboot_to_kernel:
   ks: 0.14937338310311166
   median: 21.035357464378116

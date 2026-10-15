@@ -2,3 +2,6 @@ classes:
   C0:
     hdd_read_MBps: 85.052248
     hdd_write_MBps: 120.75209000000001
+provenance:
+  default: measured
+  note: ingested from raw logs of host laptop-b9212a4528 (rule 13)

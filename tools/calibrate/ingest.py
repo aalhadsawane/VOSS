@@ -211,8 +211,9 @@ def main(argv: list[str] | None = None) -> None:
     fp, files = build(a.raw, a.host, a.placeholder, a.tier)
     out = a.out / fp
     out.mkdir(parents=True, exist_ok=True)
+    prov = {"default": "measured", "note": f"ingested from raw logs of host {fp} (rule 13)"}
     for name, data in files.items():
-        (out / name).write_text(yaml.safe_dump(data, sort_keys=True, width=120))
+        (out / name).write_text(yaml.safe_dump({"provenance": prov} | data, sort_keys=True, width=120))
     print(out)
 
 

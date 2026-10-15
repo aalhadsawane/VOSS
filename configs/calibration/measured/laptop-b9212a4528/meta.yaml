@@ -33,6 +33,9 @@ missing:
 - snapshot_touched_frac
 - tme_cpu_factor
 - tme_mem_factor
+provenance:
+  default: measured
+  note: ingested from raw logs of host laptop-b9212a4528 (rule 13)
 raw_files:
   laptop-b9212a4528/appliance/20261015T060025/records.jsonl: e20a5e92e852f2162f73dd1ade51b7f3d0eed522f7769f7d2b3832033e4cedc1
   laptop-b9212a4528/attest_local/20261014T210505/records.jsonl: 059b0bf8b71f696d25bd5609e60451cbff40f5c1add713b389a65a1c92af3e75

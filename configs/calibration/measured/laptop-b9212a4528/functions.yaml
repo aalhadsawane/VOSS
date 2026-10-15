@@ -52,3 +52,6 @@ functions:
     size_exp: 0.10413379165015531
     tag: measured
     work_ref_s: 0.539925
+provenance:
+  default: measured
+  note: ingested from raw logs of host laptop-b9212a4528 (rule 13)
