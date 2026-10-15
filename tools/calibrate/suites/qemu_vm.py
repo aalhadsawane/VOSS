@@ -26,16 +26,19 @@ def run(ctx: Ctx) -> None:
     if not kernel or not rootfs:
         raise SuiteSkipped("pass --set kernel=<vmlinux/bzImage> (or qemu_kernel=) --set rootfs=<ext4 image>")
     for machine in ("microvm", "q35"):
+        failures = 0
         for rep in range(ctx.reps(50)):
             cmd = argv(machine, kernel, rootfs, 256)
             if ctx.sh.dry_run:
                 ctx.sh.run(cmd)
                 break
             try:
-                ctx.rec.add("qemu_boot", time_to_marker(cmd, "VOSS_MARK init", 120.0), rep=rep, machine=machine)
+                ctx.rec.add("qemu_boot", time_to_marker(cmd, "VOSS_MARK init", 30.0), rep=rep, machine=machine)
             except TimeoutError as e:  # keep the other machine type and the reason (D-61)
                 ctx.rec.add("qemu_boot_failed", 1.0, unit="bool", rep=rep, machine=machine, why=str(e)[:600])
-                break
+                failures += 1
+                if failures >= 3:  # q35 needs virtio-pci, which the Firecracker kernel lacks (seen on the laptop)
+                    break
 
 
 SUITE = Suite("qemu_vm", run, "QEMU microvm/q35 boot to init (E-CS1 comparison)")

@@ -4,6 +4,7 @@
 #     sudo bash voss-calib-auto.sh            install, start, and follow the progress
 #     sudo bash voss-calib-auto.sh status     where is it? (also works after a reboot)
 #     sudo bash voss-calib-auto.sh stop       cancel everything and undo the reboot loop
+#     sudo bash voss-calib-auto.sh again      a third round: rebuild the guest image, rerun sebs (3 missing functions) + qemu_vm
 #     sudo bash voss-calib-auto.sh redo       a second round after a fix: rerun the failed suites + reboot test, pack
 #
 # It copies the tools to /opt/voss-calib and runs the stages as a systemd service, so closing the terminal does not
@@ -24,6 +25,7 @@ UNIT=voss-calib-auto.service
 LOG=$STATE/auto.log
 STAGES=(setup full appliance tme finish)
 RERUN_SUITES="fc_snapshot qemu_vm sebs"
+RERUN_FUNCTIONS=""                 # empty: the suites' own default list
 MAX_ATTEMPTS=3
 
 say() { printf '%s\n' "$*"; }
@@ -56,6 +58,7 @@ install_and_start() {
   chmod -R a+rX "$OPT"
   printf 'TARGET_USER=%s\nTARGET_HOME=%s\nBOOTS=%s\nSTAGE_LIST="%s"\n' \
     "$user" "$home" "${VOSS_BOOTS:-10}" "${VOSS_AUTO_STAGES:-${STAGES[*]}}" >"$CONF"
+  printf 'RERUN_SUITES="%s"\nRERUN_FUNCTIONS="%s"\n' "${VOSS_AUTO_SUITES:-$RERUN_SUITES}" "${VOSS_AUTO_FUNCTIONS:-}" >>"$CONF"
   rm -f "$STATE"/{STOP,DONE,stage,attempts}
   touch "$STATE/RUN" "$LOG"
   mkdir -p "$ROOT/etc/systemd/system"
@@ -141,7 +144,10 @@ advance() { # move to the stage after $1 and reset the attempt counter
 bump() { local n; n=$(($(cat "$STATE/attempts" 2>/dev/null || echo 0) + 1)); echo "$n" >"$STATE/attempts"; echo "$n"; }
 
 stage_setup() { $MAIN setup --with-ml --yes || $MAIN setup --yes; }  # the ML image is optional: fall back without it
-stage_rerun() { $MAIN run $RERUN_SUITES; }
+stage_rerun() { VOSS_FUNCTIONS=$RERUN_FUNCTIONS $MAIN run $RERUN_SUITES; }
+stage_rootfs() { # rebuild the guest image (the guest functions live inside it)
+  if [ -f "$WORKDIR/assets/with-ml" ]; then $MAIN setup --with-ml --yes; else $MAIN setup --yes; fi
+}
 stage_full() { timeout --signal=TERM 10h $MAIN full; }
 stage_tme() {
   if grep -qw tme /proc/cpuinfo; then
@@ -224,6 +230,10 @@ case "${1:-start}" in
   status) show_status ;;
   stop) stop_all "$@" ;;
   stages) run_stages ;;
+  again)
+    [ "$(id -u)" -eq 0 ] || exec sudo -E bash "$0" again
+    VOSS_AUTO_STAGES="rootfs rerun finish" VOSS_AUTO_SUITES="sebs qemu_vm" \
+      VOSS_AUTO_FUNCTIONS="graph-mst,graph-bfs,dna-visualisation" install_and_start ;;
   redo)
     [ "$(id -u)" -eq 0 ] || exec sudo -E bash "$0" redo
     VOSS_AUTO_STAGES="rerun appliance finish" install_and_start ;;
