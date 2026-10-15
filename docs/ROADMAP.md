@@ -126,7 +126,16 @@ map): P0 → P4, then P6 and P10, with P9 in parallel.
 
 ## P10 · Paper experiments (M)
 - Freeze configs; run everything with ≥ 10 seeds; E20 viability map; Pareto fronts (E23); negative results.
-- **Exit:** every paper figure regenerates via `make paper`.
+- **Done (2026-10-16):** `make paper` runs the 21 frozen specs in `configs/experiments/` (10 seeds; deviations in D-63:
+  E18's 30k/100k points; E02 stays a pilot) and writes every table, figure and the hypothesis scorecard under
+  `paper/` from the run logs (`paper/README.md` indexes them; `paper/manifest.json` holds spec hashes and run counts).
+  E20 is three viability panels (churn × α, substrate × load, N × load) with VOSS against the best simple baseline and
+  an unattested one; E23 is a three-way Pareto with per-class latency; E24 repeats the key comparison under the
+  laptop-measured bundle. `make paper-analyze` redraws everything from `runs/` without simulating.
+- **Exit:** every paper figure regenerates via `make paper`. ✔
+- Results worth knowing (details in `paper/`): H1, H3, H4, H-FT1 and H10 supported; H7 (geo vs global), H11 (simple
+  matches VOSS) and the E-CS1 "CVM 10-100× slower" claim refuted at these sizes; H2, H6, H8, H-FT3 inconclusive at 10
+  seeds; E20 verdicts depend on the SLO (absolute P99 targets and the deadline-met target are both reported).
 
 ## Parked
 Workflows (SeBS-Flow), GPU functions (the node has 2 × RTX 4060 Ti; no confidential GPU path on consumer hardware),

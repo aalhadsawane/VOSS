@@ -11,4 +11,8 @@ overrides:
 grid:
   voss.planner.max_plan_workers: [10, 20, 40, 80]
   voss.planner.T_plan: [15, 60]
+# pilot, not part of `make paper` (D-63): the measured decision clock needs the machine to itself (~7 min a run)
 seeds: [1, 2, 3, 4, 5]
+report:
+  keys: [voss.planner.T_plan, voss.planner.max_plan_workers]
+  metrics: [success, met, p50_sync, p99_sync, exposure, waste, warm_mb]

@@ -35,15 +35,17 @@ def points(spec: dict[str, Any]) -> list[list[str]]:
     """Override lists for every system × grid point × seed (keys sorted for stable order).
 
     ``systems`` maps a label to its own overrides: compared systems run paired on the same scenario (doc 06 §4).
+    ``seeds_by_system`` gives a system fewer seeds when its runs are too expensive for the full protocol (D-63).
     """
     grid = spec.get("grid", {})
     keys = sorted(grid)
     systems_ = systems(spec)
+    seeds_by = spec.get("seeds_by_system", {})
     out = []
     for label in sorted(systems_):
         for values in itertools.product(*(grid[k] for k in keys)):
             gv = [f"{k}={json.dumps(v)}" for k, v in zip(keys, values, strict=True)]
-            for seed in spec.get("seeds", [1]):
+            for seed in seeds_by.get(label, spec.get("seeds", [1])):
                 tag = [f"label={label}"] if label else []
                 out.append([*spec.get("overrides", []), *systems_[label], *gv, f"seed={seed}", *tag])
     return out

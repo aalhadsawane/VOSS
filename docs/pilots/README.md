@@ -2,7 +2,8 @@
 
 Pilots are small runs that exercise each experiment end to end before the paper runs (P10). Every table here is
 regenerated from run logs by the scripts named below; numbers come from the **placeholder calibration bundle**
-(literature/assumed values) until P9 lands measured data.
+(literature/assumed values). **The paper results (10 seeds, frozen specs, the full scorecard) are in [`paper/`](../../paper/README.md)
+(`make paper`); where they differ from a pilot below (H-FT3 hedging, E07-E10 magnitudes), the paper numbers stand.**
 
 | Pilot | Regenerate | Notes |
 |---|---|---|

@@ -1,12 +1,17 @@
-# E23 pilot (doc 06 §5, RQ3/RQ4): latency × exposure × robustness — exposure weight and robustness level f.
+# E23 (doc 06 §5, RQ3/RQ4): latency × exposure × robustness Pareto — exposure weight and robustness level f, with 10%
+# mixed omitting owners so that robustness (success under attack) is an outcome. Per tenant sensitivity class.
 experiment: E23
-base: ../smoke.yaml
+base: ../pilot.yaml  # paper runs use VOSS default placers and geo clusters (D-63), not the P2 smoke placer
 overrides:
   - horizon_s=900
   - scenario.workers=200
   - scenario.load.rate=10
   - voss.planner.name=milp
+  - 'scenario.adversary={regime: adversary_mixed, alpha: 0.1}'
 grid:
-  voss.planner.params.exposure_weight: [0.1, 1.0, 10.0]
+  voss.planner.params.exposure_weight: [0.1, 10.0]
   voss.planner.f_from_alpha: [0.0, 0.1, 0.2]
-seeds: [1, 2, 3, 4, 5]
+seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+report:
+  keys: [voss.planner.f_from_alpha, voss.planner.params.exposure_weight]
+  metrics: [success, met, p99_sync, p99_sync_low, p99_sync_medium, p99_sync_high, exposure, waste, warm_mb]

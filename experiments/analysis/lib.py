@@ -72,6 +72,26 @@ for _k in ("success", "met", "p50_sync", "p99_sync", "p99_all"):
     metric(_k)(_lat(_k))
 
 
+def _tenant_class() -> dict[str, str]:
+    """Tenant id -> sensitivity class (configs/tenants.yaml)."""
+    rows = yaml.safe_load((REPO / "configs" / "tenants.yaml").read_text())["tenants"]
+    return {str(t["id"]): str(t["sensitivity"]) for t in rows}
+
+
+def _p99_class(sensitivity: str) -> Metric:
+    def fn(r: Run) -> float:
+        inv = r["invocations"]
+        ok = inv[(inv.outcome == "ok") & (inv.slo_class == 0) & (inv.t_arrive >= WARMUP_S)]
+        ok = ok[ok.tenant.map(_tenant_class()) == sensitivity]
+        return float(ok.e2e.quantile(0.99)) if len(ok) else np.nan
+
+    return fn
+
+
+for _s in ("low", "medium", "high"):
+    metric(f"p99_sync_{_s}")(_p99_class(_s))
+
+
 @metric("exposure")
 def _exposure(r: Run) -> float:
     c = r["cache"]

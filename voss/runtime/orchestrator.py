@@ -165,7 +165,9 @@ class Orchestrator(StandingMixin, AppointMixin, Actor):
             return 0 if 0 in self.book.clusters else self.book.new_cluster().cid
         if self.mode == "static_regions":
             reg = self.region_of(m.lat, m.lon)
-            if reg not in self.region_cluster:
+            if (
+                self.region_cluster.get(reg) not in self.book.clusters
+            ):  # first join, or the region emptied and dissolved
                 self.region_cluster[reg] = self.book.new_cluster().cid
             return self.region_cluster[reg]
         cid = nearest_cluster(m.lat, m.lon, self.book.infos(), self.params.max_size)

@@ -75,4 +75,4 @@ def render(spec: FigureSpec, root: Path, out_dir: Path) -> Path | None:
 
 def load_all() -> None:
     """Import the modules whose ``@figure`` decorators register figures."""
-    from experiments.figures import p8  # noqa: F401, PLC0415
+    from experiments.figures import p8, p10  # noqa: F401, PLC0415

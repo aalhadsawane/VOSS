@@ -33,8 +33,13 @@ consumer node (Intel i7 12th gen, TPM 2.0). No frontend, no real multi-machine d
 
 ## Status
 
-Architecture final (2026-10-09). Implemented: P0 scaffold, P1 world and scenarios, P2 attested vertical slice, P3
-prediction and fast loop, P4 trust and warm-state planner with cache policy, P5 geo hierarchy, P6 fault tolerance
-and adversaries, P7 accounting and reputation, P8 breadth (reference clouds, baselines, ablations, sweep runner,
-analysis library, figure registry, scalability mode; pilots in [`docs/pilots/`](docs/pilots/)).
-Calibration (P9) waits for SSH access to node C0; until then C0 values are literature/assumed placeholders.
+Architecture final (2026-10-09). Implemented: P0-P8 (scaffold through breadth: reference clouds, baselines, ablations,
+sweep runner, analysis library, figure registry, scalability mode; pilots in [`docs/pilots/`](docs/pilots/)), P9
+calibration (harness run on a stand-in laptop, measured bundle and validation notes in
+[`docs/validation/`](docs/validation/); the i7 node C0 and E01 are still open) and P10 paper experiments.
+
+## Reproduce the paper
+
+`make paper` runs the 21 frozen experiment specs (10 seeds; hours of CPU, finished runs are reused) and writes all
+tables, figures and the hypothesis scorecard to [`paper/`](paper/README.md); `make paper-analyze` redraws them from
+`runs/` alone. Protocol and deviations: D-63.

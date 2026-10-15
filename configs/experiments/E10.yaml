@@ -16,4 +16,7 @@ systems:
     - 'voss.hedge.name="off"'
 grid:
   scenario.hw_mix: [{C1: 1.0}, {C0: 0.1, C1: 0.35, C2: 0.35, C3: 0.2}]
-seeds: [1, 2, 3, 4, 5]
+seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+report:
+  keys: [label, scenario.hw_mix]
+  metrics: [success, met, p50_sync, p99_sync, exposure, waste, warm_mb]

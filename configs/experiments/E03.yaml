@@ -1,6 +1,6 @@
 # E03 pilot (doc 06 §5): predictors × scalarizations under two churn regimes. Pilot size: ≥5 seeds (doc 06 §1).
 experiment: E03
-base: ../smoke.yaml
+base: ../pilot.yaml  # paper runs use VOSS default placers and geo clusters (D-63), not the P2 smoke placer
 overrides:
   - horizon_s=600
   - scenario.workers=150
@@ -9,4 +9,7 @@ grid:
   voss.predictor.name: [means, ewma, blr]
   voss.cost.scalarizer: [slo_miss, expected, quantile]
   scenario.regime: [churn_low, churn_high]
-seeds: [1, 2, 3, 4, 5]
+seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+report:
+  keys: [scenario.regime, voss.cost.scalarizer, voss.predictor.name]
+  metrics: [success, met, p50_sync, p99_sync, exposure, waste, warm_mb]

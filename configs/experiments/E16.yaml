@@ -13,4 +13,7 @@ grid:
   scenario.adversary:
     - {regime: adversary_none}
     - {regime: adversary_mixed, alpha: 0.1}
-seeds: [1, 2, 3, 4, 5]
+seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+report:
+  keys: [label, scenario.adversary]
+  metrics: [success, met, p50_sync, p99_sync, exposure, waste, warm_mb]

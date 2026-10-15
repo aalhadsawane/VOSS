@@ -1,0 +1,35 @@
+# E20 viability map, panel A (doc 06 §5, RQ1): churn regime × adversary fraction. VOSS vs the best simple baseline
+# (static regions + nearest + least-loaded + keep-alive TTL, no hedging; E10) and vs the same baseline with no
+# attestation at all (substrate none: what volunteer FaaS does without security). 300 workers, 10 inv/s, 10 min,
+# appliance (a smaller population than the pilots keeps the unattested system, 3.5x costlier to simulate, tractable).
+experiment: E20a
+base: ../pilot.yaml
+overrides:
+  - horizon_s=600
+  - scenario.workers=300
+  - scenario.load.rate=10
+systems:
+  voss: []
+  simple:
+    - voss.clusters.mode=static_regions
+    - voss.router.name=nearest
+    - voss.placer.sync=least_loaded
+    - voss.planner.name=keepalive_ttl
+    - 'voss.hedge.name="off"'
+  noattest:
+    - voss.clusters.mode=static_regions
+    - voss.router.name=nearest
+    - voss.placer.sync=least_loaded
+    - voss.planner.name=keepalive_ttl
+    - 'voss.hedge.name="off"'
+    - 'scenario.substrate_mix={none: 1.0}'
+grid:
+  scenario.regime: [churn_low, churn_med, churn_high]
+  scenario.adversary:
+    - {regime: adversary_none}
+    - {regime: adversary_mixed, alpha: 0.1}
+    - {regime: adversary_mixed, alpha: 0.2}
+seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+report:
+  keys: [label, scenario.regime, scenario.adversary]
+  metrics: [success, met, p50_sync, p99_sync, exposure, waste, warm_mb]
