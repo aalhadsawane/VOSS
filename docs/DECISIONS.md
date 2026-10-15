@@ -374,3 +374,16 @@ cluster id of each region, but a cluster whose last member leaves is dissolved; 
 homed to the dead id and the run crashed with a `KeyError` (E06, seed 7, 1 of 60 runs). The cache entry is now
 validated against the live clusters. Runs that did not reach that state are unchanged (same result hashes); the failed
 run was rerun after the fix.
+
+**D-65 The manuscript is generated from result tables** (P11, doc 06 §6). Every number and table in `manuscript/` is
+written by `experiments/paper_tex` from `paper/tables/*` (committed per-seed and per-cell CSVs) and the measured bundle;
+prose uses LaTeX macros (no digits in names) for each number. `expect()` assertions in the generator raise when a result
+stops supporting a sentence of the draft (for example H7 refuted, baseline never viable at a 3 s P99 target), and
+`tests/unit/test_manuscript.py` fails when `manuscript/generated/` is stale. Consequences: the draft cannot silently
+drift from the data, but each change to a frozen result forces a deliberate edit of the text. Decided alongside: the
+journal class is `IEEEtran` in journal mode because the target venue is only "IEEE Transactions"; the viability maps
+use the default criterion (success ≥ 0.99, deadline-met ≥ 0.95) in the figure and report absolute P99 targets in a
+table, since the two criteria disagree for the simple baseline on confidential-VM substrates; the bibliography is
+unverified (written from memory) and is flagged in `manuscript/README.md` and `docs/ROADMAP.md`. The raw `runs/` of the
+P10 sweep were lost with the ephemeral worktree that held them; the per-seed CSVs in `paper/tables/` (which the manuscript
+reads) remain, so `make paper-analyze` needs a rerun of `make paper` to redraw from logs.
