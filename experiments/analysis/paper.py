@@ -157,6 +157,7 @@ def scorecard_files(runs: Path, ecs1_csv: Path, res: pd.DataFrame, out: Path) ->
     sc["cell"] = sc["cell"].fillna("")
     paths = [out.parent / "hypotheses.md", out.parent / "negative-results.md"]
     paths[0].write_text(scorecard.markdown(sc))
-    paths[1].write_text(scorecard.negative_results(sc))
+    maps = {e: pd.read_csv(out / f"{e}.csv") for e in ("E20a", "E20b", "E20c") if (out / f"{e}.csv").exists()}
+    paths[1].write_text(scorecard.negative_results(sc, maps))
     sc.to_csv(out / "hypotheses.csv", index=False)
     return paths

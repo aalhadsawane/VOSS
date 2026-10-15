@@ -269,6 +269,25 @@ COMPARISONS: tuple[Comparison, ...] = (
         {"scenario.adversary": "=={alpha: 0.1, regime: adversary_mixed}"},
     ),
     Comparison(
+        "E12",
+        "reputation tie-break (beta-decay) improves sync P99 vs no reputation",
+        "E12",
+        "none",
+        "beta_decay",
+        "p99_sync",
+        "lower",
+    ),
+    Comparison(
+        "E12",
+        "... and success rate",
+        "E12",
+        "none",
+        "beta_decay",
+        "success",
+        "higher",
+        margin=0.001,
+    ),
+    Comparison(
         "RQ15",
         "VOSS vs Lambda-like reference, sync P99 at 20 inv/s",
         "E17",
@@ -284,7 +303,10 @@ COMPARISONS: tuple[Comparison, ...] = (
 def order_key(hid: pd.Series) -> pd.Series:
     """H1..H11, then H-FT1.., then RQ rows (a natural order, not alphabetical)."""
     return hid.map(
-        lambda h: (1 if h.startswith("H-") else 2 if h.startswith("RQ") else 0, int(re.sub(r"\D", "", h) or 0))
+        lambda h: (
+            1 if h.startswith("H-") else 2 if h.startswith("RQ") else 3 if h.startswith("E") else 0,
+            int(re.sub(r"\D", "", h) or 0),
+        )
     )
 
 
@@ -323,11 +345,30 @@ def markdown(sc: pd.DataFrame) -> str:
     return "\n".join(lines) + "\n"
 
 
-def negative_results(sc: pd.DataFrame) -> str:
+def map_failures(maps: dict[str, pd.DataFrame]) -> list[str]:
+    """E20 cells where the baseline wins or nobody is viable (doc 06 §6: regimes where baselines win are reported)."""
+    lines = ["", "## Viability maps: cells where VOSS is not the winner (deadline-met target 0.95)", ""]
+    n = 0
+    for exp, t in sorted(maps.items()):
+        bad = t[t.verdict.isin(["baseline_better", "none", "tie"])]
+        cols = [c for c in t.columns if c not in VERDICT_COLS]
+        for _, r in bad.iterrows():
+            n += 1
+            cell = ", ".join(f"{c.split('.')[-1]}={r[c]}" for c in cols)
+            lines.append(f"- {exp} [{cell}]: {r.verdict} (VOSS met {r.voss_met:.3f}, P99 {r.voss_p99:.2f} s)")
+    return lines if n else []
+
+
+VERDICT_COLS = {"verdict", "best_baseline", "voss_met", "voss_success", "voss_p99", "base_met", "base_p99"}
+VERDICT_COLS |= {"d_p99", "d_lo", "d_hi"}
+
+
+def negative_results(sc: pd.DataFrame, maps: dict[str, pd.DataFrame] | None = None) -> str:
     bad = sc[sc.verdict.isin(["refuted", "inconclusive", "weak"])]
-    lines = ["# Negative and inconclusive results (scorecard)", ""]
+    lines = ["# Negative and inconclusive results", "", "## Scorecard", ""]
+    tail = map_failures(maps or {})
     if not len(bad):
-        return "\n".join([*lines, "None: every scorecard comparison with a prediction was supported.", ""])
+        return "\n".join([*lines, "None: every scorecard comparison with a prediction was supported.", *tail, ""])
     lines += ["| H | Claim | Experiment | Cell | Comparison | Δ rel | Verdict |", "|---|---|---|---|---|---|---|"]
     for _, r in bad.iterrows():
         rel = f"{100 * r.delta / r.base:+.1f}%"
@@ -336,4 +377,4 @@ def negative_results(sc: pd.DataFrame) -> str:
         lines.append(
             f"| {r.id} | {r.claim} | {r.exp} | {getattr(r, 'cell', '')} | {r.cmp} ({r.metric}) | {rel} | {r.verdict} |"
         )
-    return "\n".join([*lines, ""])
+    return "\n".join([*lines, *tail, ""])
