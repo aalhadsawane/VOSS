@@ -115,3 +115,16 @@ def test_ecs1_measured_table(raw: Path, tmp_path: Path) -> None:
     text = out.read_text()
     assert "| TPM quote | — | 200 |" in text
     assert "mem_mb=256, tier=ssd, cache=warm" in text and "| Appliance reboot → kernel | not measured | 0 |" in text
+
+
+def test_committed_measured_bundle_is_complete_and_its_hash_is_documented() -> None:
+    """The laptop bundle (P9 exit): same entries as the placeholder, tagged, and the hash in the validation notes."""
+    from voss.metrics.manifest import hash_dir
+    from voss.world.substrate import load_bundle
+
+    name = "laptop-b9212a4528"
+    measured = load_bundle(f"calibration/measured/{name}")
+    assert set(measured) == set(load_bundle("calibration/placeholder/c0"))
+    assert {d.tag for d in measured.values()} >= {"measured", "assumed"}
+    digest = hash_dir(REPO / "configs" / "calibration" / "measured" / name)
+    assert digest in (REPO / "docs" / "validation" / "README.md").read_text()
