@@ -1,0 +1,61 @@
+{
+  "artifacts": [
+    "paper/figures/E20a_map.pdf",
+    "paper/figures/E20b_map.pdf",
+    "paper/figures/E20c_map.pdf",
+    "paper/figures/E23_pareto.pdf",
+    "paper/figures/E24_calibration.pdf",
+    "paper/hypotheses.md",
+    "paper/negative-results.md",
+    "paper/tables/E20a.md",
+    "paper/tables/E20b.md",
+    "paper/tables/E20c.md",
+    "paper/tables/E23.md",
+    "paper/tables/E24.md",
+    "paper/tables/ECS1-measured.md",
+    "paper/tables/ECS1-sim.md"
+  ],
+  "git_sha": "9a90e43b13cf973e8e433fdbd88101825899fdc3",
+  "runs": {
+    "E20a": {
+      "failed": 0,
+      "runs": 270
+    },
+    "E20b": {
+      "failed": 0,
+      "runs": 320
+    },
+    "E20c": {
+      "failed": 0,
+      "runs": 240
+    },
+    "E24": {
+      "failed": 0,
+      "runs": 40
+    }
+  },
+  "specs": {
+    "E02": "25c1787d7b2be0ec",
+    "E03": "195427f06215a669",
+    "E04": "c26c2096e67b1e0a",
+    "E05": "ca638133467a28c1",
+    "E06": "3211255b44061c43",
+    "E07": "ce7e2bb4aed0f7a6",
+    "E08": "2fdf9df309322cb6",
+    "E09": "5d2bdafc57eaf441",
+    "E10": "ee60b4fd48df1565",
+    "E12": "100ab1310ff17a48",
+    "E13": "d2b27ccaa7c9f38d",
+    "E14": "7eac83d75fe4e762",
+    "E15": "f4299c699fa043c2",
+    "E16": "d79e2460e79b6459",
+    "E17": "04899cb719be1053",
+    "E18": "07a400c60e9864a9",
+    "E19": "be81e3fb5df283fa",
+    "E20a": "7f0f006f4028be8c",
+    "E20b": "35764d9ad1088e2c",
+    "E20c": "50f615ae5e40ae05",
+    "E23": "025bb6fed6ffa772",
+    "E24": "1b51fd72a5b048d5"
+  }
+}

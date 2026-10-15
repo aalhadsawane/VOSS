@@ -23,6 +23,7 @@ from experiments.analysis.common import bootstrap_ci
 SUCCESS_MIN = 0.99
 MET_MIN = 0.95
 SENSITIVITY = (0.90, 0.95, 0.98)
+P99_TARGETS = (2.0, 3.0, 5.0)  # absolute sync-P99 SLOs (s) for the alternative viability definition
 VERDICTS = ("voss_only", "voss_better", "tie", "baseline_better", "none")
 
 
@@ -30,7 +31,9 @@ def _lo(x: pd.Series) -> float:
     return bootstrap_ci(x.dropna().to_numpy())[1]
 
 
-def system_stats(df: pd.DataFrame, cell: list[str], met_min: float = MET_MIN) -> pd.DataFrame:
+def system_stats(
+    df: pd.DataFrame, cell: list[str], met_min: float = MET_MIN, p99_max: float | None = None
+) -> pd.DataFrame:
     """Mean, lower CI bound and viability per cell and system."""
     rows = []
     for (*c, label), g in df.groupby([*cell, "label"]):
@@ -39,7 +42,8 @@ def system_stats(df: pd.DataFrame, cell: list[str], met_min: float = MET_MIN) ->
             if m in g:
                 row[m] = float(g[m].mean())
         row["success_lo"], row["met_lo"] = _lo(g.success), _lo(g.met)
-        row["viable"] = bool(row["success_lo"] >= SUCCESS_MIN and row["met_lo"] >= met_min)
+        ok = row["met_lo"] >= met_min if p99_max is None else row["p99_sync"] <= p99_max
+        row["viable"] = bool(row["success_lo"] >= SUCCESS_MIN and ok)
         rows.append(row)
     return pd.DataFrame(rows)
 
@@ -69,9 +73,11 @@ def verdict(df_cell: pd.DataFrame, stats: pd.DataFrame, focal: str) -> tuple[str
     return ("baseline_better" if lo > 0 else "tie"), best, d, lo, hi
 
 
-def cells(df: pd.DataFrame, cell: list[str], focal: str = "voss", met_min: float = MET_MIN) -> pd.DataFrame:
-    """One row per cell: verdict, VOSS and best-baseline statistics."""
-    stats = system_stats(df, cell, met_min)
+def cells(
+    df: pd.DataFrame, cell: list[str], focal: str = "voss", met_min: float = MET_MIN, p99_max: float | None = None
+) -> pd.DataFrame:
+    """One row per cell: verdict, VOSS and best-baseline statistics (``p99_max``: viable = latency SLO instead)."""
+    stats = system_stats(df, cell, met_min, p99_max)
     out = []
     for raw, g in df.groupby(cell):
         key = raw if isinstance(raw, tuple) else (raw,)
@@ -129,6 +135,15 @@ def markdown(
         lines += ["|" + "---|" * (len(VERDICTS) + 1)]
         for target in SENSITIVITY:
             c = cells(df, cell, met_min=target).verdict.value_counts().reindex(list(VERDICTS), fill_value=0)
+            lines.append(f"| {target} | " + " | ".join(str(int(c[v])) for v in VERDICTS) + " |")
+        lines += [
+            "",
+            "Alternative definition: success lower bound ≥ 0.99 and mean sync P99 ≤ target (absolute latency SLO):",
+            "",
+        ]
+        lines += ["| P99 target (s) | " + " | ".join(VERDICTS) + " |", "|" + "---|" * (len(VERDICTS) + 1)]
+        for target in P99_TARGETS:
+            c = cells(df, cell, p99_max=target).verdict.value_counts().reindex(list(VERDICTS), fill_value=0)
             lines.append(f"| {target} | " + " | ".join(str(int(c[v])) for v in VERDICTS) + " |")
         lines += [
             "",

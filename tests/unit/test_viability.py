@@ -55,3 +55,13 @@ def test_markdown_lists_every_cell_and_counts_verdicts() -> None:
     out = viability.markdown("E20x", ["cell"], viability.cells(df, ["cell"]), viability.system_stats(df, ["cell"]), df)
     assert "voss_better 1" in out and "| a | voss_better | simple |" in out
     assert "Sensitivity to the deadline-met target" in out and "| 0.98 |" in out
+
+
+def test_absolute_latency_slo_changes_viability() -> None:
+    """The alternative definition: success bound plus a sync-P99 ceiling instead of the deadline-met target."""
+    df = _frame({("a", "voss"): (1.0, 0.5, 1.0), ("a", "simple"): (1.0, 0.99, 4.0)})
+    assert (
+        viability.cells(df, ["cell"]).iloc[0].verdict == "baseline_better"
+    )  # met target: only the baseline reaches it
+    assert viability.cells(df, ["cell"], p99_max=2.0).iloc[0].verdict == "voss_only"
+    assert viability.cells(df, ["cell"], p99_max=5.0).iloc[0].verdict == "voss_better"
