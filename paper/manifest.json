@@ -34,7 +34,7 @@
     "paper/tables/ECS1-measured.md",
     "paper/tables/ECS1-sim.md"
   ],
-  "git_sha": "69a714d0476e6cca5408dcf0f541d80690a923c9",
+  "git_sha": "2cfad76eb5de5ca92d1c24c35e93b50f2463bd9f",
   "runs": {
     "E03": {
       "failed": 0,
@@ -92,6 +92,10 @@
       "failed": 0,
       "runs": 90
     },
+    "E18": {
+      "failed": 0,
+      "runs": 36
+    },
     "E19": {
       "failed": 0,
       "runs": 140
@@ -118,7 +122,6 @@
     }
   },
   "specs": {
-    "E02": "25c1787d7b2be0ec",
     "E03": "195427f06215a669",
     "E04": "c26c2096e67b1e0a",
     "E05": "ca638133467a28c1",

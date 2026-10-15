@@ -1,4 +1,6 @@
-# Negative and inconclusive results (scorecard)
+# Negative and inconclusive results
+
+## Scorecard
 
 | H | Claim | Experiment | Cell | Comparison | Δ rel | Verdict |
 |---|---|---|---|---|---|---|
@@ -13,3 +15,17 @@
 | H9 | distribution-aware (quantile) beats expectation-only on P99 at high churn | E03 | regime=churn_high, name=blr | quantile vs expected (p99_sync) | -2.8% [-5.3, -0.8] | weak |
 | H11 | simple baseline matches VOSS when homogeneous, stable and benign | E10 | hw_mix={C1: 1.0} | simple vs voss (p99_sync) | +62.8% [+25.0, +111.5] | refuted |
 | H-FT3 | risk-proportional hedging (θ=.3, 5%) cuts sync P99 under α=0.1 | E16 | adversary={alpha: 0.1, regime: adversary_mixed} | rp_t03_b005 vs hedge_off (p99_sync) | -13.3% [-32.5, +1.4] | inconclusive |
+| E12 | reputation tie-break (beta-decay) improves sync P99 vs no reputation | E12 |  | beta_decay vs none (p99_sync) | -2.4% [-4.4, -0.8] | weak |
+| E12 | ... and success rate | E12 |  | beta_decay vs none (success) | -0.0% [-0.0, +0.0] | inconclusive |
+
+## Viability maps: cells where VOSS is not the winner (deadline-met target 0.95)
+
+- E20b [substrate_mix={coco_pool: 1.0}, rate=10]: none (VOSS met 0.957, P99 3.60 s)
+- E20b [substrate_mix={coco_pool: 1.0}, rate=20]: baseline_better (VOSS met 0.948, P99 4.57 s)
+- E20b [substrate_mix={coco_pool: 1.0}, rate=40]: baseline_better (VOSS met 0.941, P99 4.17 s)
+- E20b [substrate_mix={cvm_snp: 1.0}, rate=20]: baseline_better (VOSS met 0.959, P99 2.51 s)
+- E20b [substrate_mix={cvm_snp: 1.0}, rate=40]: baseline_better (VOSS met 0.958, P99 2.92 s)
+- E20c [workers=100, rate=10]: none (VOSS met 0.939, P99 1.43 s)
+- E20c [workers=100, rate=20]: none (VOSS met 0.939, P99 2.54 s)
+- E20c [workers=100, rate=40]: none (VOSS met 0.877, P99 5.01 s)
+- E20c [workers=100, rate=5]: none (VOSS met 0.934, P99 1.32 s)

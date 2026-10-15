@@ -18,7 +18,7 @@ from experiments.analysis.lib import collect, report, run_dirs, spec
 REPO = Path(__file__).resolve().parents[2]
 # Existing per-experiment report modules: (module, experiment) pairs. Each takes ``root`` (a sweep directory) and --out.
 LEGACY = {
-    "E04": "p4", "E09": "p4", "E02": "p4",
+    "E04": "p4", "E09": "p4",
     "E05": "p5", "E06": "p5", "E07": "p5", "E10": "p5",
     "E08": "p6", "E14": "p6", "E15": "p6", "E16": "p6",
     "E12": "p7", "E13": "p7",

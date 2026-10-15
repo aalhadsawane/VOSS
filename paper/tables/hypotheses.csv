@@ -24,3 +24,5 @@ H-FT1,progress detection vs heartbeat-only: success with a black-holed scheduler
 H-FT3,"risk-proportional hedging (θ=.3, 5%) cuts sync P99 under α=0.1",E16,rp_t03_b005 vs hedge_off,"adversary={alpha: 0.1, regime: adversary_mixed}",p99_sync,inconclusive,-0.2165528087421083,-0.527812516249711,0.02214255193094016,1.6257210629362522,10,
 H-FT3,... at what extra-attempt cost,E16,rp_t03_b005 vs hedge_off,"adversary={alpha: 0.1, regime: adversary_mixed}",waste,info,0.013026989824760535,0.009410806755991088,0.01709809152182921,0.005146147457913069,10,
 RQ15,"VOSS vs Lambda-like reference, sync P99 at 20 inv/s",E17,voss vs ref_lambda_like,rate=20,p99_sync,info,0.1577792393494341,0.12119512857433519,0.2009660300546283,1.111512673429019,10,
+E12,reputation tie-break (beta-decay) improves sync P99 vs no reputation,E12,beta_decay vs none,,p99_sync,weak,-0.032339598848399195,-0.05806604264871188,-0.010655621513186815,1.328294605062527,10,
+E12,... and success rate,E12,beta_decay vs none,,success,inconclusive,-8.764271004463309e-05,-0.0002468239779634659,2.6677908243706564e-05,0.999659698550661,10,

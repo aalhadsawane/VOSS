@@ -29,3 +29,5 @@ Paired by seed on the same scenarios; Δ = test − baseline with its 95% bootst
 | H-FT3 | risk-proportional hedging (θ=.3, 5%) cuts sync P99 under α=0.1 | E16 | adversary={alpha: 0.1, regime: adversary_mixed} | rp_t03_b005 vs hedge_off | p99_sync | 10 | -0.217 [-0.528, +0.0221] | -13.3% | inconclusive |
 | H-FT3 | ... at what extra-attempt cost | E16 | adversary={alpha: 0.1, regime: adversary_mixed} | rp_t03_b005 vs hedge_off | waste | 10 | +0.013 [+0.00941, +0.0171] | +253.1% | info |
 | RQ15 | VOSS vs Lambda-like reference, sync P99 at 20 inv/s | E17 | rate=20 | voss vs ref_lambda_like | p99_sync | 10 | +0.158 [+0.121, +0.201] | +14.2% | info |
+| E12 | reputation tie-break (beta-decay) improves sync P99 vs no reputation | E12 |  | beta_decay vs none | p99_sync | 10 | -0.0323 [-0.0581, -0.0107] | -2.4% | weak |
+| E12 | ... and success rate | E12 |  | beta_decay vs none | success | 10 | -8.76e-05 [-0.000247, +2.67e-05] | -0.0% | inconclusive |

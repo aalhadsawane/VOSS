@@ -23,12 +23,13 @@ from experiments.figures import FIGURES, load_all, render
 from experiments.sweep import spec_path, sweep
 
 REPO = Path(__file__).resolve().parents[1]
-# Cheap and decisive first; E18 (memory) and E02 (measured decision clock: must run alone) last with one job.
+# Cheap and decisive first; E18 (memory) last with one job. E02 (measured decision clock: must run alone, ~7 minutes a
+# run) stays a pilot: `python -m experiments.sweep E02` when the machine is otherwise idle (D-63).
 ORDER = (
     "E20a", "E20b", "E20c", "E24", "E23", "E04", "E19", "E17", "E08", "E16", "E15", "E05", "E07", "E10", "E06",
-    "E13", "E14", "E09", "E03", "E12", "E18", "E02",
+    "E13", "E14", "E09", "E03", "E12", "E18",
 )  # fmt: skip
-ALONE = {"E18": 1, "E02": 1}
+ALONE = {"E18": 1}
 MEASURED_HOST = "laptop-b9212a4528"
 
 
@@ -69,7 +70,6 @@ def _rel(p: Path) -> str:
 
 
 TITLES = {
-    "E02": "planning pool × T_plan (appendix, 5 seeds, measured decision clock)",
     "E03": "predictors × scalarizers",
     "E04": "planners (H1, H8)",
     "E05": "geo vs global clustering (H7)",
