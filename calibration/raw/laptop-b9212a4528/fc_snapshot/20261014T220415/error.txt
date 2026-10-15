@@ -1,0 +1,13 @@
+Traceback (most recent call last):
+  File "/opt/voss-calib/tools/calibrate/run.py", line 59, in run_suite
+    s.run(ctx)
+    ~~~~~^^^^^
+  File "/opt/voss-calib/tools/calibrate/suites/fc_snapshot.py", line 73, in run
+    api_s, ack_s = restore(ctx, a, state, memf, f"{mem}-{tier}-{cache}-{rep}")
+                   ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/voss-calib/tools/calibrate/suites/fc_snapshot.py", line 39, in restore
+    vm.spawn()
+    ~~~~~~~~^^
+  File "/opt/voss-calib/tools/calibrate/fc.py", line 75, in spawn
+    raise RuntimeError(f"firecracker did not create {self.sock}")
+RuntimeError: firecracker did not create /home/USER/voss-calib-work/raw/laptop-b9212a4528/fc_snapshot/20261014T220415/fc/snapr-128-hdd-warm-10.sock

@@ -1,0 +1,27 @@
+{
+  "bios_version": "CSCN13WW",
+  "board": "LNVNB161216",
+  "cpu_model": "Intel(R) Core(TM) i3-7020U CPU @ 2.30GHz",
+  "dry_run": false,
+  "fio": "fio-3.41",
+  "firecracker": "absent",
+  "harness_version": "0.1.0",
+  "hostname": "HOST",
+  "iommu": true,
+  "kernel": "7.0.0-31-generic",
+  "mem_kb": 3907376,
+  "microcode": "0xf6",
+  "options": {
+    "appliance_log_dir": "/var/lib/voss-calib/appliance",
+    "step": "collect"
+  },
+  "phase": null,
+  "qemu": "QEMU emulator version 10.2.1 (Debian 1:10.2.1+ds-1ubuntu3.2)",
+  "run_id": "20261015T060025",
+  "secure_boot": false,
+  "status": "ok",
+  "suite": "appliance",
+  "t_utc": "2026-10-15T06:00:25Z",
+  "tme": false,
+  "tpm2_tools": "tool=\"tpm2_quote\" version=\"5.7\" tctis=\"libtss2-tctildr\" tcti-default=tcti-device"
+}

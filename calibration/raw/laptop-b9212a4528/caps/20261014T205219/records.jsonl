@@ -1,0 +1,9 @@
+{"config": {}, "probe": "kvm", "rep": 0, "suite": "caps", "unit": "bool", "value": 1.0}
+{"config": {}, "probe": "tpm_device", "rep": 0, "suite": "caps", "unit": "bool", "value": 1.0}
+{"config": {}, "probe": "tme_dmesg", "rep": 0, "suite": "caps", "unit": "bool", "value": 0.0}
+{"config": {}, "probe": "secure_boot", "rep": 0, "suite": "caps", "unit": "bool", "value": 0.0}
+{"config": {}, "probe": "iommu", "rep": 0, "suite": "caps", "unit": "bool", "value": 1.0}
+{"config": {"vendor": "INTC"}, "probe": "tpm_ptt", "rep": 0, "suite": "caps", "unit": "bool", "value": 1.0}
+{"config": {"known": false}, "probe": "tme_cpuid", "rep": 0, "suite": "caps", "unit": "bool", "value": 0.0}
+{"config": {"model": "ST1000LM035-1RK172", "name": "sda", "rotational": true}, "probe": "disk", "rep": 0, "suite": "caps", "unit": "GB", "value": 1000.2}
+{"config": {"model": "", "name": "zram0", "rotational": false}, "probe": "disk", "rep": 0, "suite": "caps", "unit": "GB", "value": 1.2}
