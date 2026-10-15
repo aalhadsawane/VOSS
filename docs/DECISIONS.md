@@ -367,3 +367,9 @@ indistinguishable in the pilot; MILP runs cost 2-4 minutes each); (6) E24 repeat
 and the laptop-measured bundle (D-62). Hypothesis verdicts are mechanical (`experiments/analysis/scorecard.py`):
 supported only when the paired CI excludes 0 by the stated margin; refuted and inconclusive rows are collected in
 `paper/negative-results.md`.
+
+**D-64 `static_regions` re-creates a region's cluster after it dissolved** (P10, fixes P5). The orchestrator cached the
+cluster id of each region, but a cluster whose last member leaves is dissolved; the next worker joining that region was
+homed to the dead id and the run crashed with a `KeyError` (E06, seed 7, 1 of 60 runs). The cache entry is now
+validated against the live clusters. Runs that did not reach that state are unchanged (same result hashes); the failed
+run was rerun after the fix.
