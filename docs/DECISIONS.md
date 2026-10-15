@@ -361,7 +361,8 @@ N × load; 3 systems in panel A: VOSS, the best simple baseline, and the same ba
 workers and 10 min so that the unattested system (3.5× the events) stays tractable; viable means the lower 95%
 bootstrap bound of success ≥ 0.99 and of deadline-met ≥ 0.95; (3) E12 keeps four reputation rules at tie-break 0.2
 (the pilot was null at 0.02 and 0.2) and E04 keeps four planners (the MILP-term ablations are E19's and E23's); (4) E18's 30k and 100k points keep 3 seeds (6-20 wall minutes and up to 9 GB per
-run); E02 keeps 5 seeds (its measured decision clock needs runs alone); (5) E23 gets 10% omitting adversaries so that
+run); E02 (planning pool × T_plan) stays a pilot outside `make paper`: its measured decision clock needs the machine
+to itself and ~7 minutes a run, and it only informs the cluster-size target of D-19; (5) E23 gets 10% omitting adversaries so that
 robustness is an outcome, per-sensitivity-class latency, and exposure weights {0.1, 10} (the middle value was
 indistinguishable in the pilot; MILP runs cost 2-4 minutes each); (6) E24 repeats the key comparison under the placeholder
 and the laptop-measured bundle (D-62). Hypothesis verdicts are mechanical (`experiments/analysis/scorecard.py`):
