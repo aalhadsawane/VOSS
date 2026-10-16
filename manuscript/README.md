@@ -12,3 +12,5 @@ First draft for an IEEE Transactions submission (`IEEEtran`, journal mode). `mak
 - `refs.bib`: written from memory; **verify every entry** (entries marked "TODO verify" first) before submission.
 
 Open items: author list and affiliations (`main.tex`), target-journal template (class options), related-work completeness, bibliography check, a real-testbed validation.
+
+Length: the draft is 18 pages. Trimming candidates, least important first: the geo-clustering table (results RQ6), the scalability table, the soft-state table in the fault-tolerance section, the hedging and adversary table rows for the `all` regime, and the calibration table (keep the figure).
