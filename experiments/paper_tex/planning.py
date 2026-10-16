@@ -42,6 +42,7 @@ def planners(g: Gen) -> None:
         ("OnePctKeepHigh", "plan_milp vs keepalive_ttl", "churn_high"),
     ):
         expect(g.rel(f"H{name}", "H1", cmp_, cell) < 0, f"H1 {cmp_} {cell}")
+    _greedy_macros(g, d)
     mem = g.h("H1", "plan_milp vs keepalive_ttl", "churn_med", "warm_mb")
     g.mac("MilpWarmRatio", f"{1 + mem.delta / mem.base:.1f}")
     v = g.rel("HEightPct", "H8", "plan_milp vs plan_greedy", "", 1)
@@ -50,6 +51,22 @@ def planners(g: Gen) -> None:
     solve = d[d.label == "plan_milp"].solve_s
     g.mac("MilpSolveS", f"{solve.mean():.1f}")
     g.mac("GreedySolveMs", f"{1000 * d[d.label == 'plan_greedy'].solve_s.mean():.0f}")
+
+
+def _greedy_macros(g: Gen, d: pd.DataFrame) -> None:
+    """Greedy-planner effects and the MILP-over-greedy kill-criterion check (E04)."""
+    for tag, regime in (("Med", "churn_med"), ("High", "churn_high")):
+        sub = d[d["scenario.regime"] == regime]
+        for lab, name in (("plan_none", "None"), ("keepalive_ttl", "Keep")):
+            dm, _, _ = paired_by_seed(sub, "plan_greedy", lab, "p99_sync")
+            g.mac(f"Greedy{name}{tag}", f"{abs(100 * dm / sub[sub.label == lab].p99_sync.mean()):.0f}")
+            expect(dm < 0, f"greedy planner beats {lab} at {regime}")
+        dm, _, _ = paired_by_seed(sub, "plan_milp", "plan_greedy", "p99_sync")
+        g.mac(f"MilpGreedy{tag}", f"{abs(100 * dm / sub[sub.label == 'plan_greedy'].p99_sync.mean()):.1f}")
+        expect(
+            abs(dm / sub[sub.label == "plan_greedy"].p99_sync.mean()) < 0.05,
+            f"kill criterion: MILP < 5% over greedy ({regime})",
+        )
 
 
 def ablations(g: Gen) -> None:
@@ -85,6 +102,8 @@ def ablations(g: Gen) -> None:
     g.mac("AblRepExp", f"{delta['reputation_in_cost'][2][0]:.0f}")
     g.mac("AblNoProgSucc", f"{-100 * delta['no_progress'][1][0]:.1f}")
     expect(delta["no_geo"][0][2] < 0.0, "removing geo clusters lowers P99 (hi < 0)")
+    top2 = sorted(delta, key=lambda k: -delta[k][0][0])[:2]
+    expect(set(top2) == {"no_lifecycle", "no_planning"}, "lifecycle and planning are the two largest P99 contributors")
 
 
 def adversaries(g: Gen) -> None:

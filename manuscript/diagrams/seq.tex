@@ -1,0 +1,28 @@
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \def\seqh{86}
+  \seqactor{0}{cl}{Client}
+  \seqactor{34}{rt}{Router}
+  \seqactor{68}{sc}{Scheduler}
+  \seqactor{102}{wk}{Worker}
+  \seqactor{136}{kb}{Tenant KBS}
+  \seqmsg{-9}{cl}{rt}{\circled{1} invoke(fn, payload)}{msg}
+  \seqnote{34}{-15.5}{choose cluster by RTT, health,\\provisioned capacity; keep copy}
+  \seqmsg{-22}{rt}{sc}{\circled{2} ENQUEUE (metadata only)}{msg}
+  \seqnote{68}{-28.5}{candidates $=$ provisioned workers $\cup$ cold path;\\cost model; place, maybe hedge}
+  \seqmsg{-35}{sc}{wk}{\circled{3} DISPATCH(epoch, token)}{msg}
+  \seqmsg{-39}{sc}{rt}{ASSIGNED}{msg}
+  \seqmsg{-44}{rt}{wk}{\circled{4} INPUT (attested TLS)}{msg}
+  \seqmsg{-49}{wk}{rt}{ACCEPTED}{rsp}
+  % alt: trust-cold path
+  \draw[dashed, gray] (88,-52.5) rectangle (146,-66.5);
+  \node[font=\tinyx, anchor=north west, inner sep=1pt] at (88,-52.5) {alt: worker not yet provisioned for tenant};
+  \seqmsg{-58}{wk}{kb}{\circled{5} KEY\_REQUEST(cert, evidence)}{msg}
+  \seqmsg{-63}{kb}{wk}{key wrapped to session key}{rsp}
+  \seqnote{102}{-71.5}{start-up tier: warm sandbox $\succ$ restore snapshot\\$\succ$ boot from disk $\succ$ fetch and decrypt}
+  \seqmsg{-79}{wk}{rt}{\circled{6} RESULT $+$ attested receipt}{msg}
+  \seqmsg{-83}{wk}{sc}{OUTCOME (timings, tier)}{rsp}
+  % latency terms
+  \draw[decorate, decoration={brace, amplitude=2pt, mirror}] (152,-12) -- (152,-34) node[midway, right=1mm, font=\tinyx, align=left] {$T_{\text{route}}$\\$T_{\text{decide}}$};
+  \draw[decorate, decoration={brace, amplitude=2pt, mirror}] (152,-52.5) -- (152,-66.5) node[midway, right=1mm, font=\tinyx] {$T_{\text{prov}}$};
+  \draw[decorate, decoration={brace, amplitude=2pt, mirror}] (152,-68) -- (152,-79) node[midway, right=1mm, font=\tinyx, align=left] {$T_{\text{start}}$\\$T_{\text{exec}}$};
+\end{tikzpicture}

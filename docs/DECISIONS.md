@@ -387,3 +387,10 @@ table, since the two criteria disagree for the simple baseline on confidential-V
 unverified (written from memory) and is flagged in `manuscript/README.md` and `docs/ROADMAP.md`. The raw `runs/` of the
 P10 sweep were lost with the ephemeral worktree that held them; the per-seed CSVs in `paper/tables/` (which the manuscript
 reads) remain, so `make paper-analyze` needs a rerun of `make paper` to redraw from logs.
+
+**D-66 The greedy planner is the method; the MILP is the reference solver** (P11, doc 03 §8). The pre-set kill criterion
+was: if the planner MILP improves sync P99 by < 5% over the greedy planner in all regimes, greedy becomes the method. E04
+(10 seeds) gives −2.1% (medium churn) and −2.5% (high churn), intervals including zero (H8 inconclusive), at 5.5 s against
+10 ms per cluster solve. Every experiment except E04 and E23 already runs the greedy planner (`pilot.yaml`,
+`scalability.yaml`); the manuscript says so and presents the robust formulation as the model, the MILP as a reference
+solver and the heuristic as the practical one. The robustness constraint itself stays: it is what the heuristic enforces.

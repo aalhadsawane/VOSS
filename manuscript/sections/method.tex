@@ -1,96 +1,59 @@
-\section{Evaluation Method}
+\section{Simulator, Calibration and Evaluation Protocol}
 \label{sec:method}
 
+We evaluate \voss{} in a deterministic discrete-event simulator, because a volunteer platform with thousands of hosts, controlled churn and adversaries,
+and paired comparison of policies cannot be run on real machines. This section describes what the simulator models, how its parameters are
+calibrated, and the protocol used for every comparison.
+
 \subsection{Simulator}
-All results come from a deterministic discrete-event simulator that runs the \emph{same policy code} as the scheduler.
-Policies (planner, placer, router, hedger, detector) are pure functions of immutable views; the layered code base enforces
-by static import checks that a policy cannot import the simulated world, so it cannot read future state. Every
-cross-node interaction is a typed message delivered after a delay derived from great-circle distance between about 100 metro
-areas plus a per-hop overhead. Nothing is free: network transfer, disk-tier reads, CPU contention, TPM quotes,
-verification, key release and the decision latency of planner, placer, router and orchestrator all consume simulated time.
-All randomness comes from named, seeded streams, so a run is a function of its scenario and seed; a manifest records the
-scenario and calibration hashes and \texttt{voss repro} regenerates result hashes.
+\label{sec:sim}
+\textbf{Fidelity and structure.} Scheduling policies (planner, placer, router, hedger, detector) are pure functions of immutable views and
+are the \emph{same code} that a deployment would run. A layered code base enforces by static import checks that a policy cannot import the simulated world, so it cannot read the future.
+Every interaction between nodes is a typed message delivered after a delay derived from the great-circle distance between roughly 100 metropolitan areas plus last-mile and per-hop terms, so
+geography shapes control traffic as well as data. Nothing is free: network transfer, disk-tier reads, CPU contention, TPM quotes, verification, key release and the decision latency of planner, placer, router
+and orchestrator all consume simulated time.
 
-\medskip\noindent\textbf{Population and churn.}
-Workers are drawn from three tiers (nightly, idle-hours and dedicated) with heterogeneous hardware, home metros and
-substrates. Donation sessions follow lognormal, Weibull or nightly-schedule length distributions; a share of departures is
-graceful (with a drain notice) and the rest abrupt; correlated shocks remove a fraction of a city at once. Three churn
-regimes (low, medium, high) plus burst and correlated variants parameterize these. No public consumer-donation trace
-exists, so the regime parameters are tagged \emph{assumed}; their shapes follow volunteer-availability studies
-\cite{javadi2013fta}, and E14 sweeps them.
+\textbf{World model.} Workers are drawn from three tiers (nightly, idle-hours, dedicated) with heterogeneous hardware, home cities and substrates. Sessions follow log-normal, Weibull or nightly-schedule length distributions with a time-of-day
+hazard; a fraction of departures is graceful and the rest abrupt, and correlated shocks remove a share of a city at once. Three churn regimes (low, medium, high) plus burst and correlated variants parameterize these. No public trace of
+consumer donation sessions exists, so the shapes follow volunteer-availability studies \cite{javadi2013fta} and the parameters are tagged \emph{assumed} and swept. The workload has 12 functions modeled on SeBS \cite{copik2021sebs} in sync, async and
+filler classes, Zipf-skewed popularity, a Markov-modulated Poisson arrival process with bursts and diurnal modulation \cite{shahrad2020wild}, and flash crowds as a variant. A synchronous invocation's deadline is $k=5$ times its warm latency. Adversaries are
+a fraction $\alpha$ of workers that behave as omitting (black-hole, random omission, on--off, throttling, fake drain notices, or a colluding failure domain); by Property 1 none forges results or reads keys on an attested substrate, while the \texttt{none} substrate
+admits both.
 
-\medskip\noindent\textbf{Workload.}
-The function catalogue has 12 functions modeled on SeBS benchmarks \cite{copik2021sebs} with sync, async and filler SLO
-classes. Tenants have a sensitivity weight $\sigma_t$. Arrivals follow a Markov-modulated Poisson process (4$\times$ bursts) with Zipf-skewed function popularity and a diurnal
-modulation; a flash-crowd regime multiplies the rate. A sync invocation's deadline is $k$ times its warm
-latency ($k=5$ for the sync functions). Unless stated, runs use 15 simulated minutes, a 20\,inv/s offered load and
-200--600 workers (as stated per experiment); the grids for E18 and E20 differ and are described with their results.
-
-\medskip\noindent\textbf{Adversaries.}
-A fraction $\alpha$ of attested workers is \emph{omitting}: it follows the protocol, keeps heartbeats flowing, and silently
-drops, stalls or throttles work (black-hole, slow, and colluding-defection variants). By the threat-reduction argument
-(Sec.~\ref{sec:threat}) no adversary on an attested substrate forges results or reads secrets in the attested substrates; the \texttt{none}
-substrate, used for unattested baselines, admits both.
+\textbf{Reproducibility.} All randomness comes from named, seeded streams, so a run is a function of its scenario and seed; manifests record the scenario and calibration hashes, and a command re-runs a manifest and asserts its result hash.
+Per-run raw logs (invocations, events, plans, solver, cache, messages, receipts) are recorded and all analysis reads logs only.
 
 \subsection{Calibration}
 \label{sec:calib}
-Seed parameters in the specification are literature values or assumptions, tagged as such and never silently promoted.
-Measured values come only from calibration bundles. We measured a bundle on one consumer machine, an \CalCpu{} laptop with a
-discrete TPM~2.0 and a hard disk, which stands in for the target node. The harness reboots the machine into the
-appliance and records wall-clock timestamps (resolution about 1\,s); microbenchmarks cover TPM quotes, hashing,
-Firecracker boot and snapshots. Table~\ref{tab:calib} compares the measured values with the placeholders used
-before measurement. The most consequential differences are slower reboot-to-kernel (\CalReboot\,s against \CalRebootPh\,s),
-a much slower kernel-to-agent phase (\CalUserspace\,s) and snapshot creation on a hard disk (\CalSnapCreate\,s for 512\,MB).
-Reboot to a fully attested worker takes \CalAttested\,s (median of \CalAttestedN{} boots). Firecracker boot with a warm
-page cache is \CalFcBootWarmMs\,ms, close to the literature figure \cite{agache2020firecracker}; with a cold cache it
-rises to \CalFcBootColdS\,s. E24 re-runs the key comparison under both bundles (Sec.~\ref{sec:res-calib}).
+Parameters in the specification are literature values or assumptions, tagged as such. Measured values come only from calibration bundles. We measured one on a consumer laptop with an \CalCpu{} CPU, a discrete TPM~2.0 and a hard disk, which stands in
+for a donor node. A harness reboots the machine into the appliance and records wall-clock timestamps (resolution about 1\,s), and microbenchmarks cover TPM quotes, hashing, Firecracker boot and snapshots. Table~\ref{tab:calib} compares measured values with the
+pre-measurement placeholders. Reboot to kernel is slower (\CalReboot\,s against \CalRebootPh\,s), the kernel-to-agent phase far slower (\CalUserspace\,s), and snapshot creation on a hard disk costs \CalSnapCreate\,s for 512\,MB. Reboot to an attested worker takes \CalAttested\,s
+(median of \CalAttestedN{} boots). A warm-cache microVM boot (\CalFcBootWarmMs\,ms) is close to the literature \cite{agache2020firecracker}.
 
 \begin{table}[t]
-\caption{Calibration entries (s unless noted): placeholder versus measured on the stand-in laptop. Ratio is measured over
-placeholder.}
+\caption{Calibration entries (s unless noted): placeholder versus measured on the calibration laptop. Ratio is measured over placeholder.}
 \label{tab:calib}
 \centering\scriptsize
 \resizebox{\columnwidth}{!}{\input{generated/tab_calibration}}
 \end{table}
 
-Two limits matter. First, the machine is not the intended donor node and lacks AMD SEV-SNP and Intel TDX, so \emph{confidential-VM and DRTM substrate parameters are literature values} drawn from recent
-measurement studies \cite{misono2025cvm,holmes2024severifast,li2023bifrost}. Second, the appliance image was exercised in
-host mode (the TPM measurement chain and quote path on the host, microVMs through Firecracker) rather than as a
-dedicated locked image on bare metal, so end-to-end session establishment (\CalAttested\,s) is a measured sum, not a
-measured attestation of the final image.
+Two limits apply. The machine is not the intended donor node and lacks AMD SEV-SNP and Intel TDX, so confidential-VM and DRTM parameters are literature values \cite{misono2025cvm,holmes2024severifast,li2023bifrost}, which we sweep. And the appliance was exercised in
+\emph{host mode} (the TPM measurement chain and quote path on the host, with microVMs through Firecracker) rather than as a locked image on bare metal, so the attested-session figure is a measured sum, not a measured attestation of the final image. Simulator output has
+not been validated end to end against a multi-machine testbed (Section~\ref{sec:threats}).
 
 \subsection{Protocol}
-Each experiment is a frozen specification of base scenario, systems and a grid; \emph{every} cell is run with seeds 1--10
-(three seeds for the two largest scalability points, whose runs take up to 20 wall-clock minutes and 9\,GB). All
-comparisons are \emph{paired}: for a metric $m$, system $A$ and baseline $B$, we form $\Delta_s = m_A(s) - m_B(s)$ per seed
-$s$ within the same scenario cell and report the mean with a 95\% percentile-bootstrap interval of the paired differences
-\cite{efron1993bootstrap}. Relative changes are $\Delta / m_B$ with $m_B$ the baseline mean; interval ends can therefore exceed 100\%. Tables report mean $\pm$ the half-width of the bootstrap interval of the mean.
+\label{sec:protocol}
+Each experiment is a frozen specification (base scenario, systems, grid) and \emph{every} cell is run with seeds 1--10 (three seeds for the two largest scalability points, which take up to 20 wall-clock minutes and 9\,GB). Unless stated, \voss{} uses the greedy planner and the default placer, router and hedger; the exact MILP is used only
+in the planner comparison (E04) and the Pareto analysis (E23). Systems in a comparison share the scenario and the per-invocation random streams, the \emph{common random numbers} technique of simulation analysis, so each comparison is \emph{paired} by seed: for metric $m$, we form
+$\Delta_s=m_A(s)-m_B(s)$ per seed and report the mean with a 95\% percentile bootstrap interval \cite{efron1993bootstrap}. Percentiles are computed per run first, then averaged across seeds, never pooled. Relative changes use the baseline mean as the denominator.
 
-Each hypothesis is stated before the run together with a verdict rule applied mechanically to the intervals:
-\emph{supported} when the interval excludes zero in the predicted direction and the mean effect is at least a stated
-relative margin, \emph{weak} when it excludes zero but the effect is below the margin, \emph{inconclusive} when it includes zero, and \emph{refuted} when it excludes
-zero in the opposite direction. The scorecard (Sec.~\ref{sec:res-score}) lists all of them. Specifications were frozen before the final sweep, and the deviations from the pilots are recorded in a decision log. The manuscript's numbers,
-tables and several sentence-level claims are produced by a script that reads the result tables and \emph{fails} if a result stops
-supporting the sentence it backs.
+Each hypothesis is stated before the run together with a mechanical verdict rule: \emph{supported} if the interval excludes zero in the predicted direction and the mean effect is at least a stated margin; \emph{weak} if it excludes zero but the effect is below the margin;
+\emph{inconclusive} if it includes zero; \emph{refuted} if it excludes zero in the opposite direction. The manuscript's numbers and tables are generated from the result tables by a script that also fails if a result stops supporting the sentence it backs.
 
-\subsection{Metrics and viability}
-We report success (fraction of invocations completed), the deadline-met fraction, sync P50/P99 end-to-end latency,
-\emph{waste} (extra accepted attempts per successful invocation: retries, hedges and adopted re-dispatches),
-\emph{donor memory} (GB held warm), and \emph{key-holder exposure}
-$E=\sum_t\sigma_t\sum_j(1-a_j)\,y_{tj}$ at the end of the run (Sec.~\ref{sec:model}). Exposure is comparable only within
-a substrate mix, because it weights each key-holding host by $(1-a_j)$, the residual lack of assurance of its substrate.
+\textbf{Metrics.} We report success (completed invocations), the deadline-met fraction, P50 and P99 sync latency, \emph{waste} (extra accepted attempts per success: retries, hedges and adopted re-dispatches), donor memory (GB held warm), and key exposure (Eq.~\eqref{eq:exposure}, comparable only
+within one substrate mix). \textbf{SLO feasibility.} A system is \emph{feasible} in a scenario cell if the lower 95\% bound of its success is at least $0.99$ and either the lower bound of its deadline-met fraction is at least a target or its P99 is below an absolute target of 2, 3 or 5\,s.
+The feasibility maps of Section~\ref{sec:res-viab} thus state \emph{where} each design works rather than an average.
 
-A system is \emph{viable} in a scenario cell if the lower 95\% bound of its success is at least $0.99$ and either the lower
-bound of the deadline-met fraction is at least the stated target or its sync P99 is below an absolute target (2, 3 or 5\,s).
-E20 sweeps three two-dimensional panels (churn $\times$ adversary fraction; substrate $\times$ load; population $\times$ load) at
-300 workers, 10 simulated minutes, comparing \voss{}, the strongest simple baseline, and the same baseline without
-attestation. The viability map is thus a statement about \emph{where} each design works, not an average.
-
-\subsection{Baselines}
-Baselines use the same simulator, candidate sets and cost matrix as \voss{} and differ only in the registered policy.
-\emph{No planning} (never pre-warms), \emph{keep-alive TTL} (an idle timer), \emph{greedy planner} (the same objective
-solved by a heuristic), \emph{heartbeat-only} detection, \emph{non-robust} planning ($f=0$), and the \emph{simple baseline}:
-least-loaded placement on the lowest-latency attested worker, no planning and no hedging. Commercial-style references
-(\emph{Lambda-like}, \emph{Azure-like}) are always-on datacenter hosts in the router metros with per-function keep-alive
-(10 and 20\,min) and nearest-region routing, priced from list prices; they run on the same engine so that differences are
-due to the policy and substrate, not the simulator.
+\textbf{Baselines.} Baselines use the same simulator, candidates and cost model and differ only in the registered policy. For planning: \emph{no planning} (reactive cold path), \emph{keep-alive TTL}, \emph{greedy planner}, and MILP ablations. For detection: heartbeat-only. For robustness: $f=0$. The \emph{simple baseline} combines static regional
+clusters, nearest-region routing, least-loaded placement, keep-alive and no hedging; a variant runs without attestation (substrate \texttt{none}), which is what volunteer FaaS does without security. Commercial-style references (\emph{Lambda-like}, \emph{Azure-like}) are always-on datacenter hosts in the
+router metros with per-function keep-alive (10 and 20\,min) and nearest-region routing, priced from list prices; they run on the same engine so differences stem from policy and substrate, not the simulator.

@@ -1,0 +1,22 @@
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \def\seqh{104}
+  \seqactor{9}{ag}{Worker\\agent}
+  \seqactor{33}{tp}{TPM}
+  \seqactor{62}{vf}{Verifier}
+  \seqactor{86}{kb}{Tenant\\KBS}
+  \seqmsg{-11}{vf}{ag}{\circled{1} nonce}{rsp}
+  \seqmsg{-17}{ag}{tp}{\circled{2} quote(PCRs, nonce)}{msg}
+  \seqmsg{-22}{tp}{ag}{signed quote}{rsp}
+  \seqmsg{-28}{ag}{vf}{\circled{3} ATTEST(quote, event log, session key)}{msg}
+  \seqnote{62}{-34.5}{verify signature and EK chain; replay event\\log against reference values}
+  \seqmsg{-42}{vf}{ag}{\circled{4} SESSION\_CERT(id, key, assurance, expiry)}{msg}
+  \seqmsg{-50}{ag}{kb}{\circled{5} KEY\_REQUEST(cert [+ fresh quote])}{msg}
+  \seqnote{86}{-56.5}{check cert and measurement\\version against tenant policy}
+  \seqmsg{-63}{kb}{ag}{key wrapped to session key}{rsp}
+  \seqnote{9}{-70}{keep key in memory only;\\decrypt tenant bundles}
+  \draw[dashed, gray] (0,-76) rectangle (96,-96);
+  \node[font=\tinyx, anchor=north west, inner sep=1pt] at (0,-76) {loop every $T_{\text{reattest}}$};
+  \seqmsg{-82}{vf}{ag}{nonce}{rsp}
+  \seqmsg{-87}{ag}{vf}{fresh quote $+$ log delta}{msg}
+  \seqmsg{-93}{vf}{ag}{on failure: revoke cert, notify routers and scheduler}{msg}
+\end{tikzpicture}

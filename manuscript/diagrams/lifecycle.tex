@@ -1,0 +1,31 @@
+\begin{tikzpicture}[x=1mm,y=1mm]
+  % ---------- (a) volunteer session ----------
+  \node[font=\scriptsize\bfseries, anchor=west] at (0,6) {(a) Volunteer session};
+  \node[state] (off) at (8,-24) {OFF};
+  \node[state] (boot) at (36,-24) {BOOTING};
+  \node[state, minimum width=26mm, minimum height=14mm, align=center] (att) at (72,-24) {ATTESTED\\[-1pt]\tinyx schedulable;\\[-2pt]\tinyx provisioned per tenant};
+  \node[state] (drain) at (72,-1) {DRAINING};
+  \draw[msg] (off.east) to[bend left=18] node[lbl,above]{owner starts} (boot.west);
+  \draw[msg, gray] (boot.south west) to[bend left=18] node[lbl,below]{abort} (off.south east);
+  \draw[msg] (boot) -- node[lbl,above,align=center]{quote verified} (att);
+  \draw[msg] (att.north) -- node[lbl,right,align=left]{drain request\\(deadline; a hint)} (drain.south);
+  \draw[msg] (drain.west) -| node[lbl,pos=0.25,above]{deadline or idle} (off.north);
+  \draw[msg, red!70!black] (att.south) -- ++(0,-8) -| node[lbl,pos=0.2,below]{reboot, power loss, crash (abrupt)} (off.south);
+  \node[font=\tinyx, align=left, anchor=north west, text width=82mm] at (0,-45) {Session end loses the key set $K$ and all warm VMs; disk caches survive as ciphertext and are valid after the next attestation. The session certificate expires at $\min(t_{\text{end}},\,t_{\text{last quote}}+T_{\text{valid}})$ and is extended by periodic re-quotes.};
+  % ---------- (b) start-up tiers ----------
+  \begin{scope}[shift={(96,0)}]
+  \node[font=\scriptsize\bfseries, anchor=west] at (0,6) {(b) Start-up tiers of one function on one host};
+  \node[state, minimum width=26mm] (l0) at (36,-46) {L0 nothing cached};
+  \node[state, minimum width=26mm] (l1) at (36,-34) {L1 code, rootfs on disk};
+  \node[state, minimum width=26mm] (l2) at (36,-22) {L2 snapshot on disk};
+  \node[state, minimum width=26mm] (l3) at (36,-10) {L3 warm VM in memory};
+  \node[state, minimum width=26mm] (l4) at (36,2) {L4 busy};
+  \draw[msg] (l0) -- node[lbl,right]{fetch, verify} (l1);
+  \draw[msg] (l1) -- node[lbl,right]{snapshot} (l2);
+  \draw[msg] (l2) -- node[lbl,right]{restore} (l3);
+  \draw[msg] (l3) -- node[lbl,right]{dispatch} (l4);
+  \draw[msg] (l1.west) -- ++(-5,0) |- node[lbl,pos=0.25,left,align=right]{boot, init} (l3.west);
+  \draw[decorate, decoration={brace, amplitude=2.5pt}] ([xshift=11mm]l3.north east |- 0,-3) -- ([xshift=11mm]l1.south east |- 0,-37);
+  \node[ten, anchor=west, minimum width=24mm, align=left] (k) at (63,-20) {\textbf{Provisioned $K[t,j]$}\\[-1pt]\tinyx tenant key in memory;\\[-2pt]\tinyx needed to decrypt\\[-2pt]\tinyx L1--L3, lost with\\[-2pt]\tinyx the session};
+  \end{scope}
+\end{tikzpicture}
