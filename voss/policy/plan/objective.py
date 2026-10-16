@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from voss.core.detmath import dot
 from voss.policy.plan.types import Plan, PlanInput
 
 
@@ -18,7 +19,7 @@ def shortfall(inp: PlanInput, c: np.ndarray) -> np.ndarray:
     e = inp.contrib()
     out = np.empty(len(inp.tenants))
     for t in range(len(inp.tenants)):
-        cov = float(c[t] @ e) - (top_f(c[t], int(inp.f[t])) if inp.params.use_robust else 0.0)
+        cov = dot(c[t], e) - (top_f(c[t], int(inp.f[t])) if inp.params.use_robust else 0.0)
         out[t] = max(0.0, float(inp.q[t]) - cov)
     return out
 
@@ -29,7 +30,7 @@ def terms(inp: PlanInput, y: np.ndarray, s: np.ndarray, w: np.ndarray, c: np.nda
     exposure = float(((inp.sigma[:, None] * (1 - inp.assurance[None, :])) * y).sum()) if p.use_exposure else 0.0
     exposure *= p.exposure_weight
     return {
-        "coverage": float(inp.cold_penalty @ u),
+        "coverage": dot(inp.cold_penalty, u),
         "donor": float(p.rho_mem * (inp.fn_mem[:, None] * w).sum() + p.rho_ssd * (inp.fn_size[:, None] * s).sum()),
         "exposure": exposure,
         "churn": float(p.kappa_switch * np.maximum(0, y.astype(int) - inp.y_prev.astype(int)).sum()),

@@ -404,3 +404,16 @@ experiment's table and diffs it against `paper/tables` (only wall-clock columns 
 Known limits: the E18 10^5-worker points need about 9 GB of memory (set repository variable `LARGE_RUNNER`); the one E06
 run redone after D-64 has no recorded hash, so it is checked by table identity only until its hash is added from the
 rerun's `run-hashes-rerun.csv`.
+
+**D-68 Platform-independent linear algebra: no BLAS or LAPACK in the simulator** (P11, doc 01 §8). The `paper-rerun`
+workflow (D-67) reproduced the recorded result hash of only 9 of 21 experiments (1,196 of 2,366 runs) on GitHub's AMD
+runners; in the other 12 experiments no run matched. Forcing OpenBLAS kernels on the original machine
+(`OPENBLAS_CORETYPE=Haswell|Nehalem`, numpy SIMD features and thread count unchanged or switched off separately) changed
+the hashes, so the dependence is the BLAS kernel, i.e. the CPU: the Bayesian-regression predictor (`np.linalg.inv`, `@`,
+`einsum`) and two planner dot products round differently per kernel, a last-bit difference flips a near-tie in placement,
+and the discrete-event trajectory diverges (per-run P99 differs by up to 40%, the 10-seed statistics are what the paper
+reports). `voss/core/detmath.py` replaces those calls by exactly rounded elementwise arithmetic in a fixed order
+(3x3 cofactor inverse, `math.fsum` dot products, scalar `math.log`); with it the hashes are identical across all tested
+kernel and SIMD settings. Consequence: results generated before this change are not reproducible bit for bit on other
+CPUs and are replaced by a full rerun under the new arithmetic (new `paper/run-hashes.csv`, tables, figures, manuscript
+numbers). `tools/diag/numeric_repro.sh` and the `numeric-diagnostic` workflow check the property on any machine.
