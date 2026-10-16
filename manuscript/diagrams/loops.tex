@@ -1,0 +1,26 @@
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \node[zone, fill=blue!3, minimum width=86mm, minimum height=69mm, anchor=north west] (slow) at (0,0) {};
+  \node[zone, fill=green!4, minimum width=86mm, minimum height=69mm, anchor=north west] (fast) at (94,0) {};
+  \node[font=\scriptsize\bfseries, anchor=north west] at ([xshift=2mm,yshift=-1mm]slow.north west) {Slow loop: provisioning and warm-state planner};
+  \node[font=\tinyx, anchor=north west] at ([xshift=2mm,yshift=-5mm]slow.north west) {every $T_{\text{plan}}$ = 10--60\,s and on events; one solve per cluster};
+  \node[font=\scriptsize\bfseries, anchor=north west] at ([xshift=2mm,yshift=-1mm]fast.north west) {Fast loop: invocation placer};
+  \node[font=\tinyx, anchor=north west] at ([xshift=2mm,yshift=-5mm]fast.north west) {per invocation, milliseconds};
+  % slow loop
+  \node[box, text width=76mm, align=left] (in) at (43,-17) {\textbf{Inputs} (estimates from the scheduler's view)\\[-1pt]\tinyx survival $S_j(H)$, omission $p_j$, assurance $a_j$, failure domain $d(j)$, cache inventory; demand quantile $q_t$, sensitivity $\sigma_t$ and robustness $f_t$ per hot tenant; previous plan};
+  \node[box, minimum width=60mm, fill=white] (pl) at (43,-33) {\textbf{Robust planner}: choose $\{y,s,w,c\}$\\[-1pt]\tinyx greedy heuristic or MILP; covers $q_t$ after any $f_t$ losses};
+  \node[box, minimum width=60mm, fill=white] (pn) at (43,-46) {\textbf{Plan}: provisioned sets $y_{tj}$, snapshot pins $s_{fj}$,\\[-1pt]\tinyx warm VMs $w_{fj}$, earmarked slots $c_{tj}$, validity};
+  \node[box, minimum width=60mm, fill=white] (ac) at (43,-59) {\textbf{Actions} (diff to last plan, idempotent, rate-limited)\\[-1pt]\tinyx PREPARE, PIN\_SNAPSHOT, WARM, RELEASE to workers};
+  % fast loop
+  \node[box, minimum width=64mm, fill=white] (iv) at (137,-17) {\textbf{Invocation}\\[-1pt]\tinyx tenant, function, class, deadline, input size};
+  \node[box, minimum width=64mm, fill=white] (cd) at (137,-29) {\textbf{Candidates}\\[-1pt]\tinyx confirmed provisioned workers (free or earmarked slots)\\[-2pt]\tinyx $\cup$ cold path: other attested workers above the assurance floor};
+  \node[box, minimum width=64mm, fill=white] (cm) at (137,-43) {\textbf{Cost model}, per candidate\\[-1pt]\tinyx wait, provisioning, start-up tier, network, execution,\\[-2pt]\tinyx failure probability, exposure increment};
+  \node[box, minimum width=64mm, fill=white] (dc) at (137,-58) {\textbf{Decision}: lowest expected SLO-miss cost;\\[-1pt]\tinyx if $P(\text{miss})>\theta$ and budget allows, hedge on another failure domain};
+  \draw[msg] (in) -- (pl); \draw[msg] (pl) -- (pn); \draw[msg] (pn) -- (ac);
+  \draw[msg] (iv) -- (cd); \draw[msg] (cd) -- (cm); \draw[msg] (cm) -- (dc);
+  \draw[msg, dashed] (pn.east) -- node[lbl,above,pos=0.38,align=center]{confirmed sets,\\soft caps} ([xshift=-4mm]cd.west |- pn.east) |- (cd.west);
+  % bottom bar
+  \node[att, minimum width=172mm, minimum height=7mm] (wk) at (90,-77) {Workers (attested appliances)};
+  \draw[msg] (ac.south) -- node[lbl,left,pos=0.5]{PREPARE, WARM, \dots} (ac.south |- wk.north);
+  \draw[msg] (dc.south) -- node[lbl,right,pos=0.5]{DISPATCH, hedge, CANCEL} (dc.south |- wk.north);
+  \draw[msg, dotted] (90,-73.5) -- node[lbl,rotate=90,pos=0.22]{heartbeats: state, outcomes} (90,-17) -- (in.east |- 0,-17);
+\end{tikzpicture}

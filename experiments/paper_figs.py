@@ -199,13 +199,35 @@ def scale_fig(out: Path) -> Path:
     return save(fig, out, "fig_scale")
 
 
+def cost_fig(out: Path) -> Path:
+    """Motivation: time to reach each state on the calibration machine (log scale), from ``cost_ladder.csv``."""
+    d = pd.read_csv(REPO / "manuscript" / "generated" / "cost_ladder.csv").sort_values("seconds")
+    fig, ax = plt.subplots(figsize=(COL, 2.0))
+    colors = np.where(
+        d.source == "simulated",
+        "#9a9a9a",
+        np.where(d.state.str.contains("attested|kernel|quote"), "#c0504d", "#4f81bd"),
+    )
+    y = np.arange(len(d))
+    ax.barh(y, d.seconds, color=colors, height=0.65)
+    ax.set_xscale("log")
+    ax.set_yticks(y, d.state)
+    ax.set_xlabel("time (s, log scale)")
+    for yi, v in zip(y, d.seconds, strict=True):
+        ax.text(float(v) * 1.15, float(yi), f"{v * 1000:.0f} ms" if v < 1 else f"{v:.1f} s", va="center", fontsize=6)
+    ax.set_xlim(1e-3, 3e2)
+    ax.grid(axis="x", alpha=0.3, lw=0.4)
+    ax.invert_yaxis()
+    return save(fig, out, "fig_cost")
+
+
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--out", type=Path, default=REPO / "manuscript" / "figures")
     a = p.parse_args(argv)
     a.out.mkdir(parents=True, exist_ok=True)
     style()
-    for f in (viability_fig, pareto_fig, ablation_fig, scale_fig):
+    for f in (viability_fig, pareto_fig, ablation_fig, scale_fig, cost_fig):
         print(f(a.out))
 
 

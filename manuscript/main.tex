@@ -1,4 +1,4 @@
-% VOSS manuscript, first draft. IEEE Transactions format (IEEEtran, journal mode).
+% VOSS manuscript. IEEE Transactions format (IEEEtran, journal mode).
 % Numbers and tables come from generated/ (python -m experiments.paper_tex); figures from figures/ (experiments.paper_figs).
 \documentclass[journal]{IEEEtran}
 
@@ -8,58 +8,64 @@
 \usepackage{graphicx}
 \usepackage{microtype}
 \usepackage{xcolor}
+\usepackage{array}
 \usepackage{tikz}
-\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit,calc}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,shapes.misc,fit,calc,backgrounds,decorations.pathreplacing}
 \usepackage[hidelinks]{hyperref}
 \usepackage{cite}
 
 \input{generated/macros}
+\input{diagram-styles}
 
 \newcommand{\voss}{\textsc{Voss}}
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
-\newcommand{\Pn}[1]{\text{P#1}}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\ok}{\ensuremath{\bullet}}
+\newcommand{\part}{\ensuremath{\circ}}
 
 \begin{document}
 
-\title{Scheduling Trust: Latency-Sensitive Serverless\\Computing on Attested Volunteer Machines}
+\title{VOSS: Scheduling Attested Session State for Serverless Computing on Volunteer Machines}
 
 \author{Aalhad~Sawane%
 \thanks{\todo{author list, affiliations, funding and acknowledgments; this draft names only the repository owner.}}}
 
-\markboth{IEEE Transactions (target venue to be decided), Draft}{Sawane: Scheduling Trust on Attested Volunteer Machines}
+\markboth{IEEE Transactions (target venue to be decided), Draft}{Sawane: VOSS}
 
 \maketitle
 
 \begin{abstract}
-Idle consumer machines could serve short serverless invocations close to users, but their owners are unreliable and
-possibly malicious. We argue that remote attestation of a locked appliance image reduces a malicious owner to an
-omission or timing fault, and that what remains is a scheduling problem in which \emph{trust is a perishable
-resource}: costly to establish, destroyed by churn, and exposing every host that holds a tenant's key. We present
-\voss{}, a two-timescale scheduler. A slow loop solves a robust mixed-integer program that decides where trust and warm
-state live, covering demand against \emph{any} $f$ defecting hosts. A fast loop places each invocation with a cost model
-and hedges risky ones. Progress-based failure detection, scheduler succession without volunteer consensus and attested
-receipts complete the design.
-We evaluate \voss{} in a deterministic simulator, calibrated with measurements from a real TPM-equipped machine
-(reboot to kernel \CalReboot\,s, quote \CalQuote\,s), over 21 experiments with 10 seeds each. With a sync P99 target of
-3\,s, \voss{} is viable in \ViabAPThreeVoss{} of \ViabACells{} and \ViabBPThreeVoss{} of \ViabBCells{} cells of two regime maps
-in which the strongest simple baseline never is. Against no planning the planner cuts sync P99 by \HOnePctNoneMed--\HOnePctNoneHigh\%
-and against keep-alive by \HOnePctKeepMed--\HOnePctKeepHigh\%, at about \MilpWarmRatio$\times$ the warm memory;
-progress detection holds success at \VossSuccAlpha\% under 20\% omitting owners where heartbeat-only detection drops to
-\HbSuccAlpha\%. Several expected benefits do not materialize: geo-clustering is \HSevenWorld--\HSevenEu\% slower than one
-global scheduler at our scale, reputation tie-breaking changes P99 by only \RepPNinetyninePct\%, \voss{}'s P99 is \CommPNinetyninePct\% above that
-of a commercial-style reference, and success degrades beyond $3\times10^4$ workers. All hypotheses, including the \ScoreRefuted{} refuted ones, are reported with
-paired confidence intervals.
+Short serverless functions are dominated by cold starts and network distance, while capacity close to users sits idle on
+consumer machines. Serving latency-sensitive invocations from such volunteer machines is hard for two reasons: owners end
+sessions abruptly, which destroys every warm sandbox on the host, and owners are untrusted and can read or tamper with
+tenant code and data. Volunteer-computing systems cope through redundant execution and long deadlines, and serverless
+schedulers assume trusted, always-on fleets. We observe that remote attestation of a locked, measured appliance image
+reduces a malicious owner to omission and timing failures. What remains is a scheduling problem over \emph{attested
+session state}: tenant keys provisioned on a host and warm sandboxes are expensive to establish, are lost when the session
+ends, and every additional key holder enlarges the tenant's attack surface. We present \voss{}, a scheduler built around
+this problem. A slow control loop plans where keys and warm state live, with coverage that stays feasible when any $f$
+hosts defect; a fast loop places each invocation with a cost model and hedges risky ones. Failure detection uses
+end-to-end progress instead of liveness, which exposes gray failures; scheduler failover uses leases and epoch
+fencing without consensus among volunteers; and attested receipts make accounting verifiable. In a deterministic simulator
+calibrated on a TPM-equipped machine, \voss{} meets a 3\,s sync P99 target in \ViabAPThreeVoss{} of \ViabACells{} cells (churn by adversary fraction) and
+\ViabBPThreeVoss{} of \ViabBCells{} (substrate by load), where the strongest simple baseline never does.
+Planning lowers P99 by \GreedyNoneMed--\GreedyNoneHigh\% against no planning, and progress-based detection keeps success
+at \VossSuccAlpha\% with 20\% omitting owners where heartbeat-only detection falls to \HbSuccAlpha\%. Several designed
+components do not pay off in our experiments (geo-clustering, an exact solver over a greedy heuristic, reputation, and
+tiered caching), and a commercial-style reference remains faster; we report these with all other hypotheses.
 \end{abstract}
 
 \begin{IEEEkeywords}
-Serverless computing, volunteer computing, remote attestation, trusted execution, scheduling, robust optimization,
-tail latency, simulation.
+Serverless computing, volunteer computing, remote attestation, trusted execution, scheduling, gray failure, tail latency.
 \end{IEEEkeywords}
 
 \input{sections/intro}
+\input{sections/background}
 \input{sections/related}
-\input{sections/model}
-\input{sections/design}
+\input{sections/overview}
+\input{sections/trust}
+\input{sections/scheduling}
+\input{sections/faulttol}
 \input{sections/method}
 \input{sections/results}
 \input{sections/discussion}
