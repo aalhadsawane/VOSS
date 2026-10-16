@@ -1,0 +1,16 @@
+# Does the simulator give identical results on this runner's CPU as on the developer's machine? (D-68)
+# Prints the machine and the result hashes of 4 short runs under several numeric settings; compare with
+# tools/diag/numeric_repro.sh run elsewhere. Manual trigger, about 6 minutes.
+name: numeric-diagnostic
+on:
+  workflow_dispatch:
+jobs:
+  hashes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+      - run: uv sync --frozen
+      - run: tools/diag/numeric_repro.sh /tmp/numeric-repro

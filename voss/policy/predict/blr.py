@@ -12,6 +12,7 @@ import math
 
 import numpy as np
 
+from voss.core.detmath import inv3, log_safe, matvec3, quad3, rows_dot3
 from voss.core.registry import register
 from voss.policy.predict.base import ExecObs, FnPrior, LogDist
 
@@ -34,8 +35,8 @@ class _FnModel:
     def posterior(self) -> tuple[np.ndarray, np.ndarray]:
         if self._cache is None:
             lam = self.lam0 + self.D / self.noise_var
-            cov = np.linalg.inv(lam)
-            self._cache = (cov @ (self.lam0 @ self.beta0 + self.d / self.noise_var), cov)
+            cov = inv3(lam)  # fixed-order arithmetic: no BLAS/LAPACK, identical on every CPU (D-68)
+            self._cache = (matvec3(cov, np.diag(self.lam0) * self.beta0 + self.d / self.noise_var), cov)
         return self._cache
 
 
@@ -71,8 +72,8 @@ class BlrPredictor:
         m = self.models[fn]
         X = m.x(in_bytes, np.asarray(load, dtype=float))
         beta, cov = m.posterior()
-        mu = X @ beta - np.log(np.maximum(speed, 1e-9)) + self.offsets(workers)
-        var = m.noise_var + np.einsum("ij,jk,ik->i", X, cov, X)
+        mu = rows_dot3(X, beta) - log_safe(speed) + self.offsets(workers)
+        var = m.noise_var + quad3(X, cov)
         return LogDist(mu, np.sqrt(var))
 
     def update(self, obs: ExecObs) -> None:
@@ -83,7 +84,7 @@ class BlrPredictor:
         w = int(obs.worker)
         self._grow(w)
         delta = float(self.delta_s[w] / (self.delta_n[w] + self.kappa))
-        resid = y - float(X @ beta)
+        resid = y - float(rows_dot3(X[None, :], beta)[0])
         # noise variance: discounted mean of squared residuals after the worker offset
         m.noise_var = max(1e-4, self.lam * m.noise_var + (1 - self.lam) * (resid - delta) ** 2)
         m.D = self.lam * m.D + np.outer(X, X)
