@@ -394,3 +394,13 @@ was: if the planner MILP improves sync P99 by < 5% over the greedy planner in al
 10 ms per cluster solve. Every experiment except E04 and E23 already runs the greedy planner (`pilot.yaml`,
 `scalability.yaml`); the manuscript says so and presents the robust formulation as the model, the MILP as a reference
 solver and the heuristic as the practical one. The robustness constraint itself stays: it is what the heuristic enforces.
+
+**D-67 The paper sweeps are rerun and archived on GitHub Actions** (P11, doc 01 §8). A container-local `make paper` needs
+about 9 hours (E18 alone 80 minutes) and the sandbox that held the first sweep was recycled (its raw `runs/` was lost; only
+the per-seed tables and, from sweep logs, the result hashes survived: `paper/run-hashes.csv`). The `paper-rerun` workflow
+(manual trigger) runs one job per experiment, checks each run's result hash against `paper/run-hashes.csv`, re-draws the
+experiment's table and diffs it against `paper/tables` (only wall-clock columns may differ), and uploads the raw logs as
+`tar.zst` release assets (Actions artifacts are quota-limited on private repositories). Raw logs stay out of git (GBs).
+Known limits: the E18 10^5-worker points need about 9 GB of memory (set repository variable `LARGE_RUNNER`); the one E06
+run redone after D-64 has no recorded hash, so it is checked by table identity only until its hash is added from the
+rerun's `run-hashes-rerun.csv`.
