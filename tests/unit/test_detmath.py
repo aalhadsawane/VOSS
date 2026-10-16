@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-
 from voss.core import detmath
 
 
@@ -13,9 +12,8 @@ def test_inv3_matches_numpy() -> None:
 
 
 def test_products_match_numpy() -> None:
-    rng = np.random.default_rng(1)
-    x, cov = rng.normal(size=(7, 3)), np.diag([1.0, 2.0, 3.0]) + 0.1
-    beta = rng.normal(size=3)
+    x = np.sin(np.arange(21, dtype=float) * 1.7).reshape(7, 3)
+    cov, beta = np.diag([1.0, 2.0, 3.0]) + 0.1, np.array([0.3, -1.2, 0.7])
     assert np.allclose(detmath.rows_dot3(x, beta), x @ beta, rtol=1e-12)
     assert np.allclose(detmath.quad3(x, cov), np.einsum("ij,jk,ik->i", x, cov, x), rtol=1e-12)
     assert np.allclose(detmath.matvec3(cov, beta), cov @ beta, rtol=1e-12)
