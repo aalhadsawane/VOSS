@@ -48,7 +48,7 @@ paper:
 
 # Compare a rerun of the sweeps with the recorded result hashes (paper/run-hashes.csv): bit-for-bit reproduction check.
 paper-verify:
-	$(RUN) python -m experiments.paper_verify
+	$(RUN) python -m experiments.paper_verify --tables
 
 paper-analyze:
 	$(RUN) python -m experiments.paper analyze

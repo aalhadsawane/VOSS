@@ -1,0 +1,129 @@
+# Reruns every frozen paper sweep (21 experiments, 2,366 runs) on GitHub runners, verifies each run's result hash against
+# paper/run-hashes.csv, re-draws its table and diffs it against paper/tables, and publishes the raw run logs as release assets (D-67). One job per experiment; manual trigger:
+#   Actions > paper-rerun > Run workflow (optionally a comma-separated subset, e.g. "E04,E19").
+# The E18 job needs about 9 GB of memory for its 10^5-worker points: set the repository variable LARGE_RUNNER to a larger
+# runner label, otherwise those runs may fail on a standard private-repo runner (7 GB) and are reported by the verifier.
+name: paper-rerun
+on:
+  workflow_dispatch:
+    inputs:
+      experiments:
+        description: "Comma-separated experiments (empty = all 21)"
+        default: ""
+      publish:
+        description: "Attach raw run logs to a GitHub release (keeps them; Actions artifacts are quota-limited)"
+        type: boolean
+        default: true
+permissions:
+  contents: write
+env:
+  OMP_NUM_THREADS: 1
+  OPENBLAS_NUM_THREADS: 1
+  MKL_NUM_THREADS: 1
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+      tag: ${{ steps.m.outputs.tag }}
+    env:
+      SELECTED: ${{ inputs.experiments }}
+      LARGE: ${{ vars.LARGE_RUNNER || 'ubuntu-latest' }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - id: m
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os
+          allexp = "E20a E20b E20c E24 E23 E04 E19 E17 E08 E16 E15 E05 E07 E10 E06 E13 E14 E09 E03 E12 E18".split()
+          sel = [s.strip() for s in os.environ.get("SELECTED", "").split(",") if s.strip()] or allexp
+          bad = sorted(set(sel) - set(allexp))
+          assert not bad, f"unknown experiments {bad}"
+          inc = [{"exp": e, "runner": os.environ["LARGE"] if e == "E18" else "ubuntu-latest", "jobs": "1" if e == "E18" else "auto"} for e in allexp if e in sel]
+          print("matrix=" + json.dumps(inc))
+          print("tag=paper-runs-" + os.environ["GITHUB_RUN_ID"])
+          PY
+      - name: create the release that will hold the raw logs
+        if: ${{ inputs.publish }}
+        run: |
+          gh release create "${{ steps.m.outputs.tag }}" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Paper sweep raw logs (run ${{ github.run_id }})" \
+            --notes "Raw per-run logs (parquet + manifest) of the frozen paper sweeps, one tar.zst per experiment, produced by workflow paper-rerun at $GITHUB_SHA. Verify with: make paper-verify." --prerelease
+
+  sweep:
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+      - run: uv sync --frozen
+      - name: sweep ${{ matrix.exp }}
+        run: |
+          J=${{ matrix.jobs }}; if [ "$J" = auto ]; then J=$(nproc); fi
+          uv run python -m experiments.sweep ${{ matrix.exp }} --jobs "$J"
+      - name: verify result hashes
+        if: always()
+        shell: bash
+        run: uv run python -m experiments.paper_verify --only ${{ matrix.exp }} --tables | tee verify-${{ matrix.exp }}.txt
+      - name: package raw logs
+        if: always()
+        run: |
+          tar -C runs -cf - ${{ matrix.exp }} | zstd -T0 -3 -q -o runs-${{ matrix.exp }}.tar.zst
+          ls -l runs-${{ matrix.exp }}.tar.zst
+      - name: publish raw logs to the release
+        if: ${{ always() && inputs.publish }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ needs.plan.outputs.tag }}" runs-${{ matrix.exp }}.tar.zst verify-${{ matrix.exp }}.txt runs/${{ matrix.exp }}/index.csv#index-${{ matrix.exp }}.csv --clobber --repo "$GITHUB_REPOSITORY"
+      - name: keep the small files as an artifact too
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: index-${{ matrix.exp }}
+          path: |
+            runs/${{ matrix.exp }}/index.csv
+            verify-${{ matrix.exp }}.txt
+          retention-days: 90
+
+  collect:
+    needs: [plan, sweep]
+    if: ${{ always() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+      - run: uv sync --frozen
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: index-*
+          path: idx
+      - name: summarize verification and write the rerun hash table
+        run: |
+          python3 - <<'PY'
+          import csv, glob, os, pathlib
+          rows, summary = [], []
+          for p in sorted(glob.glob("idx/index-*/runs/*/index.csv")):
+              exp = pathlib.Path(p).parent.name
+              for r in csv.DictReader(open(p)):
+                  rows.append((exp, pathlib.Path(r["run_dir"]).name, r["status"], r["result_hash"]))
+          with open("run-hashes-rerun.csv", "w", newline="") as fh:
+              w = csv.writer(fh); w.writerow(["experiment", "run_dir", "status", "result_hash"]); w.writerows(rows)
+          for p in sorted(glob.glob("idx/index-*/verify-*.txt")):
+              summary.append("### " + pathlib.Path(p).name + "\n```\n" + open(p).read() + "\n```")
+          open(os.environ["GITHUB_STEP_SUMMARY"], "a").write("\n".join(summary) + f"\n\n{len(rows)} runs indexed\n")
+          PY
+      - name: publish the rerun hash table
+        if: ${{ inputs.publish }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ needs.plan.outputs.tag }}" run-hashes-rerun.csv --clobber --repo "$GITHUB_REPOSITORY"
