@@ -1,0 +1,25 @@
+% Shared TikZ styles and sequence-diagram helpers (included in main.tex).
+\tikzset{
+  >={Latex[length=1.6mm,width=1.2mm]},
+  box/.style={draw, rounded corners=1.5pt, align=center, font=\scriptsize, inner sep=2pt, minimum height=5mm},
+  prov/.style={box, fill=blue!8},               % provider-operated, trusted for availability and accounting
+  att/.style={box, fill=green!10},              % attested code on an untrusted host
+  ten/.style={box, fill=orange!14},             % tenant-operated
+  untr/.style={box, fill=gray!15},              % owner-controlled, untrusted
+  store/.style={draw, cylinder, shape border rotate=90, aspect=0.25, align=center, font=\scriptsize, fill=blue!8, minimum height=6mm},
+  zone/.style={draw, rounded corners=3pt, inner sep=4pt},
+  lbl/.style={font=\tinyx, inner sep=1pt, fill=white, fill opacity=0.85, text opacity=1},
+  state/.style={draw, rounded corners=3pt, font=\scriptsize, minimum height=5.5mm, minimum width=11mm, align=center, fill=white},
+  actor/.style={draw, rounded corners=1.5pt, font=\scriptsize, align=center, inner sep=2pt, minimum height=5mm, fill=gray!10},
+  lifeline/.style={densely dotted, gray},
+  msg/.style={->, thick},
+  rsp/.style={->, thick, dashed},
+  mlabel/.style={font=\fontsize{5.8}{6.6}\selectfont, inner sep=1pt, above},
+}
+% \seqactor{x}{name}{label}: actor box at the top and a lifeline of height \seqh
+\newcommand{\seqactor}[3]{\node[actor] (#2) at (#1,0) {#3}; \draw[lifeline] (#2.south) -- (#1,-\seqh);}
+% \seqmsg{y}{from}{to}{label}{style}: horizontal message between lifelines
+\newcommand{\seqmsg}[5]{\draw[#5] (#2 |- 0,#1) -- node[mlabel] {#4} (#3 |- 0,#1);}
+\newcommand{\seqnote}[3]{\node[font=\fontsize{5.8}{6.6}\selectfont, inner sep=1pt, fill=yellow!20, draw=gray, rounded corners=1pt, align=left] at (#1,#2) {#3};}
+\newcommand{\circled}[1]{\tikz[baseline=(c.base)]\node[circle,draw,inner sep=0.2pt,font=\tinyx](c){#1};}
+\newcommand{\tinyx}{\fontsize{5.8}{6.6}\selectfont}

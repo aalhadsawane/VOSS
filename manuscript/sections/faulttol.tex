@@ -1,0 +1,114 @@
+\section{Fault Tolerance and Accountability}
+\label{sec:ft}
+
+By Property 1, one set of mechanisms must handle crashes, churn and malice. This section describes how failures are detected, how schedulers are replaced
+without consensus among volunteers, and how work is accounted.
+
+\subsection{Fault model and the progress principle}
+Table~\ref{tab:faults-model} lists the failures the mechanisms must handle. The hard cases are those where \emph{liveness signals look healthy}: a
+black-holing host keeps sending heartbeats while dropping work, an on--off host builds a clean record before defecting, and a drain notice may be a lie. We therefore adopt the
+principle that \emph{liveness signals from untrusted hosts are hints, and progress observed by trusted or attested parties is evidence}. The trusted observers are the routers; the attested
+observers are the worker agents and the scheduler code, whose \emph{hosts} are still untrusted for availability.
+
+\begin{table}[t]
+\caption{Failures handled and what makes each hard to detect.}
+\label{tab:faults-model}
+\centering\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{2.3cm}p{1.9cm}p{3.8cm}@{}}
+\toprule
+Failure & Source & Difficulty \\
+\midrule
+Crash, session end & owner, power & easy: channel and heartbeats stop \\
+Graceful drain & owner & announced, but the announcement may be fake \\
+Black hole, selective omission & malicious owner & \textbf{heartbeats look healthy} (gray failure) \\
+On--off defection & malicious owner & history is misleading \\
+Delay, throttle & malicious or overloaded & looks like slowness \\
+Partition & network & a stale scheduler keeps acting \\
+Replay & malicious owner & rejected by TLS sequence numbers \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Progress-based failure detection}
+\label{sec:detection}
+Table~\ref{tab:detectors} lists the detectors. Each watches an event that must occur if the component is working and attributes a missing event to a suspect.
+The router's \emph{dispatch watchdog} suspects a scheduler (or its cluster) when an enqueued invocation is not acknowledged within $T_{\text{dispatch}}$. The scheduler's \emph{result watchdog} suspects a worker
+that has accepted work but not returned a result by the predicted completion quantile. A \emph{cluster-stall} report from routers and a \emph{decision-latency SLO} on the scheduler's attested timestamps
+catch a scheduler that is alive but slow. The \emph{outcome-rate} model (Section~\ref{sec:estimators}) catches selective and on--off behavior. Heartbeat and accrual detectors \cite{hayashibara2004phi} are kept only as a fast
+path for crashes and are never sufficient alone. A suspected worker receives no new work, its in-flight work is hedged or retried, and it loses provisioned eligibility; a suspected scheduler triggers failover.
+
+\begin{table}[t]
+\caption{Progress-based detectors. Heartbeats are a fast path only.}
+\label{tab:detectors}
+\centering\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{1.8cm}p{1.6cm}p{3.3cm}p{1.3cm}@{}}
+\toprule
+Detector & Observer & Signal & Suspects \\
+\midrule
+Dispatch watchdog & router & ENQUEUE without ACCEPTED in $T_{\text{dispatch}}$ & scheduler \\
+Result watchdog & scheduler & ACCEPTED without RESULT by q90 $+$ margin & worker \\
+Cluster stall & router $\to$ orchestrator & repeated dispatch timeouts & scheduler \\
+Decision latency & orchestrator & attested placement time $>T_{\text{decide}}$ & slow scheduler \\
+Outcome rate & scheduler & omission rate, CUSUM change point & worker \\
+Heartbeat & scheduler & missing heartbeats & crash only \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Scheduler failover without volunteer consensus}
+\label{sec:succession}
+Replicated state machines among volunteers would be slow and would reintroduce an agreement problem on hosts that may be adversarial. \voss{} avoids it because the provider-operated orchestrator is a
+reliable arbiter, and a scheduler's state is \emph{soft}. Fig.~\ref{fig:failover} shows the sequence.
+
+\textbf{Appointment and fencing.} The orchestrator appoints a scheduler by an atomic compare-and-swap on the cluster's \emph{epoch} in its database, in the manner of a lease
+\cite{burrows2006chubby}. The appointment token binds the cluster, the epoch and the \emph{session-certificate identifier} of the appointee, so a cloned appliance with the same image but a different
+session key is not appointed. Workers accept dispatches only from the current (epoch, certificate) pair and reject lower epochs with \texttt{STALE}, which acts as a fencing token.
+A scheduler that cannot reach the orchestrator for a lease period stops dispatching on its own, and workers fence it anyway. A partitioned scheduler can therefore cause only duplicate work, which is within at-least-once semantics.
+
+\textbf{Soft state.} A scheduler keeps no durable state on its host (Table~\ref{tab:soft}). Undispatched invocations are held by routers, running work and confirmed provisioning by workers, learned estimator state in a control-plane checkpoint
+refreshed every few tens of seconds, and work records in receipts. After appointment, the successor installs the epoch and performs a \emph{roll call}: it asks workers for their running and queued work, confirmed pins and keys, retained outcomes
+and cache inventory, rebuilds its view, replays outcomes, and re-plans from the checkpoint. Because nothing authoritative lives on the old host, a rolled-back or restarted appliance is a new instance that must be re-appointed, and its stale memory is never trusted.
+
+\textbf{Succession list.} The orchestrator keeps a ranked list of candidates by survival, speed, centrality and assurance, with failure-domain diversity and hysteresis. Every attested worker is a candidate, because the scheduler role is in the image, so promotion costs no boot;
+a warm standby also receives heartbeats. Planned handovers on a drain notice or decision-latency degradation flush a checkpoint before the swap; a \emph{fake} drain by a malicious scheduler host just causes a clean handover.
+
+\begin{figure}[t]
+\centering
+\resizebox{\columnwidth}{!}{\input{diagrams/failover}}
+\caption{Scheduler failover. The router's dispatch watchdog detects a crashed or black-holing scheduler; the orchestrator swaps the epoch atomically and appoints a
+successor, which reconstructs soft state from workers and a checkpoint.}
+\label{fig:failover}
+\end{figure}
+
+\begin{table}[t]
+\caption{Soft scheduler state and its recovery path.}
+\label{tab:soft}
+\centering\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{3.2cm}p{1.9cm}p{1.8cm}@{}}
+\toprule
+State & Held by & Recovery \\
+\midrule
+Undispatched invocations & router pending table & router resends \\
+Running and queued work & workers & roll call (query workers) \\
+Plan (provisioned sets, pins) & workers, checkpoint & roll call, recompute \\
+Predictor, survival, omission posteriors & checkpoint & checkpoint, replay \\
+Work records & router receipts & nothing to recover \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Worker failures}
+Session end discards keys and warm sandboxes; the invocation is retried or hedged elsewhere, preferring provisioned hosts. A per-cluster retry token bucket and router spillover contain retry storms during regional
+waves. Drain and preemption notices from the owner side only make the scheduler more conservative (stop new dispatch, shorten predicted life) and never excuse an omission in the estimators. A change point or a watchdog streak
+marks a host suspected, revokes its eligibility and triggers re-planning.
+
+\subsection{Attested receipts and credits}
+\label{sec:receipts}
+Each result carries a receipt signed with the session key: invocation and attempt identifiers, worker and certificate identifiers, epoch, execution time, \emph{reference work units}, and a digest of the output. The router verifies it against the
+certificate (and the verifier's revocation list) and appends it to the operational database. A host cannot claim work it did not do; it can only decline to do work, which is an omission handled above. Credits are
+proportional to reference work units, not elapsed time, so throttling earns nothing, and a small credit rewards cache pinned by the plan while the host answered probes. Reputation is kept apart from the survival and omission estimators, which
+have disjoint inputs (session ends versus mid-session omissions), so that no signal is counted twice; it aggregates declared-commitment behavior over the long term and is used for rewards and as a placement tie-breaker only. We deliberately omit a
+blockchain: receipts are already verifiable by third parties, and the only remaining risk is the control plane withholding records.

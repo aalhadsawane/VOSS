@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pandas as pd
 from tools.calibrate.ingest import load_raw
 
@@ -56,6 +58,41 @@ def calibration(g: Gen) -> None:
     cold = tbl[tbl.config.str.contains("mem_mb=256, tier=hdd, cache=cold") & tbl.path.str.contains("boot")].iloc[0]
     g.mac("CalFcBootColdS", f"{cold.p50:.2f}")
     g.mac("CalCpu", "Intel Core i3-7020U")
+    _cost_ladder(g, tbl, meas, float(att.p50), float(cold.p50))
+
+
+def _cost_ladder(g: Gen, tbl: pd.DataFrame, meas: Any, att_s: float, cold_boot_s: float) -> None:
+    """Restore-cost macros and ``cost_ladder.csv`` (time to reach each state; Fig. cost)."""
+
+    def q(k: str) -> float:
+        return float(meas[k].quantile(0.5))
+
+    restore = tbl[tbl.path.str.contains("restore") & tbl.config.str.contains("mem_mb=512, tier=hdd")]
+    cold_r = restore[restore.config.str.contains("cache=cold")].iloc[0]
+    warm_r = restore[restore.config.str.contains("cache=warm")].iloc[0]
+    expect(att_s / warm_r.p50 > 1e3, "attested-session establishment is >3 orders above a warm snapshot restore")
+    g.mac("CalRestoreColdS", f"{cold_r.p50:.2f}")
+    g.mac("CalRestoreWarmMs", f"{1000 * warm_r.p50:.0f}")
+    g.files["cost_ladder.csv"] = (
+        "\n".join(
+            ["state,seconds,source"]
+            + [
+                f'"{k}",{v:.6g},{src}'
+                for k, v, src in (
+                    ("Resume warm microVM (L3), model", 0.002, "simulated"),
+                    ("Restore snapshot, warm page cache", warm_r.p50, "measured"),
+                    ("Boot microVM, warm page cache", q("fc_boot"), "measured"),
+                    ("TPM quote", q("tpm2_quote"), "measured"),
+                    ("Restore snapshot, cold cache (HDD)", cold_r.p50, "measured"),
+                    ("Boot microVM, cold cache (HDD)", cold_boot_s, "measured"),
+                    ("Create 512 MB snapshot (HDD)", q("fc_snapshot_create"), "measured"),
+                    ("Reboot to kernel", q("reboot_to_kernel"), "measured"),
+                    ("Reboot to attested worker", att_s, "measured"),
+                )
+            ]
+        )
+        + "\n"
+    )
 
 
 def ecs1_sim(g: Gen) -> None:

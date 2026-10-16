@@ -1,0 +1,10 @@
+state,seconds,source
+"Resume warm microVM (L3), model",0.002,simulated
+"Restore snapshot, warm page cache",0.00676744,measured
+"Boot microVM, warm page cache",0.154237,measured
+"TPM quote",0.506236,measured
+"Restore snapshot, cold cache (HDD)",0.626692,measured
+"Boot microVM, cold cache (HDD)",1.45045,measured
+"Create 512 MB snapshot (HDD)",6.68016,measured
+"Reboot to kernel",21.0451,measured
+"Reboot to attested worker",44.424,measured
