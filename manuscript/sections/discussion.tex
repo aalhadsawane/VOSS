@@ -18,6 +18,41 @@ but not for every tenant class. A deployment should expose exposure and robustne
 \textbf{Reliance on attestation.} Every robustness result uses omission and timing faults only. If attestation failed, for example through the physical attacks excluded in Section~\ref{sec:threat}, adversaries could forge results and read keys, and exposure would no longer be a proxy for risk. This is why the design treats liveness
 and owner notices as hints and verifies progress.
 
+\subsection{Extension to function workflows}
+\label{sec:dag}
+The model of Sections~\ref{sec:overview}--\ref{sec:ft} treats invocations as independent. Many serverless applications are instead
+\emph{workflows}, directed acyclic graphs (DAGs) of functions in which the completion of one function triggers its successors
+\cite{copik2024sebsflow}. This is outside the scheduling contribution of this paper and we do not evaluate it, but the structure is
+exactly the kind of information a trust-aware scheduler can use: when a function is called, the functions in its subtree will be called
+soon, so their start-up and provisioning can be overlapped with the parent's execution instead of paid in sequence. Without that
+overlap every stage of a chain can pay a cold start in turn, a \emph{cascading cold start} \cite{daw2020xanadu}. Table~\ref{tab:dag}
+states how each part of \voss{} would extend, and which prior ideas apply.
+
+\begin{table}[t]
+\caption{How \voss{} extends from independent invocations to function workflows (DAGs). Not evaluated in this paper.}
+\label{tab:dag}
+\centering\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{1.35cm}p{2.7cm}p{4.1cm}@{}}
+\toprule
+Concern & Independent invocations & Workflow extension \\
+\midrule
+Demand forecast & per function, from its own arrivals & \emph{derived demand} $\lambda_f=\sum_p P(p\!\to\!f)\,\lambda_p$ over DAG edges; edge probabilities are fixed for static DAGs and learned online for conditional branches; the hot set grows to include the children of hot functions \\
+Warm state & planner pins tiers L2--L3 by value density & weight the value of warming a child by its \emph{lead time}, the parent's predicted remaining time; on \texttt{DISPATCH} of a parent, issue \texttt{WARM} for its children so start-up overlaps execution (look-ahead pre-warming, as in \cite{daw2020xanadu,mahgoub2022orion}) \\
+Placement & cost includes client-to-host network & add an edge term for moving the parent's output; prefer the same host or cluster for parent and child, or one sandbox per workflow where isolation allows \cite{akkus2018sand,kotni2021faastlane}; choose the data-passing path per edge \cite{mahgoub2021sonic} \\
+Trust and exposure & key provisioned per tenant & unchanged within one tenant, since all functions of a workflow share $y_{tj}$ and no new key holder appears; a cross-tenant workflow needs both tenants' keys and its exposure is the union; intermediate data are tenant data and stay on attested channels \\
+Fault tolerance & router keeps a pending copy; hedge and retry per invocation & keep workflow state at the trusted router, with per-node attested receipts as the progress evidence; a failed node is re-executed idempotently without re-running completed nodes; hedging applies per node under one budget for the DAG \\
+Accounting & one receipt per invocation & one receipt and credit per node \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two properties make workflows a natural fit. First, lead time gives the planner slack: the provisioning round trip and a snapshot restore of a child can be hidden behind
+the parent, which converts a latency that the fast loop must otherwise price into an overlap. Second, keeping workflow state at the router rather than on a volunteer host
+follows the progress principle of Section~\ref{sec:overview} and keeps volunteers out of the coordination path. The risk is speculation: pre-warming a child that a conditional
+branch does not call wastes donor memory, and warming it on an additional host enlarges exposure, so look-ahead warming should be budgeted like hedging and restricted to
+hosts that are already provisioned for the tenant. Evaluating this extension needs a workflow benchmark such as SeBS-Flow \cite{copik2024sebsflow} and is future work.
+
 \subsection{Threats to validity}
 \label{sec:threats}
 \begin{itemize}
@@ -31,4 +66,4 @@ and owner notices as hints and verifies progress.
 
 \subsection{Future work}
 Validate on a small real testbed with end-to-end measurements, which would also test the host-mode appliance assumption; measure confidential-VM hosts to replace literature parameters; shard the orchestrator tier and re-measure scalability; revisit geo-clustering at larger
-populations and with shared trust across clusters; and study adaptive adversaries and credit-based incentives given the observed credit concentration.
+populations and with shared trust across clusters; evaluate workflow-aware look-ahead warming (Section~\ref{sec:dag}); and study adaptive adversaries and credit-based incentives given the observed credit concentration.
