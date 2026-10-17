@@ -4,7 +4,7 @@
 # Usage: tools/diag/numeric_repro.sh [out-dir]    Compare the printed hashes between machines.
 set -u
 OUT=${1:-/tmp/numeric-repro}
-AVX512="AVX512F AVX512CD AVX512_SKX AVX512_CLX AVX512_CNL AVX512_ICL AVX512_SPR"
+AVX512="X86_V4 AVX512_ICL AVX512_SPR"  # NumPy 2.x dispatch targets (D-70; the AVX512F-style names are not dispatch targets)
 echo "machine: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2) | cores $(nproc) | avx512: $(grep -c avx512f /proc/cpuinfo)"
 uv run python - <<'PY'
 import numpy
@@ -27,7 +27,7 @@ for r in sorted(csv.DictReader(open(sys.argv[1])), key=lambda r: r["run_dir"]):
 PY
 }
 variant default            X=1
+variant unpinned           NPY_DISABLE_CPU_FEATURES=
 variant coretype_haswell   OPENBLAS_CORETYPE=Haswell
-variant npy_no_avx512      NPY_DISABLE_CPU_FEATURES="$AVX512"
-variant haswell_no_avx512  OPENBLAS_CORETYPE=Haswell NPY_DISABLE_CPU_FEATURES="$AVX512"
-variant nehalem_no_simd    OPENBLAS_CORETYPE=Nehalem NPY_DISABLE_CPU_FEATURES="$AVX512 AVX2 FMA3 AVX512F"
+variant npy_v3_only        NPY_DISABLE_CPU_FEATURES="$AVX512"
+variant nehalem_coretype   OPENBLAS_CORETYPE=Nehalem

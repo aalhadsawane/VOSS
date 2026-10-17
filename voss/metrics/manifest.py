@@ -12,6 +12,7 @@ from typing import Any
 
 from voss.core.config import RunConfig
 from voss.core.hashing import hash_dir
+from voss.core.numerics import canary
 from voss.core.paths import config_path
 
 _PKGS = ("numpy", "scipy", "pandas", "pyarrow", "pydantic")
@@ -30,6 +31,7 @@ class Manifest:
     result_hash: str
     versions: dict[str, str] = field(default_factory=dict)
     wall_s: float = 0.0  # simulator wall time (metadata, not part of the result)
+    numeric_canary: str = ""  # voss.core.numerics.canary() of the process that ran (D-70)
 
     def write(self, path: Path) -> None:
         path.write_text(json.dumps(asdict(self), indent=2, sort_keys=True))
@@ -83,4 +85,5 @@ def build_manifest(cfg: RunConfig, scenario_hash: str | None, result_hash: str, 
         clock_mode=cfg.decision_clock.mode,
         result_hash=result_hash,
         versions=versions(),
+        numeric_canary=canary(),
     )
