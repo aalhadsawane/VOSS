@@ -50,7 +50,7 @@ another host to hold the key.
 We present \voss{}, a scheduler for volunteer serverless computing built on this view (Fig.~\ref{fig:arch}). \voss{}
 (i) separates \emph{where state lives} from \emph{where an invocation runs} with a two-timescale design: a slow planner
 decides which hosts are provisioned and warm for each tenant under a robustness constraint, and a fast placer assigns each
-invocation by cost and hedges risky ones; (ii) detects failures from end-to-end \emph{progress} rather than liveness and
+invocation by minimising its own expected SLO-violation probability, priced together with latency and key exposure (Section~\ref{sec:objectives}), and hedges risky ones; (ii) detects failures from end-to-end \emph{progress} rather than liveness and
 replaces failed schedulers with lease and epoch fencing, without consensus among volunteers; and (iii) makes accounting
 verifiable through attested receipts instead of a blockchain.
 
