@@ -1,16 +1,30 @@
 # Does the simulator give identical results on this runner's CPU as on the developer's machine? (D-68)
-# Prints the machine and the result hashes of 4 short runs under several numeric settings; compare with
-# tools/diag/numeric_repro.sh run elsewhere. Manual trigger, about 6 minutes.
+# Prints the machine and the result hashes of short runs; compare with tools/diag/numeric_repro.sh and
+# tools/diag/e09_probe.sh run elsewhere. Manual trigger, about 6 minutes. The matrix samples several runner images and
+# repeats ubuntu-latest, because GitHub assigns different CPU models to different jobs.
 name: numeric-diagnostic
 on:
   workflow_dispatch:
 jobs:
   hashes:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-latest, rep: 1}
+          - {os: ubuntu-latest, rep: 2}
+          - {os: ubuntu-latest, rep: 3}
+          - {os: ubuntu-latest, rep: 4}
+          - {os: ubuntu-latest, rep: 5}
+          - {os: ubuntu-latest, rep: 6}
+          - {os: ubuntu-22.04, rep: 1}
+          - {os: ubuntu-24.04, rep: 1}
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.11"
       - run: uv sync --frozen
+      - run: tools/diag/e09_probe.sh /tmp/e09-probe
       - run: tools/diag/numeric_repro.sh /tmp/numeric-repro
