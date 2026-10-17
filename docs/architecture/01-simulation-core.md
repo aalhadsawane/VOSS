@@ -179,6 +179,8 @@ computed offline from the logs.
 
 **Determinism and its limit.** A run is a pure function of `(config, seed, code)` provided the arithmetic is platform
 independent. Linear algebra in the simulator uses fixed-order, exactly rounded operations (`core/detmath.py`, D-68) because
-BLAS kernels differ between CPUs; transcendental functions (`exp`, `log`) come from numpy and the C library and may in
-principle differ across operating systems and architectures. Bit-for-bit reproduction has been verified across two x86-64
-CPU families and five numeric settings; statistical conclusions (10 seeds, paired) are the portable claim.
+BLAS kernels differ between CPUs. NumPy's transcendental functions (`exp`, `log`, `power`, ...) have AVX-512, AVX2 and SSE4
+implementations that differ in the last bit, so NumPy's SIMD dispatch is pinned to the SSE4 baseline before NumPy is imported
+(`voss/__init__.py`, D-70), and every manifest records a numeric canary (`core/numerics.py`) that `voss run` checks. The
+remaining assumption is an FMA-capable x86-64 CPU with glibc's libm; other architectures and C libraries are not
+bit-comparable, and statistical conclusions (10 seeds, paired) are the portable claim.
