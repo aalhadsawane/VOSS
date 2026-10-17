@@ -91,11 +91,14 @@ E_t = \sum_{j\in \mathrm{KH}(t)} (1-a_j),
 \label{eq:exposure}
 \end{equation}
 where $\mathrm{KH}(t)$ is the set of hosts holding $t$'s key or decrypted artifacts and $a_j\in[0,1]$ is the host's \emph{assurance}:
-the product of a base value for its trust substrate, a freshness factor decreasing with time since its last quote, and a
-firmware-policy factor (known-good versus trust-on-first-use). The scheduler weights exposure by a tenant sensitivity $\sigma_t$ and
+the product of a base value for its trust substrate and a firmware-policy factor (known-good versus trust-on-first-use), fixed when the verifier issues
+the session certificate. Staleness is not a continuous factor: a certificate simply expires, and a host whose quote would expire within the planning horizon is excluded from plans. The scheduler weights exposure by a tenant sensitivity $\sigma_t$ and
 enforces an assurance floor for sensitive tenants. Exposure is a transparent proxy for attack surface, not a probability of compromise,
 and base assurances are policy parameters, not measured truths; we therefore report latency, exposure and robustness as a Pareto
 front and never as one weighted number.
+
+\textbf{Inputs, outputs and constraints.} \emph{Attestation} takes a TPM quote over the appliance's measured boot (event log, PCR values), the endorsement-key certificate chain and a fresh verifier nonce, and outputs a session certificate with assurance $a_j$ and an expiry, or a rejection. It is constrained by reference measurements known to the verifier, the certificate validity period and re-quote interval, and the TPM's quote rate.
+\emph{Provisioning} takes the certificate and the tenant's KBS policy and outputs the wrapped key or a denial. In the simulator both are sequences of simulated delays: network round trips through the geographic model, a TPM quote and verification service time from the substrate profile, and a fixed policy-check cost. The tenant key never reaches the scheduler or the orchestrator: the scheduler learns only that $K[t,j]=1$, from the worker's heartbeat.
 
 \subsection{Substrate profiles}
 \label{sec:substrates}

@@ -105,6 +105,32 @@ Session end discards keys and warm sandboxes; the invocation is retried or hedge
 waves. Drain and preemption notices from the owner side only make the scheduler more conservative (stop new dispatch, shorten predicted life) and never excuse an omission in the estimators. A change point or a watchdog streak
 marks a host suspected, revokes its eligibility and triggers re-planning.
 
+\subsection{Inputs, outputs and parameters}
+\label{sec:ftparams}
+Fault handling is driven only by observable events. Its \emph{inputs} are messages with timestamps (enqueue, accept, result, probe replies, heartbeats, outcome records) and the estimators' predicted completion quantiles; its \emph{outputs} are suspicion flags, re-placements, hedges, scheduler appointments and revocations of provisioned eligibility. Table~\ref{tab:ftparams} gives the defaults; all are configuration, tagged assumed or literature, not measured.
+
+\begin{table}[t]
+\caption{Fault-tolerance parameters (defaults).}
+\label{tab:ftparams}
+\centering\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{3.6cm}p{4.2cm}@{}}
+\toprule
+Mechanism & Default \\
+\midrule
+Dispatch watchdog $T_{\text{dispatch}}$; sync spill $T_{\text{spill}}$ & 1\,s; 1.5\,s \\
+Result watchdog & predicted q90 $\times1.2$, at least 3\,s, then a probe with 2\,s timeout \\
+Cluster stall report & 3 dispatch-watchdog fires within 5\,s \\
+Decision-latency SLO $T_{\text{decide,max}}$ & 200\,ms \\
+Suspicion (watchdog streak; duration) & 2 misses; 600\,s \\
+Change point (Beta-CUSUM) & $k=0.1$, $h=5$ \\
+Hedge threshold $\theta$; budget & 0.2; 10\% of placements \\
+Scheduler lease; checkpoint period & 5\,s; 30\,s \\
+Warm standby schedulers & 1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \subsection{Attested receipts and credits}
 \label{sec:receipts}
 Each result carries a receipt signed with the session key: invocation and attempt identifiers, worker and certificate identifiers, epoch, execution time, \emph{reference work units}, and a digest of the output. The router verifies it against the

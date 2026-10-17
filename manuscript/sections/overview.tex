@@ -117,3 +117,27 @@ scheduler. After a scheduler change it is recovered by asking the workers, not b
 (v)~\emph{Routers write the ground truth of work}, as attested receipts.
 (vi)~\emph{Every channel terminates inside an attested party}: the appliance, the control plane, or the KBS. The session certificate
 issued after attestation is the credential for all of them.
+
+\subsection{Component contracts}
+\label{sec:contracts}
+Table~\ref{tab:contracts} states for each decision-making component what it consumes, what it produces, what it must respect and what it is allowed to know, so that every behaviour in the following sections can be traced to an input and an owner. Parameters are given in Table~\ref{tab:defaults} (scheduling), Table~\ref{tab:ftparams} (fault tolerance) and the calibration bundle (costs).
+
+\begin{table*}[t]
+\caption{Contracts of the decision-making components. ``Knows'' lists the information class (Table~\ref{tab:info}).}
+\label{tab:contracts}
+\centering\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{1.9cm}p{4.0cm}p{3.6cm}p{4.2cm}p{3.3cm}@{}}
+\toprule
+Component & Input & Output & Constraints & Knows \\
+\midrule
+Router (regional) & invocation, cluster summaries each 1\,s & cluster choice, spill, receipt rows & dispatch watchdog 1\,s; sync spill after 1.5\,s & O, measured cold prices \\
+Orchestrator & scheduler keep-alives and summaries, worker joins and leaves, stall reports & cluster membership, scheduler appointments (epoch CAS), revocations & single writer per datum; epoch fencing; reliable by assumption & O \\
+Scheduler: planner & view, forecasts, tenant policy & plan $\{y,s,w,c\}$, actions & robust coverage, budgets, domain caps, assurance floor & O, H, F, C, P \\
+Scheduler: placer & invocation metadata, view, plan & host, hedge, reject or defer & feasibility, hedge budget, admission rule & O, H, C, P \\
+Verifier & quote, event log, EK chain & session certificate (assurance, expiry) or rejection & reference measurements, validity period & measured-boot evidence \\
+Tenant KBS & certificate, policy & wrapped key or denial & tenant policy only & tenant policy \\
+Worker agent (attested) & dispatch, plan actions, input & result and receipt, heartbeat & envelope declared by owner; epoch fencing & local state \\
+\bottomrule
+\end{tabular}
+\end{table*}

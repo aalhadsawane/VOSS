@@ -5,13 +5,42 @@ We evaluate \voss{} in a deterministic discrete-event simulator, because a volun
 and paired comparison of policies cannot be run on real machines. This section describes what the simulator models, how its parameters are
 calibrated, and the protocol used for every comparison.
 
-\subsection{Simulator}
+\subsection{Simulation methodology}
 \label{sec:sim}
-\textbf{Fidelity and structure.} Scheduling policies (planner, placer, router, hedger, detector) are pure functions of immutable views and
-are the \emph{same code} that a deployment would run. A layered code base enforces by static import checks that a policy cannot import the simulated world, so it cannot read the future.
-Every interaction between nodes is a typed message delivered after a delay derived from the great-circle distance between roughly 100 metropolitan areas plus last-mile and per-hop terms, so
-geography shapes control traffic as well as data. Nothing is free: network transfer, disk-tier reads, CPU contention, TPM quotes, verification, key release and the decision latency of planner, placer, router
-and orchestrator all consume simulated time.
+\textbf{Technique and technology.} The simulator is a custom single-threaded \emph{discrete-event simulator} written in Python~3.11. Simulated time advances only by popping the earliest entry of a binary-heap event queue ordered by $(\text{time},\text{sequence number})$; each entry is a callback, and cancellation is lazy.
+We did not use an existing framework (e.g.\ SimPy) because the kernel is under 70 lines and a single total order of events is what makes runs exactly repeatable. Numerical work uses NumPy (random streams are PCG64 generators seeded from a SHA-256 of the seed, a stream name and keys), SciPy (HiGHS for the MILP, \texttt{linear\_sum\_assignment} for the flow placer and special functions for the estimators),
+pandas and PyArrow (Parquet logs), Pydantic (frozen configuration tree) and PyYAML. A run is one process; independent runs (seeds, grid cells) are distributed over CI jobs.
+
+\textbf{Inputs, run, outputs} (Fig.~\ref{fig:sim}). The input of a run is a YAML configuration (scenario, systems, policy names, seed) and a calibration bundle. \emph{Scenario generation} draws, from named seeded streams, all \emph{exogenous} traces before the clock starts: the worker table, every session start and end, adversary assignments, the arrival process and the per-invocation execution noise. They are independent of the system under test and content-hashed, so two systems compared on one seed face identical worlds.
+The \emph{engine} then instantiates the actors (workers, scheduler roles, routers, orchestrator, verifier, tenant key servers) and the policies, and processes events until the horizon. Policies see only immutable views assembled from \emph{messages}, never the world objects. At the end, \emph{invariant checks} assert that every success was executed on an attested host after key release,
+that each invocation has one terminal outcome, that no stale-epoch scheduler dispatched, that time components sum to the end-to-end latency, and that the receipts are complete. The \emph{Recorder} writes raw Parquet tables (per-invocation records with time components, events, plans, solver calls, cache transitions, samples, messages, receipts) and a manifest with the scenario, calibration and result hashes. Offline analysis reads only these tables.
+
+\begin{figure*}[t]
+\centering
+\resizebox{\textwidth}{!}{\input{diagrams/sim}}
+\caption{Simulation pipeline. A run is a pure function of configuration, calibration bundle and seed: exogenous traces are generated first, then a deterministic event loop executes actors and policies, and only logs leave the engine.}
+\label{fig:sim}
+\end{figure*}
+
+\textbf{Event loop and what costs time.} Every interaction between nodes is a typed message sent through the network model, which delivers it after a delay from the great-circle distance between about 100 metropolitan areas (100\,km per ms, route factor $1.3$) plus last-mile terms and lognormal jitter (the scheduler's own RTT estimate has no jitter, Table~\ref{tab:info}). Bulk transfers share each host's access link by processor sharing.
+Nothing is free (Table~\ref{tab:simwhat}): disk-tier reads, CPU contention, TPM quotes, verification, key release and the decision latency of planner, placer, router and orchestrator all consume simulated time. Decision latency is modelled as $a+b\cdot\text{work}$ per decision kind (for the planner, work is the number of program variables; for the placer, candidates times components), so results do not depend on the speed of the simulating machine. The coefficients are literature-seeded placeholders, not measurements (tagged for refit from the scalability experiment).
+
+\begin{table}[t]
+\caption{What the simulator computes, takes from calibration, or assumes.}
+\label{tab:simwhat}
+\centering\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{1.8cm}p{6.4cm}@{}}
+\toprule
+Class & Content \\
+\midrule
+Simulated (emergent) & queueing, contention on access links and disks, cache state and evictions, session boots, attestation and key release, message delays, failures, detection and failover, hedging waste \\
+Calibrated (measured, Sec.~\ref{sec:calib}) & start-up and snapshot times, TPM quote and boot times, disk speeds, function reference work (SeBS profiles) \\
+Literature (swept) & confidential-VM and DRTM costs, Firecracker figures \\
+Assumed (swept) & session-length and churn parameters, adversary fractions and strategies, arrival intensity, assurance bases, objective weights \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \textbf{World model.} Workers are drawn from three tiers (nightly, idle-hours, dedicated) with heterogeneous hardware, home cities and substrates. Sessions follow log-normal, Weibull or nightly-schedule length distributions with a time-of-day
 hazard; a fraction of departures is graceful and the rest abrupt, and correlated shocks remove a share of a city at once. Three churn regimes (low, medium, high) plus burst and correlated variants parameterize these. No public trace of
@@ -20,8 +49,9 @@ filler classes, Zipf-skewed popularity, a Markov-modulated Poisson arrival proce
 a fraction $\alpha$ of workers that behave as omitting (black-hole, random omission, on--off, throttling, fake drain notices, or a colluding failure domain); by Property 1 none forges results or reads keys on an attested substrate, while the \texttt{none} substrate
 admits both.
 
-\textbf{Reproducibility.} All randomness comes from named, seeded streams, so a run is a function of its scenario and seed; manifests record the scenario and calibration hashes, and a command re-runs a manifest and asserts its result hash.
-Per-run raw logs (invocations, events, plans, solver, cache, messages, receipts) are recorded and all analysis reads logs only.
+\textbf{Reproducibility and its limits.} All randomness comes from named, seeded streams, so a run is a function of its scenario and seed; iteration order is sorted wherever it affects results. A result hash over the raw tables is recorded, and a command re-runs a manifest and asserts it.
+Floating-point reductions in the Bayesian regression are computed by fixed-order exact arithmetic (\texttt{math.fsum}) instead of BLAS, because we found that result hashes otherwise depended on the CPU's BLAS kernel; with this change hashes were identical across the kernels of Intel and AMD CPUs we tested. We did not test other operating systems or ARM (libm differences), so the portable claim is statistical: conclusions from ten paired seeds, not bit-identical output.
+Per-run raw logs are published with the artifact, and all analysis reads logs only.
 
 \subsection{Calibration}
 \label{sec:calib}

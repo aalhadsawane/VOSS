@@ -1,0 +1,23 @@
+\begin{tikzpicture}[x=1mm,y=1mm]
+  % inputs
+  \node[box, fill=yellow!15, minimum width=34mm] (cfg) at (20,-8) {\textbf{Run config}\\[-1pt]\tinyx YAML: scenario, systems,\\[-2pt]\tinyx policies by name, seed};
+  \node[box, fill=yellow!15, minimum width=34mm] (cal) at (20,-24) {\textbf{Calibration bundle}\\[-1pt]\tinyx measured start-up, TPM,\\[-2pt]\tinyx disk; literature ranges};
+  % generation
+  \node[box, minimum width=44mm] (gen) at (73,-16) {\textbf{Scenario generation}\\[-1pt]\tinyx seeded streams $\rightarrow$ exogenous traces:\\[-2pt]\tinyx hosts, sessions, adversaries,\\[-2pt]\tinyx arrivals, noise (content-hashed)};
+  % engine
+  \node[zone, fill=blue!3, minimum width=84mm, minimum height=44mm, anchor=north west] (eng) at (104,-0) {};
+  \node[font=\scriptsize\bfseries, anchor=north west] at ([xshift=2mm,yshift=-1mm]eng.north west) {Discrete-event engine (single thread)};
+  \node[box, fill=white, minimum width=30mm] (ker) at (124,-16) {\textbf{Kernel}\\[-1pt]\tinyx time-ordered event queue,\\[-2pt]\tinyx callbacks, cancellation};
+  \node[box, fill=white, minimum width=30mm] (res) at (124,-33) {\textbf{Resource servers}\\[-1pt]\tinyx network, disk tiers, CPU,\\[-2pt]\tinyx TPM quote, verifier};
+  \node[att, minimum width=36mm, minimum height=13mm] (act) at (166,-16) {\textbf{Actors}\\[-1pt]\tinyx workers, scheduler,\\[-2pt]\tinyx routers, orchestrator, KBS};
+  \node[box, fill=white, minimum width=36mm] (pol) at (166,-33) {\textbf{Policies}: pure functions\\[-1pt]\tinyx planner, placer, router, hedger,\\[-2pt]\tinyx estimators (see only views)};
+  \draw[msg] (cfg) -- (gen); \draw[msg] (cal.east) -- ++(6,0) |- ([yshift=-3mm]gen.south west);
+  \draw[msg] (gen) -- node[lbl,above]{traces} (eng.west |- gen);
+  \draw[<->] (ker) -- (act); \draw[<->] (ker) -- (res); \draw[<->] (act) -- node[lbl,right]{views, decisions} (pol);
+  % outputs
+  \node[box, minimum width=54mm] (inv) at (30,-58) {\textbf{Invariant checks}\\[-1pt]\tinyx attested execution, key released, one\\[-2pt]\tinyx terminal outcome, no stale epoch, receipts};
+  \node[box, minimum width=54mm, fill=green!8] (rec) at (98,-58) {\textbf{Recorder}: raw Parquet tables\\[-1pt]\tinyx invocations, events, plans, solver, cache,\\[-2pt]\tinyx samples, messages, receipts + manifest (hashes)};
+  \node[box, minimum width=44mm, fill=green!8] (ana) at (160,-58) {\textbf{Offline analysis}\\[-1pt]\tinyx paired bootstrap, verdict rules,\\[-2pt]\tinyx tables, figures, manuscript};
+  \draw[msg] (eng.south) -- ++(0,-4) -| (rec.north); \draw[msg] (eng.south west) ++(10,0) -- ++(0,-4) -| (inv.north);
+  \draw[msg] (rec) -- (ana); \draw[msg] (inv) -- (rec);
+\end{tikzpicture}
