@@ -5,9 +5,11 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+import warnings
 from pathlib import Path
 
 from voss.core.config import RunConfig, load_config
+from voss.core.numerics import canary_ok
 from voss.metrics.manifest import Manifest, build_manifest
 from voss.runtime.system import run_system
 from voss.world.scenario import generate, store
@@ -18,6 +20,13 @@ REPO = Path(__file__).resolve().parent.parent
 def cmd_run(cfg: RunConfig, out: Path | None) -> Manifest:
     """Run one config, write its logs and manifest under ``runs/<config_hash>`` (or ``out``)."""
     t0 = time.perf_counter()
+    if not canary_ok():
+        warnings.warn(
+            "numeric canary mismatch (D-70): NumPy's SIMD dispatch is not pinned or this CPU/libm differs; "
+            "results are statistically comparable to the published ones but not bit-comparable",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     result = run_system(cfg)
     manifest = build_manifest(cfg, result.scenario_hash, result.recorder.result_hash(), REPO)
     manifest.wall_s = time.perf_counter() - t0

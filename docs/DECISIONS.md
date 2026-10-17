@@ -426,3 +426,22 @@ continuous `f_fresh` factor (doc 04 §8); (3) the scheduler's start-up, trust an
 learned online (doc 03 §9). Doc 03 §1a states what each loop minimises and why SLO violations are minimised per invocation
 by the placer but not by the planner; doc 03 §9 classifies every scheduler input as observed, learned, forecast, calibrated or
 configured; doc 01 §10 describes how a run works; doc 11 lists the contract of every mechanism. No behaviour changed.
+
+**D-70 NumPy's SIMD dispatch is pinned, and results carry a numeric canary** (P11, doc 01 §8; corrects D-68). The
+verification rerun of the sweeps run 39058239967 (same code as run 39039446984, which produced the committed hashes) again
+failed to reproduce them: 0 of 50 E09 runs matched, table cells differed by up to 7.7%. The code was identical, so the
+machine was the cause. The `numeric-diagnostic` workflow, extended with an E09 probe on eight runner jobs, showed an AMD EPYC
+7763 (no AVX-512, glibc 2.39) giving the second run's hashes, and running E09 seed 1 on the original machine (Intel with
+AVX-512) with NumPy's AVX-512 dispatch disabled gave the EPYC hashes for all five runs. NumPy's transcendental ufuncs
+(`exp`, `log`, `power`, `expm1`, `log1p`, `arctan`, `exp2`, `log10`; `tanh` additionally differs between AVX2 and SSE4) have
+separate AVX-512, AVX2 and SSE4 implementations whose last bits differ, and a last-bit difference flips a near-tie in placement.
+GitHub assigns both CPU types to jobs of the same workflow. D-68's statement that hashes were identical across SIMD settings
+was wrong: the AVX-512 switch used the NumPy 1.x names (`AVX512F`, `AVX512_SKX`, ...), which NumPy 2.x ignores (its dispatch
+targets are `X86_V4`, `X86_V3`, `AVX512_ICL`, `AVX512_SPR`), so that variant never disabled anything. Disabling glibc's FMA
+paths also changes `math.exp`, `math.pow` and `sin`/`cos`, so the result also assumes an FMA-capable x86-64 CPU (every CPU
+since 2013). Fix: `voss/__init__.py` (and the Makefile and workflows, since pytest imports NumPy first) set
+`NPY_DISABLE_CPU_FEATURES="X86_V4 X86_V3 AVX512_ICL AVX512_SPR"` before NumPy is imported, which leaves the SSE4 baseline that
+every x86-64 CPU supports; `voss.core.numerics.canary()` hashes the transcendental functions on fixed inputs, every manifest
+records it, and `voss run` warns when it differs from the reference. Not covered: ARM and other operating systems or C libraries,
+where the statistical conclusions (10 paired seeds) remain the portable claim. Consequence: the results of run 39039446984
+(AVX-512 hosts) are replaced by a full rerun under the pin; the diagnostics now use the correct names.

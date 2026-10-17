@@ -2,6 +2,10 @@
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
+# D-70: pin NumPy's SIMD dispatch (voss/__init__.py does it too, but pytest imports NumPy first).
+ifeq ($(shell uname -m),x86_64)
+export NPY_DISABLE_CPU_FEATURES=X86_V4 X86_V3 AVX512_ICL AVX512_SPR
+endif
 
 UV ?= uv
 RUN = $(UV) run

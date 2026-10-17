@@ -10,6 +10,7 @@ jobs:
       OMP_NUM_THREADS: 1
       OPENBLAS_NUM_THREADS: 1
       MKL_NUM_THREADS: 1
+      NPY_DISABLE_CPU_FEATURES: X86_V4 X86_V3 AVX512_ICL AVX512_SPR
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
