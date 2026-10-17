@@ -133,3 +133,4 @@ start-up (by cache/ladder level) + network + execution + retries. Each term is a
 | 08 | State, operational DB, protocols, worker readiness |
 | 09 | Reliability vs reputation, attested receipts, credits |
 | 10 | Calibration harness and single-box emulation testbed |
+| 11 | Component contracts: inputs, outputs, decisions, objectives and constraints of every mechanism |

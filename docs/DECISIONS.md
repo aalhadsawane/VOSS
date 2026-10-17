@@ -417,3 +417,12 @@ reports). `voss/core/detmath.py` replaces those calls by exactly rounded element
 kernel and SIMD settings. Consequence: results generated before this change are not reproducible bit for bit on other
 CPUs and are replaced by a full rerun under the new arithmetic (new `paper/run-hashes.csv`, tables, figures, manuscript
 numbers). `tools/diag/numeric_repro.sh` and the `numeric-diagnostic` workflow check the property on any machine.
+
+**D-69 Documentation brought in line with the code, and the objectives written down** (P11). Reading the code against the
+design documents for the manuscript found three divergences, now recorded where they occur: (1) the fast loop's wait estimate
+is a queue-length formula (`max(0, busy + queued + inflight − slots + 1) · svc / slots`), not the per-slot residual-time
+`ready_at` of doc 08 §5; (2) host assurance is `a_substrate × f_policy`; staleness is handled through certificate expiry, not a
+continuous `f_fresh` factor (doc 04 §8); (3) the scheduler's start-up, trust and network costs are calibrated constants, not
+learned online (doc 03 §9). Doc 03 §1a states what each loop minimises and why SLO violations are minimised per invocation
+by the placer but not by the planner; doc 03 §9 classifies every scheduler input as observed, learned, forecast, calibrated or
+configured; doc 01 §10 describes how a run works; doc 11 lists the contract of every mechanism. No behaviour changed.
