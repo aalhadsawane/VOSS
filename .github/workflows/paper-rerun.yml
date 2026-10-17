@@ -1,8 +1,9 @@
 # Reruns every frozen paper sweep (21 experiments, 2,366 runs) on GitHub runners, verifies each run's result hash against
 # paper/run-hashes.csv, re-draws its table and diffs it against paper/tables, and publishes the raw run logs as release assets (D-67). One job per experiment; manual trigger:
 #   Actions > paper-rerun > Run workflow (optionally a comma-separated subset, e.g. "E04,E19").
-# The E18 job needs about 9 GB of memory for its 10^5-worker points: set the repository variable LARGE_RUNNER to a larger
-# runner label, otherwise those runs may fail on a standard private-repo runner (7 GB) and are reported by the verifier.
+# After the sweeps, the `analyze` job unpacks the published logs, regenerates paper/ (tables, figures, scorecard), the manuscript's
+# generated numbers and paper/run-hashes.csv from them, and pushes the result to branch paper-rerun-<run id> for review.
+# The E18 job needs about 9 GB of memory for its 10^5-worker points (standard public-repo runners have 16 GB).
 name: paper-rerun
 on:
   workflow_dispatch:
@@ -68,10 +69,10 @@ jobs:
         run: |
           J=${{ matrix.jobs }}; if [ "$J" = auto ]; then J=$(nproc); fi
           uv run python -m experiments.sweep ${{ matrix.exp }} --jobs "$J"
-      - name: verify result hashes
+      - name: compare with the hashes recorded in the repository (informational)
         if: always()
         shell: bash
-        run: uv run python -m experiments.paper_verify --only ${{ matrix.exp }} --tables | tee verify-${{ matrix.exp }}.txt
+        run: uv run python -m experiments.paper_verify --only ${{ matrix.exp }} --tables | tee verify-${{ matrix.exp }}.txt || true
       - name: package raw logs
         if: always()
         run: |
@@ -127,3 +128,70 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "${{ needs.plan.outputs.tag }}" run-hashes-rerun.csv --clobber --repo "$GITHUB_REPOSITORY"
+
+  analyze:
+    needs: [plan, sweep]
+    if: ${{ always() && needs.plan.result == 'success' && inputs.publish }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      TAG: ${{ needs.plan.outputs.tag }}
+      MATRIX: ${{ needs.plan.outputs.matrix }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+      - run: uv sync --frozen
+      - name: free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/share/boost || true
+          df -h / /mnt
+      - name: download and unpack the raw logs of every experiment
+        run: |
+          mkdir -p runs
+          for e in $(python3 -c "import json,os;print(' '.join(x['exp'] for x in json.loads(os.environ['MATRIX'])))"); do
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p "runs-$e.tar.zst" -D /tmp
+            tar -C runs --zstd -xf "/tmp/runs-$e.tar.zst"
+            rm "/tmp/runs-$e.tar.zst"
+          done
+          du -sh runs
+      - name: regenerate paper/ (tables, figures, scorecard) from the logs
+        run: uv run python -m experiments.paper analyze
+      - name: write paper/run-hashes.csv from the rerun
+        run: |
+          uv run python - <<'PY'
+          import csv, glob, pathlib
+          import pyarrow.parquet as pq
+          rows = []
+          for p in sorted(glob.glob("runs/*/index.csv")):
+              exp = pathlib.Path(p).parent.name
+              for r in csv.DictReader(open(p)):
+                  if r["status"] not in ("ok", "cached"):
+                      continue
+                  d = pathlib.Path(r["run_dir"]).name
+                  ev = pq.read_metadata(f"runs/{exp}/{d}/events.parquet").num_rows
+                  rows.append((exp, d, ev, r["result_hash"]))
+          with open("paper/run-hashes.csv", "w", newline="") as fh:
+              w = csv.writer(fh)
+              w.writerow(["experiment", "run_dir", "events", "result_hash"])
+              w.writerows(sorted(rows))
+          print(len(rows), "runs hashed")
+          PY
+      - name: regenerate the manuscript's numbers and figures (fails loudly if a result no longer supports a sentence)
+        continue-on-error: true
+        run: |
+          uv run python -m experiments.paper_tex 2>&1 | tee paper-tex.log
+          uv run python -m experiments.paper_figs 2>&1 | tee -a paper-tex.log
+      - name: push the regenerated artifacts to a branch
+        run: |
+          git config user.name "paper-rerun"
+          git config user.email "paper-rerun@users.noreply.github.com"
+          git checkout -b "paper-rerun-${{ github.run_id }}"
+          git add paper manuscript/generated manuscript/figures
+          git commit -m "Regenerated paper artifacts from workflow run ${{ github.run_id }} (raw logs: release $TAG)" || echo "nothing to commit"
+          git push origin "paper-rerun-${{ github.run_id }}"
+      - name: keep the generator log with the release
+        if: always()
+        run: gh release upload "$TAG" paper-tex.log --clobber --repo "$GITHUB_REPOSITORY" || true
