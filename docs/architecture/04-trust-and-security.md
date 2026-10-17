@@ -143,7 +143,7 @@ sequenceDiagram
 - **Exposure of tenant *t*** over a horizon = `E_t = Σ_{j ∈ KeyHolders(t)} (1 − a_j)`: the assurance-weighted
   number of distinct hosts holding *t*'s key or decrypted artifacts.
 - **Host assurance** `a_j = a_substrate × f_fresh(time since last quote) × f_policy(firmware known-good vs TOFU)`.
-  It lies in [0,1] and is configurable.
+  It lies in [0,1] and is configurable. *Implementation note (D-69):* the verifier computes `a_j = a_substrate × f_policy`; staleness is handled by certificate expiry (a host whose certificate expires inside the planning horizon is not provisioned), not by a continuous `f_fresh` factor.
 - **Tenant sensitivity class** `σ_t ∈ {low, medium, high}` weights exposure in the planner (doc 03 §4). High-sensitivity
   tenants also get an assurance floor (`a_j ≥ a_min`).
 - Exposure is a **transparent proxy**, not a probability of compromise. Results are shown as Pareto fronts

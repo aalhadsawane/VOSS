@@ -135,7 +135,7 @@ All messages are typed dataclasses in `core/messages.py`, sent with `net.send` (
 - **trust flags:** `K = {tenant ids with keys present}`; plan actions in progress / confirmed;
 - `load`, `drain_deadline` (hint), `session_expiry`, `outcomes_retained_until`.
 
-**Readiness, computed by the scheduler** (single source of predictions; policies stay pure):
+**Readiness, as designed** (*implementation note, D-69: the shipped code uses the simpler queue-length estimate `wait = max(0, busy + queued + inflight − slots + 1) · svc / slots`, with `svc` the scheduler's EWMA of observed execution times; the per-slot residual `ready_at` below is not implemented*). **Readiness, computed by the scheduler** (single source of predictions; policies stay pure):
 
 ```
 age            = now − view.as_of

@@ -20,6 +20,80 @@ All decision logic lives in `voss/policy` as **pure functions** of views, plans 
 - None of these is a per-assignment additive cost, and none should be solved per request.
 - Placement is latency-critical and decomposes well, so it stays cheap.
 
+## 1a. What is minimised, at which level, and why not SLO violations directly
+
+Scheduling here has **two objectives at two levels**, and neither is "the number of SLO violations" summed over a run.
+This section states exactly what each loop minimises, what it is constrained by, and why. Every symbol is defined once;
+Section 9 states for each input whether it is observed, learned from history, forecast, calibrated or configured.
+
+**The quantity we care about (the evaluation metric).** For an invocation *i* of class `sync` with deadline `D_i`, an
+*SLO violation* is the event `V_i = {attempt fails} ∪ {end-to-end latency > D_i}`. The deadline is
+`D_i = k_f · (w_f(in_i) + 0.05 s)` where `w_f` is the reference-core execution time of the function at its input size and
+`k_f = 5` for sync functions (`world/workload.py`). We *report* violations (deadline-met fraction, success, P99) in every
+experiment. Whether the scheduler *minimises* them directly depends on the level:
+
+| Level | Minimises | Subject to | Is it SLO violations? |
+|---|---|---|---|
+| **Fast loop** (per invocation) | `J(i,j) = w_i·P_miss(i,j) + ε·E[T_ij] + λ_exp·x_ij` over candidate hosts *j* | eligibility (valid attested session, not past a drain deadline, assurance ≥ tenant floor, filler headroom), top-K pruning, admission, hedge budget | **Yes, per invocation:** `P_miss` is the probability that this invocation violates its SLO (failure counts as a violation). Latency `ε·E[T]` and exposure `λ_exp·x` are regularizers. |
+| **Slow loop** (per cluster, every `T_plan`) | `Σ_t Λ_t u_t + donor memory/SSD cost + λ·Σ σ_t(1−a_j) y_tj + κ_switch·Σ(y−y_prev)⁺ − β·Σ b_f(w+γ s)` (doc 03 §4.2) | robust coverage of the demand quantile `q_t` (any `f_t` hosts may defect), slots, memory, SSD, failure-domain caps, assurance floor, freshness | **No, by design.** It minimises a *surrogate* of violation risk (uncovered demand `u_t`, i.e. invocations that would have to take the trust-cold path) *plus* the two costs SLOs do not see: donor resources and key exposure. |
+| **Router** (per request) | `rtt + E[completion_c] + health_c + trust_cold_c + cold_fn_c` over clusters *c* | cluster has free slots and is not excluded | Partly: `health_c = health_s · max(0, miss_rate_c − θ)` penalises clusters whose *observed* violation rate exceeds θ. |
+
+### Fast loop: the per-invocation objective
+
+For invocation *i* (tenant *t*, remaining deadline budget `b_i = D_i − (now − t_arrive,i)`) and candidate host *j*:
+
+```
+P_miss(i,j) = p_fail(i,j) + (1 − p_fail(i,j)) · P( T_ij > b_i )              # a failure is a violation
+p_fail(i,j) = 1 − S_j(ē_ij + 2 s) · (1 − p_j)                              # session end or omission; ē = predicted mean run time
+T_ij        = max(wait_j, trust_ij, fetch_ij) + rest_ij + net_ij + exec_ij   # completion time; moment-matched shifted log-normal
+                                                                                 # (variance of the non-execution part taken as (0.3·max(...))²)
+x_ij        = σ_t · (1 − a_j)  if j does not yet hold tenant t's key, else 0 # exposure increment
+J(i,j)      = w_i · P_miss(i,j) + ε · E[T_ij] + λ_exp · x_ij                 # default scalarizer `slo_miss`
+```
+
+Defaults (`configs`, tag *assumed*): `w_i = 1` for sync and `0.3` for async/filler, `ε = 0.05` per second, `λ_exp = 1`,
+`σ ∈ {low 0.1, medium 1, high 3}`. Units are **miss-equivalents**: one second of expected latency is priced like a 5%
+increase in violation probability, and giving a medium-sensitivity tenant's key to a new host of assurance 0.8 costs
+`1·(1−0.8) = 0.2`, i.e. the same as a 20% chance of violating the SLO. The greedy placer takes invocations in order of
+tightest remaining budget and assigns each the host with minimum `J`, adding a per-slot penalty for hosts already chosen
+in the same call (`policy/place/greedy.py`).
+
+**Why per-invocation violation probability and not "P99".** P99 is a statistic of a population and cannot be assigned to
+one decision. Minimising each invocation's own violation probability against its own remaining budget is the decision-level
+quantity whose average is the deadline-miss rate and whose tail is the P99; E03 compares it with expectation-, quantile-,
+CVaR- and tardiness-based scalarizers (`expected`, `mean_spread`, `quantile`, `cvar`, `tardiness`).
+
+### Slow loop: why the planner does not minimise SLO violations directly
+
+The planner decides *which hosts hold keys and warm state for the next horizon `H`* (`H = horizon_factor · T_plan = 60 s`).
+Minimising violations directly was rejected for five reasons:
+
+1. **Circularity.** Whether an invocation violates its SLO depends on the fast loop's later decisions, which depend on the
+   plan. A planner that minimised violations would have to optimise over the placer's policy (a bilevel problem) per solve.
+2. **No per-request information.** At planning time the individual invocations do not exist. What exists is a *forecast*
+   of demand; the planner can only reason about capacity relative to that forecast.
+3. **Rare, noisy events.** Violations are 1–5% events. A planner optimising an empirical or simulated violation count would
+   chase variance; a coverage constraint at a chosen demand quantile is stable and interpretable.
+4. **Violations are not the only cost.** Pre-warming everything would minimise violations and hold every tenant's key on
+   every host. The scarce resources are donor memory/disk and key exposure (Section 4.2 of doc 04). The planner is
+   therefore a *cost minimisation under a coverage requirement*, and the trade-off is reported as a Pareto front (E23).
+5. **Hard SLO constraints are infeasible in general.** Under churn and adversaries no plan can guarantee a deadline; a
+   robust coverage requirement against *any `f_t` defectors* is the strongest statement that does not assume a model of
+   the adversary (doc 03 §4.2).
+
+**How the planner still serves the SLO.** The robust coverage constraint is a *chance-constraint surrogate*: with arrivals
+modelled as Poisson, the number of concurrently running invocations of tenant *t* is Poisson with mean `λ_t · s_t`
+(M/G/∞), so `q_t = Q_0.95(λ_t · s_t)` slots are enough to run every invocation immediately with probability 0.95 under the
+forecast. Requiring provisioned, available capacity `Σ_j S_j(H)(1−p_j) c_tj ≥ q_t` even after removing the `f_t` largest
+allocations bounds the share of invocations that must fall back to the trust-cold path, which is the dominant cause of
+SLO violations on volunteer hosts. Uncovered demand `u_t` is priced at `Λ_t = 10` per slot, two orders of magnitude above
+the per-unit memory price (`ρ_mem = 10⁻⁴` per MB, i.e. 0.05 for a 512 MB VM) and the exposure price (≈0.2 per added key
+holder), so coverage is satisfied unless it is infeasible within budgets, in which case the shortfall is reported
+(`PLAN_INFEASIBLE`). The Poisson model is the planner's *assumption*: the simulated arrivals are a Markov-modulated process with 4× bursts, so coverage is below 95% during bursts. This is a design rationale, not a theorem; the actual violation rate is measured by the experiments.
+
+**What is deliberately not optimised.** No explicit P99 target, throughput, fairness across donors, or provider cost; the
+reference-cloud comparison (E17) reports cost after the fact. Reputation never enters `p_fail` (doc 09 §1).
+
 ## 2. Orchestrator: cluster arrangement
 
 Provider-run, trusted, assumed reliable; state in the operational DB (doc 08).
@@ -146,7 +220,9 @@ host that is not yet warm.
 For each candidate pair `(i, j)` the cost model (`policy/cost`) produces named components:
 
 ```
-wait       = ready_at[j] (per-core readiness, doc 08 §5)
+wait       = max(0, busy_j + queued_j + inflight_j − slots_j + 1) · svc / slots_j      # queue-length estimate (implemented)
+                                                                                 # svc = scheduler's EWMA of observed execution times;
+                                                                                 # doc 08 §5 describes a per-slot residual-time `ready_at`, which is not implemented (D-69)
 trust      = 0 if K[t,j]=1 else KBS_rtt(j, t) + check
 startup    = ladder cost from the worker's cache level for f (L3 ≈ 0, L2 restore@tier, L1 boot+init@tier, L0 fetch+…)
 net        = input + output transfer over geo network (+TLS)
@@ -241,3 +317,48 @@ Only the planner needs it, for:
 Placement decomposes into assignment/flow. Experiment E04 compares MILP vs greedy planner vs no planner. **Kill
 criterion:** if the MILP improves P99 by < 5% over greedy in all regimes, greedy becomes the method and the MILP is
 reported as an upper-bound reference.
+
+## 9. Information model: what each decision uses, and from where
+
+Policies never see ground truth. Every input to a decision is one of five kinds, and this table states which, for every
+quantity used by the planner, placer, router, hedger and detectors (code: `runtime/schedlib/*`, `policy/*`).
+
+| Kind | Meaning |
+|---|---|
+| **O** observed | Reported by an attested agent or trusted router by message; stale by at most the heartbeat period (2 s) plus network delay, with the scheduler's own dispatches since the last report added (`inflight`) |
+| **H** learned from history | An estimator updated online from *past outcomes only* |
+| **F** forecast | A quantity computed from H-quantities for the future (a horizon, an upcoming window) |
+| **C** calibrated model | A constant or formula fixed before the run, from the calibration bundle, the function catalogue or the geography model; **not** learned online |
+| **P** policy | Configured by the tenant or operator (weights, floors, budgets) |
+
+| Quantity | Used by | Kind | Source and update rule | Before enough data |
+|---|---|---|---|---|
+| Slots, memory/SSD budgets, speed, link rates, location, tier, session start | planner, placer | O (static, at `JOIN`) | worker agent's declared envelope; **speed and link rates are taken as exact** | n/a |
+| Busy, queued slots, cache tier per function, provisioned tenants, session expiry, drain deadline | placer, planner | O | heartbeat every `heartbeat_s = 2 s`; dispatches since then counted as `inflight`; a worker whose report is older than `stale_after_s = 7 s` is not included in plans | worker left out of the plan |
+| Assurance `a_j` | planner, placer | O (certified) | issued by the verifier from the substrate, quote freshness, firmware policy | n/a |
+| Execution time of a function on a host | placer | **H** | Bayesian log-linear regression per function, forgetting factor 0.995, per-worker offsets shrunk to 0 (prior count 5), conformal spread over the last 500 residuals | prior from the function catalogue (`work_ref_s`, `size_exp`, σ = 0.35) |
+| Predicted completion `T_ij` | placer | **F** | wait + trust + start-up + network + execution, moment-matched to a shifted log-normal | as above |
+| Wait for a slot | placer | **O + H** | occupancy from heartbeats × scheduler's EWMA service time (weights 0.98/0.02) | `svc = 1 s` |
+| Start-up and trust-establishment time per tier and substrate | placer, planner | **C** | means of the substrate profile's transitions (calibration bundle); **not** re-learned online | n/a |
+| Network RTT and transfer time | placer, router | **C** | great-circle distance / (100 km per ms) × 1.3 route factor, bytes / declared link rate; **no jitter and no measurement** | n/a |
+| Session survival `S_j(τ)` | planner, placer | **H → F** | per-tier Weibull by censored maximum likelihood on completed sessions and live ages, refit every 60 s; 24-bin local-hour hazard multiplier after 48 session ends; drain notices only shorten | prior shape 0.7, scale 7200 s until 20 sessions of the tier have ended |
+| Omission probability `p_j` | planner, placer, detectors | **H** | Beta posterior of accepted invocations that returned no result, mid-session only; CUSUM (k = 0.1, h = 5) resets the host to Beta(2, 4) | Beta(0.5, 20), mean 0.024 |
+| Arrival rate per tenant and function | planner | **H → F** | counts in 10 s bins; EWMA with τ = 60 s and 900 s; forecast = max(short, long, regional rate pushed by routers); a key is planned only if its forecast rate is at least `min_rate = 0.01/s` and it is among the top 20 tenants / 50 functions | rate 0 (not planned until seen) |
+| Demand quantile `q_t` | planner | **F** | Poisson 95% quantile of `rate × service time` (concurrency of an M/G/∞ system); service time per key is an EWMA (0.9/0.1) of observed execution times | catalogue `work_ref_s` |
+| Warm benefit `b_f` | planner | **F + C** | `rate · H · (rootfs/500 MB/s + boot + init) / warm units` (start-up seconds saved) | n/a |
+| Tenant sensitivity σ, assurance floor, robustness `f_t` | all | **P** | tenant configuration; default `f_t = ⌈0.1 · N_cluster⌉` | n/a |
+| Objective weights (`Λ`, `ρ`, `λ`, `ν`, `β`, `γ`, `ε`) | planner, placer | **P** (tag *assumed*) | configuration; swept in E04, E19, E23 | n/a |
+| Cluster load, SLO-miss rate, overhead, cold prices, provisioned capacity | router | **O** | scheduler summary every `summaries_s = 1 s`; cold prices are what the cluster *measured* (D-33), with prior 3 s and 0.5 s until measured | priors |
+
+**What is never used.** The true session end time, true runtime and noise of an invocation, a host's true adversarial
+behaviour, future arrivals, and other hosts' true state. A lint rule and `import-linter` forbid `voss.policy` from
+importing `voss.world`. The `plan_oracle` baseline, which does use ground truth, exists for analysis only.
+
+**How much is history versus forecast.** The slow loop is mostly forecast: demand and survival over a 60 s horizon,
+extrapolated from rates smoothed over minutes (τ = 60 s, 900 s) and from session-length statistics accumulated over the
+whole run. The fast loop is mostly observation: occupancy, cache state and provisioning are at most a few seconds old, and
+only the execution-time distribution, survival over the next few seconds and omission probability are statistical
+estimates. The **speculative** parts are exactly those marked C: the scheduler assumes start-up costs and network
+times equal the calibrated nominal values, and that declared speeds are exact. In a deployment these would be measured
+online; that this POC does not do so is a stated limitation, and E11-style error-injection sweeps (prediction noise,
+stale views) are not part of the paper's experiments.

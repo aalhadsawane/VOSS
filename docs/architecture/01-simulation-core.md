@@ -120,3 +120,65 @@ class Network:                     # world/network.py
 - 10⁵ workers with greedy placement, coarse heartbeats and a short horizon.
 - Vectorize cost matrices; keep per-worker state in struct-of-arrays; profile before optimizing.
 - The planner MILP runs per cluster every `T_plan`, so its cost is amortized.
+
+## 10. How a run works, end to end (methodology)
+
+This section states what the simulation is, what technology implements it, and what goes in and comes out. It is the
+reference for the paper's "Simulator" section.
+
+**Technology.** Python 3.11; a hand-written single-threaded discrete-event kernel (`core/kernel.py`: a binary heap of
+`(time, sequence, callback)` entries, lazy cancellation, virtual time in seconds); `numpy` (vectorized cost matrices and
+random streams, PCG64 generators), `scipy` (HiGHS mixed-integer solver for the reference planner, `linear_sum_assignment`
+and min-cost flow for window placement, special functions), `pandas`/`pyarrow` (Parquet logs and analysis), `pydantic`
+(a frozen, validated configuration tree) and `PyYAML` (configuration and substrate profiles). No general-purpose
+simulation framework (SimPy and similar) is used: no existing simulator models attestation or trust establishment (§1),
+and a callback kernel keeps ordering fully explicit and bit-reproducible.
+
+**Inputs of a run.** (1) A YAML configuration tree (`extends` chains, `key.path=value` overrides) validated into a frozen
+`RunConfig`; its hash identifies the run. (2) A seed. (3) A *calibration bundle*: measured or placeholder distributions
+for attestation, boot, snapshot and hashing costs (doc 10). (4) Substrate profiles (YAML) and the function catalogue.
+
+**Step 1: scenario generation** (`world/scenario.generate`). From `(config, seed)` and named random streams, generate once
+and hash the *exogenous* traces: the worker table (hardware class, tier, city from a ~100-metro table, link, failure
+domain, identity), the session trace of every worker (when it boots, attests, drains, ends), the adversary trace,
+the invocation arrival trace (function, tenant, origin city, input size, class, deadline) and per-invocation noise
+multipliers. Every compared system replays the *same* scenario (common random numbers).
+
+**Step 2: system construction** (`runtime/voss_system.py`). Create the kernel, the geographic network, the resource
+servers (CPU slots, SSD/HDD, access links, TPM, one quote at a time) and the actors: one `WorkerAgent` per worker, a
+`SchedulerRole` per cluster (instantiated on appointment), regional `Router`s, the `Orchestrator`, `Verifier`, `Registry`,
+operational DB, `TenantKbs` and `Accounting`. Drivers turn the traces into scheduled events.
+
+**Step 3: the event loop.** Pop the earliest event, set `now`, run its callback. Callbacks send messages with
+`net.send(src, dst, msg, size)`, which schedules delivery after the geographic delay unless an endpoint is down or
+partitioned; start a simulated activity as a chain of timed continuations over resource servers (FIFO or processor
+sharing); or arm timers. Actors never call each other. A policy decision takes effect after a *decision latency*
+charged by the decision clock (fitted `a + b·size` in `modeled` mode, wall clock in `measured` mode). A session end
+destroys the host's actors' memory (keys, warm VMs).
+
+**Step 4: termination and checks.** Run to the horizon plus a drain period, then check run invariants (`runtime/invariants.py`:
+no execution outside an attested session or on an expired certificate, no tenant key used without a release in the same
+session, every invocation ends in exactly one terminal outcome, no dispatch accepted under a stale epoch, the latency
+components of every invocation sum to its total, and the receipt log is complete and matches ground truth).
+
+**Outputs of a run.** Parquet tables written by the `Recorder` (one row per invocation with a latency decomposition into
+`route, batch_wait, decide, wait, trust, startup, net_in, exec, net_out, retry`; plus `events`, `plans`, `solver`,
+`cache`, `samples`, `messages`, `receipts`, `credits`, `reputation`, `predictions`) and a `manifest.json` (git SHA, resolved
+config, scenario hash, calibration hash, seed, library versions, clock mode, **result hash** over the logs). All metrics are
+computed offline from the logs.
+
+**What is simulated, calibrated or assumed.**
+
+| Aspect | Status |
+|---|---|
+| Event ordering, message delay structure, queueing at node resources, session lifecycle, scheduling logic | simulated (the scheduler code is the code under test) |
+| TPM quote, hashing, microVM boot and snapshot costs on the appliance substrate | **measured** on one laptop (doc 10); others are literature ranges |
+| Network RTT (great-circle model with route factor and lognormal jitter), access link rates | modelled from public formulas; rates are assumed distributions |
+| Session lengths, donor tiers, adversary prevalence and strategies, arrival process | **assumed** (no public consumer-donation trace); shapes follow availability studies |
+| Function execution times | profile priors from literature-based catalogue plus heavy-tailed noise |
+
+**Determinism and its limit.** A run is a pure function of `(config, seed, code)` provided the arithmetic is platform
+independent. Linear algebra in the simulator uses fixed-order, exactly rounded operations (`core/detmath.py`, D-68) because
+BLAS kernels differ between CPUs; transcendental functions (`exp`, `log`) come from numpy and the C library and may in
+principle differ across operating systems and architectures. Bit-for-bit reproduction has been verified across two x86-64
+CPU families and five numeric settings; statistical conclusions (10 seeds, paired) are the portable claim.
