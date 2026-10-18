@@ -60,8 +60,8 @@ verifiable through attested receipts instead of a blockchain.
 formulate volunteer FaaS scheduling as the management of attested session state with explicit establishment cost,
 perishability and exposure (Sections~\ref{sec:background}, \ref{sec:trust}).
 \item \textbf{Two-timescale scheduling.} A robust provisioning planner with cardinality-constrained coverage plus a
-cost-based placer with risk-proportional hedging (Section~\ref{sec:sched}). We find that a greedy planner matches the exact
-mixed-integer solution within our pre-set threshold.
+cost-based placer with risk-proportional hedging (Section~\ref{sec:sched}). We find no detectable advantage of the exact
+mixed-integer solution over a greedy planner at our sample size.
 \item \textbf{Fault tolerance without volunteer consensus.} Progress-based detection of gray failures, lease and epoch-fenced
 scheduler failover on soft state, and attested receipts for accounting (Section~\ref{sec:ft}).
 \item \textbf{A calibrated, reproducible evaluation.} A deterministic simulator with parameters measured on a TPM-equipped
@@ -74,6 +74,5 @@ Managing attested session state is the largest lever: planning lowers sync P99 b
 planning and \GreedyKeepMed--\GreedyKeepHigh\% against keep-alive under medium and high churn. Progress-based detection is
 decisive against omitting owners. \voss{} meets a 3\,s sync P99 target in most cells of two regime maps where the strongest
 simple baseline never does, but the simple baseline is the only feasible system on confidential-VM substrates at high load.
-Several designed components do not pay off: geo-clustering is slower than a single scheduler at our scale, the exact solver
-adds at most \MilpGreedyHigh\% over greedy planning, reputation changes P99 by \RepPNinetyninePct\%, and a commercial-style
+Several designed components do not pay off: geo-clustering is slower than a single scheduler at our scale, the exact solver's advantage over greedy planning (\MilpGreedyHigh\% at high churn) is not distinguishable from zero, reputation changes P99 by \RepPNinetyninePct\%, and a commercial-style
 reference has lower latency. All results are from simulation and a single calibration machine (Section~\ref{sec:threats}).

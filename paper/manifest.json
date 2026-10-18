@@ -34,7 +34,7 @@
     "paper/tables/ECS1-measured.md",
     "paper/tables/ECS1-sim.md"
   ],
-  "git_sha": "0a07bbfa7506c5a08f5d9bd0b7624387e2047c96",
+  "git_sha": "2026b15e95a85d30adc2c5c736b21ff1f1e49147",
   "runs": {
     "E03": {
       "failed": 0,
