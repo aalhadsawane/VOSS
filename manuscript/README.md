@@ -8,7 +8,7 @@ First draft for an IEEE Transactions submission (`IEEEtran`, journal mode). `mak
 - `figures/` (do not edit): drawn by `experiments/paper_figs.py` from the same tables.
 - `sections/*.tex`: prose, in the order introduction, background and problem, related work, system overview, trust, scheduling, fault tolerance, simulator and protocol, evaluation (by research question), discussion; use the macros (`\HOnePctNoneMed`, `\ViabAPThreeVoss`, ...) for every number. Macro names contain no digits.
 - `diagrams/*.tex`, `diagram-styles.tex`: TikZ figures (architecture, invocation sequence, session and start-up tiers, attestation, control loops, failover); compile one on its own with a `standalone` wrapper to iterate on layout.
-- `draft/voss-draft5.pdf`: built PDF of the current draft, with the regenerated results of run 39039446984 (draft4 kept for comparison) (rebuild with `make manuscript`).
+- `draft/voss-draft6.pdf`: built PDF of the current draft, with the results of run 39066209828 under the SIMD pin (draft5 kept for comparison) (rebuild with `make manuscript`).
 - `refs.bib`: written from memory; **verify every entry** (entries marked "TODO verify" first) before submission.
 
 Open items: author list and affiliations (`main.tex`), target-journal template (class options), related-work completeness, bibliography check, a real-testbed validation.
