@@ -4,11 +4,11 @@
 \textbf{H} & \textbf{Claim} & \textbf{Exp.} & \textbf{Cell} & \textbf{$\Delta$ rel. [95\% CI]} & \textbf{Verdict} \\
 \midrule
 
-H1 & MILP planner cuts sync P99 vs no planning & E04 & churn\_med & -54.6\% {\scriptsize[-105.6, -13.6]} & \textbf{supported} \\
-H1 & MILP planner cuts sync P99 vs no planning & E04 & churn\_high & -60.2\% {\scriptsize[-96.8, -26.1]} & \textbf{supported} \\
-H1 & ... and vs keep-alive TTL & E04 & churn\_med & -28.9\% {\scriptsize[-57.6, -8.3]} & \textbf{supported} \\
-H1 & ... and vs keep-alive TTL & E04 & churn\_high & -57.7\% {\scriptsize[-117.5, -11.0]} & \textbf{supported} \\
-H1 & donor memory held warm: MILP vs keep-alive TTL (cost side) & E04 & churn\_med & +112.3\% {\scriptsize[+90.7, +129.4]} & -- \\
+H1 & MILP planner cuts sync P99 vs no planning & E04 & churn\_med & -54.5\% {\scriptsize[-105.8, -12.6]} & \textbf{supported} \\
+H1 & MILP planner cuts sync P99 vs no planning & E04 & churn\_high & -62.5\% {\scriptsize[-100.3, -27.0]} & \textbf{supported} \\
+H1 & ... and vs keep-alive TTL & E04 & churn\_med & -28.7\% {\scriptsize[-57.6, -7.7]} & \textbf{supported} \\
+H1 & ... and vs keep-alive TTL & E04 & churn\_high & -60.2\% {\scriptsize[-124.6, -12.2]} & \textbf{supported} \\
+H1 & donor memory held warm: MILP vs keep-alive TTL (cost side) & E04 & churn\_med & +109.8\% {\scriptsize[+90.2, +125.8]} & -- \\
 H2 & f-robust plans keep success where non-robust collapse ($\alpha$=0.2 mixed) & E08 & mixed $\alpha$=0.2 & -0.1\% {\scriptsize[-0.3, +0.0]} & inconclusive \\
 H3 & Pareto front has a knee; moderate exposure loses little latency & E23 &  & +1.6\%  & \textbf{supported} \\
 H4 & progress detection beats heartbeat-only on success under $\alpha$=0.2 & E08 & mixed $\alpha$=0.2 & -3.2\% {\scriptsize[-4.3, -2.1]} & \textbf{supported} \\
@@ -16,11 +16,11 @@ H5 & appliance warm start $\approx$ Firecracker without attestation (L3) & E-CS1
 H5 & appliance snapshot start $\approx$ Firecracker without attestation (L2) & E-CS1 (sim) &  & +2.5\%  & \textbf{supported} \\
 H5 & CVM classes are 10-100x slower than the appliance to establish trust & E-CS1 (sim) &  & -92.7\%  & \textbf{refuted} \\
 H6 & GDSF + P2P + HDD tier beat LRU without P2P/HDD (sync P99) & E09 &  & +2.8\% {\scriptsize[-2.9, +11.9]} & inconclusive \\
-H6 & ... GDSF vs LRU alone & E09 &  & +1.6\% {\scriptsize[-0.2, +4.0]} & inconclusive \\
+H6 & ... GDSF vs LRU alone & E09 &  & +1.7\% {\scriptsize[-0.2, +4.1]} & inconclusive \\
 H7 & geo clusters reduce sync P99 vs one global scheduler (EU) & E05 & regions=[eu] & +17.3\% {\scriptsize[+12.5, +22.0]} & \textbf{refuted} \\
 H7 & ... EU+NA & E05 & regions=[eu, na] & +16.6\% {\scriptsize[+5.2, +33.1]} & \textbf{refuted} \\
 H7 & ... world & E05 & regions=[] & +4.5\% {\scriptsize[+0.9, +8.7]} & \textbf{refuted} \\
-H8 & planner MILP beats greedy by $\geq$5\% sync P99 (high churn) & E04 & churn\_high & -2.5\% {\scriptsize[-5.8, +0.5]} & inconclusive \\
+H8 & planner MILP beats greedy by $\geq$5\% sync P99 (high churn) & E04 & churn\_high & -8.1\% {\scriptsize[-20.8, +1.1]} & inconclusive \\
 H9 & distribution-aware (quantile) beats expectation-only on P99 at high churn & E03 & churn\_high, name=blr & -2.8\% {\scriptsize[-5.3, -0.8]} & weak \\
 H10 & accounting is off the critical path: settlement period 10 s vs 300 s & E13 & faults=[] & +1.5\% {\scriptsize[-0.2, +4.2]} & \textbf{supported} \\
 H10 & ... receipt batch 0.2 s vs 5 s & E13 & faults=[] & -1.0\% {\scriptsize[-3.3, +1.0]} & \textbf{supported} \\
@@ -28,7 +28,7 @@ H11 & simple baseline matches VOSS when homogeneous, stable and benign & E10 & h
 H-FT1 & progress detection vs heartbeat-only: success with a black-holed scheduler & E15 & faults=sched\_blackhole & +3.2\% {\scriptsize[+2.7, +3.7]} & \textbf{supported} \\
 H-FT3 & risk-proportional hedging ($\theta$=.3, 5\%) cuts sync P99 under $\alpha$=0.1 & E16 & mixed $\alpha$=0.1 & -13.3\% {\scriptsize[-32.5, +1.4]} & inconclusive \\
 H-FT3 & ... at what extra-attempt cost & E16 & mixed $\alpha$=0.1 & +253.0\% {\scriptsize[+182.6, +332.0]} & -- \\
-RQ15 & VOSS vs Lambda-like reference, sync P99 at 20 inv/s & E17 & rate=20 & +14.0\% {\scriptsize[+10.6, +17.9]} & -- \\
+RQ15 & VOSS vs Lambda-like reference, sync P99 at 20 inv/s & E17 & rate=20 & +14.1\% {\scriptsize[+10.4, +18.3]} & -- \\
 E12 & reputation tie-break (beta-decay) improves sync P99 vs no reputation & E12 &  & -2.4\% {\scriptsize[-4.4, -0.8]} & weak \\
 E12 & ... and success rate & E12 &  & -0.0\% {\scriptsize[-0.0, +0.0]} & inconclusive \\
 \bottomrule

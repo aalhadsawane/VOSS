@@ -61,12 +61,15 @@ def _greedy_macros(g: Gen, d: pd.DataFrame) -> None:
             dm, _, _ = paired_by_seed(sub, "plan_greedy", lab, "p99_sync")
             g.mac(f"Greedy{name}{tag}", f"{abs(100 * dm / sub[sub.label == lab].p99_sync.mean()):.0f}")
             expect(dm < 0, f"greedy planner beats {lab} at {regime}")
-        dm, _, _ = paired_by_seed(sub, "plan_milp", "plan_greedy", "p99_sync")
-        g.mac(f"MilpGreedy{tag}", f"{abs(100 * dm / sub[sub.label == 'plan_greedy'].p99_sync.mean()):.1f}")
-        expect(
-            abs(dm / sub[sub.label == "plan_greedy"].p99_sync.mean()) < 0.05,
-            f"kill criterion: MILP < 5% over greedy ({regime})",
-        )
+        dm, lo, hi = paired_by_seed(sub, "plan_milp", "plan_greedy", "p99_sync")
+        base = sub[sub.label == "plan_greedy"].p99_sync.mean()
+        g.mac(f"MilpGreedy{tag}", f"{abs(100 * dm / base):.1f}")
+        g.mac(f"MilpGreedy{tag}Best", f"{abs(100 * lo / base):.0f}")  # largest gain the 95% interval allows
+        g.mac(f"MilpGreedy{tag}Worst", f"{abs(100 * hi / base):.0f}")  # ... and the largest loss
+        expect(dm < 0, f"MILP not worse than greedy ({regime})")
+        expect(lo < 0 < hi, f"MILP vs greedy interval includes zero ({regime}): the draft calls H8 inconclusive")
+        # The pre-set 5% rule (doc 03 §8): the draft states honestly which regimes are below it.
+        g.mac(f"MilpGreedy{tag}Below", "below" if abs(dm / base) < 0.05 else "above")
 
 
 def ablations(g: Gen) -> None:
