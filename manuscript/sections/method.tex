@@ -49,11 +49,7 @@ filler classes, Zipf-skewed popularity, a Markov-modulated Poisson arrival proce
 a fraction $\alpha$ of workers that behave as omitting (black-hole, random omission, on--off, throttling, fake drain notices, or a colluding failure domain); by Property 1 none forges results or reads keys on an attested substrate, while the \texttt{none} substrate
 admits both.
 
-\textbf{Reproducibility and its limits.} All randomness comes from named, seeded streams, so a run is a function of its scenario and seed; iteration order is sorted wherever it affects results. A result hash over the raw tables is recorded in each manifest, and a command re-runs a manifest and asserts it.
-A last-bit difference in a prediction can flip a near-tie in placement and then the whole trajectory diverges, so the arithmetic must not depend on the CPU. We found two sources and removed both. First, BLAS kernels differ between microarchitectures; the small regression in the execution-time estimator therefore uses fixed-order exactly rounded operations (\texttt{math.fsum}) instead of BLAS.
-Second, NumPy's transcendental functions (\texttt{exp}, \texttt{log}, \texttt{power}, and others) have separate AVX-512, AVX2 and SSE4 implementations whose last bits differ; GitHub assigns both kinds of CPU to jobs of one workflow, and a first verification rerun failed for this reason. We pin NumPy's SIMD dispatch to the SSE4 baseline before it is imported, and every manifest records a canary hash of these functions on fixed inputs.
-With both changes the result hashes of a probe experiment were identical on four CPU models (one Intel and three AMD) and two Ubuntu releases. The remaining assumption is an x86-64 CPU with fused multiply-add and the GNU C library; ARM and other C libraries are not bit-comparable, so for them the portable claim is statistical (ten paired seeds), not bit-identical output.
-Per-run raw logs are published with the artifact, and all analysis reads logs only.
+\textbf{Reproducibility.} A run is a function of its scenario and seed, and its raw tables carry a result hash recorded in a manifest. Section~\ref{sec:repro} states how results are reproduced, on which hardware, and what was verified.
 
 \subsection{Calibration}
 \label{sec:calib}
@@ -89,3 +85,61 @@ The feasibility maps of Section~\ref{sec:res-viab} thus state \emph{where} each 
 \textbf{Baselines.} Baselines use the same simulator, candidates and cost model and differ only in the registered policy. For planning: \emph{no planning} (reactive cold path), \emph{keep-alive TTL}, \emph{greedy planner}, and MILP ablations. For detection: heartbeat-only. For robustness: $f=0$. The \emph{simple baseline} combines static regional
 clusters, nearest-region routing, least-loaded placement, keep-alive and no hedging; a variant runs without attestation (substrate \texttt{none}), which is what volunteer FaaS does without security. Commercial-style references (\emph{Lambda-like}, \emph{Azure-like}) are always-on datacenter hosts in the
 router metros with per-function keep-alive (10 and 20\,min) and nearest-region routing, priced from list prices; they run on the same engine so differences stem from policy and substrate, not the simulator.
+
+\subsection{Reproducibility and requirements}
+\label{sec:repro}
+Every number, table and figure in Section~\ref{sec:results} is regenerated from raw run logs by committed scripts, and the runs themselves are
+\emph{bit-reproducible}: re-executing a run gives raw tables with the same result hash. Floating-point simulation is bit-reproducible only under stated
+conditions, so Table~\ref{tab:repro} lists them and Table~\ref{tab:reprochecks} reports what we checked.
+
+\textbf{Mechanisms.} All randomness comes from named, seeded streams, events at equal times are ordered by a fixed key, and iteration order is sorted wherever
+it can affect results. Each run writes a manifest with its scenario hash, the calibration-bundle hash, a numeric canary (below) and a SHA-256 result hash over the raw
+tables; \texttt{voss repro} re-runs a manifest and asserts the hash, and the hashes of all runs in this paper are committed with the artifact. Analysis reads logs only.
+
+\textbf{Why the CPU matters.} A last-bit difference in a prediction can flip a near-tie in placement, after which the whole trajectory diverges, so the arithmetic must not
+depend on the processor. We found two sources and removed both. BLAS kernels differ between microarchitectures, so the small regression in the execution-time estimator uses fixed-order
+exactly rounded operations (\texttt{math.fsum}) instead. NumPy's transcendental functions (\texttt{exp}, \texttt{log}, \texttt{power}, and others) have separate AVX-512, AVX2 and SSE4
+implementations whose last bits differ, and GitHub assigns both kinds of CPU to jobs of one workflow. A first verification rerun failed for this reason (no run of one experiment matched,
+and table cells differed by up to 7.7\%). We now pin NumPy's SIMD dispatch to the SSE4 baseline, which every x86-64 CPU supports, before NumPy is imported, and each manifest
+records a canary hash of the transcendental functions on fixed inputs; \texttt{voss run} warns if it differs from the reference.
+
+\begin{table}[t]
+\caption{Requirements to reproduce the results bit-for-bit.}
+\label{tab:repro}
+\centering\scriptsize
+\begin{tabular}{@{}p{0.2\columnwidth}p{0.74\columnwidth}@{}}
+\toprule
+CPU & x86-64 with fused multiply-add (every Intel and AMD CPU since 2013). AVX-512 is neither required nor used: the pin selects the SSE4 baseline, so AVX2 and AVX-512 machines agree. \\
+Operating system & Linux with the GNU C library (tested: Ubuntu 22.04 and 24.04, glibc 2.35 and 2.39). \\
+Software & Python 3.11 and the dependency versions in the committed lockfile (NumPy 2.x, SciPy with HiGHS, pandas, PyArrow); \texttt{NPY\_DISABLE\_CPU\_FEATURES="X86\_V4 X86\_V3 AVX512\_ICL AVX512\_SPR"}, which the package, the Makefile and the CI workflows set. \\
+Special hardware & None: no TPM, reboot or BIOS access. The calibration bundle is committed; the reboot-based calibration harness (Section~\ref{sec:calib}) is not part of reproduction. \\
+Compute & 21 experiments, 2{,}366 runs. About four hours of wall-clock time as 21 parallel jobs on GitHub-hosted runners; compressed raw logs are 0.1--0.7\,GB per experiment. \\
+Not covered & ARM, other operating systems and other C libraries are not bit-comparable; for them the portable claim is statistical (ten paired seeds). Wall-clock columns (solver time, simulated seconds per second) vary by machine, are informational and are excluded from the hashes. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\caption{Reproduction checks. A run \emph{matches} if its result hash equals the recorded one.}
+\label{tab:reprochecks}
+\centering\scriptsize
+\begin{tabular}{@{}p{0.25\columnwidth}p{0.4\columnwidth}p{0.25\columnwidth}@{}}
+\toprule
+Check & Machines & Outcome \\
+\midrule
+Before the pin (one experiment, 50 runs) & GitHub runners with AVX-512 versus AVX2-only CPUs & 0 of 50 match \\
+After the pin (probe experiment) & Intel Xeon Platinum 8573C; AMD EPYC 9V74, 9V45 and 7763 (the last without AVX-512); Ubuntu 22.04 and 24.04 & identical hashes on all \\
+Full sweep, re-executed & independently provisioned GitHub runners, all 21 experiments & 2{,}366 of 2{,}366 match; all tables identical \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\par\smallskip\noindent\textbf{Reproducing.} With the lockfile installed, the following regenerates the runs, compares them with the recorded hashes, and rebuilds this document.
+{\footnotesize
+\begin{verbatim}
+uv sync --frozen
+make paper          # 21 specs x 10 seeds
+make paper-verify   # compare hashes
+voss repro runs/E09/<run>/manifest.json
+make manuscript
+\end{verbatim}}
