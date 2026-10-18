@@ -5,7 +5,7 @@
 under churn, lifecycle-aware placement and planning are the two largest contributors in the ablation, and progress-based detection is what keeps success high when owners omit. These statements concern mechanisms and are supported by paired intervals; they
 hold across churn regimes and adversary fractions in the feasibility maps rather than at one operating point.
 
-\textbf{What it does not.} Four expected benefits did not materialize. First, geo-clustering is slower than a single scheduler and holds several times the exposure at our scale. Second, the exact MILP is not demonstrably better than the greedy planner, so its cost is justified only by
+\textbf{What it does not.} Four expected benefits did not materialize. First, geo-clustering is slower than a single scheduler and holds several times the exposure at our scale. Second, the exact MILP is not demonstrably better than the greedy planner (its point estimate at high churn is \MilpGreedyHigh\%, but the interval includes zero), so its cost is justified only by
 the coverage guarantee, which we could not show matters for \emph{success}. Third, caching sophistication and reputation tie-breaking change P99 by a few percent at most, and credit under the current rules is extremely concentrated. Fourth, a commercial-style reference has lower
 latency, and \voss{} is cheaper per invocation only once the fixed control plane is amortized. None of this contradicts the premise that volunteer hardware can serve latency-sensitive functions at some SLO; it narrows which components earn their complexity. A leaner \voss{} (attestation,
 a greedy robust planner, a cost-based placer with hedging, progress-based detection and epoch-fenced failover, plus receipts) is the version our evidence favors.
