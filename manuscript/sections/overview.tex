@@ -19,10 +19,9 @@ parties take part.
 \begin{figure*}[t]
 \centering
 \resizebox{\textwidth}{!}{\input{diagrams/arch}}
-\caption{\voss{} architecture. Shading marks who is trusted for what: blue, the provider-operated control plane (availability and
-accounting, never tenant secrets); green, attested code running on owner-controlled hardware; orange, the tenant-operated key
-broker; grey, the owner's hardware, which is untrusted. Numbered flows follow one invocation (Fig.~\ref{fig:seq}); dashed arrows are
-control traffic off the hot path.}
+\caption{\voss{} architecture and trust boundaries. Shading shows who is trusted for what: the provider control plane for availability and
+accounting but never for tenant secrets, attested code on owner-controlled hardware, the tenant-operated key broker, and the owner's untrusted
+hardware. Numbered flows follow one invocation (Fig.~\ref{fig:seq}); the dashed flow is control traffic off the hot path.}
 \label{fig:arch}
 \end{figure*}
 

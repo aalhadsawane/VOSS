@@ -1,45 +1,53 @@
+% Architecture figure (Fig. 2). Native width 180 mm; everything sits on a grid so no label lies on a box.
+% Rows: clients and legend, provider control plane, volunteer cluster / tenant domain. y runs downwards.
 \begin{tikzpicture}[x=1mm,y=1mm]
-  % ---------- clients ----------
-  \node[box, minimum height=9mm, minimum width=18mm] (client) at (10,-33) {Clients};
-  % ---------- provider control plane ----------
-  \node[zone, fill=blue!4, minimum width=180mm, minimum height=33mm, anchor=north west] (prov) at (24,-16) {};
-  \node[font=\scriptsize\bfseries, anchor=north west] at ([xshift=2mm,yshift=-0.5mm]prov.north west) {Provider control plane (trusted for availability and accounting; never holds tenant secrets)};
-  \node[prov, minimum width=26mm, minimum height=11mm] (router) at (40,-36) {Regional routers\\[-1pt]\tinyx pending table,\\[-2pt]\tinyx progress watchdogs,\\[-2pt]\tinyx receipts};
-  \node[prov, minimum width=26mm, minimum height=11mm] (orch)   at (72,-36) {Orchestrator\\[-1pt]\tinyx cluster membership,\\[-2pt]\tinyx scheduler appointment};
-  \node[prov, minimum width=26mm, minimum height=11mm] (ver)    at (104,-36) {Verifier + registrar\\[-1pt]\tinyx appraises quotes,\\[-2pt]\tinyx issues session certs};
-  \node[prov, minimum width=26mm, minimum height=11mm] (reg)    at (136,-36) {Artifact registry\\[-1pt]\tinyx encrypted code bundles,\\[-2pt]\tinyx root file systems};
-  \node[store, minimum width=15mm] (db) at (188,-36) {Ops\\DB};
-  \draw[dotted] ([yshift=3mm]router.north) -- ([yshift=3mm]db.north);
-  \foreach \n in {router,orch,ver} {\draw[dotted] (\n.north) -- ([yshift=3mm]\n.north);}
-  \draw[dotted] (db.north) -- ([yshift=3mm]db.north);
-  % ---------- tenant ----------
-  \node[zone, fill=orange!6, minimum width=38mm, minimum height=26mm, anchor=north west] (tenant) at (166,-62) {};
-  \node[font=\scriptsize\bfseries, anchor=north] at (tenant.north) {Tenant domain};
-  \node[ten, minimum width=30mm, minimum height=12mm] (kbs) at (185,-79) {Key broker service\\[-1pt]\tinyx releases secrets only to\\[-2pt]\tinyx attested hosts};
-  \node[zone, dashed, minimum width=38mm, minimum height=14mm, anchor=north west, fill=gray!4] (other) at (166,-93) {};
-  \node[font=\tinyx, align=center] at (other) {Other clusters,\\same structure};
-  % ---------- volunteer cluster ----------
-  \node[zone, fill=gray!5, minimum width=106mm, minimum height=51mm, anchor=north west] (vol) at (40,-62) {};
-  \node[font=\scriptsize\bfseries, anchor=south west] at ([xshift=2mm,yshift=11.5mm]vol.south west) {Volunteer cluster: tens of hosts, one active scheduler};
-  \node[att, minimum width=30mm, minimum height=14mm] (sch) at (70,-80) {Scheduler role\\[-1pt]\tinyx placer + planner\\[-2pt]\tinyx soft state, epoch $e$};
-  \node[att, minimum width=36mm, minimum height=22mm, anchor=center, xshift=1.5mm, yshift=-1.5mm] at (127,-81.5) {};
-  \node[att, minimum width=36mm, minimum height=22mm, align=left] (w) at (125.5,-80)
-     {\textbf{Worker: attested appliance}\\[-1pt]\tinyx agent and TPM quote\\[-2pt]\tinyx Firecracker microVMs\\[-2pt]\tinyx keys held in memory only\\[-2pt]\tinyx sealed, encrypted cache};
-  \node[untr, minimum width=98mm, font=\tinyx] (own) at (93,-104) {Owner-controlled: hardware, firmware settings, power, network (untrusted, may omit or delay)};
-  % ---------- numbered flows ----------
-  \draw[msg] (client) -- node[lbl,above]{\circled{1} invoke} (router);
-  \draw[msg] ([xshift=3mm]router.south) -- node[lbl,pos=0.6,left]{\circled{2} ENQUEUE} ([xshift=-8mm]sch.north);
-  \draw[<->, thick] ([xshift=8mm]router.south) -- node[lbl,pos=0.78,above]{\circled{4} INPUT, RESULT + receipt} ([xshift=-10mm]w.north);
-  \draw[msg] (sch.east) -- node[lbl,above,pos=0.5]{\circled{3} DISPATCH} (w.west);
-  \draw[msg] ([xshift=2mm]w.north) -- node[lbl,pos=0.45,right,align=left]{\circled{5} ATTEST,\\ re-quote} ([xshift=3mm]ver.south);
-  \draw[msg] (w.east) -- node[lbl,above]{\circled{6} KEY\_REQUEST} (kbs.west);
-  \draw[msg] ([xshift=12mm]w.north) -- node[lbl,pos=0.5,right]{\circled{7} fetch} ([xshift=-4mm]reg.south);
-  \draw[msg, dashed, <->] (orch.south) -- node[lbl,pos=0.3,right,align=left]{\circled{8} KEEPALIVE, checkpoint\\ $\leftrightarrow$ APPOINT} (sch.north);
-  % legend
-  \begin{scope}[shift={(0,-62)}, font=\tinyx]
-    \node[prov, minimum width=3mm, minimum height=3mm, label=right:provider] at (2,0) {};
-    \node[att, minimum width=3mm, minimum height=3mm, label=right:attested code] at (2,-6) {};
-    \node[ten, minimum width=3mm, minimum height=3mm, label=right:tenant-operated] at (2,-12) {};
-    \node[untr, minimum width=3mm, minimum height=3mm, label=right:untrusted] at (2,-18) {};
+  % ---------- clients and legend ----------
+  \node[box, minimum width=20mm, minimum height=7mm] (client) at (55,-3.5) {Clients};
+  \begin{scope}[font=\tinyx, every node/.style={inner sep=1pt}]
+    \node[prov, minimum size=3mm] (l1) at (96,-3.5)  {};  \node[anchor=west] at (l1.east) {provider};
+    \node[att,  minimum size=3mm] (l2) at (118,-3.5) {};  \node[anchor=west] at (l2.east) {attested code};
+    \node[ten,  minimum size=3mm] (l3) at (143,-3.5) {};  \node[anchor=west] at (l3.east) {tenant-operated};
+    \node[untr, minimum size=3mm] (l4) at (167,-3.5) {};  \node[anchor=west] at (l4.east) {untrusted};
   \end{scope}
+  % ---------- provider control plane ----------
+  \node[zone, fill=blue!4, minimum width=180mm, minimum height=27mm, anchor=north west] (prov) at (0,-12) {};
+  \node[font=\scriptsize\bfseries, anchor=north east] at (178,-13)
+       {Provider control plane: availability and accounting, never tenant secrets};
+  \node[prov, minimum width=30mm, minimum height=16mm] (orch)   at (20,-27)  {\textbf{Orchestrator}\\[-1pt]\tinyx cluster membership\\[-2pt]\tinyx scheduler appointment};
+  \node[prov, minimum width=30mm, minimum height=16mm] (router) at (55,-27)  {\textbf{Regional routers}\\[-1pt]\tinyx pending table\\[-2pt]\tinyx progress watchdogs\\[-2pt]\tinyx receipts};
+  \node[prov, minimum width=30mm, minimum height=16mm] (ver)    at (90,-27)  {\textbf{Verifier + registrar}\\[-1pt]\tinyx appraises quotes\\[-2pt]\tinyx issues session certificates};
+  \node[prov, minimum width=30mm, minimum height=16mm] (reg)    at (125,-27) {\textbf{Artifact registry}\\[-1pt]\tinyx encrypted code bundles\\[-2pt]\tinyx root file systems};
+  \node[store, minimum width=18mm, minimum height=10mm] (db)    at (160,-27) {\textbf{Ops DB}};
+  % ---------- volunteer cluster ----------
+  \node[zone, fill=gray!5, minimum width=128mm, minimum height=47mm, anchor=north west] (vol) at (0,-50) {};
+  \node[att, minimum width=34mm, minimum height=18mm] (sch) at (20,-66.5)
+       {\textbf{Scheduler role}\\[-1pt]\tinyx placer + planner\\[-2pt]\tinyx soft state, epoch $e$};
+  \node[att, minimum width=62mm, minimum height=20mm] at (88.5,-68) {};   % second worker, drawn behind
+  \node[att, minimum width=62mm, minimum height=20mm] (w) at (87,-66.5)
+       {\textbf{Worker (attested appliance)}\\[2pt]{\tinyx\begin{tabular}{@{}l@{\hspace{3mm}}l@{}}agent + TPM quote & keys held in memory only\\ Firecracker microVMs & sealed, encrypted cache\end{tabular}}};
+  \node[font=\scriptsize\bfseries, anchor=west] at (2,-83) {Volunteer cluster: tens of hosts, one active scheduler};
+  \node[untr, minimum width=122mm, minimum height=7mm, font=\tinyx] (own) at (64,-91)
+       {Owner-controlled: hardware, firmware settings, power, network. Untrusted; may omit or delay.};
+  % ---------- tenant domain ----------
+  \node[zone, fill=orange!6, minimum width=40mm, minimum height=26mm, anchor=north west] (tenant) at (140,-50) {};
+  \node[font=\scriptsize\bfseries, anchor=north] at (160,-51) {Tenant domain};
+  \node[ten, minimum width=34mm, minimum height=14mm] (kbs) at (160,-66.5)
+       {\textbf{Key broker service}\\[-1pt]\tinyx releases secrets only\\[-2pt]\tinyx to attested hosts};
+  \node[zone, dashed, fill=gray!4, minimum width=40mm, minimum height=17mm, anchor=north west] (other) at (140,-80) {};
+  \node[font=\tinyx, align=center] at (other) {Other clusters,\\same structure};
+  % ---------- numbered flows: one invocation (Fig. 3); dashed = control traffic off the hot path ----------
+  \draw[msg] (55,-7) -- (55,-19);
+  \node[lbl, anchor=east] at (53.5,-15.5) {\circled{1} invoke};
+  \draw[msg] (47,-35) -- (47,-44.5) -- (28,-44.5) -- (28,-57.5);
+  \node[lbl, anchor=north] at (37.5,-45.3) {\circled{2} ENQUEUE};
+  \draw[msg] (sch.east) -- node[lbl,above]{\circled{3} DISPATCH} (w.west);
+  \draw[<->, thick] (63,-35) -- (63,-56.5);
+  \node[lbl, anchor=west, align=left] at (64.5,-45.5) {\circled{4} INPUT,\\ RESULT + receipt};
+  \draw[msg] (93,-56.5) -- (93,-35);
+  \node[lbl, anchor=west, align=left] at (94.5,-45.5) {\circled{5} ATTEST,\\ re-quote};
+  \draw[msg] (w.east) -- node[lbl,above,xshift=1.5mm]{\circled{6} KEY\_REQUEST} (kbs.west);
+  \draw[msg] (112,-56.5) -- (112,-35);
+  \node[lbl, anchor=west] at (113.5,-45.5) {\circled{7} fetch};
+  \draw[msg, dashed, <->] (12,-35) -- (12,-57.5);
+  \node[lbl, fill opacity=1, align=center] at (12,-46.5) {\circled{8} KEEPALIVE,\\ checkpoint\\ $\leftrightarrow$ APPOINT};
 \end{tikzpicture}
