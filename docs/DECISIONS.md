@@ -445,3 +445,13 @@ every x86-64 CPU supports; `voss.core.numerics.canary()` hashes the transcendent
 records it, and `voss run` warns when it differs from the reference. Not covered: ARM and other operating systems or C libraries,
 where the statistical conclusions (10 paired seeds) remain the portable claim. Consequence: the results of run 39039446984
 (AVX-512 hosts) are replaced by a full rerun under the pin; the diagnostics now use the correct names.
+
+**D-71 The pinned sweep is verified on separately provisioned runners** (P11, doc 01 §8). The full rerun under the D-70 pin
+(workflow run 39066209828, raw logs in release `paper-runs-39066209828`, hashes in `paper/run-hashes.csv`) was re-executed in
+full by a second `paper-rerun` run (39083215670) on independently assigned GitHub runners, which compared every run against the
+committed hashes. All 21 experiments reproduced: 2,366 of 2,366 runs matched their recorded result hash, and every compared
+results table was identical to the committed one except wall-clock columns (`solve_s`, `sim_s_per_s`), which are informational
+and differ by about 6–11% between machines. The runner CPU models were not recorded in that run, so the evidence is "two
+independent provisionings", not "a named CPU pair"; the earlier E09 probe (D-70) covers the named CPUs (one Intel and three AMD
+models, two Ubuntu releases). The earlier releases `paper-runs-38893758691` and `paper-runs-39039446984` are kept because the
+manuscript history refers to them; they were produced without the pin and are not reproducible on other CPU types.
