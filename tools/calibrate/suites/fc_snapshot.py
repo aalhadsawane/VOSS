@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from tools.calibrate.common import drop_caches, is_root
+from tools.calibrate.common import cache_scope, drop_caches
 from tools.calibrate.fc import FcAssets, FcVm, boot_args
 from tools.calibrate.suites import Ctx, Suite
 from tools.calibrate.suites.fc_boot import assets
@@ -49,7 +49,7 @@ def run(ctx: Ctx) -> None:
     base = assets(ctx)
     a = FcAssets(base.firecracker, base.kernel, base.rootfs)  # snapshots use paths outside a jail
     tiers = ctx.dirs() or {"default": ctx.out}
-    caches = ("warm", "cold") if is_root() or ctx.sh.dry_run else ("warm",)
+    caches = ("warm", "cold")  # cold = the snapshot files evicted from the page cache (no root needed)
     for tier, d in sorted(tiers.items()):
         d.mkdir(parents=True, exist_ok=True)
         for mem in MEM_MB:
@@ -69,9 +69,9 @@ def run(ctx: Ctx) -> None:
             for cache in caches:
                 for rep in range(ctx.reps(50)):
                     if cache == "cold":
-                        drop_caches(ctx.sh)
+                        drop_caches(ctx.sh, [state, memf, a.kernel, a.firecracker])
                     api_s, ack_s = restore(ctx, a, state, memf, f"{mem}-{tier}-{cache}-{rep}")
-                    cfg: dict[str, Any] = {"mem_mb": mem, "tier": tier, "cache": cache}
+                    cfg: dict[str, Any] = {"mem_mb": mem, "tier": tier, "cache": cache, "cache_scope": cache_scope()}
                     ctx.rec.add("fc_restore_api", api_s, rep=rep, **cfg)
                     ctx.rec.add("fc_restore", ack_s, rep=rep, **cfg)
             state.unlink(missing_ok=True)

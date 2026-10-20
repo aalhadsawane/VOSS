@@ -7,7 +7,11 @@ FC_VERSION=${FC_VERSION:-v1.10.1}
 CI_VERSION=${CI_VERSION:-v1.10}
 ARCH=$(uname -m)
 mkdir -p "$OUT" && cd "$OUT"
-curl -fsSL "https://github.com/firecracker-microvm/firecracker/releases/download/$FC_VERSION/firecracker-$FC_VERSION-$ARCH.tgz" | tar -xz
+BASE="https://github.com/firecracker-microvm/firecracker/releases/download/$FC_VERSION"
+curl -fsSL -o fc.tgz "$BASE/firecracker-$FC_VERSION-$ARCH.tgz"
+# the release publishes a checksum next to the archive: refuse to unpack anything that does not match
+curl -fsSL "$BASE/firecracker-$FC_VERSION-$ARCH.tgz.sha256.txt" | awk '{print $1"  fc.tgz"}' | sha256sum -c -
+tar -xzf fc.tgz && rm fc.tgz
 cp "release-$FC_VERSION-$ARCH/firecracker-$FC_VERSION-$ARCH" firecracker
 cp "release-$FC_VERSION-$ARCH/jailer-$FC_VERSION-$ARCH" jailer
 key=$(curl -fsSL "http://spec.ccfc.min.s3.amazonaws.com/?prefix=firecracker-ci/$CI_VERSION/$ARCH/vmlinux-&list-type=2" \

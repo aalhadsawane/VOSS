@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import threading
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -176,13 +177,32 @@ def is_root() -> bool:
     return hasattr(os, "geteuid") and os.geteuid() == 0
 
 
-def drop_caches(sh: Shell) -> None:
-    """Cold page cache (root only); callers record whether it happened."""
+def drop_caches(sh: Shell, files: Sequence[Path | str] = ()) -> None:
+    """Cold page cache for the files a measurement reads.
+
+    Default (shared hosts): evict only ``files`` with ``posix_fadvise(DONTNEED)``, which needs no root and leaves other
+    users' cached data alone. Set ``VOSS_CALIB_GLOBAL_DROP=1`` as root for the original machine-wide ``drop_caches``
+    (a dedicated calibration node only). Callers record which scope was used (``cache_scope``)."""
     sh.run(["sync"])
     if sh.dry_run:
-        print("DRY echo 3 > /proc/sys/vm/drop_caches")
+        print("DRY evict page cache of", [str(f) for f in files])
         return
-    Path("/proc/sys/vm/drop_caches").write_text("3\n")
+    if is_root() and os.environ.get("VOSS_CALIB_GLOBAL_DROP") == "1":
+        Path("/proc/sys/vm/drop_caches").write_text("3\n")
+        return
+    advise = getattr(os, "posix_fadvise", None)  # Linux only; the harness runs on the node
+    if advise is None:
+        return
+    for f in files:
+        fd = os.open(str(f), os.O_RDONLY)
+        try:
+            advise(fd, 0, 0, getattr(os, "POSIX_FADV_DONTNEED", 4))
+        finally:
+            os.close(fd)
+
+
+def cache_scope() -> str:
+    return "global" if is_root() and os.environ.get("VOSS_CALIB_GLOBAL_DROP") == "1" else "files"
 
 
 def time_to_marker(argv: list[str], marker: str, timeout: float = 60.0) -> float:

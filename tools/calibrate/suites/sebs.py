@@ -69,8 +69,12 @@ def run(ctx: Ctx) -> None:
             if ctx.sh.dry_run:
                 print(f"DRY sebs fn={fn} concurrency={n} reps={reps}")
                 continue
-            with cf.ThreadPoolExecutor(max_workers=n) as pool:
-                results = list(pool.map(lambda i, f=fn, k=n: one_guest(ctx, a, f, reps, f"{f}-{k}-{i}"), range(n)))
+            try:
+                with cf.ThreadPoolExecutor(max_workers=n) as pool:
+                    results = list(pool.map(lambda i, f=fn, k=n: one_guest(ctx, a, f, reps, f"{f}-{k}-{i}"), range(n)))
+            except (RuntimeError, TimeoutError) as e:  # e.g. a function whose dependencies are not in the image
+                ctx.skip(f"sebs fn={fn} concurrency={n}", 0.0, f"guest failed: {e}")
+                break
             for guest, (init, execs) in enumerate(results):
                 for name, _, _, secs in parse(init, "INIT"):
                     ctx.rec.add("sebs_init", secs, fn=name, concurrency=n, guest=guest)
