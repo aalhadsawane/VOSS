@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from tools.calibrate.common import SuiteSkipped, drop_caches, is_root
+from tools.calibrate.common import SuiteSkipped, cache_scope, drop_caches
 from tools.calibrate.fc import FcAssets, FcVm, boot_args
 from tools.calibrate.suites import Ctx, Suite
 
@@ -61,7 +61,7 @@ def boot_once(ctx: Ctx, a: FcAssets, rootfs: str, mem: int, rep: int) -> tuple[f
 def run(ctx: Ctx) -> None:
     a = assets(ctx)
     tiers = ctx.dirs() or {"default": Path(a.rootfs).parent}
-    caches = ("warm", "cold") if is_root() or ctx.sh.dry_run else ("warm",)
+    caches = ("warm", "cold")  # cold = this run's files evicted from the page cache (no root needed)
     for tier, d in sorted(tiers.items()):
         size_mb = Path(a.rootfs).stat().st_size / 2**20 if Path(a.rootfs).exists() else 0.0
         if not ctx.has_room(d, size_mb):
@@ -75,12 +75,18 @@ def run(ctx: Ctx) -> None:
             for cache in caches:
                 for rep in range(ctx.reps(100)):
                     if cache == "cold":
-                        drop_caches(ctx.sh)
+                        drop_caches(ctx.sh, [rootfs, a.kernel, a.firecracker])
                     if ctx.sh.dry_run:
                         print(f"DRY firecracker boot mem={mem} tier={tier} cache={cache}")
                         break
                     spawn_s, boot_s = boot_once(ctx, a, rootfs, mem, rep)
-                    cfg: dict[str, Any] = {"mem_mb": mem, "tier": tier, "cache": cache, "jailer": bool(a.jailer)}
+                    cfg: dict[str, Any] = {
+                        "mem_mb": mem,
+                        "tier": tier,
+                        "cache": cache,
+                        "jailer": bool(a.jailer),
+                        "cache_scope": cache_scope(),
+                    }
                     ctx.rec.add("fc_spawn", spawn_s, rep=rep, **cfg)
                     ctx.rec.add("fc_boot", boot_s, rep=rep, **cfg)
 

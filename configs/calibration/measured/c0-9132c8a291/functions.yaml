@@ -1,0 +1,103 @@
+functions:
+  compression:
+    init_s: 0.003197
+    interference:
+      1: 1.0
+      2: 1.0148964292022933
+      4: 1.033049179795471
+      8: 1.8383428848434369
+    n: 90
+    size_exp: 0.9545750857192005
+    tag: measured
+    work_ref_s: 0.005328
+  dna-visualisation:
+    init_s: 0.072278
+    interference:
+      1: 1.0
+      2: 1.0217788405055541
+      4: 1.021907778006315
+      8: 1.6795001939127503
+    n: 90
+    size_exp: 1.0227506430119326
+    tag: measured
+    work_ref_s: 0.07842550000000001
+  dynamic-html:
+    init_s: 0.032977
+    interference:
+      1: 1.0
+      2: 1.0434788452130788
+      4: 1.1084771609922217
+      8: 1.834071155379369
+    n: 90
+    size_exp: 0.7860483839752586
+    tag: measured
+    work_ref_s: 2.4000000000000004e-05
+  graph-bfs:
+    init_s: 0.028017
+    interference:
+      1: 1.0
+      2: 1.0409930715935334
+      4: 1.1374133949191685
+      8: 1.663394919168591
+    n: 30
+    size_exp: 0.0
+    tag: measured
+    work_ref_s: 0.0008660000000000003
+  graph-mst:
+    init_s: 0.028253
+    interference:
+      1: 1.0
+      2: 1.0376128385155463
+      4: 1.1439317953861585
+      8: 1.595285857572718
+    n: 30
+    size_exp: 0.0
+    tag: measured
+    work_ref_s: 0.0009970000000000003
+  graph-pagerank:
+    init_s: 0.027852
+    interference:
+      1: 1.0
+      2: 1.025370538415003
+      4: 1.0745235934664248
+      8: 1.704022988505747
+    n: 30
+    size_exp: 0.0
+    tag: measured
+    work_ref_s: 0.013223999999999994
+  thumbnailer:
+    init_s: 0.060922
+    interference:
+      1: 1.0
+      2: 1.021384132431558
+      4: 1.0446796490984693
+      8: 1.5344386376220267
+    n: 90
+    size_exp: 0.6932804275559293
+    tag: measured
+    work_ref_s: 0.003567499999999999
+  uploader:
+    init_s: 0.001136
+    interference:
+      1: 1.0
+      2: 1.0644385901235387
+      4: 1.5164677592973759
+      8: 1.9062784847014937
+    n: 90
+    size_exp: 0.3665623495309883
+    tag: measured
+    work_ref_s: 1.1000000000000006e-05
+  video-processing:
+    init_s: 0.004551
+    interference:
+      1: 1.0
+      2: 1.015214715600859
+      4: 1.077432715810775
+      8: 1.84166213638865
+    n: 90
+    size_exp: 0.10785494278230656
+    tag: measured
+    work_ref_s: 0.173147
+provenance:
+  default: measured
+  note: ingested from raw logs of host c0-9132c8a291 (rule 13)

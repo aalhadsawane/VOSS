@@ -197,7 +197,15 @@ class WorkerAgent(RecoveryMixin, PlannedMixin, FetchMixin, SessionMixin, Actor):
         from voss.world.lifecycle import OpEnv, OpRun  # noqa: PLC0415
 
         h = self.host
-        env = OpEnv(self.kernel, att.gen, speed=h.speed, disks=h.disks, sizes=artifact_sizes(att.fn, 1.0), fn=att.fn)
+        env = OpEnv(
+            self.kernel,
+            att.gen,
+            speed=h.speed,
+            disks=h.disks,
+            sizes=artifact_sizes(att.fn, 1.0),
+            fn=att.fn,
+            backend=h.emu,
+        )
         session = h.session
 
         def done(_d: float) -> None:

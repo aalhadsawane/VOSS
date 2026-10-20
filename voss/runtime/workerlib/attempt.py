@@ -104,6 +104,8 @@ class Attempt:
             sizes=artifact_sizes(self.fn, self.port.touched_frac()),
             tiers={a: t for a, t in tiers.items() if t},
             fn=self.fn,
+            backend=h.emu,
+            in_bytes=self.inv.in_bytes,
         )
         env.rpc = self._rpc
         env.fetch = lambda arts, cont: self.port.fetch(self.fn, arts, cont, self.sources)
@@ -166,10 +168,13 @@ class Attempt:
         self._attribute(now)
         self.port.on_exec_start(self)
         p = self.port.exec_params()
+        timeout = p.timeout_s.get(SLO_CLASSES[int(self.inv.slo_class)], 600.0)
+        if h.emu is not None:  # emulation testbed: the function really runs (doc 10 §4)
+            h.emu.execute(int(h.worker), self.fn, self.inv.in_bytes, timeout, self._done)
+            return
         noise = self.port.noise(int(self.inv.id), self.inv.attempt)
         run = true_runtime(self.fn, self.inv.in_bytes, h.speed, h.slots.busy, h.n_slots, h.cpu_slowdown, noise, p)
         run *= self.port.exec_factor()  # an owner throttling its host (doc 02 §7)
-        timeout = p.timeout_s.get(SLO_CLASSES[int(self.inv.slo_class)], 600.0)
         self.port.kernel.after(min(run, timeout), self._done, run <= timeout)
 
     def _attribute(self, now: float) -> None:

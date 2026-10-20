@@ -1,0 +1,4 @@
+# E01 scenario 2: short sessions, so warm VMs, keys and attested sessions are lost and rebuilt during the run.
+extends: base.yaml
+scenario:
+  regime: churn_e01

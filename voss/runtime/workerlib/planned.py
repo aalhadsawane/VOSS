@@ -100,6 +100,7 @@ class PlannedMixin:
             disks=h.disks,
             sizes=artifact_sizes(fn, 1.0),
             fn=fn,
+            backend=h.emu,
         )
         session = h.session
 
@@ -128,6 +129,7 @@ class PlannedMixin:
             sizes=artifact_sizes(fn, self.touched_frac()),
             tiers=tiers,
             fn=fn,
+            backend=h.emu,
         )
         env.fetch = lambda arts, cont: self.fetch(fn, arts, cont)
         session = h.session

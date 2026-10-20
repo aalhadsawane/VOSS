@@ -1,0 +1,9 @@
+{"config": {}, "probe": "kvm", "rep": 0, "suite": "caps", "unit": "bool", "value": 1.0}
+{"config": {}, "probe": "tpm_device", "rep": 0, "suite": "caps", "unit": "bool", "value": 1.0}
+{"config": {}, "probe": "tme_dmesg", "rep": 0, "suite": "caps", "unit": "bool", "value": 0.0}
+{"config": {}, "probe": "secure_boot", "rep": 0, "suite": "caps", "unit": "bool", "value": 0.0}
+{"config": {}, "probe": "iommu", "rep": 0, "suite": "caps", "unit": "bool", "value": 0.0}
+{"config": {"vendor": ""}, "probe": "tpm_ptt", "rep": 0, "suite": "caps", "unit": "bool", "value": 0.0}
+{"config": {"known": false}, "probe": "tme_cpuid", "rep": 0, "suite": "caps", "unit": "bool", "value": 0.0}
+{"config": {"model": "WDC WD20EZBX-00A", "name": "sda", "rotational": true}, "probe": "disk", "rep": 0, "suite": "caps", "unit": "GB", "value": 2000.4}
+{"config": {"model": "Samsung SSD 980 PRO 1TB", "name": "nvme0n1", "rotational": false}, "probe": "disk", "rep": 0, "suite": "caps", "unit": "GB", "value": 1000.2}

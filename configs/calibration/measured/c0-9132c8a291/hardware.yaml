@@ -1,0 +1,14 @@
+classes:
+  C0:
+    hdd_read_MBps: 250.954394
+    hdd_write_MBps: 238.604396
+    ssd_read_MBps: 6383.089324
+    ssd_write_MBps: 2164.732178
+  E0:
+    hdd_read_MBps: 250.954394
+    hdd_write_MBps: 238.604396
+    ssd_read_MBps: 6383.089324
+    ssd_write_MBps: 2164.732178
+provenance:
+  default: measured
+  note: ingested from raw logs of host c0-9132c8a291 (rule 13)

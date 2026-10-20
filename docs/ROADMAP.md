@@ -118,11 +118,14 @@ map): P0 → P4, then P6 and P10, with P9 in parallel.
   TME, SSD tier, CVM paths (see the notes). Still open: the i7 node C0 (re-ingest replaces the bundle), E01 (needs P9b).
 - `tools/calibrate/` suites (doc 10 §3), `ingest.py`, the measured calibration bundle for C0; manual suites `tme` and
   `appliance` (with user approval).
-- P9b (optional): single-box emulation testbed (doc 10 §4).
+- P9b: single-box emulation testbed (doc 10 §4), unparked for E01 (D-72); code in `tools/emu/`, scenarios in
+  `configs/e01/`, bundle `configs/calibration/measured/c0-9132c8a291` (node C0, non-reboot suites).
 - **Exit:**
   - calibration bundle committed and hashed (done for the stand-in laptop);
   - E-CS1 measured table (done, `docs/pilots/ECS1-measured.md`);
-  - E01 validation errors reported in `docs/validation/` (blocked on P9b; the notes say so).
+  - E01 validation errors reported in `docs/validation/E01.md` (done: success and start-level mix agree, medians within
+    6-23%, latency distributions and light-load tails do not meet the pre-set cut-offs; verdict `partly` in every
+    scenario). The i7 node bundle `c0-9132c8a291` is committed (non-reboot suites; the session boot stays a placeholder).
 
 ## P10 · Paper experiments (M)
 - Freeze configs; run everything with ≥ 10 seeds; E20 viability map; Pareto fronts (E23); negative results.

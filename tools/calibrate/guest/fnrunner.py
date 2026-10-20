@@ -4,6 +4,7 @@ input size ``reps`` times, printing ``VOSS_INIT``/``VOSS_EXEC`` lines on the ser
 from __future__ import annotations
 
 import importlib
+import os
 import re
 import sys
 import time
@@ -16,9 +17,50 @@ def cmdline() -> dict[str, str]:
     return dict(re.findall(r"voss\.(\w+)=(\S+)", text))
 
 
+def serve(fn: str) -> None:
+    """Emulation testbed (doc 10 §4): import ``fn`` once, then run it on demand.
+
+    Serial-console protocol, one command per line:
+    ``PREP <size_kb> <tag>``  make and cache the input, answer ``VOSS_ACK <tag>``;
+    ``RUN <size_kb> <tag>``   run the handler, answer ``VOSS_EXEC <fn> <size_kb> <tag> <handler_s> <total_s>``;
+    ``PING 0 <tag>``          answer ``VOSS_ACK <tag>``.
+    ``VOSS_MARK ready`` follows the import. A snapshot taken while blocked on the read resumes into the same loop."""
+    sys.path.insert(0, "/voss")
+    t0 = time.perf_counter()
+    mod = importlib.import_module("functions." + fn.replace("-", "_"))
+    print(f"VOSS_INIT {fn} 0 0 {time.perf_counter() - t0:.6f}", flush=True)
+    print("VOSS_MARK ready", flush=True)
+    cache: dict[int, object] = {}
+    # commands come from the console; give children (ffmpeg reads stdin!) /dev/null so they cannot eat a request
+    cmds = os.fdopen(os.dup(0), "r")
+    os.dup2(os.open(os.devnull, os.O_RDONLY), 0)
+    for line in cmds:
+        parts = line.split()
+        if len(parts) >= 3 and parts[0] == "PING":
+            print(f"VOSS_ACK {parts[2]}", flush=True)
+        elif (
+            len(parts) >= 3 and parts[0] == "PREP"
+        ):  # make the input ahead of the request (it arrives over the network)
+            cache.setdefault(int(parts[1]), mod.make_input(int(parts[1])))
+            print(f"VOSS_ACK {parts[2]}", flush=True)
+        elif len(parts) >= 3 and parts[0] == "RUN":
+            t_all = time.perf_counter()
+            size = int(parts[1])
+            inp = cache.get(size)
+            if inp is None:
+                inp = cache[size] = mod.make_input(size)
+            t = time.perf_counter()
+            mod.handler(inp)
+            end = time.perf_counter()
+            print(f"VOSS_EXEC {fn} {parts[1]} {parts[2]} {end - t:.6f} {end - t_all:.6f}", flush=True)
+
+
 def main() -> None:
     args = cmdline()
     fn = args["fn"]
+    if args.get("mode") == "fn":
+        serve(fn)
+        return
     sizes = [int(s) for s in args.get("sizes", "1").split(",")]
     reps = int(args.get("reps", "10"))
     sys.path.insert(0, "/voss")

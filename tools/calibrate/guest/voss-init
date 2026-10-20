@@ -14,7 +14,7 @@ case "$mode" in
     echo "VOSS_MARK ready"
     while read -r line; do echo "VOSS_ACK $line"; done
     ;;
-  sebs)
+  sebs|fn)
     /usr/local/bin/python3 /voss/fnrunner.py || echo "VOSS_ERR fnrunner exited $?"
     ;;
   *)

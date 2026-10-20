@@ -1,0 +1,8 @@
+# E01 tenants: those owning the E01 functions.
+# Tenants (doc 02 §8, doc 04 §8): sensitivity class, KBS location, assurance floor, optional robustness opt-down.
+provenance: {default: assumed}
+tenants:
+  - {id: t-web,   sensitivity: low,    kbs_city: Frankfurt,     assurance_floor: 0.0, f: null}
+  - {id: t-media, sensitivity: medium, kbs_city: Washington,    assurance_floor: 0.0, f: null}
+  - {id: t-data,  sensitivity: medium, kbs_city: Singapore,     assurance_floor: 0.0, f: null}
+  - {id: t-graph, sensitivity: low,    kbs_city: London,        assurance_floor: 0.0, f: null}
