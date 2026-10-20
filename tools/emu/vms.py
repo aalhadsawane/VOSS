@@ -83,6 +83,10 @@ class FnVm:
         return self.fc.proc is not None and self.fc.proc.poll() is None
 
     # --- execution ----------------------------------------------------------------------------------------
+    def prep(self, size_kb: int) -> None:
+        """Ask the guest to build the input now (non-blocking); the request that follows then runs on a ready input."""
+        self.fc.send(f"PREP {size_kb} p")
+
     def run(self, size_kb: int, tag: str, timeout_s: float) -> ExecResult:
         """Send one invocation and wait for its ``VOSS_EXEC`` line; a timeout kills the VM."""
         t0 = self.fc.send(f"RUN {size_kb} {tag}")

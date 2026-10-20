@@ -1,0 +1,150 @@
+{"config": {}, "probe": "attest_roundtrip", "rep": 0, "suite": "attest_local", "unit": "s", "value": 0.2277640411630273}
+{"config": {}, "probe": "attest_quote", "rep": 0, "suite": "attest_local", "unit": "s", "value": 0.212452651001513}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 0, "suite": "attest_local", "unit": "s", "value": 0.015086693689227104}
+{"config": {}, "probe": "attest_roundtrip", "rep": 1, "suite": "attest_local", "unit": "s", "value": 0.2332062777131796}
+{"config": {}, "probe": "attest_quote", "rep": 1, "suite": "attest_local", "unit": "s", "value": 0.2165490100160241}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 1, "suite": "attest_local", "unit": "s", "value": 0.016448753885924816}
+{"config": {}, "probe": "attest_roundtrip", "rep": 2, "suite": "attest_local", "unit": "s", "value": 0.2355219917371869}
+{"config": {}, "probe": "attest_quote", "rep": 2, "suite": "attest_local", "unit": "s", "value": 0.22035139426589012}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 2, "suite": "attest_local", "unit": "s", "value": 0.014832839369773865}
+{"config": {}, "probe": "attest_roundtrip", "rep": 3, "suite": "attest_local", "unit": "s", "value": 0.23450909368693829}
+{"config": {}, "probe": "attest_quote", "rep": 3, "suite": "attest_local", "unit": "s", "value": 0.219284787774086}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 3, "suite": "attest_local", "unit": "s", "value": 0.014890058897435665}
+{"config": {}, "probe": "attest_roundtrip", "rep": 4, "suite": "attest_local", "unit": "s", "value": 0.23691246937960386}
+{"config": {}, "probe": "attest_quote", "rep": 4, "suite": "attest_local", "unit": "s", "value": 0.22022911813110113}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 4, "suite": "attest_local", "unit": "s", "value": 0.01633723732084036}
+{"config": {}, "probe": "attest_roundtrip", "rep": 5, "suite": "attest_local", "unit": "s", "value": 0.23532217182219028}
+{"config": {}, "probe": "attest_quote", "rep": 5, "suite": "attest_local", "unit": "s", "value": 0.2202678695321083}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 5, "suite": "attest_local", "unit": "s", "value": 0.014701365493237972}
+{"config": {}, "probe": "attest_roundtrip", "rep": 6, "suite": "attest_local", "unit": "s", "value": 0.23655923828482628}
+{"config": {}, "probe": "attest_quote", "rep": 6, "suite": "attest_local", "unit": "s", "value": 0.2200619876384735}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 6, "suite": "attest_local", "unit": "s", "value": 0.01615985482931137}
+{"config": {}, "probe": "attest_roundtrip", "rep": 7, "suite": "attest_local", "unit": "s", "value": 0.23971176706254482}
+{"config": {}, "probe": "attest_quote", "rep": 7, "suite": "attest_local", "unit": "s", "value": 0.21971443481743336}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 7, "suite": "attest_local", "unit": "s", "value": 0.019676278345286846}
+{"config": {}, "probe": "attest_roundtrip", "rep": 8, "suite": "attest_local", "unit": "s", "value": 0.23913267254829407}
+{"config": {}, "probe": "attest_quote", "rep": 8, "suite": "attest_local", "unit": "s", "value": 0.22234859503805637}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 8, "suite": "attest_local", "unit": "s", "value": 0.016446810215711594}
+{"config": {}, "probe": "attest_roundtrip", "rep": 9, "suite": "attest_local", "unit": "s", "value": 0.2381391106173396}
+{"config": {}, "probe": "attest_quote", "rep": 9, "suite": "attest_local", "unit": "s", "value": 0.22146081738173962}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 9, "suite": "attest_local", "unit": "s", "value": 0.016345221549272537}
+{"config": {}, "probe": "attest_roundtrip", "rep": 10, "suite": "attest_local", "unit": "s", "value": 0.2360429633408785}
+{"config": {}, "probe": "attest_quote", "rep": 10, "suite": "attest_local", "unit": "s", "value": 0.22121322620660067}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 10, "suite": "attest_local", "unit": "s", "value": 0.014497900381684303}
+{"config": {}, "probe": "attest_roundtrip", "rep": 11, "suite": "attest_local", "unit": "s", "value": 0.23545742128044367}
+{"config": {}, "probe": "attest_quote", "rep": 11, "suite": "attest_local", "unit": "s", "value": 0.2198463035747409}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 11, "suite": "attest_local", "unit": "s", "value": 0.015272789634764194}
+{"config": {}, "probe": "attest_roundtrip", "rep": 12, "suite": "attest_local", "unit": "s", "value": 0.23932700604200363}
+{"config": {}, "probe": "attest_quote", "rep": 12, "suite": "attest_local", "unit": "s", "value": 0.2199795413762331}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 12, "suite": "attest_local", "unit": "s", "value": 0.018996747210621834}
+{"config": {}, "probe": "attest_roundtrip", "rep": 13, "suite": "attest_local", "unit": "s", "value": 0.23320880811661482}
+{"config": {}, "probe": "attest_quote", "rep": 13, "suite": "attest_local", "unit": "s", "value": 0.2178651262074709}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 13, "suite": "attest_local", "unit": "s", "value": 0.014993565157055855}
+{"config": {}, "probe": "attest_roundtrip", "rep": 14, "suite": "attest_local", "unit": "s", "value": 0.23558170069009066}
+{"config": {}, "probe": "attest_quote", "rep": 14, "suite": "attest_local", "unit": "s", "value": 0.22053798381239176}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 14, "suite": "attest_local", "unit": "s", "value": 0.014711529947817326}
+{"config": {}, "probe": "attest_roundtrip", "rep": 15, "suite": "attest_local", "unit": "s", "value": 0.22765552066266537}
+{"config": {}, "probe": "attest_quote", "rep": 15, "suite": "attest_local", "unit": "s", "value": 0.21128144953399897}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 15, "suite": "attest_local", "unit": "s", "value": 0.016024653799831867}
+{"config": {}, "probe": "attest_roundtrip", "rep": 16, "suite": "attest_local", "unit": "s", "value": 0.2311741765588522}
+{"config": {}, "probe": "attest_quote", "rep": 16, "suite": "attest_local", "unit": "s", "value": 0.2196065504103899}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 16, "suite": "attest_local", "unit": "s", "value": 0.011235163547098637}
+{"config": {}, "probe": "attest_roundtrip", "rep": 17, "suite": "attest_local", "unit": "s", "value": 0.22820983175188303}
+{"config": {}, "probe": "attest_quote", "rep": 17, "suite": "attest_local", "unit": "s", "value": 0.21158441435545683}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 17, "suite": "attest_local", "unit": "s", "value": 0.01640466321259737}
+{"config": {}, "probe": "attest_roundtrip", "rep": 18, "suite": "attest_local", "unit": "s", "value": 0.23451499082148075}
+{"config": {}, "probe": "attest_quote", "rep": 18, "suite": "attest_local", "unit": "s", "value": 0.21975181624293327}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 18, "suite": "attest_local", "unit": "s", "value": 0.014426211826503277}
+{"config": {}, "probe": "attest_roundtrip", "rep": 19, "suite": "attest_local", "unit": "s", "value": 0.2366780797019601}
+{"config": {}, "probe": "attest_quote", "rep": 19, "suite": "attest_local", "unit": "s", "value": 0.21888647973537445}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 19, "suite": "attest_local", "unit": "s", "value": 0.017448091879487038}
+{"config": {}, "probe": "attest_roundtrip", "rep": 20, "suite": "attest_local", "unit": "s", "value": 0.23872232530266047}
+{"config": {}, "probe": "attest_quote", "rep": 20, "suite": "attest_local", "unit": "s", "value": 0.22180620953440666}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 20, "suite": "attest_local", "unit": "s", "value": 0.016586096957325935}
+{"config": {}, "probe": "attest_roundtrip", "rep": 21, "suite": "attest_local", "unit": "s", "value": 0.23694780841469765}
+{"config": {}, "probe": "attest_quote", "rep": 21, "suite": "attest_local", "unit": "s", "value": 0.22085538133978844}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 21, "suite": "attest_local", "unit": "s", "value": 0.01572810672223568}
+{"config": {}, "probe": "attest_roundtrip", "rep": 22, "suite": "attest_local", "unit": "s", "value": 0.2361145494505763}
+{"config": {}, "probe": "attest_quote", "rep": 22, "suite": "attest_local", "unit": "s", "value": 0.21922846511006355}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 22, "suite": "attest_local", "unit": "s", "value": 0.016563422977924347}
+{"config": {}, "probe": "attest_roundtrip", "rep": 23, "suite": "attest_local", "unit": "s", "value": 0.2458973554894328}
+{"config": {}, "probe": "attest_quote", "rep": 23, "suite": "attest_local", "unit": "s", "value": 0.22091380693018436}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 23, "suite": "attest_local", "unit": "s", "value": 0.024616294540464878}
+{"config": {}, "probe": "attest_roundtrip", "rep": 24, "suite": "attest_local", "unit": "s", "value": 0.23638481087982655}
+{"config": {}, "probe": "attest_quote", "rep": 24, "suite": "attest_local", "unit": "s", "value": 0.2205430632457137}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 24, "suite": "attest_local", "unit": "s", "value": 0.015503445640206337}
+{"config": {}, "probe": "attest_roundtrip", "rep": 25, "suite": "attest_local", "unit": "s", "value": 0.2368085915222764}
+{"config": {}, "probe": "attest_quote", "rep": 25, "suite": "attest_local", "unit": "s", "value": 0.21982649806886911}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 25, "suite": "attest_local", "unit": "s", "value": 0.016631183214485645}
+{"config": {}, "probe": "attest_roundtrip", "rep": 26, "suite": "attest_local", "unit": "s", "value": 0.2319350801408291}
+{"config": {}, "probe": "attest_quote", "rep": 26, "suite": "attest_local", "unit": "s", "value": 0.22095745149999857}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 26, "suite": "attest_local", "unit": "s", "value": 0.010648401454091072}
+{"config": {}, "probe": "attest_roundtrip", "rep": 27, "suite": "attest_local", "unit": "s", "value": 0.23360703699290752}
+{"config": {}, "probe": "attest_quote", "rep": 27, "suite": "attest_local", "unit": "s", "value": 0.2137469630688429}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 27, "suite": "attest_local", "unit": "s", "value": 0.019634854048490524}
+{"config": {}, "probe": "attest_roundtrip", "rep": 28, "suite": "attest_local", "unit": "s", "value": 0.24098160490393639}
+{"config": {}, "probe": "attest_quote", "rep": 28, "suite": "attest_local", "unit": "s", "value": 0.22461451310664415}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 28, "suite": "attest_local", "unit": "s", "value": 0.016026729717850685}
+{"config": {}, "probe": "attest_roundtrip", "rep": 29, "suite": "attest_local", "unit": "s", "value": 0.2377266651019454}
+{"config": {}, "probe": "attest_quote", "rep": 29, "suite": "attest_local", "unit": "s", "value": 0.22036065068095922}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 29, "suite": "attest_local", "unit": "s", "value": 0.01701473258435726}
+{"config": {}, "probe": "attest_roundtrip", "rep": 30, "suite": "attest_local", "unit": "s", "value": 0.23829376231878996}
+{"config": {}, "probe": "attest_quote", "rep": 30, "suite": "attest_local", "unit": "s", "value": 0.22112517897039652}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 30, "suite": "attest_local", "unit": "s", "value": 0.0168446721509099}
+{"config": {}, "probe": "attest_roundtrip", "rep": 31, "suite": "attest_local", "unit": "s", "value": 0.2361389333382249}
+{"config": {}, "probe": "attest_quote", "rep": 31, "suite": "attest_local", "unit": "s", "value": 0.22146247141063213}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 31, "suite": "attest_local", "unit": "s", "value": 0.014338168315589428}
+{"config": {}, "probe": "attest_roundtrip", "rep": 32, "suite": "attest_local", "unit": "s", "value": 0.23715632408857346}
+{"config": {}, "probe": "attest_quote", "rep": 32, "suite": "attest_local", "unit": "s", "value": 0.21328035928308964}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 32, "suite": "attest_local", "unit": "s", "value": 0.023504076525568962}
+{"config": {}, "probe": "attest_roundtrip", "rep": 33, "suite": "attest_local", "unit": "s", "value": 0.22984565142542124}
+{"config": {}, "probe": "attest_quote", "rep": 33, "suite": "attest_local", "unit": "s", "value": 0.2151791537180543}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 33, "suite": "attest_local", "unit": "s", "value": 0.014534755609929562}
+{"config": {}, "probe": "attest_roundtrip", "rep": 34, "suite": "attest_local", "unit": "s", "value": 0.2367575317621231}
+{"config": {}, "probe": "attest_quote", "rep": 34, "suite": "attest_local", "unit": "s", "value": 0.22143676690757275}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 34, "suite": "attest_local", "unit": "s", "value": 0.014964772388339043}
+{"config": {}, "probe": "attest_roundtrip", "rep": 35, "suite": "attest_local", "unit": "s", "value": 0.23635227978229523}
+{"config": {}, "probe": "attest_quote", "rep": 35, "suite": "attest_local", "unit": "s", "value": 0.22129468526691198}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 35, "suite": "attest_local", "unit": "s", "value": 0.014722306281328201}
+{"config": {}, "probe": "attest_roundtrip", "rep": 36, "suite": "attest_local", "unit": "s", "value": 0.23837159480899572}
+{"config": {}, "probe": "attest_quote", "rep": 36, "suite": "attest_local", "unit": "s", "value": 0.22059702407568693}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 36, "suite": "attest_local", "unit": "s", "value": 0.01743018813431263}
+{"config": {}, "probe": "attest_roundtrip", "rep": 37, "suite": "attest_local", "unit": "s", "value": 0.2294781394302845}
+{"config": {}, "probe": "attest_quote", "rep": 37, "suite": "attest_local", "unit": "s", "value": 0.21429658960551023}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 37, "suite": "attest_local", "unit": "s", "value": 0.014840098097920418}
+{"config": {}, "probe": "attest_roundtrip", "rep": 38, "suite": "attest_local", "unit": "s", "value": 0.23450388852506876}
+{"config": {}, "probe": "attest_quote", "rep": 38, "suite": "attest_local", "unit": "s", "value": 0.21847742050886154}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 38, "suite": "attest_local", "unit": "s", "value": 0.01566892210394144}
+{"config": {}, "probe": "attest_roundtrip", "rep": 39, "suite": "attest_local", "unit": "s", "value": 0.2362091550603509}
+{"config": {}, "probe": "attest_quote", "rep": 39, "suite": "attest_local", "unit": "s", "value": 0.22100543230772018}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 39, "suite": "attest_local", "unit": "s", "value": 0.014794792048633099}
+{"config": {}, "probe": "attest_roundtrip", "rep": 40, "suite": "attest_local", "unit": "s", "value": 0.23574919439852238}
+{"config": {}, "probe": "attest_quote", "rep": 40, "suite": "attest_local", "unit": "s", "value": 0.2199137918651104}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 40, "suite": "attest_local", "unit": "s", "value": 0.015495355241000652}
+{"config": {}, "probe": "attest_roundtrip", "rep": 41, "suite": "attest_local", "unit": "s", "value": 0.23665694054216146}
+{"config": {}, "probe": "attest_quote", "rep": 41, "suite": "attest_local", "unit": "s", "value": 0.22026524133980274}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 41, "suite": "attest_local", "unit": "s", "value": 0.016057961620390415}
+{"config": {}, "probe": "attest_roundtrip", "rep": 42, "suite": "attest_local", "unit": "s", "value": 0.22975138667970896}
+{"config": {}, "probe": "attest_quote", "rep": 42, "suite": "attest_local", "unit": "s", "value": 0.21378459129482508}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 42, "suite": "attest_local", "unit": "s", "value": 0.015615218318998814}
+{"config": {}, "probe": "attest_roundtrip", "rep": 43, "suite": "attest_local", "unit": "s", "value": 0.24056057259440422}
+{"config": {}, "probe": "attest_quote", "rep": 43, "suite": "attest_local", "unit": "s", "value": 0.22049494739621878}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 43, "suite": "attest_local", "unit": "s", "value": 0.01971997134387493}
+{"config": {}, "probe": "attest_roundtrip", "rep": 44, "suite": "attest_local", "unit": "s", "value": 0.24046700913459063}
+{"config": {}, "probe": "attest_quote", "rep": 44, "suite": "attest_local", "unit": "s", "value": 0.22072721272706985}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 44, "suite": "attest_local", "unit": "s", "value": 0.019409907050430775}
+{"config": {}, "probe": "attest_roundtrip", "rep": 45, "suite": "attest_local", "unit": "s", "value": 0.2378425383940339}
+{"config": {}, "probe": "attest_quote", "rep": 45, "suite": "attest_local", "unit": "s", "value": 0.22234314121305943}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 45, "suite": "attest_local", "unit": "s", "value": 0.015147794969379902}
+{"config": {}, "probe": "attest_roundtrip", "rep": 46, "suite": "attest_local", "unit": "s", "value": 0.23449814599007368}
+{"config": {}, "probe": "attest_quote", "rep": 46, "suite": "attest_local", "unit": "s", "value": 0.21618099324405193}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 46, "suite": "attest_local", "unit": "s", "value": 0.017966429702937603}
+{"config": {}, "probe": "attest_roundtrip", "rep": 47, "suite": "attest_local", "unit": "s", "value": 0.23826567456126213}
+{"config": {}, "probe": "attest_quote", "rep": 47, "suite": "attest_local", "unit": "s", "value": 0.22114082984626293}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 47, "suite": "attest_local", "unit": "s", "value": 0.016778603196144104}
+{"config": {}, "probe": "attest_roundtrip", "rep": 48, "suite": "attest_local", "unit": "s", "value": 0.23628502804785967}
+{"config": {}, "probe": "attest_quote", "rep": 48, "suite": "attest_local", "unit": "s", "value": 0.22031233552843332}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 48, "suite": "attest_local", "unit": "s", "value": 0.01563912909477949}
+{"config": {}, "probe": "attest_roundtrip", "rep": 49, "suite": "attest_local", "unit": "s", "value": 0.23861552122980356}
+{"config": {}, "probe": "attest_quote", "rep": 49, "suite": "attest_local", "unit": "s", "value": 0.22204343508929014}
+{"config": {"parts": "checkquote+ed25519"}, "probe": "attest_verify", "rep": 49, "suite": "attest_local", "unit": "s", "value": 0.016230483539402485}

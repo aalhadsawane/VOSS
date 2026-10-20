@@ -19,21 +19,32 @@ def cmdline() -> dict[str, str]:
 def serve(fn: str) -> None:
     """Emulation testbed (doc 10 §4): import ``fn`` once, then run it on demand.
 
-    Protocol on the serial console: ``RUN <size_kb> <tag>`` -> ``VOSS_EXEC <fn> <size_kb> <tag> <handler_s> <total_s>``
-    (handler time and time including input generation); ``VOSS_MARK ready`` after the import. A snapshot taken while
-    blocked on the read resumes into the same loop."""
+    Serial-console protocol, one command per line:
+    ``PREP <size_kb> <tag>``  make and cache the input, answer ``VOSS_ACK <tag>``;
+    ``RUN <size_kb> <tag>``   run the handler, answer ``VOSS_EXEC <fn> <size_kb> <tag> <handler_s> <total_s>``;
+    ``PING 0 <tag>``          answer ``VOSS_ACK <tag>``.
+    ``VOSS_MARK ready`` follows the import. A snapshot taken while blocked on the read resumes into the same loop."""
     sys.path.insert(0, "/voss")
     t0 = time.perf_counter()
     mod = importlib.import_module("functions." + fn.replace("-", "_"))
     print(f"VOSS_INIT {fn} 0 0 {time.perf_counter() - t0:.6f}", flush=True)
     print("VOSS_MARK ready", flush=True)
+    cache: dict[int, object] = {}
     for line in sys.stdin:
         parts = line.split()
         if len(parts) >= 3 and parts[0] == "PING":
             print(f"VOSS_ACK {parts[2]}", flush=True)
+        elif (
+            len(parts) >= 3 and parts[0] == "PREP"
+        ):  # make the input ahead of the request (it arrives over the network)
+            cache.setdefault(int(parts[1]), mod.make_input(int(parts[1])))
+            print(f"VOSS_ACK {parts[2]}", flush=True)
         elif len(parts) >= 3 and parts[0] == "RUN":
             t_all = time.perf_counter()
-            inp = mod.make_input(int(parts[1]))
+            size = int(parts[1])
+            inp = cache.get(size)
+            if inp is None:
+                inp = cache[size] = mod.make_input(size)
             t = time.perf_counter()
             mod.handler(inp)
             end = time.perf_counter()

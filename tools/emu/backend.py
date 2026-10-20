@@ -239,7 +239,7 @@ class HostBackend:
         if role == NOOP:
             self.k.after(0.0, cont)
         elif role == CLAIM:
-            self._claim(env.fn, cont)
+            self._claim(env.fn, env.in_bytes, cont)
         elif role == BOOT:
             self._boot(env.fn, cont)
         elif role == RESTORE:
@@ -294,7 +294,7 @@ class HostBackend:
         dq = self.s.claimed.get((self.w, fn))
         return dq.popleft() if dq else None
 
-    def _claim(self, fn: FunctionSpec, cont: Callable[[], None]) -> None:
+    def _claim(self, fn: FunctionSpec, in_bytes: int, cont: Callable[[], None]) -> None:
         vs = self.s.vms.get((self.w, fn.name), [])
         pool = [v for v in vs if v.state == "staged"] or [v for v in vs if v.state == "idle"]
         if pool:
@@ -302,12 +302,13 @@ class HostBackend:
             vs.remove(v)
             v.state, v.since = "claimed", self.k.now
             self.s.claimed.setdefault((self.w, fn.name), deque()).append(v)
+            v.vm.prep(max(1, round(in_bytes / 1024)))  # build the input while the request's data is still on its way
             self.k.after(0.0, cont)
             return
         self.s.count("claim_without_vm")
 
         def after_boot() -> None:
-            self._claim(fn, cont)
+            self._claim(fn, in_bytes, cont)
 
         self._boot(fn, after_boot)
 

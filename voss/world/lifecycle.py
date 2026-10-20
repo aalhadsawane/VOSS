@@ -54,6 +54,7 @@ class OpEnv:
     rpc: RpcHook | None = None
     fetch: FetchHook | None = None
     backend: RealBackend | None = None  # emulation testbed only (doc 10 §4)
+    in_bytes: int = 0  # input size of the invocation the ops serve (the emulation prepares its input ahead)
 
 
 def value(ref: Dist | str | float, env: OpEnv) -> float:

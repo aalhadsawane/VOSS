@@ -62,9 +62,10 @@ def run(ctx: Ctx) -> None:
             if ctx.sh.dry_run:
                 print(f"DRY firecracker snapshot create/restore mem={mem} tier={tier} caches={caches}")
                 continue
-            state, memf, secs = create(ctx, a, d, mem)
-            size_mb = memf.stat().st_size / 2**20
-            ctx.rec.add("fc_snapshot_create", secs, mem_mb=mem, tier=tier, size_mb=size_mb)
+            for rep in range(ctx.reps(10)):  # a distribution, not one sample: the simulator draws from it
+                state, memf, secs = create(ctx, a, d, mem)
+                size_mb = memf.stat().st_size / 2**20
+                ctx.rec.add("fc_snapshot_create", secs, rep=rep, mem_mb=mem, tier=tier, size_mb=size_mb)
             ctx.rec.add("fc_snapshot_mb", size_mb, unit="MB", mem_mb=mem, tier=tier)
             for cache in caches:
                 for rep in range(ctx.reps(50)):

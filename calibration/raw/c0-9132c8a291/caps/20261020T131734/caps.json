@@ -1,0 +1,34 @@
+{
+  "cpu_flags": {
+    "aes": true,
+    "avx2": true,
+    "avx512f": false,
+    "sha_ni": true,
+    "svm": false,
+    "tme": true,
+    "vmx": true
+  },
+  "disks": [
+    {
+      "model": "WDC WD20EZBX-00A",
+      "name": "sda",
+      "rotational": true,
+      "size_gb": 2000.4
+    },
+    {
+      "model": "Samsung SSD 980 PRO 1TB",
+      "name": "nvme0n1",
+      "rotational": false,
+      "size_gb": 1000.2
+    }
+  ],
+  "free": "Mounted on               Avail\n/run               13469933568\n/                 134216237056\n/dev/shm           67364122624\n/run/lock              5242880\n/run/qemu          67364270080\n/boot               1517445120\n/boot/efi           1118617600\n/mnt/hdd         1804646109184\n/mnt/storage    23124983676928\n/mnt/nfs_shared   615690272768\n/run/user/1001     13472845824\n/mnt/beegfs     37660046393344\n/run/user/1006     13472845824\n/run/user/1022     13472845824\n/run/user/1020     13472845824\n/run/user/1010     13472845824\n/run/user/1024     13472845824\n",
+  "iommu": false,
+  "kvm": true,
+  "secure_boot": false,
+  "tme_cpuid": null,
+  "tme_dmesg": false,
+  "tme_msr_0x982": null,
+  "tpm_device": true,
+  "tpm_vendor": ""
+}

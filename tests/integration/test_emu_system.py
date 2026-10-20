@@ -47,6 +47,9 @@ class FakeVm:
         time.sleep(0.02)
         return 0.02
 
+    def prep(self, size_kb: int) -> None:
+        pass
+
     def run(self, size_kb: int, tag: str, timeout_s: float) -> ExecResult:
         time.sleep(0.02)
         return ExecResult(True, 0.02, 0.015, 0.018)
@@ -79,7 +82,6 @@ def test_emulated_run_completes_through_the_backend(tmp_path: Path) -> None:
     assert time.monotonic() - t0 >= 25  # real time: horizon + drain
     inv = res.recorder.frame("invocations")
     ok = inv[inv.outcome == "ok"]
-    print(inv.outcome.value_counts().to_dict(), inv.start_level.value_counts().to_dict())
     assert len(inv) > 20 and len(ok) >= 15
     ev = res.recorder.frame("events")
     kinds = set(ev.kind)

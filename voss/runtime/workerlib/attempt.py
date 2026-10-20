@@ -105,6 +105,7 @@ class Attempt:
             tiers={a: t for a, t in tiers.items() if t},
             fn=self.fn,
             backend=h.emu,
+            in_bytes=self.inv.in_bytes,
         )
         env.rpc = self._rpc
         env.fetch = lambda arts, cont: self.port.fetch(self.fn, arts, cont, self.sources)
