@@ -41,7 +41,7 @@ acceptable attestation result (Section~\ref{sec:provisioning}). The provider doe
 image containing the worker agent, the Firecracker microVM monitor \cite{agache2020firecracker} and the scheduler code. The
 \emph{worker} runs each invocation in its own microVM and keeps a content-addressed, encrypted cache of code and snapshots. The
 \emph{scheduler} is a role: the same image runs on every worker, so any worker can be promoted without booting anything, and one
-worker per cluster is appointed to perform the scheduling functions of Section~\ref{sec:sched}. While the appliance runs, the owner cannot use the machine: donation is a scheduled or dedicated session, not background use of an idle desktop. The host itself (power, network,
+worker per cluster is appointed to perform the scheduling functions of Section~\ref{sec:sched}. We study this placement because it needs no per-cluster provider component and is the harder case for fault tolerance; Section~\ref{sec:schedplace} discusses running the scheduler on the provider instead. While the appliance runs, the owner cannot use the machine: donation is a scheduled or dedicated session, not background use of an idle desktop. The host itself (power, network,
 firmware settings) remains under the owner's control, which is why the scheduler's \emph{host} can still omit or delay even though
 its \emph{code} cannot misbehave.
 

@@ -5,6 +5,10 @@ advisor-prep review of the explainer deck (marked **[U]**), every adjacent probl
 manuscript (**[A]**), and every problem that appears only when two or more criticisms are combined (**[X]**). Each item states the
 critique, the evidence in the repository, the best defense available today, where that defense is weak, and what would resolve it.
 
+**What came after.** `ACTION.md` triages every item below (text, analysis, sweep, code, major), asks the wider questions (novelty,
+utility, feasibility, industry practice, reviewer view), and lists the items that need a major change. Two items were added in that
+round: C-32 and C-33.
+
 **Rules of this document.**
 
 - **No code, configuration or architecture was changed to write it.** Items marked "Resolution options" are options, not actions.
@@ -64,6 +68,8 @@ critique, the evidence in the repository, the best defense available today, wher
 | C-29 | Errors found in our own text | Text, S1 | A |
 | C-30 | Terminology and explanation gaps (all fixed in text) | Text, S3 | U |
 | C-31 | Why is the scheduler on a volunteer host at all? | Design, S1 | X(C-01,C-04,C-17) |
+| C-32 | Which supply is the paper about? | Text, S1 | A (wider lens) |
+| C-33 | Baseline families versus industry cold-start techniques | Eval, S2 | A (wider lens) |
 
 Section 2 gives the cascade map (how items combine) and Section 3 a proposed order for the discussion.
 
@@ -420,7 +426,7 @@ Correlated demand is a second gap. In a CRUD-style application, several function
 
 **Critique.** One volunteer host runs both loops for 10–60 workers. The paper compares this against a single global scheduler (E05) and concludes clustering does not pay. But (a) the question "could one scheduler scale at all?" is not answered at the sizes where it matters; (b) clustering is introduced for scalability, which E05 does not stress; (c) "global" can mean provider-hosted, which changes the trust story.
 
-**Evidence.** See C-28 for the experiment details. E18 reports that decision latency is the scaling limit, yet E05 runs 600 workers (about 225 attested) at 20 inv/s. The scheduler's load per decision is modelled as `a + b·work` with work independent of population (candidates `K = 12`).
+**Evidence.** See C-28 for the experiment details. E18 reports that decision latency is the scaling limit, yet E05 runs 600 workers (about 225 attested) at 20 inv/s. The scheduler's service time is modelled as `a + b·work` with work equal to invocations times hosts in its view (C-28).
 
 **Defense.** The paper restricts its claim to "no population in which geo-clustering wins at the scale we simulate". The scalability result is reported honestly.
 
@@ -562,7 +568,7 @@ Correlated demand is a second gap. In a CRUD-style application, several function
 - 600 workers per run (about 225 of them attested, the rest unattested or off), 15 simulated minutes, 20 invocations per second, 10 seeds.
 - Populations: Europe only, EU plus North America, world. Systems: one global scheduler, static regions, static k-means, dynamic clusters. Cluster size target 30 (between 10 and 60); k-medoids on RTT. Resulting counts (Table XXIII): about 10 clusters in Europe, 7 for EU plus North America, 6 to 7 for the world.
 - With the global scheduler, all attested hosts are in one cluster but the planner pool is capped at 40 (`max_plan_workers`), so the planner provisions keys on at most 40 of about 225 hosts. This is the main reason the global scheduler's exposure is 12–14 while k-means gives 54–63.
-- The decision cost model does not grow with population (placer work is candidates times components, `K = 12`), so a single scheduler is never slowed by 225 hosts or 20 inv/s.
+- The placer's modelled service time is `0.2 ms + 20 µs × (invocations × hosts in the scheduler's view)` and decisions are serialised on one server (`busy_until`), so the global scheduler's service time is about 4.7 ms for 225 hosts (clusters of 30: 0.8 ms). It saturates near 210 inv/s at 225 hosts and near 50 inv/s at 1,000 hosts; E05 runs at 20 inv/s, about 10% utilisation, which is why it cannot show where clustering would pay.
 
 **Defense.** The paper restricts the claim to the simulated scale and reports the exposure cost. Dynamic clusters give a small advantage in some regimes (E06).
 
@@ -613,12 +619,12 @@ Gaps the advisor-prep review found, and what the manuscript and explainer now sa
 
 ### C-31 · Why is the scheduler on a volunteer host at all? `[Design] S1` — origin **X (C-01 × C-04 × C-17)**
 
-**Critique.** The scheduler role runs on a volunteer worker. Everything in §VII that is new (progress detection of schedulers, epoch fencing, soft state with roll call, succession lists, warm standbys, zombie self-fencing) exists *because* the scheduler can crash, stall or be partitioned like any volunteer. A provider-hosted scheduler per cluster would remove all of it, would not be behind NAT (C-01, C-02), would be one datacenter hop from the routers, and would not need to be re-appointed when a home machine reboots. The paper's justification is implicit: provider cost and scalability. But the default planner is the greedy one (8 ms per solve), and the placer's work per decision is bounded by `K = 12` candidates, so scheduling a cluster of tens of workers costs a provider a tiny fraction of a core.
+**Critique.** The scheduler role runs on a volunteer worker. Everything in §VII that is new (progress detection of schedulers, epoch fencing, soft state with roll call, succession lists, warm standbys, zombie self-fencing) exists *because* the scheduler can crash, stall or be partitioned like any volunteer. A provider-hosted scheduler per cluster would remove all of it, would not be behind NAT (C-01, C-02), would be one datacenter hop from the routers, and would not need to be re-appointed when a home machine reboots. The paper's justification is implicit: provider cost and scalability. But the default planner is the greedy one (8 ms per solve), and the placer's modelled cost per decision is about 0.8 ms for a cluster of 30 (it grows with the hosts in the scheduler's view), so scheduling a cluster of tens of workers costs a provider a tiny fraction of a core.
 
 **Evidence.**
 - Manuscript §IV-B ("the scheduler is a role"), §VII-C; Table II lists the scheduler as "trusted for correct placement (attested code), not for availability".
 - Greedy planning: 8 ms per cluster per 30 s (Table XX); the MILP, the only expensive version, is a reference (H8 inconclusive, 4.1 s wall).
-- Back of envelope with the paper's numbers: at 10⁵ workers and clusters of about 30, there are about 3,300 clusters; greedy planning every 30 s costs about 3,300 × 8 ms / 30 s ≈ 0.9 core; the MILP would cost 3,300 × 4.1 s / 30 s ≈ 450 cores. The placer is on the per-invocation path and scales with the invocation rate, not with the worker count.
+- Back of envelope with the paper's numbers: at 10⁵ workers and clusters of about 30, there are about 3,300 clusters; greedy planning every 30 s costs about 3,300 × 8 ms / 30 s ≈ 0.9 core; the MILP would cost 3,300 × 4.1 s / 30 s ≈ 450 cores. The placer is on the per-invocation path: about 0.8 ms per decision for a view of 30 hosts, so 1,000 inv/s across 10⁵ workers is about 0.8 core.
 - E15: scheduler failures cost 2.7 s (crash) to 14 s (slow) of degraded service; E18: the centralized decision path, not message volume, limits scale.
 
 **Defense.**
@@ -637,7 +643,63 @@ Gaps the advisor-prep review found, and what the manuscript and explainer now sa
 
 **Cascades.** C-01, C-02, C-04, C-10, C-17, C-19, C-20.
 
-**Status.** Open. This is the item most likely to change the architecture if it is accepted.
+**Analysis (see `ACTION.md` §5).** The steelman for volunteer-hosting is thin provider footprint, offload of the exact planner (about 455
+cores at 10⁵ workers), research value, no loss of trust, and a one-cluster blast radius. Only the first and third survive scrutiny
+if greedy is the planner: greedy planning costs a provider about 0.9 core at 10⁵ workers. Industry precedent points the other way
+(BOINC servers are public and clients dial out; Skype moved its volunteer supernodes into provider datacenters). The recommended
+route keeps the volunteer-hosted scheduler as the studied design, makes the relay explicit, and adds a provider-hosted variant as
+a comparison (experiment E-SCHED). A provider-hosted scheduler would also remove one router-to-scheduler round trip from every
+synchronous invocation, simplify failover to ordinary provider high availability, remove scheduler-host adversaries from the
+threat model, and let schedulers serve larger domains (consistent with E05).
+
+**Status.** Open, analysed. This is the item most likely to change the architecture if it is accepted.
+
+### C-32 · Which supply is the paper about? `[Text] S1` — origin **A** (wider lens), cascade of C-06, C-08, C-26
+
+**Critique.** The introduction motivates volunteer hosting with consumer desktops that are "idle most of the day". The mechanism
+needs an exclusive reboot (C-08), offers confidentiality only against software-level owners on TPM-only hardware (C-06), and has no
+answer to abuse or incentives (C-26). The supply the design actually fits is managed or dedicated machines: office and lab desktops
+at night, spare racks, community clusters, individuals' dedicated spare machines. For those the owner is an organisation or a
+committed individual, NAT is often manageable (internal networks, VPN), and physical-access and abuse concerns shrink. The paper
+never says which supply it targets, so a reviewer can pick the weakest reading.
+
+**Evidence.** `manuscript/sections/intro.tex` (idle consumer machines); Table V (`Owner uses machine: no`); the model's tiers
+`nightly`, `idle`, `dedicated`.
+
+**Defense.** The substrate abstraction lets the scheduler run over different hosts, so the paper does not hard-code consumer PCs;
+the evaluation sweeps churn regimes that cover short and long sessions.
+
+**Where the defense is weak.** The abstract and introduction still read as a consumer-volunteer paper. The `idle` tier (sessions of
+minutes) carries no claim the mechanism could meet.
+
+**Resolution options.** State the target supply (managed fleets and dedicated machines) and keep the consumer volunteer as the
+stretch case; keep the `idle` tier out of the claims. Text only.
+
+**Status.** Open (decision P1 in `ACTION.md`).
+
+---
+
+### C-33 · Baseline families versus industry cold-start techniques `[Eval] S2` — origin **A** (wider lens), extends C-15
+
+**Critique.** Industry attacks cold starts with several families: fixed keep-alive timers, adaptive keep-alive from idle-time
+histograms, snapshot-based starts (for example Lambda's snapshot-based start feature for some runtimes), and reserved warm capacity
+(provisioned concurrency). The evaluation compares the planner with no planning and with a fixed 10-minute timer only. Lifecycle-aware
+placement and the snapshot tiers are part of VOSS itself, so the comparison does not separate what the *planner* adds from what any
+snapshot-using platform would have.
+
+**Evidence.** `voss/policy/plan/baselines.py` (`none`, `keepalive_ttl`); manuscript §IX-C; the ablation (E19) shows lifecycle-aware
+placement is the largest single component (+3.3 s of P99 when removed).
+
+**Defense.** The ablation separates lifecycle-aware placement from planning, and the paper reports both. The planner's job is
+provisioning keys and warm state ahead of demand under exposure, which timers do not do.
+
+**Where the defense is weak.** An adaptive keep-alive policy that also uses the snapshot tiers is the strongest conventional
+alternative and is absent.
+
+**Resolution options.** Add an adaptive keep-alive baseline and a snapshot-first baseline on volunteer hosts (class C), together
+with C-15.
+
+**Status.** Open.
 
 ---
 
