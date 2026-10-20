@@ -12,7 +12,7 @@
   \node[box, minimum width=60mm, fill=white] (ac) at (43,-59) {\textbf{Actions} (diff to last plan, idempotent, rate-limited)\\[-1pt]\tinyx PREPARE, PIN\_SNAPSHOT, WARM, RELEASE to workers};
   % fast loop
   \node[box, minimum width=64mm, fill=white] (iv) at (137,-17) {\textbf{Invocation}\\[-1pt]\tinyx tenant, function, class, deadline, input size};
-  \node[box, minimum width=64mm, fill=white] (cd) at (137,-29) {\textbf{Candidates}\\[-1pt]\tinyx confirmed provisioned workers (free or earmarked slots)\\[-2pt]\tinyx $\cup$ cold path: other attested workers above the assurance floor};
+  \node[box, minimum width=64mm, fill=white] (cd) at (137,-29) {\textbf{Candidates}\\[-1pt]\tinyx confirmed provisioned workers (free or earmarked slots)\\[-2pt]\tinyx $\cup$ unprovisioned path: other attested workers above the assurance floor};
   \node[box, minimum width=64mm, fill=white] (cm) at (137,-43) {\textbf{Cost model}, per candidate\\[-1pt]\tinyx wait, provisioning, start-up tier, network, execution,\\[-2pt]\tinyx failure probability, exposure increment};
   \node[box, minimum width=64mm, fill=white] (dc) at (137,-58) {\textbf{Decision}: lowest expected SLO-miss cost;\\[-1pt]\tinyx if $P(\text{miss})>\theta$ and budget allows, hedge on another failure domain};
   \draw[msg] (in) -- (pl); \draw[msg] (pl) -- (pn); \draw[msg] (pn) -- (ac);

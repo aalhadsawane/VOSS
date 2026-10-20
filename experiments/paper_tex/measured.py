@@ -53,12 +53,29 @@ def calibration(g: Gen) -> None:
         [rows(esc(r.path), esc(r.config), int(r.n), f"{r.p50:.3f}", f"{r.p99:.3f}") for r in tbl.itertuples() if r.n],
     )
     att = tbl[(tbl.path == "Appliance userspace → attested") & (tbl.n > 0)].iloc[0]
-    g.mac("CalAttested", f"{att.p50:.0f}")
-    g.mac("CalAttestedN", int(att.n))
+    total, n_boots = _power_on_to_attested(df)
+    g.mac("CalAttested", f"{total:.0f}")  # from the start of firmware to an accepted quote
+    g.mac("CalAttestedKernel", f"{att.p50:.0f}")  # from kernel start only
+    g.mac("CalAttestedN", n_boots)
     cold = tbl[tbl.config.str.contains("mem_mb=256, tier=hdd, cache=cold") & tbl.path.str.contains("boot")].iloc[0]
     g.mac("CalFcBootColdS", f"{cold.p50:.2f}")
     g.mac("CalCpu", "Intel Core i3-7020U")
-    _cost_ladder(g, tbl, meas, float(att.p50), float(cold.p50))
+    _cost_ladder(g, tbl, meas, total, float(cold.p50))
+
+
+def _power_on_to_attested(df: pd.DataFrame) -> tuple[float, int]:
+    """Median seconds per boot from the start of firmware to the verifier accepting the quote (doc 10 §3).
+
+    ``appliance_attested`` is stamped from kernel start (``/proc/uptime``), so the firmware and boot-loader phase and
+    the kernel's own start are added per boot; the sum of the two medians would hide that they are paired.
+    """
+    a = df[df.suite == "appliance"]
+    key = ["run_id", "rep"]
+    fw = a[a.probe == "firmware_loader"].set_index(key).value
+    att = a[a.probe == "appliance_attested"].set_index(key).value
+    kern = a[a.probe == "reboot_to_kernel"].set_index(key).config.map(lambda c: float(c.get("kernel", 0.0)))
+    tot = (fw + att + kern).dropna()
+    return float(tot.median()), len(tot)
 
 
 def _cost_ladder(g: Gen, tbl: pd.DataFrame, meas: Any, att_s: float, cold_boot_s: float) -> None:
@@ -87,7 +104,7 @@ def _cost_ladder(g: Gen, tbl: pd.DataFrame, meas: Any, att_s: float, cold_boot_s
                     ("Boot microVM, cold cache (HDD)", cold_boot_s, "measured"),
                     ("Create 512 MB snapshot (HDD)", q("fc_snapshot_create"), "measured"),
                     ("Reboot to kernel", q("reboot_to_kernel"), "measured"),
-                    ("Reboot to attested worker", att_s, "measured"),
+                    ("Power-on to attested worker", att_s, "measured"),
                 )
             ]
         )

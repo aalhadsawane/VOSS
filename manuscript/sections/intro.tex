@@ -33,7 +33,7 @@ can create at will.
 \subsection{Our insight and approach}
 Our starting point is that attestation changes the fault model. If tenant code and the scheduler's own code run only inside
 a measured, owner-locked appliance image whose TPM-backed evidence a verifier checks, then a hostile owner can no longer
-read, forge or tamper. What remains is an \emph{omission or timing failure} in the dependability taxonomy
+read, forge or tamper through software. What remains is an \emph{omission or timing failure} in the dependability taxonomy
 \cite{cristian1991understanding,avizienis2004basic}: the host powers off, drops, delays or throttles. This is the failure
 class that churn already forces a volunteer platform to tolerate, so one set of mechanisms covers crashes, churn and
 malice \cite{levin2009trinc,veronese2013minbft}.
@@ -41,16 +41,16 @@ malice \cite{levin2009trinc,veronese2013minbft}.
 The reduction exposes the actual scheduling problem. A host is \emph{attested} for the duration of a session, becomes
 \emph{provisioned} for a tenant once the tenant's key broker has released a secret to it, and holds \emph{warm} state for a
 function once a sandbox or snapshot is ready. This attested session state has three properties that conventional
-cluster schedulers do not model: it is \emph{costly to establish} (on our measurements, booting into an attested worker
-takes \CalAttested\,s, over three orders of magnitude above restoring a snapshot or resuming a warm sandbox); it is \emph{perishable}, lost at
+cluster schedulers do not model: it is \emph{costly to establish} (on our measurements, a powered-off machine takes
+\CalAttested\,s to become an attested worker, three to four orders of magnitude above restoring a snapshot or resuming a warm sandbox); it is \emph{perishable}, lost at
 the end of every session; and it is \emph{exposing}, since each host that holds a tenant's key widens that tenant's attack
-surface. Placing an invocation on a host that is not yet provisioned is therefore a priced decision, and so is asking
+surface. Placing an invocation on a host that is not yet provisioned is therefore a decision with a cost that the scheduler must weigh, and so is asking
 another host to hold the key.
 
 We present \voss{}, a scheduler for volunteer serverless computing built on this view (Fig.~\ref{fig:arch}). \voss{}
 (i) separates \emph{where state lives} from \emph{where an invocation runs} with a two-timescale design: a slow planner
 decides which hosts are provisioned and warm for each tenant under a robustness constraint, and a fast placer assigns each
-invocation by minimising its own expected SLO-violation probability, priced together with latency and key exposure (Section~\ref{sec:objectives}), and hedges risky ones; (ii) detects failures from end-to-end \emph{progress} rather than liveness and
+invocation by minimising its own expected SLO-violation probability, weighed together with latency and key exposure (Section~\ref{sec:objectives}), and hedges risky ones; (ii) detects failures from end-to-end \emph{progress} rather than liveness and
 replaces failed schedulers with lease and epoch fencing, without consensus among volunteers; and (iii) makes accounting
 verifiable through attested receipts instead of a blockchain.
 

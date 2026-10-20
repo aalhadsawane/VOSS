@@ -8,8 +8,8 @@ decisions runs inside the attested appliance, so the rest of the system only has
 (Section~\ref{sec:trust}).
 \textbf{(P2) Trust is a managed resource.} Attestation, key provisioning and warm state have costs, lifetimes and an
 exposure price, and they are planned on a slower timescale than invocation placement (Section~\ref{sec:sched}).
-\textbf{(P3) Liveness is a hint; progress is evidence.} Signals from untrusted hosts, including heartbeats, drain notices
-and self-reported health, are never sufficient. Failures are detected where work is observed by a trusted or attested party
+\textbf{(P3) Liveness is a hint; progress is evidence.} Signals from untrusted hosts, including heartbeats (periodic ``I am alive'' messages), drain notices
+(an owner's announcement that they will leave by a deadline) and self-reported health, are never sufficient. Failures are detected where work is observed by a trusted or attested party
 (Section~\ref{sec:ft}).
 
 \subsection{Architecture and roles}
@@ -20,13 +20,13 @@ parties take part.
 \centering
 \resizebox{\textwidth}{!}{\input{diagrams/arch}}
 \caption{\voss{} architecture and trust boundaries. Shading shows who is trusted for what: the provider control plane for availability and
-accounting but never for tenant secrets, attested code on owner-controlled hardware, the tenant-operated key broker, and the owner's untrusted
+accounting (it is never given tenant keys), attested code on owner-controlled hardware, the tenant-operated key broker, and the owner's untrusted
 hardware. Numbered flows follow one invocation (Fig.~\ref{fig:seq}); the dashed flow is control traffic off the hot path.}
 \label{fig:arch}
 \end{figure*}
 
 \textbf{Provider control plane.} A provider-operated tier is assumed reliable and is trusted for \emph{availability and
-accounting}, but never for tenant confidentiality. \emph{Regional routers} receive invocations, choose a cluster, keep a pending
+accounting}. It is never given tenant keys; whether it must also be trusted for confidentiality depends on the tenant's key-release policy (Section~\ref{sec:provisioning}). \emph{Regional routers} receive invocations, choose a cluster, keep a pending
 copy until a worker accepts, observe progress, and write the receipts that are the ground truth of work. The
 \emph{orchestrator} partitions workers into geographic clusters of tens of hosts (which bounds the planner's problem size and
 intra-cluster latency), appoints one scheduler per cluster, and rebalances clusters. The \emph{verifier and registrar} appraises
@@ -34,14 +34,14 @@ attestation evidence and issues session certificates. An \emph{operational datab
 sessions, cluster epochs, checkpoints and receipts, and an \emph{artifact registry} serves encrypted code bundles and root
 file systems.
 
-\textbf{Tenants.} Each tenant runs a \emph{key broker service} (KBS) that releases the tenant's secrets only to hosts with an
-acceptable attestation result (Section~\ref{sec:provisioning}). Neither the scheduler nor the control plane ever sees a tenant key.
+\textbf{Tenants.} Each tenant operates, or delegates to a service it trusts, a \emph{key broker service} (KBS) that holds the tenant's secrets and releases them only to hosts with an
+acceptable attestation result (Section~\ref{sec:provisioning}). The provider does not hold tenant keys, which is why the key broker is not provider-operated. Neither the scheduler nor the control plane ever sees a tenant key.
 
 \textbf{Volunteer hosts.} A volunteer machine reboots into the \emph{attested appliance}, a locked, measured operating-system
 image containing the worker agent, the Firecracker microVM monitor \cite{agache2020firecracker} and the scheduler code. The
 \emph{worker} runs each invocation in its own microVM and keeps a content-addressed, encrypted cache of code and snapshots. The
 \emph{scheduler} is a role: the same image runs on every worker, so any worker can be promoted without booting anything, and one
-worker per cluster is appointed to perform the scheduling functions of Section~\ref{sec:sched}. The host itself (power, network,
+worker per cluster is appointed to perform the scheduling functions of Section~\ref{sec:sched}. While the appliance runs, the owner cannot use the machine: donation is a scheduled or dedicated session, not background use of an idle desktop. The host itself (power, network,
 firmware settings) remains under the owner's control, which is why the scheduler's \emph{host} can still omit or delay even though
 its \emph{code} cannot misbehave.
 
@@ -55,7 +55,7 @@ its \emph{code} cannot misbehave.
 Role & Runs on & Trusted for & Not trusted for \\
 \midrule
 Router & provider & availability, accounting & tenant secrets (never receives them) \\
-Orchestrator, verifier, DB, registry & provider & availability, accounting, appraisal & tenant secrets \\
+Orchestrator, verifier, DB, registry & provider & availability, accounting, appraisal & tenant secrets (but see Section~\ref{sec:provisioning}) \\
 Tenant KBS & tenant & releasing secrets per policy & availability of volunteer hosts \\
 Scheduler & role on an attested worker & correct placement (attested code) & availability: its host may omit or delay \\
 Worker & volunteer host, attested appliance & executing code faithfully & availability; anything outside the attested stack \\
@@ -67,7 +67,7 @@ Worker & volunteer host, attested appliance & executing code faithfully & availa
 Fig.~\ref{fig:seq} follows one synchronous invocation. A router picks a cluster by round-trip time, health and provisioned
 capacity for the tenant, and sends only \emph{metadata} to that cluster's scheduler. The scheduler chooses a worker (and possibly a hedge),
 dispatches it, and tells the router who was assigned; the router streams the payload to the worker over a TLS session terminated inside
-the attested appliance. The scheduler therefore never touches payloads, results or tenant keys. If the worker is not yet provisioned for
+the attested appliance (an \emph{attested} session: the worker authenticates with the certificate that the verifier issued after checking its quote, Fig.~\ref{fig:attest}). The scheduler therefore never touches payloads, results or tenant keys. If the worker is not yet provisioned for
 the tenant it requests the key from the tenant's KBS, then climbs the start-up tiers (Section~\ref{sec:lifecycle}) and runs the function.
 The result returns directly to the router together with a receipt signed by the worker's session key (Section~\ref{sec:receipts}); the
 latency visible to the client ends there. Every term of Eq.~\eqref{eq:latency} is logged separately per invocation, which is what lets
@@ -84,9 +84,9 @@ Braces map messages to the terms of Eq.~\eqref{eq:latency} ($T_{\text{queue}}$ a
 \subsection{Sessions and start-up tiers}
 \label{sec:lifecycle}
 A worker alternates between OFF and a \emph{session} (Fig.~\ref{fig:lifecycle}a). It becomes schedulable only after booting
-and being attested, which on our calibration machine takes \CalAttested\,s. A session ends abruptly (reboot, power loss, crash) or
-gracefully (the owner announces a drain with a deadline). Session end discards every secret and warm sandbox, but disk
-caches remain as ciphertext and are valid again after the next attestation.
+and being attested, which on our calibration machine takes \CalAttested\,s from power-on. A session ends abruptly (reboot, power loss, crash) or
+gracefully (the owner announces that they will leave by a deadline, a \emph{drain}). Session end discards every secret and warm sandbox, but disk
+caches remain as ciphertext and are valid again after the next attestation. The disk caches hold encrypted code bundles, root file systems and snapshots; a cached item is evicted by a value-density rule (a GreedyDual-size-frequency variant) with LRU as the baseline (Section~\ref{sec:res-nopay}).
 
 Within a session a function on a host sits at one of the start-up tiers of Section~\ref{sec:background}
 (Fig.~\ref{fig:lifecycle}b), and a separate flag $K[t,j]$ records whether the host holds tenant $t$'s key. Start-up costs depend on the tier
@@ -99,21 +99,21 @@ per-tenant key flag, are what the generic lifecycle engine in our simulator inte
 \resizebox{\textwidth}{!}{\input{diagrams/lifecycle}}
 \caption{(a) A volunteer session. Trust is established once per session (booting, attestation) and lost when it ends.
 (b) Start-up tiers of one function on one host. Moving up costs time and memory or disk; the tenant key flag $K[t,j]$ is
-orthogonal and is required to decrypt the cached artifacts.}
+separate from the tier: the tier says what is cached, and $K[t,j]$ says whether the host can decrypt it (L1 and L2 files stay on disk as ciphertext when the key is lost with the session).}
 \label{fig:lifecycle}
 \end{figure*}
 
 \subsection{State management and communication rules}
 Six rules keep the hot path fast and failures recoverable.
-(i)~\emph{All cross-node interaction is a typed message}; actors never call each other. Workers sit behind NAT, so each opens outbound
+(i)~\emph{All cross-node interaction is a typed message} (a message with a fixed schema such as ENQUEUE or DISPATCH, sent over a connection); components never call each other's code. Workers sit behind NAT, so each opens outbound
 persistent TLS streams to its scheduler, the verifier, and routers, and pushes ride those streams.
 (ii)~\emph{The operational database is private to the control plane}, and workers and schedulers reach it only through
 messages.
-(iii)~\emph{The invocation hot path never touches the database}; a cloud round trip would land in latency.
+(iii)~\emph{The invocation hot path never touches the database}; the hot path is the route one invocation takes from the router through the scheduler to a worker and back, and a database round trip would land in latency.
 (iv)~\emph{Live state stays where it is born}: queues, caches and keys in workers, undispatched work in routers, cost matrices in the
 scheduler. After a scheduler change it is recovered by asking the workers, not by reading it back from the database
 (Section~\ref{sec:succession}).
-(v)~\emph{Routers write the ground truth of work}, as attested receipts.
+(v)~\emph{Routers write the ground truth of work}, as attested receipts (a record of each executed invocation, signed by the worker's session key, Section~\ref{sec:receipts}).
 (vi)~\emph{Every channel terminates inside an attested party}: the appliance, the control plane, or the KBS. The session certificate
 issued after attestation is the credential for all of them.
 

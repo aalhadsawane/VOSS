@@ -12,7 +12,7 @@
   % ---------- provider control plane ----------
   \node[zone, fill=blue!4, minimum width=180mm, minimum height=27mm, anchor=north west] (prov) at (0,-12) {};
   \node[font=\scriptsize\bfseries, anchor=north east] at (178,-13)
-       {Provider control plane: availability and accounting, never tenant secrets};
+       {Provider control plane: availability and accounting, holds no tenant keys};
   \node[prov, minimum width=30mm, minimum height=16mm] (orch)   at (20,-27)  {\textbf{Orchestrator}\\[-1pt]\tinyx cluster membership\\[-2pt]\tinyx scheduler appointment};
   \node[prov, minimum width=30mm, minimum height=16mm] (router) at (55,-27)  {\textbf{Regional routers}\\[-1pt]\tinyx pending table\\[-2pt]\tinyx progress watchdogs\\[-2pt]\tinyx receipts};
   \node[prov, minimum width=30mm, minimum height=16mm] (ver)    at (90,-27)  {\textbf{Verifier + registrar}\\[-1pt]\tinyx appraises quotes\\[-2pt]\tinyx issues session certificates};

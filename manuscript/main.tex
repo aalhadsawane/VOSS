@@ -40,7 +40,7 @@ consumer machines. Serving latency-sensitive invocations from such volunteer mac
 sessions abruptly, which destroys every warm sandbox on the host, and owners are untrusted and can read or tamper with
 tenant code and data. Volunteer-computing systems cope through redundant execution and long deadlines, and serverless
 schedulers assume trusted, always-on fleets. We observe that remote attestation of a locked, measured appliance image
-reduces a malicious owner to omission and timing failures. What remains is a scheduling problem over \emph{attested
+reduces a malicious owner who controls software, power and network to omission and timing failures. What remains is a scheduling problem over \emph{attested
 session state}: tenant keys provisioned on a host and warm sandboxes are expensive to establish, are lost when the session
 ends, and every additional key holder enlarges the tenant's attack surface. We present \voss{}, a scheduler built around
 this problem. A slow control loop plans where keys and warm state live, with coverage that stays feasible when any $f$

@@ -7,4 +7,4 @@ state,seconds,source
 "Boot microVM, cold cache (HDD)",1.45045,measured
 "Create 512 MB snapshot (HDD)",6.68016,measured
 "Reboot to kernel",21.0451,measured
-"Reboot to attested worker",44.424,measured
+"Power-on to attested worker",65.123,measured

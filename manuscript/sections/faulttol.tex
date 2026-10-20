@@ -5,8 +5,8 @@ By Property 1, one set of mechanisms must handle crashes, churn and malice. This
 without consensus among volunteers, and how work is accounted.
 
 \subsection{Fault model and the progress principle}
-Table~\ref{tab:faults-model} lists the failures the mechanisms must handle. The hard cases are those where \emph{liveness signals look healthy}: a
-black-holing host keeps sending heartbeats while dropping work, an on--off host builds a clean record before defecting, and a drain notice may be a lie. We therefore adopt the
+Table~\ref{tab:faults-model} lists the failures the mechanisms must handle. The hard cases are those where \emph{liveness signals look healthy} (a liveness signal is a periodic heartbeat that says the host is still alive): a
+\emph{black-holing} host (the networking term for a node that silently swallows what it receives) keeps sending heartbeats while dropping the work it accepted, an on--off host builds a clean record before defecting, and a drain notice may be a lie. We therefore adopt the
 principle that \emph{liveness signals from untrusted hosts are hints, and progress observed by trusted or attested parties is evidence}. The trusted observers are the routers; the attested
 observers are the worker agents and the scheduler code, whose \emph{hosts} are still untrusted for availability.
 
@@ -65,13 +65,13 @@ reliable arbiter, and a scheduler's state is \emph{soft}. Fig.~\ref{fig:failover
 \textbf{Appointment and fencing.} The orchestrator appoints a scheduler by an atomic compare-and-swap on the cluster's \emph{epoch} in its database, in the manner of a lease
 \cite{burrows2006chubby}. The appointment token binds the cluster, the epoch and the \emph{session-certificate identifier} of the appointee, so a cloned appliance with the same image but a different
 session key is not appointed. Workers accept dispatches only from the current (epoch, certificate) pair and reject lower epochs with \texttt{STALE}, which acts as a fencing token.
-A scheduler that cannot reach the orchestrator for a lease period stops dispatching on its own, and workers fence it anyway. A partitioned scheduler can therefore cause only duplicate work, which is within at-least-once semantics.
+A scheduler that cannot reach the orchestrator for a lease period stops dispatching on its own, and workers fence it anyway. A partitioned scheduler can therefore cause only duplicate work, which is within at-least-once execution. That is safe for idempotent functions; for a non-idempotent function a duplicate dispatched within the lease period could repeat its effect, which the protocol does not prevent (Section~\ref{sec:threats}).
 
 \textbf{Soft state.} A scheduler keeps no durable state on its host (Table~\ref{tab:soft}). Undispatched invocations are held by routers, running work and confirmed provisioning by workers, learned estimator state in a control-plane checkpoint
 refreshed every few tens of seconds, and work records in receipts. After appointment, the successor installs the epoch and performs a \emph{roll call}: it asks workers for their running and queued work, confirmed pins and keys, retained outcomes
 and cache inventory, rebuilds its view, replays outcomes, and re-plans from the checkpoint. Because nothing authoritative lives on the old host, a rolled-back or restarted appliance is a new instance that must be re-appointed, and its stale memory is never trusted.
 
-\textbf{Succession list.} The orchestrator keeps a ranked list of candidates by survival, speed, centrality and assurance, with failure-domain diversity and hysteresis. Every attested worker is a candidate, because the scheduler role is in the image, so promotion costs no boot;
+\textbf{Succession list.} The orchestrator keeps a ranked list of candidates by survival, speed, centrality and assurance, with failure-domain diversity and hysteresis. Every attested worker is a candidate, because the scheduler role is in the image, so promotion costs no boot (a better-ranked, more reliable host is preferred, but any worker can serve);
 a warm standby also receives heartbeats. Planned handovers on a drain notice or decision-latency degradation flush a checkpoint before the swap; a \emph{fake} drain by a malicious scheduler host just causes a clean handover.
 
 \begin{figure}[t]

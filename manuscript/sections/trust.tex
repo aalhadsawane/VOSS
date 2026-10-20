@@ -28,10 +28,10 @@ Table~\ref{tab:threat} summarizes the adversaries. We trust the CPU, its TPM and
 (kernel, monitor, agent, scheduler code); each tenant's own key broker; and the provider-operated control plane, for
 availability and accounting only. Out of scope are laboratory-grade physical attacks such as voltage glitching of
 firmware TPMs \cite{jacob2023faultpm}, vulnerabilities in the appliance itself, side channels and traffic analysis, and attacks on or
-failure of the control plane.
+failure of the control plane. Property 1 below concerns an owner who controls the machine's software, power and network. An owner with physical access who can read memory while the appliance runs (cold-boot, DMA or bus probing) is outside it unless the host encrypts memory; the assurance score $a_j$ (Section~\ref{sec:exposure}) expresses this residual only as a policy number.
 
 \textbf{Property 1 (threat reduction).} Under these assumptions, every behavior of a worker or scheduler host that other
-components can observe is a crash, an omission or a delay. The argument is that the owner can neither run code other than the measured
+components can observe, and that is reachable by software, is a crash, an omission or a delay. The argument is that the owner can neither run code other than the measured
 image (it would fail attestation, so no session certificate or tenant key is issued) nor read or modify the image's memory or its sealed
 state, and that results and receipts are signed with a key that never leaves the appliance. The owner retains only what lies outside the attested
 stack: power, the network path, and the timing of when to stop answering. The consequence we use throughout is that the fault tolerance
@@ -73,7 +73,7 @@ tied to this appliance instance.}
 
 \subsection{Tenant key provisioning}
 \label{sec:provisioning}
-Attestation proves that a host runs the appliance, not that it may see a given tenant's data. A tenant's KBS holds a policy (for
+Attestation proves that a host runs the appliance, not that it may see a given tenant's data. A tenant's KBS, operated by the tenant or by a service it trusts and not by the provider, holds a policy (for
 instance, accept certificates for appliance measurements at or above a version, optionally with a fresh quote). Making worker $j$
 \emph{provisioned} for tenant $t$ (the flag $K[t,j]=1$) takes one round trip: the worker sends the KBS its certificate, the KBS checks the policy and returns the key
 wrapped to the session public key, and the worker keeps it in memory only. This round trip, plus decrypting the tenant's bundles, is the
@@ -81,6 +81,8 @@ $T_{\text{prov}}$ term of Eq.~\eqref{eq:latency}. Tenant code bundles in the reg
 worker may store and forward ciphertext but only provisioned workers can use it. Snapshots contain decrypted memory, so they are written
 only by provisioned workers, shared only with provisioned workers of the same snapshot class (CPU model, kernel, monitor version), and counted in
 exposure.
+
+Which party the tenant must trust for confidentiality depends on that policy. If the KBS accepts any certificate that the verifier issued for an approved measurement, then the verifier is trusted for confidentiality: a certificate issued to a non-genuine host would release the key. If the policy requires a fresh quote, the KBS checks the quote itself against its own reference values and does not depend on the verifier for confidentiality, at the price of one quote, which lies in $T_{\text{prov}}$. We assume that the verifier acts as the certificate authority for session certificates, with its root distributed in the appliance image and to the key brokers; this PKI is not evaluated, and the simulator charges a fixed calibrated cost for the policy check without distinguishing the two policies.
 
 \subsection{Exposure and assurance}
 \label{sec:exposure}
