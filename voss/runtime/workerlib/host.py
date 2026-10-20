@@ -13,6 +13,7 @@ from voss.core.ids import WorkerId
 from voss.core.kernel import Kernel
 from voss.core.rng import RngFactory
 from voss.core.types import WorkerStatic
+from voss.world.backend import RealBackend
 from voss.world.cache import WorkerCache
 from voss.world.resources import Disk, Psp, Slots, Tpm
 from voss.world.substrate import SubstrateProfile
@@ -46,6 +47,7 @@ class HostLocal:
     extra: dict[str, float] = field(default_factory=dict)
     static_base: WorkerStatic | None = None
     static: WorkerStatic | None = None
+    emu: RealBackend | None = None  # real-execution backend of the emulation testbed (doc 10 §4)
 
     def cert_valid(self, now: float) -> bool:
         return self.attested and self.cert_expiry > now

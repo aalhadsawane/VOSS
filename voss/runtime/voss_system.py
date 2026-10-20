@@ -47,9 +47,11 @@ from voss.world.workload import SLO_CLASSES
 class VossSystem:
     """Owns the kernel, network, actors and drivers of one run."""
 
+    kernel_cls: type[Kernel] = Kernel  # the emulation testbed substitutes a wall-clock kernel (doc 10 §4)
+
     def __init__(self, cfg: RunConfig, scn: Scenario) -> None:
         self.cfg, self.scn = cfg, scn
-        self.kernel, self.rng, self.rec = Kernel(), RngFactory(cfg.seed), Recorder()
+        self.kernel, self.rng, self.rec = self.kernel_cls(), RngFactory(cfg.seed), Recorder()
         net_params = NetworkParams.model_validate(cfg.scenario.network)
         self.net = Network(self.kernel, net_params, self.rng.stream("net.jitter"))
         self.bundle = load_bundle(cfg.calibration or "calibration/placeholder/c0")

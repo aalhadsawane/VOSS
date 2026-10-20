@@ -14,6 +14,7 @@ import numpy as np
 
 from voss.core.dist import Dist
 from voss.core.kernel import Kernel
+from voss.world.backend import RealBackend
 from voss.world.cache import WorkerCache, digest
 from voss.world.resources import Disk, Psp, Tpm
 from voss.world.substrate import (
@@ -52,6 +53,7 @@ class OpEnv:
     fn: FunctionSpec | None = None
     rpc: RpcHook | None = None
     fetch: FetchHook | None = None
+    backend: RealBackend | None = None  # emulation testbed only (doc 10 §4)
 
 
 def value(ref: Dist | str | float, env: OpEnv) -> float:
@@ -94,6 +96,8 @@ class OpRun:
 
 def _dispatch(op: Op, env: OpEnv, cont: Done) -> None:
     k = env.kernel
+    if env.backend is not None and env.backend.handle_op(op, env, cont):
+        return
     if isinstance(op, DelayOp):
         k.after(value(op.dist, env), cont)
     elif isinstance(op, CpuOp):

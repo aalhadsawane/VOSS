@@ -1,0 +1,16 @@
+# E01 emulated worker (doc 10 §4): one donor slice of the calibration node C0 = the lab node. Three cores give two slots
+# at the default 75% envelope; memory and disk are small so tens of workers fit on one machine. Disk speeds come from
+# the measured bundle (hardware class E0 in tools/calibrate/mapping.yaml), the values below are placeholders.
+provenance: {default: assumed, note: "envelope of one emulated donor; disk speeds replaced by measured values"}
+name: E0
+speed: 1.0
+cores: 3
+mem_gb: 4
+ssd_gb: 10
+hdd_gb: 0
+ssd_read_MBps: 3000
+ssd_write_MBps: 2000
+hdd_read_MBps: 180
+hdd_write_MBps: 160
+cpu_model: intel-adl
+tpm: ptt

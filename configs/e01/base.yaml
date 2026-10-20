@@ -1,0 +1,22 @@
+# E01 simulator-vs-emulation validation (doc 10 §4, P9b): one small cluster of 16 donor slices of the lab node, Europe
+# only, six functions, ten minutes. The same file drives the simulator (decision clock `modeled`) and the emulation
+# (decision clock `measured` with scale 0: policy code runs for real, so its cost is already in the timeline).
+extends: ../base.yaml
+horizon_s: 600
+drain_s: 30
+calibration: configs/calibration/placeholder/c0
+decision_clock: {mode: modeled}
+scenario:
+  workers: 16
+  hw_mix: {E0: 1.0}
+  tiers: {nightly: 0.0, idle: 0.0, dedicated: 1.0}
+  tofu_frac: 0.0
+  geo: {regions: [eu]}
+  functions: functions_e01.yaml
+  tenants: tenants_e01.yaml
+  regime: churn_low
+  adversary: {regime: adversary_none}
+  load: {regime: load_default, rate: 3}
+voss:
+  planner: {name: greedy}
+  cache: {hdd_tier: false}

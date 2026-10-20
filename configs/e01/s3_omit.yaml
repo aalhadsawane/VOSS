@@ -1,0 +1,4 @@
+# E01 scenario 3: 20% omitting owners (progress-based detection, retries and hedging in action) on stable hosts.
+extends: base.yaml
+scenario:
+  adversary: {regime: adversary_mixed, alpha: 0.2}

@@ -1,0 +1,2 @@
+# E01 scenario 1: stable hosts, no adversaries, steady load (what a deployment looks like most of the time).
+extends: base.yaml

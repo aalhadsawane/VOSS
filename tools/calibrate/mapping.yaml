@@ -19,3 +19,8 @@ hardware:
     ssd_write_MBps: {suite: disk, probe: ssd_seq_write_MBps}
     hdd_read_MBps: {suite: disk, probe: hdd_seq_read_MBps}
     hdd_write_MBps: {suite: disk, probe: hdd_seq_write_MBps}
+  E0:
+    ssd_read_MBps: {suite: disk, probe: ssd_seq_read_MBps}
+    ssd_write_MBps: {suite: disk, probe: ssd_seq_write_MBps}
+    hdd_read_MBps: {suite: disk, probe: hdd_seq_read_MBps}
+    hdd_write_MBps: {suite: disk, probe: hdd_seq_write_MBps}
