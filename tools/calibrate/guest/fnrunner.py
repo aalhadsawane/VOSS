@@ -4,6 +4,7 @@ input size ``reps`` times, printing ``VOSS_INIT``/``VOSS_EXEC`` lines on the ser
 from __future__ import annotations
 
 import importlib
+import os
 import re
 import sys
 import time
@@ -30,7 +31,10 @@ def serve(fn: str) -> None:
     print(f"VOSS_INIT {fn} 0 0 {time.perf_counter() - t0:.6f}", flush=True)
     print("VOSS_MARK ready", flush=True)
     cache: dict[int, object] = {}
-    for line in sys.stdin:
+    # commands come from the console; give children (ffmpeg reads stdin!) /dev/null so they cannot eat a request
+    cmds = os.fdopen(os.dup(0), "r")
+    os.dup2(os.open(os.devnull, os.O_RDONLY), 0)
+    for line in cmds:
         parts = line.split()
         if len(parts) >= 3 and parts[0] == "PING":
             print(f"VOSS_ACK {parts[2]}", flush=True)

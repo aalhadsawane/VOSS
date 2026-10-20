@@ -1,4 +1,4 @@
-# E01 function subset (doc 10 §4): the functions the guest image can run and the calibration measured on this node.
+# E01 function subset (doc 10 §4): functions the guest image can run and the calibration measured on this node. video-processing is left out: its guest must build a 5 MB video as input (3.5 s of ffmpeg) which a real invocation receives over the network, so its measured time would be input generation, not the function.
 # Function catalogue (doc 02 §8), modeled on SeBS benchmarks. Placeholder values until P9 suite `sebs` profiles
 # them on node C0: work_ref_s is reference-core seconds at the reference input size.
 provenance: {default: literature, source: "SeBS (Copik et al., Middleware'21) reported ranges; sizes assumed", note: "TODO verify on C0 (P9 sebs)"}
@@ -6,6 +6,5 @@ functions:
   - {name: dynamic-html,      tenant: t-web,    runtime: python3, rootfs_mb: 120, bundle_mb: 1,   snapshot_mb: 64,  mem_mb: 128,  init_s: 0.15, work_ref_s: 0.005, in_kb: 1,    in_sigma: 0.3, size_exp: 0.1, out_kb: 50,   idempotent: true,  slo_class: sync,   slo_k: 5}
   - {name: uploader,          tenant: t-media,  runtime: python3, rootfs_mb: 120, bundle_mb: 2,   snapshot_mb: 64,  mem_mb: 128,  init_s: 0.2,  work_ref_s: 0.2,   in_kb: 1,    in_sigma: 0.2, size_exp: 0.0, out_kb: 1,    idempotent: true,  slo_class: async,  slo_k: 10}
   - {name: thumbnailer,       tenant: t-media,  runtime: python3, rootfs_mb: 140, bundle_mb: 8,   snapshot_mb: 96,  mem_mb: 256,  init_s: 0.3,  work_ref_s: 0.15,  in_kb: 200,  in_sigma: 0.8, size_exp: 0.7, out_kb: 20,   idempotent: true,  slo_class: sync,   slo_k: 5}
-  - {name: video-processing,  tenant: t-media,  runtime: python3, rootfs_mb: 200, bundle_mb: 60,  snapshot_mb: 300, mem_mb: 512,  init_s: 0.5,  work_ref_s: 3.0,   in_kb: 5000, in_sigma: 0.7, size_exp: 0.9, out_kb: 2000, idempotent: true,  slo_class: async,  slo_k: 10}
   - {name: compression,       tenant: t-data,   runtime: python3, rootfs_mb: 120, bundle_mb: 2,   snapshot_mb: 128, mem_mb: 256,  init_s: 0.2,  work_ref_s: 1.5,   in_kb: 2000, in_sigma: 0.6, size_exp: 0.8, out_kb: 800,  idempotent: true,  slo_class: async,  slo_k: 10}
   - {name: graph-pagerank,    tenant: t-graph,  runtime: python3, rootfs_mb: 160, bundle_mb: 15,  snapshot_mb: 256, mem_mb: 512,  init_s: 0.6,  work_ref_s: 0.5,   in_kb: 1,    in_sigma: 0.2, size_exp: 0.0, out_kb: 10,   idempotent: true,  slo_class: sync,   slo_k: 5}
