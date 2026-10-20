@@ -23,7 +23,7 @@ from __future__ import annotations
 import shutil
 import threading
 from collections import deque
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
@@ -34,11 +34,11 @@ from voss.metrics.recorder import Recorder
 from voss.metrics.schema import Table
 from voss.runtime.workerlib.host import HostLocal
 from voss.world.lifecycle import artifact_digests
-from voss.world.substrate import CpuOp, DelayOp, DiskReadOp, DiskWriteOp, LadderSpec, Op
 from voss.world.workload import FunctionSpec
 
 from tools.calibrate.fc import FcAssets
 from tools.emu.kernel import RealtimeKernel
+from tools.emu.roles import BOOT, CLAIM, NOOP, RESTORE, op_roles
 from tools.emu.vms import ExecResult, FnVm, evict
 
 
@@ -65,31 +65,6 @@ class Vm:
     session: int
     state: str  # staged | idle | claimed | running | snapshotting
     since: float
-
-
-NOOP, BOOT, RESTORE, CLAIM, SNAP = "noop", "boot", "restore", "claim", "snapshot"
-
-
-def op_roles(lad: LadderSpec) -> dict[int, str]:
-    """Role of every op object of the appliance ladder (by identity); anything else stays simulated."""
-    t, roles = lad.transitions, {}
-
-    def shape(ops: Sequence[Op], kinds: tuple[type, ...]) -> None:
-        if len(ops) != len(kinds) or any(not isinstance(o, k) for o, k in zip(ops, kinds, strict=True)):
-            raise ValueError(f"emulation supports the appliance ladder only (unexpected ops {ops!r})")
-
-    shape(t["L1->L3"], (DiskReadOp, DelayOp, CpuOp))
-    shape(t["L2->L3"], (DiskReadOp, DelayOp))
-    shape(t["L3->L4"], (DelayOp,))
-    shape(lad.after_init, (DelayOp, DiskWriteOp))
-    for o, r in zip(t["L1->L3"], (NOOP, BOOT, NOOP), strict=True):
-        roles[id(o)] = r
-    for o, r in zip(t["L2->L3"], (NOOP, RESTORE), strict=True):
-        roles[id(o)] = r
-    roles[id(t["L3->L4"][0])] = CLAIM
-    for o, r in zip(lad.after_init, (SNAP, NOOP), strict=True):
-        roles[id(o)] = r
-    return roles
 
 
 class FcBackend:

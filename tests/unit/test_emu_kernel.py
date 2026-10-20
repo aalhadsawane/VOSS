@@ -38,7 +38,7 @@ def test_post_from_another_thread_wakes_the_loop() -> None:
     t0 = time.monotonic()
     k.run(0.5)
     assert len(got) == 1 and 0.02 < got[0] < 0.2
-    assert time.monotonic() - t0 >= 0.5  # run() always lasts until the deadline
+    assert time.monotonic() - t0 >= 0.45  # run() lasts until the deadline (t0 is taken just after the kernel starts)
 
 
 def test_callbacks_may_schedule_more_events() -> None:
