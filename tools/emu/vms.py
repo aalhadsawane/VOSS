@@ -61,10 +61,12 @@ class FnVm:
         """Pause, write a full snapshot, resume; returns wall seconds (the VM keeps running afterwards)."""
         t0 = time.monotonic()
         try:
+            self.fc.send("PING 0 quiesce")  # snapshot only a guest that has answered everything sent to it
+            self.fc.wait("ACK", "quiesce", timeout=30.0)
             self.fc.pause()
             self.fc.snapshot(state, mem)
             self.fc.api("PATCH", "/vm", {"state": "Resumed"})
-        except (OSError, RuntimeError):  # killed while snapshotting (session end): no snapshot
+        except (OSError, RuntimeError, TimeoutError):  # killed while snapshotting (session end): no snapshot
             return -1.0
         return time.monotonic() - t0
 
@@ -73,9 +75,13 @@ class FnVm:
         faults, like the ``fc_restore`` calibration probe); returns wall seconds."""
         t0 = time.monotonic()
         self.fc.spawn()
-        self.fc.load(state, mem)
-        self.fc.send("PING 0 ping")
-        self.fc.wait("ACK", "ping", timeout=timeout)
+        try:
+            self.fc.load(state, mem)
+            self.fc.send("PING 0 ping")
+            self.fc.wait("ACK", "ping", timeout=timeout)
+        except (RuntimeError, TimeoutError, OSError):  # Firecracker rejected or could not resume the snapshot
+            self.kill()
+            return -1.0
         return time.monotonic() - t0
 
     def kill(self) -> None:

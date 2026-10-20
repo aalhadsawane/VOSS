@@ -1,0 +1,6 @@
+# E01 scenario 3 (replaces s3_omit, whose three omitting owners never received work at 3 inv/s): 20% omitting owners
+# at 100 inv/s, so defecting hosts are dispatched work and progress-based detection, retries and hedging run.
+extends: base.yaml
+scenario:
+  adversary: {regime: adversary_mixed, alpha: 0.2}
+  load: {regime: load_default, rate: 100}

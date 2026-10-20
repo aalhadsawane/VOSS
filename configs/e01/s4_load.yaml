@@ -1,0 +1,5 @@
+# E01 scenario 4: stable hosts, 100 inv/s. At 3 inv/s one warm worker serves everything; at this load work spreads over
+# most workers, so placement, queueing, hedging and cold starts on several hosts are exercised.
+extends: base.yaml
+scenario:
+  load: {regime: load_default, rate: 100}

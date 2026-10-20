@@ -351,7 +351,17 @@ class HostBackend:
             vm = self.s.new_vm(self.s.assets, self.s.cfg.workdir / "fc", vid, fn.name, int(fn.mem_mb))
             return vm, vm.restore(state, mem)
 
-        self.s.submit(job, lambda res: self._staged(res, fn, session, "emu_restore", cont))
+        def then(res: tuple[FnVm, float]) -> None:
+            if res[1] >= 0:
+                self._staged(res, fn, session, "emu_restore", cont)
+                return
+            self.s.count("restore_failed")  # a real system would discard the snapshot and boot
+            self.s.snaps.pop((self.w, fn.name), None)
+            state.unlink(missing_ok=True)
+            mem.unlink(missing_ok=True)
+            self._boot(fn, cont)
+
+        self.s.submit(job, then)
 
     def _snapshot(self, fn: FunctionSpec, cont: Callable[[], None]) -> None:
         vs = self.s.vms.get((self.w, fn.name), [])
