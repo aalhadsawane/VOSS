@@ -4,7 +4,7 @@
 extends: ../base.yaml
 horizon_s: 600
 drain_s: 30
-calibration: configs/calibration/placeholder/c0
+calibration: configs/calibration/measured/c0-9132c8a291
 decision_clock: {mode: modeled}
 scenario:
   workers: 16
