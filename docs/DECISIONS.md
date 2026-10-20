@@ -455,3 +455,20 @@ and differ by about 6–11% between machines. The runner CPU models were not rec
 independent provisionings", not "a named CPU pair"; the earlier E09 probe (D-70) covers the named CPUs (one Intel and three AMD
 models, two Ubuntu releases). The earlier releases `paper-runs-38893758691` and `paper-runs-39039446984` are kept because the
 manuscript history refers to them; they were produced without the pin and are not reproducible on other CPU types.
+
+**D-72 P9b unparked: E01 runs on a single-box emulation with real microVMs, against a bundle measured on the same node**
+(P9b, doc 10 §4, doc 06 §5). The i7 node (12th-gen i7-12700, 125 GB, NVMe + HDD, KVM) was reserved for the work. Three
+deviations from the doc 10 §4 sketch, each the smallest sensible choice. (1) The network stays a model on the wall-clock
+kernel instead of per-actor network namespaces with `tc netem`: netem would impose the delays of the same geographic model,
+so it adds socket overhead but validates nothing about the model, and it needs root-level network changes on a shared
+machine. (2) The emulation replaces the start-up steps that stand for real work (boot, snapshot restore, snapshot create,
+dispatch) and the execution by Firecracker microVMs; key release, attestation, queueing and the TPM stay models. Real VMs are
+reconciled to the logical warm pool (`WorkerCache`), so cache policy stays simulated state with real costs. (3) The decision
+clock is `measured` with scale 0 on the emulation side (policy code runs for real, so its cost is already in the timeline);
+the simulator side uses `modeled`, as in the paper. E01 compares against a new bundle (`configs/calibration/measured/
+c0-9132c8a291`, node C0) and not the laptop bundle, which stays for E24: comparing against laptop costs (hard disk) would
+report calibration mismatch as model error. Only non-reboot suites were run (rule 14); the session boot (`reboot_to_kernel`,
+`appliance_userspace`) therefore keeps its placeholder on both sides. The harness's cold page cache now evicts only the
+measured files (`posix_fadvise`) instead of dropping the machine-wide cache, which matters on a shared host. Page cache of
+snapshot files and of the rootfs is evicted before each restore and boot, matching the model's disk reads. The comparison
+metrics and the `close`/`partly`/`far` cut-offs are fixed in `tools/emu/compare.py` before any E01 run.
