@@ -320,7 +320,8 @@ class HostBackend:
             if self.s.cfg.evict_rootfs:
                 evict(self.s.cfg.rootfs)
             for attempt in (1, 2):  # a VMM that dies while being configured is retried once, like a supervisor would
-                vm = self.s.new_vm(self.s.assets, self.s.cfg.workdir / "fc", f"{vid}-{attempt}", fn.name, int(fn.mem_mb))
+                wd = self.s.cfg.workdir / "fc"
+                vm = self.s.new_vm(self.s.assets, wd, f"{vid}-{attempt}", fn.name, int(fn.mem_mb))
                 try:
                     return vm, vm.boot(self.s.cfg.rootfs)
                 except (OSError, RuntimeError, TimeoutError):

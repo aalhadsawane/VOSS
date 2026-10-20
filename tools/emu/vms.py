@@ -6,6 +6,7 @@ calibration use the same code path. Every method blocks and is meant to run on a
 
 from __future__ import annotations
 
+import contextlib
 import os
 import queue
 import re
@@ -94,10 +95,9 @@ class FnVm:
     # --- execution ----------------------------------------------------------------------------------------
     def prep(self, size_kb: int) -> None:
         """Ask the guest to build the input now (non-blocking); the request that follows then runs on a ready input."""
-        try:
+        # an OSError means the VM was killed meanwhile (session end): the request fails later, as on a real loss
+        with contextlib.suppress(OSError):
             self.fc.send(f"PREP {size_kb} p")
-        except OSError:  # the VM was killed meanwhile (session end): the request fails later, as it would on real loss
-            pass
 
     def run(self, size_kb: int, tag: str, timeout_s: float) -> ExecResult:
         """Send one invocation and wait for its ``VOSS_EXEC`` line; a timeout kills the VM."""
