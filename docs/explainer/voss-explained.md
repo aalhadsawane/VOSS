@@ -542,6 +542,68 @@ E_t = sum, over machines j holding tenant t's key:  (1 − a_j)
 
 ---
 
+## Why is the scheduler on a volunteer machine?
+
+- **This is the design the paper builds and evaluates.** Everything about scheduler failover, scheduler faults and the cluster experiments is for this design.
+- **Reasons for choosing it:**
+  - the provider then runs **no per-cluster component**: its tier grows with traffic and fleet size, not with the number of clusters;
+  - it is the **harder case** for fault tolerance, so the mechanisms are tested where they matter;
+  - it would take the **exact planner's compute** off the provider;
+  - the pattern (attested code, soft state, lease and fencing, provider arbiter) is reusable for other coordinators on unreliable machines.
+- **What it costs:** a scheduler that can crash or stall like any volunteer (hence the whole failover section) and a **networking problem** (next slide).
+
+---
+
+## The networking problem
+
+- Workers are behind **NAT**: they can open outgoing connections but cannot receive incoming ones.
+- The scheduler is **also a volunteer behind NAT**. A worker's outgoing connection to it cannot be established directly.
+- **Hole punching** (both sides connect out at once) works for most but not all pairs: a large measurement reports about 70% success. Carrier-grade NAT is common.
+- **Addresses change.** After a scheduler change every worker of the cluster must reconnect to a new machine, and routers must learn the new address.
+- The paper **assumes** control streams reach the scheduler through a **provider relay** that both sides connect to outbound. Payloads still go router ↔ worker directly. The simulator only adds **20 ms per relayed endpoint** for 15% of workers; relay capacity and reconnection are not modelled.
+- Bandwidth is not the issue: control traffic is a few hundred bytes per second per worker.
+
+---
+
+## Options for reaching a volunteer-hosted scheduler
+
+- **Relay (assumed):** both sides dial out to a provider relay that forwards encrypted streams. Adds one hop and one provider component.
+- **Reachability-aware appointment:** only appoint machines that pass an inbound-reachability check at attestation (public IPv6, port mapping, verified hole punch). Shrinks the candidate pool.
+- **Both:** reachable hosts first, relay as fallback.
+- **Provider-hosted scheduler:** remove the problem by not putting the scheduler on a volunteer (next slides).
+
+---
+
+## What a provider would pay to host the schedulers
+
+```text
+workers   clusters   greedy planning   exact planning   placement
+          (÷30)      (cores)           (cores)          (0.01 inv/s per worker)
+10^3        33         0.009              4.6             0.008 cores
+10^4       333         0.09              46               0.08 cores
+10^5     3 333         0.9              455               0.8 cores
+```
+
+- From the paper's numbers: greedy 8 ms per cluster per 30 s period; exact 4.1 s; placement about 0.8 ms per decision for a cluster of 30.
+- **Greedy planning is essentially free** for a provider. The compute that volunteer hosting saves matters only for the **exact planner**, whose benefit is not established.
+- So the choice of the greedy planner **does not depend on where the scheduler runs**.
+- A provider could also run the exact planner on its own hardware with a time budget, which a slow, unreliable volunteer machine does worse.
+
+---
+
+## If the scheduler ran on the provider
+
+- **One round trip less per invocation:** router and scheduler would be in the same datacenter (or one regional service). Today the router waits for a volunteer machine.
+- **Failover becomes ordinary provider high availability.** Epoch fencing, roll call and succession lists would not be needed against volunteer faults.
+- **Smaller threat model:** no black-holing or slow scheduler host, no fake drain by a scheduler host. Worker-side adversaries and progress detection of workers remain.
+- **Smaller attested image:** scheduler code leaves the appliance.
+- **Bigger scheduling domains** become possible, in line with the geo-clustering result (one scheduler was better at our scale).
+- **Unchanged:** planner, placer, estimators, exposure, receipts, key release, hedging.
+- Precedent: BOINC servers are public and clients dial out; Skype moved its volunteer-hosted coordinators into provider datacenters.
+- **Not evaluated in the paper.** The fault-tolerance results are specific to the volunteer-hosted design. A direct comparison is planned.
+
+---
+
 ## Life of one invocation
 
 ```mermaid
@@ -1317,7 +1379,7 @@ workers     success   sync P99   decision P99
 
 The review of this deck produced a register of design critiques with defenses (`docs/critique/CRITIQUE.md`). The main ones:
 
-- **Scheduler on a volunteer behind NAT:** who can dial whom, and why is the scheduler on a volunteer at all if greedy planning costs a provider under one core for 10⁵ workers?
+- **Scheduler on a volunteer behind NAT:** who can dial whom, and why is the scheduler on a volunteer at all if greedy planning costs a provider under one core for 10⁵ workers? The action plan (`docs/critique/ACTION.md`) keeps the volunteer-hosted design as built and adds a provider-hosted variant as a comparison.
 - **Trust claims:** the verifier is in the confidentiality trust base in the default key-release mode; physical access to RAM defeats Property 1 without memory encryption.
 - **Idempotence:** retries, hedges and failover assume it; the platform contract is unstated.
 - **Time constants and solver cost:** 30 s planning period unswept; MILP charged 0.1 s but takes 4 s.
