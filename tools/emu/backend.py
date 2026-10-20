@@ -319,8 +319,16 @@ class HostBackend:
         def job() -> tuple[FnVm, float]:
             if self.s.cfg.evict_rootfs:
                 evict(self.s.cfg.rootfs)
-            vm = self.s.new_vm(self.s.assets, self.s.cfg.workdir / "fc", vid, fn.name, int(fn.mem_mb))
-            return vm, vm.boot(self.s.cfg.rootfs)
+            for attempt in (1, 2):  # a VMM that dies while being configured is retried once, like a supervisor would
+                vm = self.s.new_vm(self.s.assets, self.s.cfg.workdir / "fc", f"{vid}-{attempt}", fn.name, int(fn.mem_mb))
+                try:
+                    return vm, vm.boot(self.s.cfg.rootfs)
+                except (OSError, RuntimeError, TimeoutError):
+                    vm.kill()
+                    self.s.count("boot_retry")
+                    if attempt == 2:
+                        raise
+            raise AssertionError("unreachable")
 
         self.s.submit(job, lambda res: self._staged(res, fn, session, "emu_boot", cont))
 
