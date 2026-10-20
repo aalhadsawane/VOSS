@@ -1,0 +1,41 @@
+{
+  "host": "anjuna3",
+  "kernel": "5.15.0-190-generic",
+  "cpu": "12th Gen Intel(R) Core(TM) i7-12700",
+  "governor": "powersave",
+  "affinity": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "loadavg_start": [
+    0.16064453125,
+    0.26953125,
+    0.74072265625
+  ],
+  "backend": {
+    "vm_killed": 442
+  },
+  "kernel_events": 660548,
+  "kernel_max_lag_s": 0.0576831625990053,
+  "kernel_mean_lag_s": 0.0001832569029836691,
+  "loadavg_end": [
+    5.08203125,
+    2.38818359375,
+    1.55078125
+  ],
+  "failed": "None"
+}

@@ -1,0 +1,287 @@
+{
+  "calibration_hash": "4b9f42d2aff76e952f7be77857b2a4e1fb8ff37e0fd1c0693eb774042e641c03",
+  "clock_mode": "modeled",
+  "config": {
+    "calibration": "configs/calibration/measured/c0-9132c8a291",
+    "decision_clock": {
+      "coeffs": {
+        "orchestrate": [
+          0.001,
+          0.0001
+        ],
+        "place": [
+          0.0002,
+          2e-05
+        ],
+        "plan": [
+          0.02,
+          5e-05
+        ],
+        "route": [
+          0.0001,
+          1e-05
+        ],
+        "settle": [
+          0.01,
+          2e-06
+        ],
+        "verify": [
+          0.0,
+          5e-05
+        ]
+      },
+      "cpu_scale": 1.0,
+      "mode": "modeled",
+      "replay_log": null
+    },
+    "drain_s": 30.0,
+    "horizon_s": 600.0,
+    "label": "",
+    "out_dir": "runs",
+    "reference": "ref_lambda_like",
+    "scenario": {
+      "adversary": {
+        "regime": "adversary_none"
+      },
+      "churn": {},
+      "envelope": {},
+      "execution": {},
+      "faults": [],
+      "functions": "functions_e01.yaml",
+      "geo": {
+        "regions": [
+          "eu"
+        ]
+      },
+      "hw_mix": {
+        "C0": 0.1,
+        "C1": 0.35,
+        "C2": 0.35,
+        "C3": 0.2,
+        "E0": 1.0
+      },
+      "load": {
+        "rate": 3,
+        "regime": "load_default"
+      },
+      "network": {},
+      "regime": "churn_low",
+      "start_utc_h": 0.0,
+      "substrate_mix": {
+        "appliance_tpm": 1.0
+      },
+      "tenants": "tenants_e01.yaml",
+      "tiers": {
+        "dedicated": 1.0,
+        "idle": 0.0,
+        "nightly": 0.0
+      },
+      "tofu_frac": 0.0,
+      "warmup_s": 172800.0,
+      "workers": 16
+    },
+    "seed": 3,
+    "system": "voss",
+    "voss": {
+      "accounting": {
+        "cache_per_gb_h": 0.1,
+        "late_factor": 0.5,
+        "report_s": 5.0,
+        "sched_per_assign": 0.01,
+        "sched_per_h": 1.0,
+        "settle_s": 60.0,
+        "standby_per_h": 0.25
+      },
+      "admission": {
+        "defer_s": 1.0,
+        "enabled": true,
+        "eps": 0.05,
+        "filler_headroom": 1
+      },
+      "cache": {
+        "hdd_tier": false,
+        "max_sources": 3,
+        "p2p": true,
+        "value": "gdsf"
+      },
+      "clusters": {
+        "bootstrap_s": 3.0,
+        "d_min": 3,
+        "dwell_s": 600.0,
+        "imbalance_delta": 0.4,
+        "max_moves": 10,
+        "max_moves_per_h": 3,
+        "max_size": 60,
+        "min_size": 10,
+        "mode": "dynamic",
+        "period_s": 30.0,
+        "slo_periods": 3,
+        "slo_theta": 0.2,
+        "target_size": 30
+      },
+      "cost": {
+        "eps": 0.05,
+        "lambda_exposure": 1.0,
+        "lifecycle_aware": true,
+        "scalarizer": "slo_miss",
+        "sigma": {
+          "high": 3.0,
+          "low": 0.1,
+          "medium": 1.0
+        },
+        "sync_weight": 1.0
+      },
+      "detection": {
+        "T_decide_max": 0.2,
+        "decide_periods": 3,
+        "mode": "progress",
+        "probe_timeout_s": 2.0,
+        "stall_n": 3,
+        "stall_window_s": 5.0,
+        "suspect_s": 600.0,
+        "suspect_streak": 2,
+        "watchdog_min_s": 3.0,
+        "watchdog_slack": 1.2
+      },
+      "hedge": {
+        "budget": 0.1,
+        "name": "risk_proportional",
+        "theta": 0.2
+      },
+      "infra": {
+        "orchestrator": "Frankfurt",
+        "registry": "Frankfurt",
+        "routers": [
+          "Washington",
+          "Frankfurt",
+          "Singapore"
+        ],
+        "verifier": "Frankfurt"
+      },
+      "models": {
+        "cusum_h": 5.0,
+        "omission": "beta_cusum",
+        "refit_s": 60.0,
+        "survival": "weibull"
+      },
+      "orchestrator": {
+        "check_s": 1.0,
+        "keepalive_timeout_s": 5.0,
+        "summaries_s": 1.0
+      },
+      "placer": {
+        "K": 12,
+        "async_": "flow",
+        "slots_per_worker": 4,
+        "sync": "greedy",
+        "window_s": 0.2
+      },
+      "planner": {
+        "T_linger": 30.0,
+        "T_plan": 30.0,
+        "T_solve": 2.0,
+        "cold_penalty": 10.0,
+        "f_from_alpha": 0.1,
+        "horizon_factor": 2.0,
+        "hot_fn_k": 50,
+        "hot_top_k": 20,
+        "max_parallel_prepares": 2,
+        "max_plan_workers": 40,
+        "min_rate": 0.01,
+        "name": "greedy",
+        "node_limit": 50,
+        "params": {},
+        "replan_tolerance": 0.2
+      },
+      "predictor": {
+        "conformal": true,
+        "forgetting": 0.995,
+        "name": "blr"
+      },
+      "reputation": {
+        "breach_w": {
+          "dedicated": 3.0,
+          "nightly": 1.0
+        },
+        "change_point_w": 2.0,
+        "commit_s": {
+          "dedicated": 86400.0,
+          "nightly": 14400.0
+        },
+        "explore_floor": 0.3,
+        "half_life_h": 168.0,
+        "honor_w": 1.0,
+        "in_cost": false,
+        "late_w": 0.05,
+        "name": "beta_decay",
+        "prior": [
+          1.0,
+          2.0
+        ],
+        "probation_h": 24.0,
+        "push_s": 30.0,
+        "quantile": 0.05,
+        "result_w": 0.1,
+        "share_cap": 0.05,
+        "suspect_w": 1.0,
+        "tie_break": 0.02
+      },
+      "router": {
+        "T_dispatch": 1.0,
+        "T_spill": 1.5,
+        "cold_fn_s": 0.5,
+        "cold_penalty_s": 3.0,
+        "exposure_s": 0.5,
+        "give_up_s": {
+          "async": 300.0,
+          "filler": 900.0,
+          "sync": 30.0
+        },
+        "health_s": 5.0,
+        "max_resends": 3,
+        "name": "score",
+        "receipt_batch_s": 1.0,
+        "stats_s": 5.0
+      },
+      "scheduler": {
+        "heartbeat_s": 2.0,
+        "hetero_aware": true,
+        "keepalive_s": 1.0,
+        "max_attempts": 3,
+        "no_candidate_retry_s": 0.5,
+        "retry_backoff_s": 0.2,
+        "stale_after_s": 7.0,
+        "view_refresh_s": 0.25
+      },
+      "succession": {
+        "T_ckpt": 30.0,
+        "handover_wait_s": 1.0,
+        "lease_s": 5.0,
+        "retain_outcomes": 64,
+        "standbys": 1
+      },
+      "worker": {
+        "assurance_tofu_factor": 0.9,
+        "m_base_mb": 512.0,
+        "prebooted_at_start": true,
+        "warm_ttl_s": 600.0
+      }
+    }
+  },
+  "config_hash": "d3e47dbaf41b277fff2c25657e840d69edf28f02387501b5e02179e3288f3b68",
+  "git_dirty": true,
+  "git_sha": "unknown",
+  "numeric_canary": "0cdc19b49274aac8",
+  "result_hash": "c71546bda079790f712f46dbb26ad6db82ee6b1fbf25bbd5ed1b28747324c25c",
+  "scenario_hash": "b18d8850f9daa28e6a237ddc0b5f2b28e89e1c8ce811c0a23c5ea420ed1fe7b2",
+  "seed": 3,
+  "versions": {
+    "numpy": "2.4.6",
+    "pandas": "3.0.6",
+    "pyarrow": "25.0.1",
+    "pydantic": "2.14.0",
+    "python": "3.11.0rc1",
+    "scipy": "1.17.1"
+  },
+  "wall_s": 1.7194266812875867
+}
