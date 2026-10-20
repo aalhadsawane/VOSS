@@ -23,7 +23,7 @@ that each invocation has one terminal outcome, that no stale-epoch scheduler dis
 \end{figure*}
 
 \textbf{Event loop and what costs time.} Every interaction between nodes is a typed message sent through the network model, which delivers it after a delay from the great-circle distance between about 100 metropolitan areas (100\,km per ms, route factor $1.3$) plus last-mile terms and lognormal jitter (the scheduler's own RTT estimate has no jitter, Table~\ref{tab:info}). Bulk transfers share each host's access link by processor sharing.
-Nothing is free (Table~\ref{tab:simwhat}): disk-tier reads, CPU contention, TPM quotes, verification, key release and the decision latency of planner, placer, router and orchestrator all consume simulated time. Decision latency is modelled as $a+b\cdot\text{work}$ per decision kind (for the planner, work is the number of program variables; for the placer, candidates times components), so results do not depend on the speed of the simulating machine. The coefficients are literature-seeded placeholders, not measurements (tagged for refit from the scalability experiment).
+Nothing is free (Table~\ref{tab:simwhat}): disk-tier reads, CPU contention, TPM quotes, verification, key release and the decision latency of planner, placer, router and orchestrator all consume simulated time. Decision latency is modelled as $a+b\cdot\text{work}$ per decision kind (for the planner, work is the number of program variables; for the placer, candidates times components), so results do not depend on the speed of the simulating machine. The coefficients are literature-seeded placeholders, not measurements (tagged for refit from the scalability experiment). For the planner the charge is $0.02\,\text{s}+50\,\mu\text{s}$ per program variable, about 0.1\,s for the programs here, for the greedy and the exact planner alike; the exact planner's measured solve time (4.1\,s) is reported but not charged.
 
 \begin{table}[t]
 \caption{What the simulator computes, takes from calibration, or assumes.}
@@ -44,7 +44,7 @@ Assumed (swept) & session-length and churn parameters, adversary fractions and s
 
 \textbf{World model.} Workers are drawn from three tiers (nightly, idle-hours, dedicated) with heterogeneous hardware, home cities and substrates. Sessions follow log-normal, Weibull or nightly-schedule length distributions with a time-of-day
 hazard; a fraction of departures is graceful and the rest abrupt, and correlated shocks remove a share of a city at once. Three churn regimes (low, medium, high) plus burst and correlated variants parameterize these. No public trace of
-consumer donation sessions exists, so the shapes follow volunteer-availability studies \cite{javadi2013fta} and the parameters are tagged \emph{assumed} and swept. The workload has 12 functions modeled on SeBS \cite{copik2021sebs} in sync, async and
+consumer donation sessions exists, so the shapes follow volunteer-availability studies \cite{javadi2013fta} and the parameters are tagged \emph{assumed} and swept. The workload has six tenants and 12 functions modeled on SeBS \cite{copik2021sebs} in sync, async and
 filler classes, Zipf-skewed popularity, a Markov-modulated Poisson arrival process with bursts and diurnal modulation \cite{shahrad2020wild}, and flash crowds as a variant. A synchronous invocation's deadline is $k=5$ times its warm latency. Adversaries are
 a fraction $\alpha$ of workers that behave as omitting (black-hole, random omission, on--off, throttling, fake drain notices, or a colluding failure domain); by Property 1 none forges results or reads keys on an attested substrate, while the \texttt{none} substrate
 admits both.
@@ -55,8 +55,8 @@ admits both.
 \label{sec:calib}
 Parameters in the specification are literature values or assumptions, tagged as such. Measured values come only from calibration bundles. We measured one on a consumer laptop with an \CalCpu{} CPU, a discrete TPM~2.0 and a hard disk, which stands in
 for a donor node. A harness reboots the machine into the appliance and records wall-clock timestamps (resolution about 1\,s), and microbenchmarks cover TPM quotes, hashing, Firecracker boot and snapshots. Table~\ref{tab:calib} compares measured values with the
-pre-measurement placeholders. Reboot to kernel is slower (\CalReboot\,s against \CalRebootPh\,s), the kernel-to-agent phase far slower (\CalUserspace\,s), and snapshot creation on a hard disk costs \CalSnapCreate\,s for 512\,MB. Reboot to an attested worker takes \CalAttested\,s
-(median of \CalAttestedN{} boots). A warm-cache microVM boot (\CalFcBootWarmMs\,ms) is close to the literature \cite{agache2020firecracker}.
+pre-measurement placeholders. Reboot to kernel is slower (\CalReboot\,s against \CalRebootPh\,s), the kernel-to-agent phase far slower (\CalUserspace\,s), and snapshot creation on a hard disk costs \CalSnapCreate\,s for 512\,MB. From power-on, an attested worker takes \CalAttested\,s
+(median of \CalAttestedN{} boots; \CalAttestedKernel\,s of it after kernel start). A warm-cache microVM boot (\CalFcBootWarmMs\,ms) is close to the literature \cite{agache2020firecracker}.
 
 \begin{table}[t]
 \caption{Calibration entries (s unless noted): placeholder versus measured on the calibration laptop. Ratio is measured over placeholder.}
@@ -68,6 +68,8 @@ pre-measurement placeholders. Reboot to kernel is slower (\CalReboot\,s against 
 Two limits apply. The machine is not the intended donor node and lacks AMD SEV-SNP and Intel TDX, so confidential-VM and DRTM parameters are literature values \cite{misono2025cvm,holmes2024severifast,li2023bifrost}, which we sweep. And the appliance was exercised in
 \emph{host mode} (the TPM measurement chain and quote path on the host, with microVMs through Firecracker) rather than as a locked image on bare metal, so the attested-session figure is a measured sum, not a measured attestation of the final image. Simulator output has
 not been validated end to end against a multi-machine testbed (Section~\ref{sec:threats}).
+
+\textbf{Validation against one machine (E01).} To check the start-up and execution parts of the simulator against real execution we ran the same scenarios in a single-box emulation on a lab node (Intel Core i7-12700, 125\,GB, NVMe, Firecracker 1.10.1) and in the simulator, with a calibration bundle measured on that node (the session boot keeps its placeholder on both sides). The emulation has 16 donor slices of two slots each, five functions, ten minutes per run and seeds 1--3. It replaces boot, snapshot restore and creation, dispatch and function execution by real microVMs; the network, key release, attestation, queueing and the TPM stay models on a wall-clock kernel, and the policy code runs for real with its measured decision time. Success rate agrees within 0.6 percentage points in every scenario and the mix of start-up levels is identical (total variation 0.00); median sync latency agrees within 6--23\%. The shape of the latency distribution does not meet our pre-set cut-offs (Kolmogorov--Smirnov distance 0.20--0.51), so every scenario is graded ``partly'' close and none ``close''. At light load the simulator's P99 is about 3.7 to 4.1 times the emulation's on seed means, driven by a handful of cold invocations (the P99 of about 530 synchronous requests is the five slowest); at 100\,inv/s the P99 differs by $-3$ to $-6$\%. E01 does not test the network, attestation, key release, the session boot, detection and failover at scale, or the hard-disk tier.
 
 \subsection{Protocol}
 \label{sec:protocol}
@@ -82,7 +84,7 @@ Each hypothesis is stated before the run together with a mechanical verdict rule
 within one substrate mix). \textbf{SLO feasibility.} A system is \emph{feasible} in a scenario cell if the lower 95\% bound of its success is at least $0.99$ and either the lower bound of its deadline-met fraction is at least a target or its P99 is below an absolute target of 2, 3 or 5\,s.
 The feasibility maps of Section~\ref{sec:res-viab} thus state \emph{where} each design works rather than an average.
 
-\textbf{Baselines.} Baselines use the same simulator, candidates and cost model and differ only in the registered policy. For planning: \emph{no planning} (reactive cold path), \emph{keep-alive TTL}, \emph{greedy planner}, and MILP ablations. For detection: heartbeat-only. For robustness: $f=0$. The \emph{simple baseline} combines static regional
+\textbf{Baselines.} Baselines use the same simulator, candidates and cost model and differ only in the registered policy. For planning: \emph{no planning} (reactive: hosts are provisioned only when an invocation arrives), \emph{keep-alive TTL}, \emph{greedy planner}, and MILP ablations. For detection: heartbeat-only. For robustness: $f=0$. The \emph{simple baseline} combines static regional
 clusters, nearest-region routing, least-loaded placement, keep-alive and no hedging; a variant runs without attestation (substrate \texttt{none}), which is what volunteer FaaS does without security. Commercial-style references (\emph{Lambda-like}, \emph{Azure-like}) are always-on datacenter hosts in the
 router metros with per-function keep-alive (10 and 20\,min) and nearest-region routing, priced from list prices; they run on the same engine so differences stem from policy and substrate, not the simulator.
 

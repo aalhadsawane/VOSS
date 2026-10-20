@@ -472,3 +472,15 @@ report calibration mismatch as model error. Only non-reboot suites were run (rul
 measured files (`posix_fadvise`) instead of dropping the machine-wide cache, which matters on a shared host. Page cache of
 snapshot files and of the rootfs is evicted before each restore and boot, matching the model's disk reads. The comparison
 metrics and the `close`/`partly`/`far` cut-offs are fixed in `tools/emu/compare.py` before any E01 run.
+
+**D-73 The time to an attested worker is reported from power-on (65 s), not from kernel start (44 s)** (P11, doc 10 §6). The
+manuscript (draft 7 and earlier) and the cost ladder of Fig. 1 labelled `appliance_attested` as "reboot to an attested worker from
+a powered-off machine, of which 21 s is firmware and kernel start". The host-mode probe stamps milestones from `/proc/uptime`
+(`tools/calibrate/appliance/host/voss-calib-probe`), so `appliance_attested` (median 44.4 s of 9 boots) runs from kernel start to
+the verifier accepting the quote and excludes the firmware and boot-loader phase (`reboot_to_kernel` 21 s). Per boot,
+firmware + loader + kernel start + `appliance_attested` has a median of 65.1 s (range 63.8-66.4 s), and 76.3 s from the reboot
+command including the shutdown of the owner's operating system. `experiments/paper_tex/measured.py` now computes the paired
+per-boot sum (`CalAttested`, with `CalAttestedKernel` for the kernel-start figure) and the cost ladder row is "Power-on to
+attested worker". Both are host-mode, hard-disk upper bounds; about 14 s of the 44 s is TPM key creation plus the quote. The
+conclusions are unchanged (the gap to a snapshot restore grows to four orders of magnitude). The simulator is not affected: its
+appliance session is built from `reboot_to_kernel`, `appliance_userspace` and a quote delay (about 52 s with the measured bundle).

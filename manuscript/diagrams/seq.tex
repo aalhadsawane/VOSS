@@ -8,7 +8,7 @@
   \seqmsg{-9}{cl}{rt}{\circled{1} invoke(fn, payload)}{msg}
   \seqnote{34}{-15.5}{choose cluster by RTT, health,\\provisioned capacity; keep copy}
   \seqmsg{-22}{rt}{sc}{\circled{2} ENQUEUE (metadata only)}{msg}
-  \seqnote{68}{-28.5}{candidates $=$ provisioned workers $\cup$ cold path;\\cost model; place, maybe hedge}
+  \seqnote{68}{-28.5}{candidates $=$ provisioned workers $\cup$ unprovisioned path;\\cost model; place, maybe hedge}
   \seqmsg{-35}{sc}{wk}{\circled{3} DISPATCH(epoch, token)}{msg}
   \seqmsg{-39}{sc}{rt}{ASSIGNED}{msg}
   \seqmsg{-44}{rt}{wk}{\circled{4} INPUT (attested TLS)}{msg}
