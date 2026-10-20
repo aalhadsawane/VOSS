@@ -373,6 +373,12 @@ class HostBackend:
             return secs
 
         def then(secs: float) -> None:
+            if secs < 0:  # the VM died under the snapshot
+                self.s.count("snapshot_lost")
+                state.unlink(missing_ok=True)
+                mem.unlink(missing_ok=True)
+                cont()
+                return
             self.s.log("emu_snapshot", self.w, secs, fn.name)
             if v in self.s.vms.get((self.w, fn.name), []):
                 v.state = "idle"

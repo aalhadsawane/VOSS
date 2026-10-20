@@ -60,9 +60,12 @@ class FnVm:
     def snapshot(self, state: Path, mem: Path) -> float:
         """Pause, write a full snapshot, resume; returns wall seconds (the VM keeps running afterwards)."""
         t0 = time.monotonic()
-        self.fc.pause()
-        self.fc.snapshot(state, mem)
-        self.fc.api("PATCH", "/vm", {"state": "Resumed"})
+        try:
+            self.fc.pause()
+            self.fc.snapshot(state, mem)
+            self.fc.api("PATCH", "/vm", {"state": "Resumed"})
+        except (OSError, RuntimeError):  # killed while snapshotting (session end): no snapshot
+            return -1.0
         return time.monotonic() - t0
 
     def restore(self, state: Path, mem: Path, timeout: float = 60.0) -> float:
@@ -85,11 +88,18 @@ class FnVm:
     # --- execution ----------------------------------------------------------------------------------------
     def prep(self, size_kb: int) -> None:
         """Ask the guest to build the input now (non-blocking); the request that follows then runs on a ready input."""
-        self.fc.send(f"PREP {size_kb} p")
+        try:
+            self.fc.send(f"PREP {size_kb} p")
+        except OSError:  # the VM was killed meanwhile (session end): the request fails later, as it would on real loss
+            pass
 
     def run(self, size_kb: int, tag: str, timeout_s: float) -> ExecResult:
         """Send one invocation and wait for its ``VOSS_EXEC`` line; a timeout kills the VM."""
-        t0 = self.fc.send(f"RUN {size_kb} {tag}")
+        try:
+            t0 = self.fc.send(f"RUN {size_kb} {tag}")
+        except OSError:
+            self.kill()
+            return ExecResult(False, 0.0, 0.0, 0.0)
         deadline = t0 + timeout_s
         while True:
             left = deadline - time.monotonic()
