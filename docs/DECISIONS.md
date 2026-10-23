@@ -484,3 +484,12 @@ per-boot sum (`CalAttested`, with `CalAttestedKernel` for the kernel-start figur
 attested worker". Both are host-mode, hard-disk upper bounds; about 14 s of the 44 s is TPM key creation plus the quote. The
 conclusions are unchanged (the gap to a snapshot restore grows to four orders of magnitude). The simulator is not affected: its
 appliance session is built from `reboot_to_kernel`, `appliance_userspace` and a quote delay (about 52 s with the measured bundle).
+
+**D-74 Control traffic to a volunteer-hosted scheduler goes through a provider-hosted publish/subscribe broker, one topic set per cluster; a provider-hosted scheduler needs none** (P11, doc 08 §2, ACTION §5.3-5.4, C-01, C-02). Volunteer addresses change
+and are not reachable from outside, so request/response protocols (HTTP, gRPC) cannot reach a scheduler role on a volunteer host without a
+new address push on every change. The manuscript (draft 10, section "Reaching the scheduler") therefore proposes that every party dials out to a
+provider-operated broker and publishes or subscribes by cluster id (MQTT as the candidate). The broker is trusted for availability only;
+messages are sealed with the session keys and carry the epoch. A global or regional scheduler is provider-hosted and needs no broker. This is an
+architecture statement for the paper only: the simulator still models only network delay (the 20 ms relay term), no code changes, no
+experiment changes, and the paper states that broker capacity, connection set-up and reconnection are not modelled. A comparison of
+volunteer-hosted (with broker) and provider-hosted schedulers (E-SCHED) remains future work.
