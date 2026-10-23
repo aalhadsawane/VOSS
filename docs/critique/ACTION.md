@@ -238,6 +238,12 @@ unchanged is item 3, which is about research value, not about the better system.
 Bandwidth is **not** the problem: control traffic is about 0.46 KB/s per worker (E18 pilot), so a cluster of 30 is about
 14 KB/s and 10⁵ workers is about 46 MB/s in total.
 
+**Why request/response protocols do not fit (decision input from the author).** A volunteer's `ip:port` changes with every session and
+often within one, and it is not reachable from outside. HTTP and gRPC both assume a server at a known address, so every scheduler change
+would push a new address to every router and worker (the reconnect storm of point 3) and the per-host configuration (the "proc file"
+of addresses) would change too often to maintain. Hole punching helps only part of the time. Treating the relay as the architecture,
+and not as a fallback, removes the problem.
+
 ### 5.4 Solutions for D_v (high level)
 
 | Option | Idea | Consequence |
@@ -247,8 +253,21 @@ Bandwidth is **not** the problem: control traffic is about 0.46 KB/s per worker 
 | **S3. Both** | S2 where possible, S1 as fallback. | Most robust D_v. |
 | **S4. D_p** | Host the scheduler on the provider. | Removes the problem; see 5.7. |
 
-Recommended for the manuscript: describe S1 as the assumed mechanism for D_v, evaluate it by making the relay explicit in the
-network model with sweeps of `relayed_frac` (0, 15%, 30%, 100%) and relay overhead, and compare with D_p.
+**Decision (author, after this analysis): the relay is a provider-hosted publish/subscribe broker, one topic set per cluster id.**
+Every party (workers, the scheduler, routers, orchestrator) dials out to the broker. The scheduler subscribes to its cluster's
+scheduler topic, workers subscribe to their own topic and a cluster-wide one, routers publish to the scheduler topic. MQTT is the
+candidate protocol (clients dial out, built for unreliable networks, at-least-once delivery fits idempotent plan actions and
+epoch-stamped dispatches), but any topic broker gives the same architecture. A broker that is provider-operated is acceptable because
+it is trusted for availability only: messages between attested parties are sealed with session keys, workers accept dispatches only
+from the current (epoch, certificate), and a broker that drops or delays is an omission fault the system already handles.
+Consequences: failover becomes "the successor subscribes to the same topic", so there is no address hand-out and no reconnect storm;
+the cost is one extra hop and one more provider component that must be highly available (production brokers are clustered).
+**If the scheduler is global or regional it is simply provider-hosted and needs no broker** (S4/D_p). The simulator does not model
+the protocol, only network delay (the 20 ms relay term stands in for the extra hop; broker capacity, connection set-up and reconnects
+are not modelled), and the manuscript says so; the exact protocol is an architectural choice. Other solutions (S2, S3) are parked.
+Manuscript draft 10 carries this in the section "Reaching the scheduler". Original recommendation, kept for reference: describe S1 as
+the assumed mechanism for D_v, evaluate it by making the relay explicit in the network model with sweeps of `relayed_frac` (0, 15%,
+30%, 100%) and relay overhead, and compare with D_p.
 
 ### 5.5 Greedy is enough even without volunteer compute
 
@@ -330,7 +349,7 @@ lines and tests plus configuration. The relay model (S1) is a modification of th
 
 ### 5.10 How the manuscript should present it
 
-1. **§IV and §VII keep D_v exactly as built**, with the motivation stated (thin provider, harder case, offload of the exact
+1. **(Draft 10 follows this, with the broker as the networking mechanism; section numbers refer to the IEEE draft 9.) §IV and §VII keep D_v exactly as built**, with the motivation stated (thin provider, harder case, offload of the exact
    planner, transferable pattern) and the networking assumption stated (outbound-only connections through a provider relay).
 2. A new **Discussion subsection, "Where the scheduler runs"**, gives D_p, the networking constraints, the compute argument of 5.5
    and the consequences of 5.7. It states plainly whether it was evaluated.

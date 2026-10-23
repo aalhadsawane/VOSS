@@ -1,18 +1,13 @@
-% VOSS manuscript. IEEE Transactions format (IEEEtran, journal mode).
+% VOSS manuscript, ACM Transactions on Internet Technologies (acmart, journal template).
 % Numbers and tables come from generated/ (python -m experiments.paper_tex); figures from figures/ (experiments.paper_figs).
-\documentclass[journal]{IEEEtran}
+% The IEEE draft 9 sources are kept in ieee-draft9/.
+\documentclass[acmsmall,screen,review=false]{acmart}
 
-\usepackage[T1]{fontenc}
-\usepackage{amsmath,amssymb}
 \usepackage{booktabs}
-\usepackage{graphicx}
-\usepackage{microtype}
-\usepackage{xcolor}
 \usepackage{array}
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,shapes.geometric,shapes.misc,fit,calc,backgrounds,decorations.pathreplacing}
-\usepackage[hidelinks]{hyperref}
-\usepackage{cite}
 
 \input{generated/macros}
 \input{diagram-styles}
@@ -21,57 +16,71 @@
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
 \newcommand{\code}[1]{\texttt{#1}}
 \newcommand{\ok}{\ensuremath{\bullet}}
-\newcommand{\part}{\ensuremath{\circ}}
+\newcommand{\partly}{\ensuremath{\circ}}
+
+\setcopyright{none}
+\acmJournal{TOIT}
+\acmYear{2026}
+\citestyle{acmnumeric}
 
 \begin{document}
 
 \title{VOSS: Scheduling Attested Session State for Serverless Computing on Volunteer Machines}
 
-\author{Aalhad~Sawane%
-\thanks{\todo{author list, affiliations, funding and acknowledgments; this draft names only the repository owner.}}}
+\author{Aalhad Sawane}
+\affiliation{\institution{\todo{institution}}\country{\todo{country}}}
+\email{aalhadsawane@gmail.com}
 
-\markboth{IEEE Transactions (target venue to be decided), Draft}{Sawane: VOSS}
+\begin{abstract}
+Short serverless functions spend most of their time waiting for a sandbox to start or for packets to cross a long distance,
+while machines close to users sit idle. We ask whether those idle consumer machines can serve latency-sensitive requests.
+Two things make this hard. Owners switch machines off without warning, which destroys every warm sandbox on the host.
+And owners cannot be trusted: they can read the code and data they run.
+We observe that remote attestation, in which a machine proves what software it booted, turns a hostile owner into an
+unreliable one. The owner can still stop or delay the machine, but can no longer read or forge anything.
+What remains is a scheduling problem over \emph{attested session state}: proof of trust, secret keys and warm sandboxes
+are slow to create, vanish when a session ends, and widen the attack surface with every host that holds them.
+We present \voss{}, a scheduler built around this problem. A slow loop plans where keys and warm state live, with spare
+capacity for lost hosts. A fast loop places each request and duplicates risky ones. Failures are detected from missing
+progress rather than missing heartbeats, and schedulers are replaced without consensus among volunteers. Workers
+reach their scheduler through a provider-hosted publish/subscribe broker, because volunteer addresses are neither stable nor reachable.
+In a deterministic simulator calibrated on a TPM-equipped machine, \voss{} meets a 3\,s tail-latency target in
+\ViabAPThreeVoss{} of \ViabACells{} churn-and-adversary settings and \ViabBPThreeVoss{} of \ViabBCells{} substrate-and-load settings,
+where the strongest simple baseline meets it in none. Several designed components do not pay off, and we report those too.
+\end{abstract}
+
+\begin{CCSXML}
+<ccs2012>
+<concept><concept_id>10010520.10010521.10010537.10003100</concept_id><concept_desc>Computer systems organization~Cloud computing</concept_desc><concept_significance>500</concept_significance></concept>
+<concept><concept_id>10002978.10002991.10002993</concept_id><concept_desc>Security and privacy~Trusted computing</concept_desc><concept_significance>300</concept_significance></concept>
+<concept><concept_id>10003033.10003039</concept_id><concept_desc>Networks~Network protocols</concept_desc><concept_significance>100</concept_significance></concept>
+</ccs2012>
+\end{CCSXML}
+\ccsdesc[500]{Computer systems organization~Cloud computing}
+\ccsdesc[300]{Security and privacy~Trusted computing}
+\ccsdesc[100]{Networks~Network protocols}
+
+\keywords{serverless computing, volunteer computing, remote attestation, scheduling, publish/subscribe, tail latency}
 
 \maketitle
 
-\begin{abstract}
-Short serverless functions are dominated by cold starts and network distance, while capacity close to users sits idle on
-consumer machines. Serving latency-sensitive invocations from such volunteer machines is hard for two reasons: owners end
-sessions abruptly, which destroys every warm sandbox on the host, and owners are untrusted and can read or tamper with
-tenant code and data. Volunteer-computing systems cope through redundant execution and long deadlines, and serverless
-schedulers assume trusted, always-on fleets. We observe that remote attestation of a locked, measured appliance image
-reduces a malicious owner who controls software, power and network to omission and timing failures. What remains is a scheduling problem over \emph{attested
-session state}: tenant keys provisioned on a host and warm sandboxes are expensive to establish, are lost when the session
-ends, and every additional key holder enlarges the tenant's attack surface. We present \voss{}, a scheduler built around
-this problem. A slow control loop plans where keys and warm state live, with coverage that stays feasible when any $f$
-hosts defect; a fast loop places each invocation with a cost model and hedges risky ones. Failure detection uses
-end-to-end progress instead of liveness, which exposes gray failures; scheduler failover uses leases and epoch
-fencing without consensus among volunteers; and attested receipts make accounting verifiable. In a deterministic simulator
-calibrated on a TPM-equipped machine, \voss{} meets a 3\,s sync P99 target in \ViabAPThreeVoss{} of \ViabACells{} cells (churn by adversary fraction) and
-\ViabBPThreeVoss{} of \ViabBCells{} (substrate by load), where the strongest simple baseline never does.
-Planning lowers P99 by \GreedyNoneMed--\GreedyNoneHigh\% against no planning, and progress-based detection keeps success
-at \VossSuccAlpha\% with 20\% omitting owners where heartbeat-only detection falls to \HbSuccAlpha\%. Several designed
-components do not pay off in our experiments (geo-clustering, reputation, and tiered caching), an exact solver is not
-distinguishable from a greedy heuristic at our sample size, and a commercial-style reference remains faster; we report these with all other hypotheses.
-\end{abstract}
-
-\begin{IEEEkeywords}
-Serverless computing, volunteer computing, remote attestation, trusted execution, scheduling, gray failure, tail latency.
-\end{IEEEkeywords}
-
 \input{sections/intro}
 \input{sections/background}
-\input{sections/related}
-\input{sections/overview}
+\input{sections/design}
 \input{sections/trust}
 \input{sections/scheduling}
+\input{sections/network}
 \input{sections/faulttol}
 \input{sections/method}
 \input{sections/results}
 \input{sections/discussion}
+\input{sections/related}
 \input{sections/conclusion}
 
-\bibliographystyle{IEEEtran}
+\bibliographystyle{ACM-Reference-Format}
 \bibliography{refs}
+
+\appendix
+\input{sections/appendix}
 
 \end{document}

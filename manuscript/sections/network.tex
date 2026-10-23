@@ -1,0 +1,70 @@
+\section{Reaching the Scheduler}
+\label{sec:network}
+
+Section~\ref{sec:sched} assumed that routers can send work to a cluster's scheduler, and that the scheduler can send plans to its workers. But the scheduler is a role on a volunteer machine. Can anyone actually reach it?
+
+\subsection{The problem: volunteer addresses}
+Volunteer machines sit behind home or office routers. Such a router lets a machine open connections to the outside (the machine \emph{dials out}), but it drops connections that arrive from outside, because it does not know which machine inside they are for.
+On top of that, the addresses of home connections change when a router restarts or the internet provider reassigns them.
+A volunteer-hosted scheduler has both problems. Three things must work. Workers must reach their scheduler. Routers must reach it too. And when the scheduler changes, because of a crash or a planned handover, everyone must find the new one.
+
+\subsection{Why request and response do not fit}
+The usual way for two programs to talk, HTTP or gRPC, assumes that a server listens at an address that clients know. Here the server is a home machine with no inbound path and an address that lives for one session.
+Every scheduler change would force every worker and router to learn a new address and reconnect at the same moment. Punching holes through the routers on both sides helps only some of the time, and the pairs that fail need a relay anyway.
+So we do not make the scheduler a server. We use the relay idea directly and make it the architecture.
+
+\subsection{Our design: a provider-hosted publish/subscribe broker}
+\label{sec:broker}
+The provider runs a \emph{broker}, a public service with a stable address. Every party dials out to it and keeps the connection open. Messages are not sent to machines. They are published to named \emph{topics}, and the broker forwards each message to everyone subscribed to that topic (Figure~\ref{fig:broker}).
+\voss{} gives each cluster its own topics, named by cluster id. The scheduler subscribes to its cluster's scheduler topic. Each worker subscribes to its own topic and to a cluster-wide one. Routers publish to the scheduler topic.
+Nobody needs to know anybody else's address. The only thing they must share is the cluster id, which the orchestrator tells them when it assigns them.
+
+\begin{figure}[t]
+\centering
+\resizebox{0.9\columnwidth}{!}{\input{diagrams/broker}}
+\caption{Control traffic between machines goes through topics on a provider-hosted broker, one set per cluster. Every connection is opened from the volunteer side. Invocation payloads do not use the broker: workers also keep an outbound stream to their regional router.}
+\label{fig:broker}
+\end{figure}
+
+We take MQTT~\cite{mqtt5} as the candidate protocol. It was built for devices on unreliable networks, clients always dial out, and it offers delivery guarantees that match our messages: at-least-once delivery is enough for plan actions, which are idempotent, and for dispatches, which carry the scheduler's epoch (Section~\ref{sec:succession}).
+We do not depend on MQTT in particular. Any broker with topics and outbound connections gives the same architecture, and the choice of protocol is an implementation detail.
+
+The design has four consequences.
+\begin{itemize}
+\item \textbf{Failover is simple.} A new scheduler subscribes to the same topic. The topic name does not change, so there is no address to hand out and no reconnect storm. Workers learn only the new epoch and certificate from the appointment message.
+\item \textbf{The broker is trusted for availability only.} Messages between attested parties are sealed with the keys in their session certificates, so the broker sees topic names and ciphertext. It cannot forge a dispatch, because workers accept dispatches only from the current epoch and certificate. It can drop or delay messages, which is an omission fault of the kind the rest of the system already handles.
+\item \textbf{One extra hop.} A message from a worker to its scheduler goes through the broker, not directly. Placing the broker in the provider region nearest the cluster keeps this short.
+\item \textbf{A new provider component to keep up.} The broker is a single point of failure unless it is clustered, which production brokers routinely are. Control traffic is light, about 0.46\,KB/s per worker in a scalability pilot, or roughly 14\,KB/s for a cluster of 30.
+\end{itemize}
+
+\subsection{The alternative: a provider-hosted scheduler}
+\label{sec:placement}
+If the scheduler is global or regional rather than per cluster, none of this is needed. It runs on provider infrastructure at a stable address, workers dial out to it directly, there is no broker, and failover becomes ordinary high availability. The same planner and placer code runs unchanged.
+We still study the volunteer-hosted design, for three reasons. The provider then runs no per-cluster component, so its tier grows with traffic and fleet size, not with the number of clusters. It is the harder case for fault tolerance, so the mechanisms of Section~\ref{sec:ft} are tested where they matter. And the pattern of attested code, soft state and a provider referee may carry over to other coordinators on unreliable nodes.
+
+Does the volunteer's compute matter? Using the planning times we measured, hosting every cluster's scheduler on the provider would cost about 0.9 cores for greedy planning at $10^5$ workers (clusters of 30), and about one core for placement at 1\,000 invocations per second. The exact planner would need about 450 cores. Volunteer hosting saves compute only for the exact planner, whose benefit we could not establish (Section~\ref{sec:res-plan}), so the choice of greedy planning does not depend on where the scheduler runs.
+Provider hosting would also remove a round trip from every synchronous invocation, remove scheduler-host adversaries from the threat model, take the scheduler code out of the attested image, and allow scheduling domains larger than a volunteer machine can serve, in line with our geo-clustering result (Section~\ref{sec:res-nopay}). Table~\ref{tab:placement} compares the options.
+
+\begin{table}[t]
+\caption{Three ways to place the scheduler. Only the first is evaluated in this paper.}
+\label{tab:placement}
+\centering\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}P{3.0cm}P{3.2cm}P{3.3cm}P{2.9cm}@{}}
+\toprule
+ & Volunteer, per cluster & Provider, per cluster or region & Provider, global \\
+\midrule
+How workers reach it & through the broker, by cluster topic & dial out to its address & dial out to its address \\
+New provider component & broker & scheduler service & scheduler service \\
+Scheduler failure & epoch fencing and succession & provider high availability & provider high availability \\
+Scheduler-host adversary & in the threat model & none & none \\
+Extra hop per request & yes & no & no \\
+Scheduling domain & tens of hosts & chosen freely & whole fleet \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{What the simulator models}
+The simulator models only network delay. A message travels for a time derived from the distance between cities, plus a fixed extra 20\,ms for each endpoint that is behind a relay, which we set for 15\% of workers by default. That extra delay stands in for the broker hop.
+It does not model broker capacity, connection set-up, address changes or reconnection after a scheduler change. A design that sent every control message through a broker would add a hop to all workers, not 15\%. We have not swept this.
+We therefore claim the architecture as a design, with delay modelled, and not a measured performance of any protocol. A direct comparison of the three placements, with a load that stresses a single scheduler and a sweep of the relayed share, is future work (Section~\ref{sec:future}).

@@ -1,0 +1,68 @@
+\section{Related Work: Why Existing Approaches Fall Short}
+\label{sec:related}
+
+Table~\ref{tab:related} summarizes how five lines of work address the properties \voss{} needs. No line covers them
+together; the paragraphs below state what each does and why it is insufficient here.
+
+\begin{table}[t]
+\caption{Coverage of the required properties by prior approaches (\ok{} addressed, \part{} partly, blank: not addressed).
+The assessment is ours, from each approach's stated goals.}
+\label{tab:related}
+\centering\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{2.45cm}cccccc@{}}
+\toprule
+ & \rotatebox{70}{Untrusted hosts} & \rotatebox{70}{Host churn} & \rotatebox{70}{Latency SLOs} & \rotatebox{70}{Plans trust and warm state} & \rotatebox{70}{Gray-failure detection} & \rotatebox{70}{Verifiable accounting} \\
+\midrule
+Volunteer computing \cite{anderson2004boinc}           & \ok & \ok &     &     & \part & \part \\
+Serverless schedulers \cite{shahrad2020wild,fuerst2021faascache,ousterhout2013sparrow} &  &  & \ok & \part &  &  \\
+Harvested-resource serverless \cite{zhang2021harvest}  &     & \ok & \ok & \part &  &  \\
+Confidential serverless \cite{arnautov2016scone,wallet2025} & \ok &  & \ok &  &  &  \\
+Trusted-component fault tolerance \cite{levin2009trinc,veronese2013minbft} & \ok &  &  &  &  &  \\
+\midrule
+\voss{}                                                & \ok & \ok & \ok & \ok & \ok & \ok \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Volunteer computing.} BOINC-style systems harvest idle machines for scientific batch work
+\cite{anderson2002seti,anderson2004boinc}. Because hosts are untrusted, they replicate tasks and accept a result when a quorum
+agrees, and they use deadlines to tolerate hosts that disappear. Replication multiplies cost, presumes deterministic tasks without side effects, protects
+integrity but not the confidentiality of inputs, and works on a time scale of hours. None of this fits invocations
+that take milliseconds, may be non-deterministic, and carry private data. \voss{} instead removes the integrity and confidentiality
+concern with attestation, so redundancy is needed only against omission, and then only for risky invocations.
+
+\textbf{Serverless scheduling and keep-alive.} The cold-start literature decides when to keep sandboxes alive or pre-warm them
+\cite{shahrad2020wild}, treats keep-alive as caching \cite{fuerst2021faascache}, or accelerates start-up with lighter
+sandboxes and snapshots \cite{agache2020firecracker,oakes2018sock,ao2022faasnap,cadden2020seuss}. Low-latency schedulers
+place short tasks by sampling \cite{ousterhout2013sparrow} and large-scale cluster managers pack tasks onto
+fleets \cite{verma2015borg}. All assume trusted, effectively always-on machines. A warm sandbox is lost only through a
+policy decision, never because its owner closed the lid, and the model has no resource corresponding to a provisioned
+secret. \voss{} keeps the start-up-tier vocabulary but adds a per-session trust step and plans warm state under churn
+and exposure constraints.
+
+\textbf{Harvested and edge serverless.} Serverless platforms on harvested datacenter VMs handle evictions of
+the underlying resources \cite{zhang2021harvest}, and edge schedulers place containers near data and users
+\cite{rausch2021edge}. Their hosts are operated by the provider or a trusted party, so the failure model is eviction rather than silent omission by an
+adversary, and no secret is entrusted to a party that might read it.
+
+\textbf{Confidential serverless.} Trusted execution environments protect containers and functions from the host operating
+system and the platform operator \cite{arnautov2016scone,costan2016sgx,amd2020snp}, and recent work targets serverless
+functions in confidential VMs and containers \cite{wallet2025,segarra2024sesame}, and measurement studies quantify the cost of confidential VMs \cite{misono2025cvm}. These
+designs address confidentiality on provider-managed server hardware. They do not address hosts whose sessions end
+unpredictably, and they do not treat the establishment of trust as a scheduled resource with a cost, lifetime and exposure.
+\voss{} is substrate-agnostic (Section~\ref{sec:substrates}): the same scheduler runs over a TPM-attested appliance on consumer
+hardware or over confidential VMs, with the substrate profile supplying establishment costs and assurance.
+
+\textbf{Trusted components and failure detection.} Small trusted components (a TPM-like counter or log) restrict what a faulty node can do
+and reduce replication needed for Byzantine agreement \cite{levin2009trinc,veronese2013minbft}. We use the same idea
+differently: attestation does not make agreement cheaper; it makes the faulty node \emph{non-Byzantine}, which lets us replace
+agreement among volunteers by a provider-run arbiter (Section~\ref{sec:succession}). For detection, heartbeat and accrual
+detectors \cite{hayashibara2004phi} infer liveness, which is not progress; gray failures
+\cite{huang2017gray} motivate observing end-to-end progress, which \voss{} does at the trusted router and the attested scheduler.
+
+\textbf{Hedging and robust provisioning.} Hedged requests reduce tail latency by duplicating slow work
+\cite{dean2013tail}. \voss{} applies hedging \emph{in proportion to estimated risk}, on a different failure domain, and
+bounds the extra work by a budget. For the planner we use cardinality-constrained (budgeted) robust optimization
+\cite{bertsimas2004price}, which fits the question ``is demand still covered if any $f$ hosts defect together?''
+without assuming a probability model for adversaries.

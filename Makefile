@@ -58,7 +58,7 @@ paper-analyze:
 	$(RUN) python -m experiments.paper analyze
 
 # Manuscript (ROADMAP P11): numbers and tables are generated from paper/ and configs/calibration/, figures from paper/tables;
-# needs a LaTeX distribution (latexmk, IEEEtran). `make manuscript-gen` regenerates the inputs only.
+# needs a LaTeX distribution (latexmk, acmart with the Libertine and newtx fonts). `make manuscript-gen` regenerates the inputs only.
 manuscript-gen:
 	$(RUN) python -m experiments.paper_tex
 	$(RUN) python -m experiments.paper_figs

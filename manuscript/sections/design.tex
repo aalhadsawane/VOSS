@@ -1,0 +1,40 @@
+\section{System Design}
+\label{sec:overview}
+
+This section follows the problem through the system: who takes part, what each party is trusted for, and what happens to one invocation.
+
+\subsection{Three principles}
+\textbf{Attestation turns distrust into unreliability.} Everything that touches tenant secrets, or makes scheduling decisions, runs inside the attested image. The rest of the system then only has to tolerate machines that stop or stall (Section~\ref{sec:trust}).
+\textbf{Trust is a resource to be planned.} Attestation, keys and warm state have a cost, a lifetime and an exposure price, so they are planned more slowly than invocations are placed (Section~\ref{sec:sched}).
+\textbf{Liveness is a hint; progress is evidence.} Signals from untrusted machines, such as heartbeats, drain notices (an owner announcing they will leave) and self-reported health, are never enough. Failures are detected where work is observed by a party that can be trusted (Section~\ref{sec:ft}).
+
+\subsection{The parties}
+Figure~\ref{fig:arch} shows the components, with colour marking who is trusted for what.
+
+\begin{figure}[t]
+\centering
+\input{diagrams/arch}
+\caption{The \voss{} architecture. Numbers follow one invocation: (1) a client calls a router; (2) the router sends metadata to the cluster's scheduler through the broker; (3) the scheduler dispatches to a worker; (4) the router sends the input and the worker returns the result and a receipt; (5) the worker proves itself to the verifier; (6) it asks the tenant's key service for the secret; (7) it fetches code from the registry; (8) the orchestrator appoints schedulers (dashed, off the request path).}
+\label{fig:arch}
+\end{figure}
+
+\textbf{The provider's control plane} is assumed reliable and is trusted for availability and accounting. It never holds tenant keys. \emph{Routers} receive invocations, pick a cluster, keep a pending copy until a worker accepts, watch for progress, and write the receipts that are the ground truth of work.
+The \emph{orchestrator} groups workers into geographic \emph{clusters} of tens of machines, which keeps each planning problem small and distances short, and appoints one scheduler per cluster. A \emph{verifier} checks attestation evidence and issues session certificates, a \emph{registry} serves encrypted code bundles, and a \emph{broker} carries control messages (Section~\ref{sec:network}).
+
+\textbf{Tenants} run, or delegate to a service they trust, a \emph{key service} that releases their secrets only to machines that attest well. The provider does not hold tenant keys, so this service is not provider-operated.
+
+\textbf{Volunteer machines} reboot into the \emph{attested appliance}, a locked, measured operating-system image containing the worker agent, the Firecracker microVM monitor~\cite{agache2020firecracker} and the scheduler code. Each \emph{worker} runs every invocation in its own microVM and keeps an encrypted cache of code and snapshots.
+The \emph{scheduler} is a role, not a machine: the same image runs everywhere, so any worker can be promoted without booting anything, and one worker per cluster is appointed to schedule. We study this placement because it needs no per-cluster provider component and is the harder case for fault tolerance. Section~\ref{sec:placement} discusses the alternative.
+While the appliance runs, the owner cannot use the machine, so donation means a scheduled or dedicated session. The owner still controls power, network and firmware settings, which is why the scheduler's \emph{host} can omit or delay even though its \emph{code} cannot misbehave.
+
+\subsection{Life of an invocation}
+A router chooses a cluster by round-trip time, health and the capacity already provisioned for the tenant, and sends only \emph{metadata} to its scheduler. The scheduler picks a worker, possibly with a duplicate (a \emph{hedge}) on a second one. The router then sends the payload to the worker over a connection that ends inside the attested appliance, so the scheduler never sees payloads, results or keys.
+If the worker is not yet provisioned for the tenant, it asks the key service for the secret, climbs the start-up levels and runs the function. The result goes back to the router with a receipt signed by the worker's session key (Section~\ref{sec:receipts}), and the client's latency ends there. Every term of the latency is logged separately, which lets us attribute latency to causes in Section~\ref{sec:results}.
+
+\subsection{Sessions and start-up levels}
+\label{sec:lifecycle}
+A worker alternates between OFF and a session. It becomes schedulable only after booting and being attested, which takes \CalAttested\,s from power-on on our machine. A session ends abruptly or gracefully, and either way every secret and warm sandbox is discarded. Disk caches survive as ciphertext and work again after the next attestation.
+Within a session, a function sits at one of the start-up levels of Section~\ref{sec:background}, and a separate flag records whether the machine holds the tenant's key. These two facts, a trust step per session and a key flag per tenant, are what the simulator's generic lifecycle engine reads from data for every trust substrate (Section~\ref{sec:substrates}).
+
+\subsection{Rules for state and messages}
+Four rules keep the request path fast and failures recoverable. Every interaction is a typed message. The operational database is private to the control plane and never on the request path. Live state stays where it is born (queues, caches and keys on workers, pending work in routers, estimates in the scheduler) and is rebuilt from the workers after a scheduler change (Section~\ref{sec:succession}). And every channel ends inside an attested party, with the session certificate as the credential.

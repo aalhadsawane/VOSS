@@ -1,53 +1,44 @@
-% Architecture figure (Fig. 2). Native width 180 mm; everything sits on a grid so no label lies on a box.
-% Rows: clients and legend, provider control plane, volunteer cluster / tenant domain. y runs downwards.
+% Architecture figure (Fig. 1). Native width 139 mm (acmart single column). y runs downwards.
+% Rows: clients and legend; provider control plane; volunteer cluster; tenant domain.
 \begin{tikzpicture}[x=1mm,y=1mm]
+  \tikzset{box/.append style={font=\footnotesize}}
   % ---------- clients and legend ----------
-  \node[box, minimum width=20mm, minimum height=7mm] (client) at (55,-3.5) {Clients};
+  \node[box, minimum width=20mm, minimum height=7mm] (client) at (52,-3.5) {Clients};
   \begin{scope}[font=\tinyx, every node/.style={inner sep=1pt}]
-    \node[prov, minimum size=3mm] (l1) at (96,-3.5)  {};  \node[anchor=west] at (l1.east) {provider};
-    \node[att,  minimum size=3mm] (l2) at (118,-3.5) {};  \node[anchor=west] at (l2.east) {attested code};
-    \node[ten,  minimum size=3mm] (l3) at (143,-3.5) {};  \node[anchor=west] at (l3.east) {tenant-operated};
-    \node[untr, minimum size=3mm] (l4) at (167,-3.5) {};  \node[anchor=west] at (l4.east) {untrusted};
+    \node[prov, minimum size=3mm] (l1) at (75,-3.5)  {};  \node[anchor=west] at (l1.east) {provider};
+    \node[att,  minimum size=3mm] (l2) at (92,-3.5)  {};  \node[anchor=west] at (l2.east) {attested code};
+    \node[ten,  minimum size=3mm] (l3) at (114,-3.5) {};  \node[anchor=west] at (l3.east) {tenant};
+    \node[untr, minimum size=3mm] (l4) at (128,-3.5) {};  \node[anchor=west] at (l4.east) {untrusted};
   \end{scope}
   % ---------- provider control plane ----------
-  \node[zone, fill=blue!4, minimum width=180mm, minimum height=27mm, anchor=north west] (prov) at (0,-12) {};
-  \node[font=\scriptsize\bfseries, anchor=north east] at (178,-13)
-       {Provider control plane: availability and accounting, holds no tenant keys};
-  \node[prov, minimum width=30mm, minimum height=16mm] (orch)   at (20,-27)  {\textbf{Orchestrator}\\[-1pt]\tinyx cluster membership\\[-2pt]\tinyx scheduler appointment};
-  \node[prov, minimum width=30mm, minimum height=16mm] (router) at (55,-27)  {\textbf{Regional routers}\\[-1pt]\tinyx pending table\\[-2pt]\tinyx progress watchdogs\\[-2pt]\tinyx receipts};
-  \node[prov, minimum width=30mm, minimum height=16mm] (ver)    at (90,-27)  {\textbf{Verifier + registrar}\\[-1pt]\tinyx appraises quotes\\[-2pt]\tinyx issues session certificates};
-  \node[prov, minimum width=30mm, minimum height=16mm] (reg)    at (125,-27) {\textbf{Artifact registry}\\[-1pt]\tinyx encrypted code bundles\\[-2pt]\tinyx root file systems};
-  \node[store, minimum width=18mm, minimum height=10mm] (db)    at (160,-27) {\textbf{Ops DB}};
+  \node[zone, fill=blue!4, minimum width=139mm, minimum height=29mm, anchor=north west] (prov) at (0,-10) {};
+  \node[font=\scriptsize\bfseries, anchor=north west] at (2,-10.8) {Provider control plane};
+  \node[font=\tinyx, anchor=north east] at (137,-11.2) {availability and accounting, no tenant keys};
+  \node[prov, minimum width=31mm, minimum height=15mm, font=\scriptsize] (ver)  at (17,-29)  {\textbf{Verifier, registry}\\[-1pt]\tinyx session certificates\\[-2pt]\tinyx encrypted bundles};
+  \node[prov, minimum width=31mm, minimum height=15mm, font=\scriptsize] (rtr)  at (52,-29)  {\textbf{Routers}\\[-1pt]\tinyx pending copies\\[-2pt]\tinyx progress watchdogs\\[-2pt]\tinyx receipts};
+  \node[prov, minimum width=31mm, minimum height=15mm, font=\scriptsize] (brk)  at (87,-29)  {\textbf{Broker}\\[-1pt]\tinyx one topic set\\[-2pt]\tinyx per cluster};
+  \node[prov, minimum width=31mm, minimum height=15mm, font=\scriptsize] (orch) at (122,-29) {\textbf{Orchestrator}\\[-1pt]\tinyx clusters, epochs\\[-2pt]\tinyx database};
   % ---------- volunteer cluster ----------
-  \node[zone, fill=gray!5, minimum width=128mm, minimum height=47mm, anchor=north west] (vol) at (0,-50) {};
-  \node[att, minimum width=34mm, minimum height=18mm] (sch) at (20,-66.5)
-       {\textbf{Scheduler role}\\[-1pt]\tinyx placer + planner\\[-2pt]\tinyx soft state, epoch $e$};
-  \node[att, minimum width=62mm, minimum height=20mm] at (88.5,-68) {};   % second worker, drawn behind
-  \node[att, minimum width=62mm, minimum height=20mm] (w) at (87,-66.5)
-       {\textbf{Worker (attested appliance)}\\[2pt]{\tinyx\begin{tabular}{@{}l@{\hspace{3mm}}l@{}}agent + TPM quote & keys held in memory only\\ Firecracker microVMs & sealed, encrypted cache\end{tabular}}};
-  \node[font=\scriptsize\bfseries, anchor=west] at (2,-83) {Volunteer cluster: tens of hosts, one active scheduler};
-  \node[untr, minimum width=122mm, minimum height=7mm, font=\tinyx] (own) at (64,-91)
-       {Owner-controlled: hardware, firmware settings, power, network. Untrusted; may omit or delay.};
+  \node[zone, fill=gray!5, minimum width=139mm, minimum height=44mm, anchor=north west] (vol) at (0,-48) {};
+  \node[font=\scriptsize\bfseries, anchor=north west] at (2,-48.8) {Volunteer cluster: tens of machines};
+  \node[att, minimum width=84mm, minimum height=21mm, font=\scriptsize] (w) at (45,-69)
+       {\textbf{Worker (attested appliance)}\\[2pt]{\tinyx\begin{tabular}{@{}l@{\hspace{4mm}}l@{}}agent and TPM quote & keys in memory only\\ Firecracker microVMs & sealed, encrypted cache\end{tabular}}};
+  \node[att, minimum width=38mm, minimum height=21mm, font=\scriptsize] (sch) at (115,-69)
+       {\textbf{Worker with}\\[-1pt]\textbf{scheduler role}\\[-1pt]\tinyx planner and placer\\[-2pt]\tinyx soft state, epoch $e$};
+  \node[untr, minimum width=73mm, minimum height=6mm, font=\tinyx] (own) at (99,-87) {Owner controls hardware, power, network: untrusted};
   % ---------- tenant domain ----------
-  \node[zone, fill=orange!6, minimum width=40mm, minimum height=26mm, anchor=north west] (tenant) at (140,-50) {};
-  \node[font=\scriptsize\bfseries, anchor=north] at (160,-51) {Tenant domain};
-  \node[ten, minimum width=34mm, minimum height=14mm] (kbs) at (160,-66.5)
-       {\textbf{Key broker service}\\[-1pt]\tinyx releases secrets only\\[-2pt]\tinyx to attested hosts};
-  \node[zone, dashed, fill=gray!4, minimum width=40mm, minimum height=17mm, anchor=north west] (other) at (140,-80) {};
-  \node[font=\tinyx, align=center] at (other) {Other clusters,\\same structure};
-  % ---------- numbered flows: one invocation (Fig. 3); dashed = control traffic off the hot path ----------
-  \draw[msg] (55,-7) -- (55,-19);
-  \node[lbl, anchor=east] at (53.5,-15.5) {\circled{1} invoke};
-  \draw[msg] (47,-35) -- (47,-44.5) -- (28,-44.5) -- (28,-57.5);
-  \node[lbl, anchor=north] at (37.5,-45.3) {\circled{2} ENQUEUE};
-  \draw[msg] (sch.east) -- node[lbl,above]{\circled{3} DISPATCH} (w.west);
-  \draw[<->, thick] (63,-35) -- (63,-56.5);
-  \node[lbl, anchor=west, align=left] at (64.5,-45.5) {\circled{4} INPUT,\\ RESULT + receipt};
-  \draw[msg] (93,-56.5) -- (93,-35);
-  \node[lbl, anchor=west, align=left] at (94.5,-45.5) {\circled{5} ATTEST,\\ re-quote};
-  \draw[msg] (w.east) -- node[lbl,above,xshift=1.5mm]{\circled{6} KEY\_REQUEST} (kbs.west);
-  \draw[msg] (112,-56.5) -- (112,-35);
-  \node[lbl, anchor=west] at (113.5,-45.5) {\circled{7} fetch};
-  \draw[msg, dashed, <->] (12,-35) -- (12,-57.5);
-  \node[lbl, fill opacity=1, align=center] at (12,-46.5) {\circled{8} KEEPALIVE,\\ checkpoint\\ $\leftrightarrow$ APPOINT};
+  \node[zone, fill=orange!6, minimum width=66mm, minimum height=21mm, anchor=north west] (tenant) at (3,-96) {};
+  \node[font=\scriptsize\bfseries, anchor=north west] at (5,-96.8) {Tenant domain};
+  \node[ten, minimum width=58mm, minimum height=8mm, font=\scriptsize] (kbs) at (36,-110) {\textbf{Key service}: secrets to attested hosts only};
+  % ---------- numbered flows (one invocation); dashed = control traffic off the hot path ----------
+  \draw[msg] (client.south) -- node[lbl, left=0.5mm] {\circled{1}} (rtr.north);
+  \draw[msg] (rtr.east) -- node[lbl, above=2.5mm] {\circled{2}} (brk.west);
+  \draw[msg, <->] (99,-36.5) -- node[lbl, right=0.5mm, pos=0.3] {\circled{2}\circled{3}} (99,-58.5);
+  \draw[msg] (82,-36.5) -- node[lbl, right=0.5mm, pos=0.3] {\circled{3}} (82,-58.5);
+  \draw[<->, thick] (52,-36.5) -- node[lbl, right=0.5mm, align=left, pos=0.3] {\circled{4} input, result, receipt} (52,-58.5);
+  \draw[msg, <->] (11,-36.5) -- node[lbl, left=0.3mm, pos=0.3] {\circled{5}} (11,-58.5);
+  \draw[msg, <-] (23,-58.5) -- node[lbl, right=0.5mm, pos=0.3] {\circled{7}} (23,-36.5);
+  \draw[msg, dashed, <->] (brk.east) -- node[lbl, above=2.5mm] {\circled{8}} (orch.west);
+  \draw[msg, <->] (36,-79.5) -- node[lbl, right=0.5mm] {\circled{6} key request} (36,-96);
+  \node[zone, dashed, fill=gray!4, minimum width=58mm, minimum height=21mm, anchor=north west, font=\tinyx, align=center] (other) at (77,-96) {Other clusters have the same structure\\and their own topics on the same broker};
 \end{tikzpicture}

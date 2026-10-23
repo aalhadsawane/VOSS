@@ -107,7 +107,7 @@ same problem applies to worker-to-worker peer-to-peer artifact transfer.
 
 **Cascades.** C-02, C-04, C-19, C-24 (E01 did not emulate the network), C-26.
 
-**Status.** Open. Text updated to state the assumption; the design question is open.
+**Status.** Direction chosen (manuscript draft 10, section "Reaching the scheduler"). Request/response protocols (HTTP, gRPC) are rejected because volunteer addresses change and are unreachable. Machines reach a volunteer-hosted scheduler through a **provider-hosted publish/subscribe broker with one topic set per cluster id** (MQTT as the candidate protocol): every party dials out to the broker, the broker is trusted for availability only, messages between attested parties are sealed with session keys, and the broker adds one hop. If the scheduler is global or regional it is simply provider-hosted and needs no broker. The simulator models network delay only (the 20 ms relay penalty stands in for the broker hop); broker capacity, connection set-up and reconnection are not modelled, and the paper says so. The design question is closed at the architecture level, the evaluation question (E-SCHED, sweep of the relayed share) stays open.
 
 ---
 
@@ -137,7 +137,7 @@ learns which scheduler to connect to, what happens when a home IP changes, and w
 
 **Cascades.** C-01, C-03, C-04, C-24.
 
-**Status.** Open.
+**Status.** Direction chosen with C-01. With a topic per cluster, a scheduler change needs no address hand-out: the successor subscribes to the same topic and workers learn only the new epoch and certificate from the appointment message, so there is no address lookup and no reconnect storm of the kind described above. The broker's own address is the only well-known address, and it is provider-operated and stable. Reconnect and resume semantics of the broker session are not specified or modelled.
 
 ---
 

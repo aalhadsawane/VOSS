@@ -1,0 +1,147 @@
+\section{Simulator, Calibration and Evaluation Protocol}
+\label{sec:method}
+
+We evaluate \voss{} in a deterministic discrete-event simulator, because a volunteer platform with thousands of hosts, controlled churn and adversaries,
+and paired comparison of policies cannot be run on real machines. This section describes what the simulator models, how its parameters are
+calibrated, and the protocol used for every comparison.
+
+\subsection{Simulation methodology}
+\label{sec:sim}
+\textbf{Technique and technology.} The simulator is a custom single-threaded \emph{discrete-event simulator} written in Python~3.11. Simulated time advances only by popping the earliest entry of a binary-heap event queue ordered by $(\text{time},\text{sequence number})$; each entry is a callback, and cancellation is lazy.
+We did not use an existing framework (e.g.\ SimPy) because the kernel is under 70 lines and a single total order of events is what makes runs exactly repeatable. Numerical work uses NumPy (random streams are PCG64 generators seeded from a SHA-256 of the seed, a stream name and keys), SciPy (HiGHS for the MILP, \texttt{linear\_sum\_assignment} for the flow placer and special functions for the estimators),
+pandas and PyArrow (Parquet logs), Pydantic (frozen configuration tree) and PyYAML. A run is one process; independent runs (seeds, grid cells) are distributed over CI jobs.
+
+\textbf{Inputs, run, outputs} (Fig.~\ref{fig:sim}). The input of a run is a YAML configuration (scenario, systems, policy names, seed) and a calibration bundle. \emph{Scenario generation} draws, from named seeded streams, all \emph{exogenous} traces before the clock starts: the worker table, every session start and end, adversary assignments, the arrival process and the per-invocation execution noise. They are independent of the system under test and content-hashed, so two systems compared on one seed face identical worlds.
+The \emph{engine} then instantiates the actors (workers, scheduler roles, routers, orchestrator, verifier, tenant key servers) and the policies, and processes events until the horizon. Policies see only immutable views assembled from \emph{messages}, never the world objects. At the end, \emph{invariant checks} assert that every success was executed on an attested host after key release,
+that each invocation has one terminal outcome, that no stale-epoch scheduler dispatched, that time components sum to the end-to-end latency, and that the receipts are complete. The \emph{Recorder} writes raw Parquet tables (per-invocation records with time components, events, plans, solver calls, cache transitions, samples, messages, receipts) and a manifest with the scenario, calibration and result hashes. Offline analysis reads only these tables.
+
+\begin{figure*}[t]
+\centering
+\resizebox{\textwidth}{!}{\input{diagrams/sim}}
+\caption{Simulation pipeline. A run is a pure function of configuration, calibration bundle and seed: exogenous traces are generated first, then a deterministic event loop executes actors and policies, and only logs leave the engine.}
+\label{fig:sim}
+\end{figure*}
+
+\textbf{Event loop and what costs time.} Every interaction between nodes is a typed message sent through the network model, which delivers it after a delay from the great-circle distance between about 100 metropolitan areas (100\,km per ms, route factor $1.3$) plus last-mile terms and lognormal jitter (the scheduler's own RTT estimate has no jitter, Table~\ref{tab:info}). Bulk transfers share each host's access link by processor sharing.
+Nothing is free (Table~\ref{tab:simwhat}): disk-tier reads, CPU contention, TPM quotes, verification, key release and the decision latency of planner, placer, router and orchestrator all consume simulated time. Decision latency is modelled as $a+b\cdot\text{work}$ per decision kind (for the planner, work is the number of program variables; for the placer, the number of invocations times the number of hosts in the scheduler's view, and decisions are served one at a time), so results do not depend on the speed of the simulating machine. The coefficients are literature-seeded placeholders, not measurements (tagged for refit from the scalability experiment). For the planner the charge is $0.02\,\text{s}+50\,\mu\text{s}$ per program variable, about 0.1\,s for the programs here, for the greedy and the exact planner alike; the exact planner's measured solve time (4.1\,s) is reported but not charged.
+
+\begin{table}[t]
+\caption{What the simulator computes, takes from calibration, or assumes.}
+\label{tab:simwhat}
+\centering\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{1.8cm}p{6.4cm}@{}}
+\toprule
+Class & Content \\
+\midrule
+Simulated (emergent) & queueing, contention on access links and disks, cache state and evictions, session boots, attestation and key release, message delays, failures, detection and failover, hedging waste \\
+Calibrated (measured, Sec.~\ref{sec:calib}) & start-up and snapshot times, TPM quote and boot times, disk speeds, function reference work (SeBS profiles) \\
+Literature (swept) & confidential-VM and DRTM costs, Firecracker figures \\
+Assumed (swept) & session-length and churn parameters, adversary fractions and strategies, arrival intensity, assurance bases, objective weights \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{World model.} Workers are drawn from three tiers (nightly, idle-hours, dedicated) with heterogeneous hardware, home cities and substrates. Sessions follow log-normal, Weibull or nightly-schedule length distributions with a time-of-day
+hazard; a fraction of departures is graceful and the rest abrupt, and correlated shocks remove a share of a city at once. Three churn regimes (low, medium, high) plus burst and correlated variants parameterize these. No public trace of
+consumer donation sessions exists, so the shapes follow volunteer-availability studies \cite{javadi2013fta} and the parameters are tagged \emph{assumed} and swept. The workload has six tenants and 12 functions modeled on SeBS \cite{copik2021sebs} in sync, async and
+filler classes, Zipf-skewed popularity, a Markov-modulated Poisson arrival process with bursts and diurnal modulation \cite{shahrad2020wild}, and flash crowds as a variant. A synchronous invocation's deadline is $k=5$ times its warm latency. Adversaries are
+a fraction $\alpha$ of workers that behave as omitting (black-hole, random omission, on--off, throttling, fake drain notices, or a colluding failure domain); by Property 1 none forges results or reads keys on an attested substrate, while the \texttt{none} substrate
+admits both.
+
+\textbf{Reproducibility.} A run is a function of its scenario and seed, and its raw tables carry a result hash recorded in a manifest. Section~\ref{sec:repro} states how results are reproduced, on which hardware, and what was verified.
+
+\subsection{Calibration}
+\label{sec:calib}
+Parameters in the specification are literature values or assumptions, tagged as such. Measured values come only from calibration bundles. We measured one on a consumer laptop with an \CalCpu{} CPU, a discrete TPM~2.0 and a hard disk, which stands in
+for a donor node. A harness reboots the machine into the appliance and records wall-clock timestamps (resolution about 1\,s), and microbenchmarks cover TPM quotes, hashing, Firecracker boot and snapshots. Table~\ref{tab:calib} compares measured values with the
+pre-measurement placeholders. Reboot to kernel is slower (\CalReboot\,s against \CalRebootPh\,s), the kernel-to-agent phase far slower (\CalUserspace\,s), and snapshot creation on a hard disk costs \CalSnapCreate\,s for 512\,MB. From power-on, an attested worker takes \CalAttested\,s
+(median of \CalAttestedN{} boots; \CalAttestedKernel\,s of it after kernel start). A warm-cache microVM boot (\CalFcBootWarmMs\,ms) is close to the literature \cite{agache2020firecracker}.
+
+\begin{table}[t]
+\caption{Calibration entries (s unless noted): placeholder versus measured on the calibration laptop. Ratio is measured over placeholder.}
+\label{tab:calib}
+\centering\scriptsize
+\resizebox{\columnwidth}{!}{\input{generated/tab_calibration}}
+\end{table}
+
+Two limits apply. The machine is not the intended donor node and lacks AMD SEV-SNP and Intel TDX, so confidential-VM and DRTM parameters are literature values \cite{misono2025cvm,holmes2024severifast,li2023bifrost}, which we sweep. And the appliance was exercised in
+\emph{host mode} (the TPM measurement chain and quote path on the host, with microVMs through Firecracker) rather than as a locked image on bare metal, so the attested-session figure is a measured sum, not a measured attestation of the final image. Simulator output has
+not been validated end to end against a multi-machine testbed (Section~\ref{sec:threats}).
+
+\textbf{Validation against one machine (E01).} To check the start-up and execution parts of the simulator against real execution we ran the same scenarios in a single-box emulation on a lab node (Intel Core i7-12700, 125\,GB, NVMe, Firecracker 1.10.1) and in the simulator, with a calibration bundle measured on that node (the session boot keeps its placeholder on both sides). The emulation has 16 donor slices of two slots each, five functions, ten minutes per run and seeds 1--3. It replaces boot, snapshot restore and creation, dispatch and function execution by real microVMs; the network, key release, attestation, queueing and the TPM stay models on a wall-clock kernel, and the policy code runs for real with its measured decision time. Success rate agrees within 0.6 percentage points in every scenario and the mix of start-up levels is identical (total variation 0.00); median sync latency agrees within 6--23\%. The shape of the latency distribution does not meet our pre-set cut-offs (Kolmogorov--Smirnov distance 0.20--0.51), so every scenario is graded ``partly'' close and none ``close''. At light load the simulator's P99 is about 3.7 to 4.1 times the emulation's on seed means, driven by a handful of cold invocations (the P99 of about 530 synchronous requests is the five slowest); at 100\,inv/s the P99 differs by $-3$ to $-6$\%. E01 does not test the network, attestation, key release, the session boot, detection and failover at scale, or the hard-disk tier.
+
+\subsection{Protocol}
+\label{sec:protocol}
+Each experiment is a frozen specification (base scenario, systems, grid) and \emph{every} cell is run with seeds 1--10 (three seeds for the two largest scalability points, which take up to 20 wall-clock minutes and 9\,GB). Unless stated, \voss{} uses the greedy planner and the default placer, router and hedger; the exact MILP is used only
+in the planner comparison (E04) and the Pareto analysis (E23). Systems in a comparison share the scenario and the per-invocation random streams, the \emph{common random numbers} technique of simulation analysis, so each comparison is \emph{paired} by seed: for metric $m$, we form
+$\Delta_s=m_A(s)-m_B(s)$ per seed and report the mean with a 95\% percentile bootstrap interval \cite{efron1993bootstrap}. Percentiles are computed per run first, then averaged across seeds, never pooled. Relative changes use the baseline mean as the denominator.
+
+Each hypothesis is stated before the run together with a mechanical verdict rule: \emph{supported} if the interval excludes zero in the predicted direction and the mean effect is at least a stated margin; \emph{weak} if it excludes zero but the effect is below the margin;
+\emph{inconclusive} if it includes zero; \emph{refuted} if it excludes zero in the opposite direction. The manuscript's numbers and tables are generated from the result tables by a script that also fails if a result stops supporting the sentence it backs.
+
+\textbf{Metrics.} We report success (completed invocations), the deadline-met fraction, P50 and P99 sync latency, \emph{waste} (extra accepted attempts per success: retries, hedges and adopted re-dispatches), donor memory (GB held warm), and key exposure (Eq.~\eqref{eq:exposure}, comparable only
+within one substrate mix). \textbf{SLO feasibility.} A system is \emph{feasible} in a scenario cell if the lower 95\% bound of its success is at least $0.99$ and either the lower bound of its deadline-met fraction is at least a target or its P99 is below an absolute target of 2, 3 or 5\,s.
+The feasibility maps of Section~\ref{sec:res-viab} thus state \emph{where} each design works rather than an average.
+
+\textbf{Baselines.} Baselines use the same simulator, candidates and cost model and differ only in the registered policy. For planning: \emph{no planning} (reactive: hosts are provisioned only when an invocation arrives), \emph{keep-alive TTL}, \emph{greedy planner}, and MILP ablations. For detection: heartbeat-only. For robustness: $f=0$. The \emph{simple baseline} combines static regional
+clusters, nearest-region routing, least-loaded placement, keep-alive and no hedging; a variant runs without attestation (substrate \texttt{none}), which is what volunteer FaaS does without security. Commercial-style references (\emph{Lambda-like}, \emph{Azure-like}) are always-on datacenter hosts in the
+router metros with per-function keep-alive (10 and 20\,min) and nearest-region routing, priced from list prices; they run on the same engine so differences stem from policy and substrate, not the simulator.
+
+\subsection{Reproducibility and requirements}
+\label{sec:repro}
+Every number, table and figure in Section~\ref{sec:results} is regenerated from raw run logs by committed scripts, and the runs themselves are
+\emph{bit-reproducible}: re-executing a run gives raw tables with the same result hash. Floating-point simulation is bit-reproducible only under stated
+conditions, so Table~\ref{tab:repro} lists them and Table~\ref{tab:reprochecks} reports what we checked.
+
+\textbf{Mechanisms.} All randomness comes from named, seeded streams, events at equal times are ordered by a fixed key, and iteration order is sorted wherever
+it can affect results. Each run writes a manifest with its scenario hash, the calibration-bundle hash, a numeric canary (below) and a SHA-256 result hash over the raw
+tables; \texttt{voss repro} re-runs a manifest and asserts the hash, and the hashes of all runs in this paper are committed with the artifact. Analysis reads logs only.
+
+\textbf{Why the CPU matters.} A last-bit difference in a prediction can flip a near-tie in placement, after which the whole trajectory diverges, so the arithmetic must not
+depend on the processor. We found two sources and removed both. BLAS kernels differ between microarchitectures, so the small regression in the execution-time estimator uses fixed-order
+exactly rounded operations (\texttt{math.fsum}) instead. NumPy's transcendental functions (\texttt{exp}, \texttt{log}, \texttt{power}, and others) have separate AVX-512, AVX2 and SSE4
+implementations whose last bits differ, and GitHub assigns both kinds of CPU to jobs of one workflow. A first verification rerun failed for this reason (no run of one experiment matched,
+and table cells differed by up to 7.7\%). We now pin NumPy's SIMD dispatch to the SSE4 baseline, which every x86-64 CPU supports, before NumPy is imported, and each manifest
+records a canary hash of the transcendental functions on fixed inputs; \texttt{voss run} warns if it differs from the reference.
+
+\begin{table}[t]
+\caption{Requirements to reproduce the results bit-for-bit.}
+\label{tab:repro}
+\centering\scriptsize
+\begin{tabular}{@{}p{0.2\columnwidth}p{0.74\columnwidth}@{}}
+\toprule
+CPU & x86-64 with fused multiply-add (every Intel and AMD CPU since 2013). AVX-512 is neither required nor used: the pin selects the SSE4 baseline, so AVX2 and AVX-512 machines agree. \\
+Operating system & Linux with the GNU C library (tested: Ubuntu 22.04 and 24.04, glibc 2.35 and 2.39). \\
+Software & Python 3.11 and the dependency versions in the committed lockfile (NumPy 2.x, SciPy with HiGHS, pandas, PyArrow); \texttt{NPY\_DISABLE\_CPU\_FEATURES="X86\_V4 X86\_V3 AVX512\_ICL AVX512\_SPR"}, which the package, the Makefile and the CI workflows set. \\
+Special hardware & None: no TPM, reboot or BIOS access. The calibration bundle is committed; the reboot-based calibration harness (Section~\ref{sec:calib}) is not part of reproduction. \\
+Compute & 21 experiments, 2{,}366 runs. About four hours of wall-clock time as 21 parallel jobs on GitHub-hosted runners; compressed raw logs are 0.1--0.7\,GB per experiment. \\
+Not covered & ARM, other operating systems and other C libraries are not bit-comparable; for them the portable claim is statistical (ten paired seeds). Wall-clock columns (solver time, simulated seconds per second) vary by machine, are informational and are excluded from the hashes. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\caption{Reproduction checks. A run \emph{matches} if its result hash equals the recorded one.}
+\label{tab:reprochecks}
+\centering\scriptsize
+\begin{tabular}{@{}p{0.25\columnwidth}p{0.4\columnwidth}p{0.25\columnwidth}@{}}
+\toprule
+Check & Machines & Outcome \\
+\midrule
+Before the pin (one experiment, 50 runs) & GitHub runners with AVX-512 versus AVX2-only CPUs & 0 of 50 match \\
+After the pin (probe experiment) & Intel Xeon Platinum 8573C; AMD EPYC 9V74, 9V45 and 7763 (the last without AVX-512); Ubuntu 22.04 and 24.04 & identical hashes on all \\
+Full sweep, re-executed & independently provisioned GitHub runners, all 21 experiments & 2{,}366 of 2{,}366 match; all tables identical \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\par\smallskip\noindent\textbf{Reproducing.} With the lockfile installed, the following regenerates the runs, compares them with the recorded hashes, and rebuilds this document.
+{\footnotesize
+\begin{verbatim}
+uv sync --frozen
+make paper          # 21 specs x 10 seeds
+make paper-verify   # compare hashes
+voss repro runs/E09/<run>/manifest.json
+make manuscript
+\end{verbatim}}
