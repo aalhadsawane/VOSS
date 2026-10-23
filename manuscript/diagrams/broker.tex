@@ -1,0 +1,28 @@
+% Publish/subscribe broker with one topic set per cluster. Native width 139 mm.
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \tikzset{box/.append style={font=\scriptsize}}
+  % broker
+  \node[zone, fill=blue!4, minimum width=48mm, minimum height=62mm, anchor=north west] (bz) at (45,0) {};
+  \node[font=\scriptsize\bfseries, anchor=north] at (69,-1) {Provider-hosted broker};
+  \node[prov, minimum width=40mm, minimum height=8mm, font=\tinyx, align=center] (ta1) at (69,-13) {cluster A $\cdot$ scheduler};
+  \node[prov, minimum width=40mm, minimum height=8mm, font=\tinyx, align=center] (ta2) at (69,-23) {cluster A $\cdot$ workers};
+  \node[prov, minimum width=40mm, minimum height=8mm, font=\tinyx, align=center] (tb1) at (69,-41) {cluster B $\cdot$ scheduler};
+  \node[prov, minimum width=40mm, minimum height=8mm, font=\tinyx, align=center] (tb2) at (69,-51) {cluster B $\cdot$ workers};
+  % cluster A (left)
+  \node[att, minimum width=36mm, minimum height=9mm, font=\scriptsize] (sa) at (19,-13) {Scheduler (cluster A)};
+  \node[att, minimum width=36mm, minimum height=9mm, font=\scriptsize] (wa) at (19,-23) {Workers (cluster A)};
+  \node[att, minimum width=36mm, minimum height=9mm, font=\scriptsize] (sb) at (19,-41) {Scheduler (cluster B)};
+  \node[att, minimum width=36mm, minimum height=9mm, font=\scriptsize] (wb) at (19,-51) {Workers (cluster B)};
+  % routers and orchestrator (right)
+  \node[prov, minimum width=36mm, minimum height=9mm, font=\scriptsize] (rt) at (120,-13) {Routers};
+  \node[prov, minimum width=36mm, minimum height=9mm, font=\scriptsize] (or) at (120,-23) {Orchestrator};
+  % arrows: everyone dials out and connects to the broker
+  \draw[msg, <->] (sa.east) -- node[lbl, above, pos=0.5]{subscribe} (ta1.west);
+  \draw[msg, <->] (wa.east) -- (ta2.west);
+  \draw[msg, <->] (sb.east) -- (tb1.west);
+  \draw[msg, <->] (wb.east) -- (tb2.west);
+  \draw[msg, ->] (rt.west) -- node[lbl, above, pos=0.5]{publish} (ta1.east);
+  \draw[msg, <->] (or.west) -- (ta2.east);
+  \node[font=\tinyx, align=center, text width=34mm] at (120,-46) {every other cluster has its own pair of topics};
+  \node[font=\tinyx, align=center] at (69,-60) {every connection is opened from the client side};
+\end{tikzpicture}

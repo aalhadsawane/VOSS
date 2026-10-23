@@ -1,78 +1,39 @@
 \section{Introduction}
 \label{sec:intro}
 
-\IEEEPARstart{F}{unction-as-a-Service} (FaaS) platforms run short, event-driven functions on demand. In production traces
-most functions finish in well under a second \cite{shahrad2020wild}, so their end-to-end latency is set not by computation
-but by the \emph{cold start} (creating a sandbox and loading the language runtime) and by network distance to the host
-\cite{agache2020firecracker,oakes2018sock,ao2022faasnap}. Providers meet latency targets by keeping sandboxes warm in
-datacenters, which pins memory around the clock \cite{shahrad2020wild,fuerst2021faascache}. Meanwhile, consumer desktops and
-laptops are numerous, geographically close to users, and idle most of the day. Volunteer computing has harvested such
-machines for two decades \cite{anderson2002seti,anderson2004boinc}, but only for batch work whose deadlines are measured in
-hours or days.
+Serverless platforms run small pieces of customer code, called \emph{functions}, whenever a request arrives. Most of these functions finish in well under a second~\cite{shahrad2020wild}, so the useful work is tiny compared with everything around it.
+Before a function can run, the platform must create an isolated environment for it and load its language runtime. This is the \emph{cold start}. The request must also travel to wherever the function happens to run.
+Providers hide the cold start by keeping environments alive in their datacenters, which holds memory around the clock~\cite{shahrad2020wild,fuerst2021faascache}. They can do little about distance.
 
-Serving \emph{latency-sensitive} invocations from volunteer machines raises two problems that batch systems avoid.
-\textbf{Churn} is the first. An owner can power off, reboot or reclaim the machine at any moment, and all state the
-platform has built on the host (warm sandboxes, cached snapshots, provisioned secrets) disappears with the session. For a
-function that runs for tens of milliseconds, rebuilding that state is the dominant cost. \textbf{Distrust} is the
-second. The owner controls the hardware and operating system and can read tenant code and data, forge results, or
-defect at the worst moment. The two problems interact: the usual defense against distrust is to establish trust in a
-host before using it, and churn destroys that trust each time a session ends.
+Meanwhile, millions of home and office computers are close to users and idle for most of the day. Volunteer computing has used such machines for two decades~\cite{anderson2002seti,anderson2004boinc}, but only for batch jobs with deadlines of hours.
+We ask a harder question: can volunteer machines answer requests that must finish in a few seconds?
 
-\subsection{Why existing approaches do not solve this}
-Each line of prior work handles part of the problem (Section~\ref{sec:related} gives the full comparison).
-\emph{Volunteer computing} tolerates untrusted hosts by redundant execution and result voting \cite{anderson2004boinc}, which
-multiplies cost by the replication factor, requires deterministic side-effect-free tasks, and cannot hide inputs from the
-host. \emph{Serverless schedulers and keep-alive policies} minimize cold starts \cite{shahrad2020wild,fuerst2021faascache}
-but assume trusted, always-on servers, so neither churn nor the cost of establishing trust appears in their models.
-\emph{Confidential serverless designs} protect tenants from the platform operator with trusted execution environments
-\cite{arnautov2016scone,wallet2025} but target provider-managed fleets and treat attestation as a one-time deployment step
-rather than a resource with a cost, a lifetime and a security price. \emph{Heartbeat-based failure detection} cannot see a
-host that keeps reporting liveness while discarding work, a \emph{gray failure} \cite{huang2017gray} that a malicious owner
-can create at will.
+Two things stand in the way.
+The first is \textbf{churn}. An owner can switch off, reboot or reclaim the machine at any moment, and everything the platform prepared on it disappears: warm environments, cached code and the secret keys it was given. For a function that runs for tens of milliseconds, preparing this state again costs far more than the function.
+The second is \textbf{distrust}. The owner controls the hardware and the operating system, so the owner can read the customer's code and data, return forged results, or walk away at the worst moment.
+The two feed on each other. The usual cure for distrust is to check a machine before using it, and that check takes time. Churn throws the result away each time a session ends.
 
-\subsection{Our insight and approach}
-Our starting point is that attestation changes the fault model. If tenant code and the scheduler's own code run only inside
-a measured, owner-locked appliance image whose TPM-backed evidence a verifier checks, then a hostile owner can no longer
-read, forge or tamper through software. What remains is an \emph{omission or timing failure} in the dependability taxonomy
-\cite{cristian1991understanding,avizienis2004basic}: the host powers off, drops, delays or throttles. This is the failure
-class that churn already forces a volunteer platform to tolerate, so one set of mechanisms covers crashes, churn and
-malice \cite{levin2009trinc,veronese2013minbft}.
+Earlier work solves only parts of this. Volunteer-computing systems tolerate untrusted machines by running every task several times and comparing answers~\cite{anderson2004boinc}. That multiplies cost, works only for tasks with a single right answer, and still shows the input to whoever runs it.
+Serverless schedulers avoid cold starts well~\cite{shahrad2020wild,fuerst2021faascache} but assume trusted machines that stay up. Confidential serverless designs protect customers from the platform operator~\cite{arnautov2016scone,wallet2025} but run on provider servers and treat the trust check as a one-time setup.
+And the standard way to notice a dead machine, listening for its periodic ``I am alive'' message (a heartbeat), fails against an owner who keeps sending heartbeats while throwing work away. Such a quiet failure is a \emph{gray failure}~\cite{huang2017gray}.
 
-The reduction exposes the actual scheduling problem. A host is \emph{attested} for the duration of a session, becomes
-\emph{provisioned} for a tenant once the tenant's key broker has released a secret to it, and holds \emph{warm} state for a
-function once a sandbox or snapshot is ready. This attested session state has three properties that conventional
-cluster schedulers do not model: it is \emph{costly to establish} (on our measurements, a powered-off machine takes
-\CalAttested\,s to become an attested worker, three to four orders of magnitude above restoring a snapshot or resuming a warm sandbox); it is \emph{perishable}, lost at
-the end of every session; and it is \emph{exposing}, since each host that holds a tenant's key widens that tenant's attack
-surface. Placing an invocation on a host that is not yet provisioned is therefore a decision with a cost that the scheduler must weigh, and so is asking
-another host to hold the key.
+\textbf{Our starting point} is that proving what software a machine runs changes the fault model. If the customer's code and the scheduler's own code run only inside a locked, measured software image, and a verifier has checked hardware-signed evidence of that image (\emph{remote attestation}), the owner cannot read, forge or tamper with anything inside.
+The owner keeps only the power switch and the network cable. A hostile owner can therefore do exactly what churn already does: stop, or delay. This failure class has a standard name, \emph{omission and timing failures}~\cite{cristian1991understanding,avizienis2004basic}, and a volunteer platform has to tolerate it anyway. One set of mechanisms then covers crashes, churn and malice.
 
-We present \voss{}, a scheduler for volunteer serverless computing built on this view (Fig.~\ref{fig:arch}). \voss{}
-(i) separates \emph{where state lives} from \emph{where an invocation runs} with a two-timescale design: a slow planner
-decides which hosts are provisioned and warm for each tenant under a robustness constraint, and a fast placer assigns each
-invocation by minimising its own expected SLO-violation probability, weighed together with latency and key exposure (Section~\ref{sec:objectives}), and hedges risky ones; (ii) detects failures from end-to-end \emph{progress} rather than liveness and
-replaces failed schedulers with lease and epoch fencing, without consensus among volunteers; and (iii) makes accounting
-verifiable through attested receipts instead of a blockchain.
+That reduction exposes the real scheduling problem. A machine is \emph{attested} for one session. It becomes \emph{provisioned} for a customer once that customer's key service has released a secret key to it, and \emph{warm} for a function once a ready environment is waiting.
+We call these together \emph{attested session state}. It is \emph{slow to create}: on our measurements a powered-off machine needs \CalAttested\,s to become an attested worker, thousands of times longer than resuming a warm environment. It is \emph{perishable}, since every session end destroys it. And it is \emph{exposing}, since each machine holding a customer's key is one more place the key could leak.
+Choosing where this state lives is a scheduling decision with a price, and it cannot be left to the per-request path.
 
-\subsection{Contributions}
-\begin{enumerate}
-\item \textbf{Problem formulation.} We reduce malicious owners to omission and timing failures through attestation and
-formulate volunteer FaaS scheduling as the management of attested session state with explicit establishment cost,
-perishability and exposure (Sections~\ref{sec:background}, \ref{sec:trust}).
-\item \textbf{Two-timescale scheduling.} A robust provisioning planner with cardinality-constrained coverage plus a
-cost-based placer with risk-proportional hedging (Section~\ref{sec:sched}). We find no detectable advantage of the exact
-mixed-integer solution over a greedy planner at our sample size.
-\item \textbf{Fault tolerance without volunteer consensus.} Progress-based detection of gray failures, lease and epoch-fenced
-scheduler failover on soft state, and attested receipts for accounting (Section~\ref{sec:ft}).
-\item \textbf{A calibrated, reproducible evaluation.} A deterministic simulator with parameters measured on a TPM-equipped
-machine, an operating-regime analysis that reports where \voss{} and where simple baselines win, and hypothesis tests with
-pre-specified decision rules (Sections~\ref{sec:method}, \ref{sec:results}).
-\end{enumerate}
+\voss{} is a scheduler built around this view (Figure~\ref{fig:arch}). It has three ideas. First, it separates \emph{where state lives} from \emph{where a request runs}. A slow loop decides which machines hold which keys and warm environments, with spare capacity so that losing a few machines does not hurt. A fast loop then picks a machine for each request and duplicates the risky ones.
+Second, it detects failures from missing \emph{progress}, meaning work accepted but never finished, instead of missing heartbeats, and it replaces a failed scheduler without asking volunteers to agree on anything. Third, it records work with signed receipts rather than a blockchain.
+Because volunteer machines sit behind home routers and change address often, machines reach the scheduler through a provider-hosted publish/subscribe broker with one topic per cluster (Section~\ref{sec:network}).
 
-\subsection{Summary of findings}
-Managing attested session state is the largest lever: planning lowers sync P99 by \GreedyNoneMed--\GreedyNoneHigh\% against no
-planning and \GreedyKeepMed--\GreedyKeepHigh\% against keep-alive under medium and high churn. Progress-based detection is
-decisive against omitting owners. \voss{} meets a 3\,s sync P99 target in most cells of two regime maps where the strongest
-simple baseline never does, but the simple baseline is the only feasible system on confidential-VM substrates at high load.
-Several designed components do not pay off: geo-clustering is slower than a single scheduler at our scale, the exact solver's advantage over greedy planning (\MilpGreedyHigh\% at high churn) is not distinguishable from zero, reputation changes P99 by \RepPNinetyninePct\%, and a commercial-style
-reference has lower latency. All results are from simulation and a single calibration machine (Section~\ref{sec:threats}).
+Our contributions are:
+(1)~showing that attestation reduces hostile owners to omission and timing failures, and stating the resulting problem of managing attested session state;
+(2)~a two-timescale scheduler whose planner keeps coverage even if any $f$ machines fail together;
+(3)~a communication architecture for unstable, unreachable volunteer addresses, and a comparison of volunteer-hosted and provider-hosted schedulers;
+(4)~fault tolerance without agreement among volunteers;
+(5)~a deterministic, calibrated evaluation with hypotheses and decision rules fixed in advance, including what did not work.
+
+Planning is the largest lever: it lowers tail latency by \GreedyNoneMed--\GreedyNoneHigh\% against no planning, and progress-based detection keeps \VossSuccAlpha\% of requests succeeding when 20\% of owners drop work, where heartbeat-only detection falls to \HbSuccAlpha\%.
+\voss{} meets a 3\,s tail-latency target in most settings we map, and the strongest simple baseline never does. Yet some designed components do not earn their complexity: geographic clustering was slower than one scheduler, an exact solver was not distinguishable from a greedy heuristic, and a commercial-style reference is still faster. All results come from simulation and one calibration machine (Section~\ref{sec:threats}).

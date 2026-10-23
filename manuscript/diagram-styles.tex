@@ -1,4 +1,4 @@
-% Shared TikZ styles and sequence-diagram helpers (included in main.tex).
+% Shared TikZ styles and sequence-diagram helpers (included in main.tex). Sized for the acmart single-column width (139 mm).
 \tikzset{
   >={Latex[length=1.6mm,width=1.2mm]},
   box/.style={draw, rounded corners=1.5pt, align=center, font=\scriptsize, inner sep=2pt, minimum height=5mm},
@@ -14,12 +14,12 @@
   lifeline/.style={densely dotted, gray},
   msg/.style={->, thick},
   rsp/.style={->, thick, dashed},
-  mlabel/.style={font=\fontsize{5.8}{6.6}\selectfont, inner sep=1pt, above},
+  mlabel/.style={font=\fontsize{6.4}{7.2}\selectfont, inner sep=1pt, above},
 }
 % \seqactor{x}{name}{label}: actor box at the top and a lifeline of height \seqh
 \newcommand{\seqactor}[3]{\node[actor] (#2) at (#1,0) {#3}; \draw[lifeline] (#2.south) -- (#1,-\seqh);}
 % \seqmsg{y}{from}{to}{label}{style}: horizontal message between lifelines
 \newcommand{\seqmsg}[5]{\draw[#5] (#2 |- 0,#1) -- node[mlabel] {#4} (#3 |- 0,#1);}
-\newcommand{\seqnote}[3]{\node[font=\fontsize{5.8}{6.6}\selectfont, inner sep=1pt, fill=yellow!20, draw=gray, rounded corners=1pt, align=left] at (#1,#2) {#3};}
+\newcommand{\seqnote}[3]{\node[font=\fontsize{6.4}{7.2}\selectfont, inner sep=1pt, fill=yellow!20, draw=gray, rounded corners=1pt, align=left] at (#1,#2) {#3};}
 \newcommand{\circled}[1]{\tikz[baseline=(c.base)]\node[circle,draw,inner sep=0.2pt,font=\tinyx](c){#1};}
-\newcommand{\tinyx}{\fontsize{5.8}{6.6}\selectfont}
+\newcommand{\tinyx}{\fontsize{6.4}{7.2}\selectfont}

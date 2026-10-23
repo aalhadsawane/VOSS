@@ -1,130 +1,69 @@
-\section{Trust Model and Establishment}
+\section{Trust and Its Cost}
 \label{sec:trust}
 
-This section states the threat model, shows how attestation reduces malicious owners to omission and timing failures,
-and defines the three pieces of attested session state that the scheduler manages: the attested session, tenant key provisioning,
-and the exposure they create.
+The design rests on one claim: attestation reduces a hostile owner to an unreliable one. This section states the claim, shows how a machine earns trust and a tenant's key, and defines the exposure that keys create.
 
 \subsection{Threat model}
 \label{sec:threat}
+We trust the CPU, its TPM and its memory protection; the measured appliance image; each tenant's own key service; and the provider's control plane, for availability and accounting only (Table~\ref{tab:threat}).
+Out of scope are laboratory-grade physical attacks such as voltage glitching of firmware TPMs~\cite{jacob2023faultpm}, flaws in the appliance, side channels and traffic analysis, and failure of the control plane. An owner who can read memory while the appliance runs (cold-boot or bus probing) is outside the claim below unless the host encrypts memory. We express that residual risk only as a policy number, the \emph{assurance} of Section~\ref{sec:exposure}.
+
 \begin{table}[t]
-\caption{Adversaries, the mechanism that neutralizes them, and the residual capability.}
+\caption{Adversaries, what neutralises them, and what is left.}
 \label{tab:threat}
-\centering\scriptsize
-\setlength{\tabcolsep}{2.5pt}
-\begin{tabular}{@{}p{1.35cm}p{1.9cm}p{2.5cm}p{2.1cm}@{}}
+\centering\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}P{2.0cm}P{4.2cm}P{4.2cm}P{2.5cm}@{}}
 \toprule
-Adversary & Capability & Neutralized by & Residual \\
+Adversary & Capability & Neutralised by & What remains \\
 \midrule
-Volunteer owner & controls hardware, OS settings, power, network; may boot modified software, emulate a TPM, replay, delay, drop, create identities &
-measured boot and TPM attestation; vendor-certified endorsement key; owner-locked image with no login; disk sealed to PCRs; IOMMU & \textbf{omission and timing}: power off, drop, delay, throttle; lies about anything outside the attested stack \\
-Network attacker & observes and alters traffic & TLS terminated inside attested parties; keys bound to attestation & traffic metadata \\
-Other tenants & malicious function code & microVM isolation (Firecracker) & microarchitectural side channels \\
+Volunteer owner & controls hardware, power, network; may boot modified software, fake a TPM, replay, delay, drop & measured boot and attestation; manufacturer-certified keys; locked image with no login; disk sealed to the measurement & \textbf{omission and timing} \\
+Network attacker & watches and changes traffic & encryption ending inside attested parties & traffic metadata \\
+Other tenants & malicious function code & microVM isolation & side channels \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:threat} summarizes the adversaries. We trust the CPU, its TPM and memory encryption; the measured appliance image
-(kernel, monitor, agent, scheduler code); each tenant's own key broker; and the provider-operated control plane, for
-availability and accounting only. Out of scope are laboratory-grade physical attacks such as voltage glitching of
-firmware TPMs \cite{jacob2023faultpm}, vulnerabilities in the appliance itself, side channels and traffic analysis, and attacks on or
-failure of the control plane. Property 1 below concerns an owner who controls the machine's software, power and network. An owner with physical access who can read memory while the appliance runs (cold-boot, DMA or bus probing) is outside it unless the host encrypts memory; the assurance score $a_j$ (Section~\ref{sec:exposure}) expresses this residual only as a policy number.
+\textbf{Property 1 (threat reduction).} Under these assumptions, every behaviour of a worker or scheduler host that other components can observe, and that software can reach, is a crash, an omission or a delay.
+The owner cannot run code other than the measured image, because it would fail attestation and receive no certificate and no key. The owner cannot read or change the image's memory or sealed state, and results and receipts are signed with a key that never leaves the image. What is left is power, the network path and the timing of when to stop answering.
+So the mechanisms that churn already forces on us also cover malice, and redundancy is no longer needed for integrity.
 
-\textbf{Property 1 (threat reduction).} Under these assumptions, every behavior of a worker or scheduler host that other
-components can observe, and that is reachable by software, is a crash, an omission or a delay. The argument is that the owner can neither run code other than the measured
-image (it would fail attestation, so no session certificate or tenant key is issued) nor read or modify the image's memory or its sealed
-state, and that results and receipts are signed with a key that never leaves the appliance. The owner retains only what lies outside the attested
-stack: power, the network path, and the timing of when to stop answering. The consequence we use throughout is that the fault tolerance
-mechanisms needed for churn already cover malice (Section~\ref{sec:ft}), and that redundancy is no longer required for
-integrity.
+Other mechanisms fall short. Memory encryption alone attests nothing and leaves plaintext visible to the operating system. Running every task several times and voting triples cost. Verifiable computation is far too slow for functions of milliseconds. Confidential VMs isolate best but do not exist on consumer hardware, so we treat them as one substrate among several (Section~\ref{sec:substrates}). A blockchain would protect against no adversary here, because a receipt signed by an attested key can already be checked by anyone (Section~\ref{sec:receipts}).
 
-\textbf{Why not other mechanisms.} Memory encryption alone is not a trusted execution environment: the operating system still sees
-plaintext and nothing is attested. Replicated execution with voting triples cost and presumes comparable outputs. Zero-knowledge
-or other verifiable computation is orders of magnitude too slow for functions of milliseconds. Server confidential VMs have the strongest
-isolation but exist only on server CPUs; we model them as a substrate (Section~\ref{sec:substrates}). A blockchain ledger would protect against no
-adversary in this model, because receipts signed by an attested key are already third-party verifiable and the only residual risk, a
-trusted control plane deleting records, is better met by a signed transparency log (future work).
+\subsection{Becoming an attested worker}
+The appliance is a signed kernel image with a read-only, integrity-checked root file system, the worker agent and the scheduler code, with no owner login. The partition that holds caches is encrypted with a key sealed to the expected measurement. A session starts when the owner reboots into the image and ends on reboot, power loss, a drain request or failure.
 
-\subsection{Attested appliance and session}
-The appliance is a unified kernel image signed for Secure Boot with a read-only integrity-protected root (dm-verity), Firecracker, the
-worker agent and the scheduler code, with no owner login, kernel lockdown, IOMMU and integrity measurement (IMA) enabled. The data
-partition holding the caches is encrypted with a key sealed to the expected PCR values. A session begins when the owner chooses to
-donate and reboots into the image, and it ends on owner reboot or power loss (abrupt), on an owner drain request with a deadline
-(graceful), or on failure.
-
-Fig.~\ref{fig:attest} shows the attestation protocol, which follows Keylime-style remote attestation \cite{schear2016keylime} in RATS
-roles (Section~\ref{sec:rats}). The agent generates a \emph{session key pair} inside the appliance and binds its public half
-into the quote, as the hash of the key appended to the verifier's nonce. The verifier checks the quote signature and the endorsement-key
-certificate chain, replays the event log against reference values for the measured image, and, if the result is acceptable, issues a
-\emph{session certificate} carrying the host identity, session public key, an assurance score and an expiry. Every channel of the system
-(to routers, the scheduler, the KBS, and peers) is TLS with this certificate, so there is no untrusted operating system on any path. Two
-properties are decisive for scheduling. \emph{Trust is perishable}: the certificate expires at the earlier of session end and
-the last successful quote plus a validity period, is extended by periodic re-quotes, and is revoked on a failed re-quote, upon which the verifier
-notifies routers and the scheduler. And \emph{identity costs a machine}: a worker's identity is the hash of its TPM endorsement key, so creating identities
-costs hardware \cite{douceur2002sybil}.
+Figure~\ref{fig:attest} shows the exchange, which follows Keylime-style attestation~\cite{schear2016keylime}. The agent creates a \emph{session key pair} inside the image and binds its public half into the quote. The verifier checks the quote and certificate chain, compares the boot record with reference values and, if all is well, issues a \emph{session certificate} with the machine's identity, the session public key, an assurance score and an expiry.
+Every channel in the system uses this certificate, so no untrusted operating system sits on any path.
+Two properties matter for scheduling. \emph{Trust is perishable:} the certificate expires when the session ends or one validity period after the last good quote, is extended by periodic re-quotes, and is revoked if one fails. And \emph{identity costs a machine:} a worker's identity is the hash of its TPM's endorsement key, so many identities cost real hardware~\cite{douceur2002sybil}.
 
 \begin{figure}[t]
 \centering
 \resizebox{\columnwidth}{!}{\input{diagrams/attest}}
-\caption{Attestation and tenant key provisioning for one worker. The session key is bound into the quote, so the certificate is
-tied to this appliance instance.}
+\caption{Attestation and key provisioning for one worker. The session key is bound into the quote, so the certificate belongs to this appliance instance only.}
 \label{fig:attest}
 \end{figure}
 
-\subsection{Tenant key provisioning}
+\subsection{Getting a tenant's key}
 \label{sec:provisioning}
-Attestation proves that a host runs the appliance, not that it may see a given tenant's data. A tenant's KBS, operated by the tenant or by a service it trusts and not by the provider, holds a policy (for
-instance, accept certificates for appliance measurements at or above a version, optionally with a fresh quote). Making worker $j$
-\emph{provisioned} for tenant $t$ (the flag $K[t,j]=1$) takes one round trip: the worker sends the KBS its certificate, the KBS checks the policy and returns the key
-wrapped to the session public key, and the worker keeps it in memory only. This round trip, plus decrypting the tenant's bundles, is the
-$T_{\text{prov}}$ term of Eq.~\eqref{eq:latency}. Tenant code bundles in the registry and peer caches are encrypted with the tenant key, so any
-worker may store and forward ciphertext but only provisioned workers can use it. Snapshots contain decrypted memory, so they are written
-only by provisioned workers, shared only with provisioned workers of the same snapshot class (CPU model, kernel, monitor version), and counted in
-exposure.
+Attestation shows that a machine runs the appliance, not that it may see a particular tenant's data. The tenant's key service holds a policy, for instance ``accept appliance versions at or above this one, optionally with a fresh quote''.
+Making worker $j$ \emph{provisioned} for tenant $t$ takes one round trip: the worker sends its certificate, the key service checks the policy and returns the key wrapped to the session public key, and the worker keeps it in memory only. This trip, plus decrypting bundles, is the provisioning term in the latency.
+Code bundles are encrypted with the tenant key, so any worker may store and forward them but only provisioned workers can use them. Snapshots contain decrypted memory, so they are written only by provisioned workers, shared only with other provisioned workers of the same snapshot class, and counted in exposure.
 
-Which party the tenant must trust for confidentiality depends on that policy. If the KBS accepts any certificate that the verifier issued for an approved measurement, then the verifier is trusted for confidentiality: a certificate issued to a non-genuine host would release the key. If the policy requires a fresh quote, the KBS checks the quote itself against its own reference values and does not depend on the verifier for confidentiality, at the price of one quote, which lies in $T_{\text{prov}}$. We assume that the verifier acts as the certificate authority for session certificates, with its root distributed in the appliance image and to the key brokers; this PKI is not evaluated, and the simulator charges a fixed calibrated cost for the policy check without distinguishing the two policies.
+Whom the tenant must trust for confidentiality depends on the policy. If the key service accepts any certificate the verifier issued for an approved measurement, the verifier is trusted for confidentiality. If the policy demands a fresh quote, the key service checks it itself and does not depend on the verifier, at the price of one more quote.
+We assume the verifier acts as certificate authority, with its root distributed in the image and to key services. We do not evaluate this infrastructure, and the simulator charges one fixed calibrated cost for the policy check.
 
 \subsection{Exposure and assurance}
 \label{sec:exposure}
-Every provisioned host is a place from which a tenant's secret could leak if the trust assumptions fail. We define the \emph{key exposure}
-of tenant $t$ as
+Every provisioned machine is a place from which a tenant's secret could leak if our trust assumptions fail. We define the \emph{key exposure} of tenant $t$ as
 \begin{equation}
 E_t = \sum_{j\in \mathrm{KH}(t)} (1-a_j),
 \label{eq:exposure}
 \end{equation}
-where $\mathrm{KH}(t)$ is the set of hosts holding $t$'s key or decrypted artifacts and $a_j\in[0,1]$ is the host's \emph{assurance}:
-the product of a base value for its trust substrate and a firmware-policy factor (known-good versus trust-on-first-use), fixed when the verifier issues
-the session certificate. Staleness is not a continuous factor: a certificate simply expires, and a host whose quote would expire within the planning horizon is excluded from plans. The scheduler weights exposure by a tenant sensitivity $\sigma_t$ and
-enforces an assurance floor for sensitive tenants. Exposure is a transparent proxy for attack surface, not a probability of compromise,
-and base assurances are policy parameters, not measured truths; we therefore report latency, exposure and robustness as a Pareto
-front and never as one weighted number.
+where $\mathrm{KH}(t)$ is the set of machines holding $t$'s key or decrypted artifacts and $a_j\in[0,1]$ is a machine's \emph{assurance}: a base value for its trust substrate times a factor for firmware policy, fixed when the certificate is issued.
+Exposure is a transparent proxy for attack surface, not a probability of compromise, and base assurances are policy parameters, not measured truths. We therefore report latency, exposure and robustness together as a trade-off front, never as one weighted number. Tenants set a sensitivity that weights exposure and an assurance floor below which a machine never gets their key.
 
-\textbf{Inputs, outputs and constraints.} \emph{Attestation} takes a TPM quote over the appliance's measured boot (event log, PCR values), the endorsement-key certificate chain and a fresh verifier nonce, and outputs a session certificate with assurance $a_j$ and an expiry, or a rejection. It is constrained by reference measurements known to the verifier, the certificate validity period and re-quote interval, and the TPM's quote rate.
-\emph{Provisioning} takes the certificate and the tenant's KBS policy and outputs the wrapped key or a denial. In the simulator both are sequences of simulated delays: network round trips through the geographic model, a TPM quote and verification service time from the substrate profile, and a fixed policy-check cost. The tenant key never reaches the scheduler or the orchestrator: the scheduler learns only that $K[t,j]=1$, from the worker's heartbeat.
-
-\subsection{Substrate profiles}
+\subsection{Substrates}
 \label{sec:substrates}
-\voss{} separates the scheduler from the mechanism by which a host establishes trust. A \emph{substrate profile} is data that tells one generic lifecycle
-engine how a worker establishes trust, how long it lasts, what the start-up tiers cost, what assurance the host carries, and how execution is slowed. We
-model five (Table~\ref{tab:substrates}). The primary, \texttt{appliance\_tpm}, is the TPM-attested appliance on consumer hardware, whose costs we measured
-(Section~\ref{sec:calib}). The server confidential-VM classes (\texttt{cvm\_snp}, \texttt{coco\_pool}) use ranges from the
-literature \cite{amd2020snp,misono2025cvm,holmes2024severifast,li2023bifrost}, \texttt{drtm\_hv} models a measured hypervisor launched under the
-owner's operating system, and \texttt{none} is the unattested reference used for baselines.
-
-\begin{table}[t]
-\caption{Substrate profiles. Assurance bases are policy parameters (swept in experiments); costs for the appliance are measured, the others come from the literature.}
-\label{tab:substrates}
-\centering\scriptsize
-\setlength{\tabcolsep}{2.5pt}
-\begin{tabular}{@{}p{2.1cm}p{2.2cm}p{1.35cm}p{0.95cm}p{1.1cm}@{}}
-\toprule
-Profile & Trust established per & Owner uses machine & Assurance base & Costs \\
-\midrule
-\texttt{appliance\_tpm} & session: reboot, measured boot, quote & no & 0.80 & measured \\
-\texttt{cvm\_snp} & confidential-VM session; key per function & yes & 0.95 & literature \\
-\texttt{coco\_pool} & confidential-container shell & yes & 0.95 & literature \\
-\texttt{drtm\_hv} & measured hypervisor launch & yes, with interference & 0.75 & assumed \\
-\texttt{none} & -- & yes & 0.00 & measured \\
-\bottomrule
-\end{tabular}
-\end{table}
+A \emph{substrate profile} is data that tells one generic lifecycle engine how long trust takes, how long it lasts, what each start-up level costs and what assurance the host carries, so the scheduler is independent of how trust is established.
+We model five. The main one, the TPM-attested appliance on consumer hardware, uses costs we measured (Section~\ref{sec:calib}). Two confidential-VM variants for server CPUs use ranges from the literature~\cite{amd2020snp,misono2025cvm,holmes2024severifast,li2023bifrost}. One models a measured hypervisor under the owner's operating system. The last, \texttt{none}, is the unattested reference that baselines use.

@@ -1,265 +1,89 @@
-\section{Trust-Aware Two-Timescale Scheduling}
+\section{Scheduling Attested Session State}
 \label{sec:sched}
 
-This section is the core of \voss{}. It first states the decision problem and its objectives precisely (Sections~\ref{sec:why2}--\ref{sec:objectives}), then says what information each decision uses and how it was obtained (Section~\ref{sec:info}), and then describes the slow planner, the fast placer and the estimators. Table~\ref{tab:notation} lists the notation.
+Section~\ref{sec:trust} made trust a resource with a price. This section asks who should hold it, and when. Each cluster (tens of machines) has one scheduler with two jobs: decide which machines hold which attested session state, and assign every invocation to a machine.
 
-\begin{figure*}[t]
-\centering
-\resizebox{\textwidth}{!}{\input{diagrams/loops}}
-\caption{The two scheduling timescales within a cluster. The planner decides where provisioned keys and warm state live, using estimates
-from the scheduler's view. The placer chooses the worker for each invocation from the planner's confirmed sets, using a per-candidate cost
-model. Workers confirm plan actions in heartbeats, so the placer never relies on a host that is not yet warm.}
-\label{fig:loops}
-\end{figure*}
-
-\subsection{Decision problem and why two timescales}
+\subsection{Why two timescales}
 \label{sec:why2}
-\textbf{Setting.} Within one cluster (tens of hosts, Section~\ref{sec:cluster}) the scheduler receives a stream of invocations and must (a)~decide which hosts hold which
-attested session state, and (b)~assign every invocation to a host. Its \emph{inputs} are the cluster's state reported by workers, estimates learned from past outcomes, and
-configured policy (Section~\ref{sec:info}); its \emph{outputs} are plan actions sent to workers (provision, pin, warm, release) and a dispatch message per invocation.
-The two kinds of decision differ in what they control and how fast they must be taken (Table~\ref{tab:levels}).
+Could one per-invocation scheduler do both jobs? Three reasons say no.
+First, the security cost belongs to a group of machines. A key released to a machine stays for the whole session, so what matters is how many \emph{different} machines hold a tenant's key, and that count does not add up one placement at a time.
+Second, robustness is a property of the group: whether demand is still covered if any $f$ machines disappear cannot be read off a single placement.
+Third, establishing state takes seconds to tens of seconds (Figure~\ref{fig:cost}), far beyond a per-request budget, so it must happen before demand arrives.
+Placement is the opposite: urgent, and a small choice among a few candidates.
 
-A single per-invocation scheduler cannot manage attested session state, for three reasons. First, the security cost belongs to a group of hosts, not to one placement:
-a key released to a host stays for the whole session, so what matters is \emph{how many different hosts} hold a tenant's key, and that count does not
-add up assignment by assignment. Second, robustness concerns the whole group: whether demand is still covered if any $f$ hosts disappear cannot be read off
-from one placement. Third, establishing state takes seconds to tens of seconds (Fig.~\ref{fig:cost}), far above a
-per-request budget, so it must be done ahead of demand. Placement, by contrast, is latency-critical and decomposes into an assignment over a
-bounded candidate set. Hence the slow loop decides, for the group of hosts as a whole, who holds which state, with an integer program or a heuristic, and the
-fast loop stays cheap.
+So \voss{} uses two loops (Figure~\ref{fig:loops}). The \textbf{slow loop}, the \emph{planner}, runs every 30\,s and whenever things change materially. It decides which machines hold which tenant's key, which snapshots sit on whose disk, how many warm sandboxes each machine keeps, and how many slots are reserved for each tenant.
+The \textbf{fast loop}, the \emph{placer}, runs for every invocation and chooses from machines the planner has prepared. The 30\,s period is a design choice, not a measured optimum: plan actions take from a few hundred milliseconds to several seconds, so the period must exceed that, and sessions last minutes to hours, so it must be far shorter. We did not sweep it.
 
-\textbf{What a plan contains, and when it runs.} A plan says, for the coming horizon, which hosts hold which tenant's key ($y$), which function snapshots are pinned on which hosts' disks ($s$), how many \emph{warm} sandboxes of each function are kept on each host ($w$: microVMs already started and initialised, idle in memory), and how many of a host's slots are earmarked for a tenant ($c$, a soft cap for the placer). Both loops run in the scheduler role: the placer for every invocation, the planner every $T_{\text{plan}}=30$\,s and when the situation changes materially. The value 30\,s is a design choice, not a measured optimum. A plan's actions (a key release, a bundle fetch, a boot) take from a few hundred milliseconds to several seconds (Fig.~\ref{fig:cost}), so the period must exceed that; sessions last minutes to hours, so it must be far shorter than that. We did not sweep it in the evaluation; a pilot at 15\,s and 60\,s (outside the reported experiments) showed no significant difference in P99.
+\begin{figure}[t]
+\centering
+\resizebox{0.95\columnwidth}{!}{\input{diagrams/loops}}
+\caption{The two loops inside a scheduler. The planner decides where keys and warm state live and sends actions to workers. The placer picks a machine for each invocation. Workers confirm plan actions in their heartbeats, so the placer never relies on a machine that is not yet ready.}
+\label{fig:loops}
+\end{figure}
 
-\begin{table}[t]
-\caption{Notation for a cluster of attested workers $J$.}
-\label{tab:notation}
-\centering\scriptsize
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}p{2.1cm}p{6.1cm}@{}}
-\toprule
-$t,f,j$ & tenant, function, worker; $t(f)$ is the tenant of $f$ \\
-$H,T_{\text{plan}}$ & planning horizon, planning period \\
-$y_{tj}\in\{0,1\}$ & worker $j$ is provisioned for tenant $t$ over the horizon \\
-$s_{fj}\in\{0,1\}$ & snapshot of $f$ pinned on $j$ (tier L2) \\
-$w_{fj}\in\mathbb{Z}_{\ge0}$ & warm sandboxes of $f$ kept on $j$ (tier L3) \\
-$c_{tj}\ge 0$ & slots of $j$ earmarked for $t$ (soft cap for the placer) \\
-$S_j(H),\,p_j$ & survival probability of $j$'s session over $H$; omission probability \\
-$e_j$ & effective availability $S_j(H)(1-p_j)$ \\
-$a_j,\,\sigma_t,\,a_{\min,t}$ & assurance of $j$; tenant sensitivity; assurance floor \\
-$q_t,\,f_t$ & demand quantile (slots) to cover; number of defecting hosts to tolerate \\
-$\mathrm{cap}_j,M_j$ & slots and memory of $j$ \\
-$d(j)$ & failure domain of $j$ (ASN and city) \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\subsection{What is minimised, and why not SLO violations directly}
+\subsection{What each loop minimises}
 \label{sec:objectives}
-\textbf{The quantity we ultimately care about.} For a synchronous invocation $i$ with deadline $D_i$, an \emph{SLO violation} is the event
-$V_i=\{\text{the attempt fails}\}\cup\{\text{end-to-end latency}>D_i\}$. The deadline is $D_i=k_f\,(w_f(\mathit{in}_i)+0.05\,\text{s})$, where $w_f$ is the
-reference-core execution time of the function on that input and $k_f=5$ (Section~\ref{sec:protocol}). We \emph{report} violations in every experiment (deadline-met fraction,
-success, P99). The scheduler's two loops do not minimise them in the same way (Table~\ref{tab:levels}).
+What we care about in the end is the \emph{SLO violation}: an invocation fails or finishes after its deadline, which for synchronous functions is five times the warm execution time plus 50\,ms. The two loops treat violations differently.
 
-\begin{table*}[t]
-\caption{What each decision-maker minimises, subject to what, and whether that is SLO violations. Defaults are in Table~\ref{tab:defaults}.}
-\label{tab:levels}
-\centering\scriptsize
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}p{1.5cm}p{2.0cm}p{4.8cm}p{4.2cm}p{3.2cm}@{}}
-\toprule
-Decision-maker & Decides & Minimises & Subject to & SLO violations? \\
-\midrule
-Fast loop (placer) & host for each invocation; hedge; admit or reject & $J_{ij}=w_i P^{\text{miss}}_{ij}+\varepsilon\,\mathbb{E}[T_{ij}]+\lambda_{\exp}x_{ij}$ over hosts $j$ (Eq.~\ref{eq:J}) & eligibility (valid attested session past the expected finish, not draining, assurance $\ge$ floor), top-$K$ candidates, hedge budget & \textbf{Yes, per invocation:} $P^{\text{miss}}$ is that invocation's violation probability; latency and exposure are regularizers \\
-Slow loop (planner) & provisioned sets $y$, pinned snapshots $s$, warm VMs $w$, earmarked slots $c$ & uncovered demand, donor memory and disk, key exposure, plan churn, less warm-start benefit (Eq.~\ref{eq:obj}) & robust coverage of the demand quantile against any $f_t$ defectors, slots, memory, disk, failure-domain caps, assurance floor, attestation freshness & \textbf{No, by design:} a surrogate of violation risk (invocations forced onto the unprovisioned path) plus costs SLOs do not see \\
-Router & cluster for each request & expected completion time, plus a penalty on clusters whose observed miss rate exceeds $\theta$, plus the price of an unprovisioned start (Section~\ref{sec:cluster}) & cluster not excluded; prefers free slots & Partly: observed miss rate enters as a penalty \\
-\bottomrule
-\end{tabular}
-\end{table*}
-
-\textbf{Fast loop: each invocation's expected violation.} For invocation $i$ of tenant $t$ and candidate host $j$, let $b_i=D_i-(\text{now}-t^{\text{arrive}}_i)$ be the remaining deadline budget and
-$T_{ij}$ the predicted completion time (Section~\ref{sec:placer}). The placer minimises
+\textbf{The placer minimises each invocation's own risk.} For invocation $i$ on candidate machine $j$ it computes
 \begin{equation}
-\begin{gathered}
-J_{ij}=w_i\,P^{\text{miss}}_{ij}+\varepsilon\,\mathbb{E}[T_{ij}]+\lambda_{\exp}\,x_{ij},\\
-x_{ij}=\sigma_t(1-a_j)\,\mathbb{1}[j\notin\mathrm{KH}(t)],\\
-P^{\text{miss}}_{ij}=p^{\text{fail}}_{ij}+\bigl(1-p^{\text{fail}}_{ij}\bigr)\Pr(T_{ij}>b_i),\\
-p^{\text{fail}}_{ij}=1-S_j(\bar e_{ij}+2\,\text{s})(1-p_j).
-\end{gathered}
+J_{ij}=w_i\,P^{\text{miss}}_{ij}+\varepsilon\,\mathbb{E}[T_{ij}]+\lambda_{\exp}\,x_{ij}.
 \label{eq:J}
 \end{equation}
-In words: $P^{\text{miss}}_{ij}$ is the probability that invocation $i$ violates its SLO if placed on $j$, with a failure (session end or omission) counted as a violation; $b_i$ is how much of the deadline is left; $p^{\text{fail}}_{ij}$ is the chance that host $j$ ends its session or omits before the run is over, where the survival probability $S_j$ and the omission probability $p_j$ are estimated from past outcomes (Section~\ref{sec:estimators}) and $\bar e_{ij}$ is
-the predicted mean execution time; $x_{ij}$ is the exposure that placing $i$ on $j$ adds if $j$ does not yet hold tenant $t$'s key, where $\sigma_t$ is the tenant's sensitivity, $a_j$ the host's assurance score and $\mathrm{KH}(t)$ the set of hosts that hold the key. The default weights are $w_i=1$ for synchronous and $0.3$ for asynchronous and filler work, $\varepsilon=0.05\,\text{s}^{-1}$ and $\lambda_{\exp}=1$, so $J$ is measured in
-\emph{violation-equivalents}: one second of expected latency is weighted like a $5$-point increase in violation probability, and giving a medium-sensitivity tenant's key to a new host of assurance $0.8$ costs
-$1\cdot(1-0.8)=0.2$, the same as a 20\% chance of violating the SLO. The placer therefore \emph{does} minimise SLO violations for the invocation in front of it, and latency and key exposure are weighted against that
-objective, not the other way round. We chose per-invocation violation probability over a P99-based objective because P99 is a population statistic that cannot be attributed to one decision;
-minimising each invocation's own miss probability against its own remaining budget is the decision-level quantity whose mean is the deadline-miss rate and whose tail drives the P99. Expectation-, quantile-, CVaR-
-and tardiness-based alternatives are compared in an ablation (E03).
+$P^{\text{miss}}_{ij}$ is the probability that $i$ violates its SLO on $j$: a machine that fails first counts as a violation, and otherwise the predicted finish time is compared with the remaining deadline. $\mathbb{E}[T_{ij}]$ is the expected latency, and $x_{ij}$ is the exposure added if $j$ does not yet hold the tenant's key.
+The default weights give $J$ a plain meaning: one second of expected latency counts like a 5-point rise in violation probability, and giving a medium-sensitivity tenant's key to a new machine of assurance 0.8 costs the same as a 20\% chance of a violation.
+We chose per-invocation risk over a P99 target because P99 is a statistic of the whole population and cannot be assigned to one decision, whereas each invocation's own miss probability is the quantity whose average is the miss rate.
 
-\textbf{Slow loop: a surrogate, and why.} The planner decides which hosts hold keys and warm state over the next horizon $H$ ($H=60$\,s; Table~\ref{tab:defaults}). It does \emph{not} minimise violations directly, for five reasons.
-\begin{enumerate}
-\item \emph{Circularity.} Whether an invocation violates its SLO depends on the placer's later decisions, which depend on the plan; minimising violations would be a bilevel problem solved at every planning round.
-\item \emph{No per-request information.} At planning time the invocations do not exist. Only a forecast of demand exists, so the planner can reason about capacity relative to that forecast, not about individual deadlines.
-\item \emph{Rare, noisy events.} Violations are 1--5\% events. An objective built from their empirical count has high variance; a coverage requirement at a fixed demand quantile is stable and interpretable.
-\item \emph{Violations are not the only cost.} Warming everything everywhere would minimise violations and hold every tenant's key on every host. The scarce resources are donor memory and disk and key exposure
-(Section~\ref{sec:exposure}), so the planner minimises cost \emph{under a coverage requirement}, and the trade-off is reported as a Pareto front (Section~\ref{sec:res-pareto}).
-\item \emph{No hard guarantee exists.} Under churn and adversaries no plan can guarantee a deadline; coverage against \emph{any} $f_t$ defecting hosts is the strongest statement that assumes no model of the adversary.
-\end{enumerate}
-\textbf{How the planner still serves the SLO.} The coverage constraint is a chance-constraint surrogate. If invocations of tenant $t$ arrive as a Poisson process of rate $\lambda_t$ with mean service time $s_t$, the number running concurrently is
-Poisson with mean $\lambda_t s_t$ (an M/G/$\infty$ system), so $q_t=Q_{0.95}(\lambda_t s_t)$ slots suffice to start every invocation immediately with probability $0.95$ under the forecast. Requiring provisioned,
-\emph{available} capacity of at least $q_t$ even after the $f_t$ largest allocations are lost (Eq.~\ref{eq:robust}) bounds the share of invocations forced onto the unprovisioned path, which is the dominant cause of violations on volunteer
-hosts. Uncovered demand (the slots of forecast demand that the provisioned hosts do not cover) is charged $\Lambda_t=10$ per slot, two orders of magnitude above the price of memory ($10^{-4}$ per MB, 0.05 for a 512\,MB VM) and of exposure (about $0.2$ per added key holder), so coverage is bought unless it is infeasible within the
-budgets, in which case the shortfall is reported. The Poisson assumption is the planner's \emph{model}: simulated arrivals are a Markov-modulated process with $4\times$ bursts, so realized coverage is below 95\% during bursts. This is a design rationale, not a theorem,
-and the realized violation rate is what the experiments measure.
+\textbf{The planner minimises a surrogate.} At planning time the invocations do not exist, only a forecast of demand. Minimising violations would also be circular, because they depend on the placer's later choices, which depend on the plan. Violations are rare (1--5\%), so an objective built from them is noisy.
+And they are not the only cost: warming everything everywhere would minimise violations and hand every tenant's key to every machine. The planner therefore minimises cost \emph{subject to covering demand}. Demand is the number of slots that, assuming Poisson arrivals, covers the forecast load 95\% of the time, so nearly every invocation can start at once, and coverage must hold even after the $f$ largest allocations are lost.
+Uncovered demand is charged far more than memory or exposure, so coverage is bought unless the budgets make it impossible, in which case the shortfall is reported. This is a design rationale, not a theorem. Simulated arrivals have bursts that the Poisson model misses, so realised coverage dips during bursts, and the experiments measure the violation rate itself.
 
-\textbf{What is deliberately not minimised.} There is no explicit P99 target, no throughput objective, no fairness objective across donors and no provider cost term; cost against a commercial reference is reported afterwards (Section~\ref{sec:res-simple}). Reputation never enters
-$p^{\text{fail}}$ (Section~\ref{sec:receipts}).
-
-\begin{table}[t]
-\caption{Default parameters of the objectives (assumed unless noted; swept in the cited experiments).}
-\label{tab:defaults}
-\centering\scriptsize
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}p{3.1cm}p{5.1cm}@{}}
-\toprule
-Parameter & Value \\
-\midrule
-Planning period, horizon & $T_{\text{plan}}=30$\,s, $H=2T_{\text{plan}}=60$\,s \\
-Hot set (planned keys) & top 20 tenants, 50 functions, forecast rate $\ge0.01$/s \\
-Demand quantile, robustness & $q_t=Q_{0.95}$; $f_t=\lceil0.1\,N_{\text{cluster}}\rceil$ \\
-Planner prices & $\Lambda=10$, $\rho_{\text{mem}}=10^{-4}$/MB, $\rho_{\text{ssd}}=2\cdot10^{-5}$/MB, $\lambda=1$, $\kappa_{\text{switch}}=0.05$, $\beta=0.05$, $\gamma=0.5$ \\
-Failure-domain cap & $\kappa_{\text{dom}}=0.5$ \\
-Placer weights & $w_{\text{sync}}=1$, $w_{\text{other}}=0.3$, $\varepsilon=0.05$, $\lambda_{\exp}=1$, $\sigma\in\{0.1,1,3\}$ \\
-Candidates, hedge & $K=12$; $\theta=0.2$, budget 10\% \\
-Deadline & $D=5\,(w_f+0.05\,\text{s})$ for sync functions \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\subsection{Information model: what each decision knows, and how it knows}
+\subsection{What the scheduler knows}
 \label{sec:info}
-A reviewer should be able to tell, for every number a decision uses, whether it was observed, learned from history, forecast, or assumed. We classify every scheduler input into five kinds.
-\textbf{Observed (O)}: reported by an attested agent or trusted router by message, stale by at most the heartbeat period of 2\,s plus network delay, with the scheduler's own dispatches since the last report added.
-\textbf{Learned from history (H)}: an estimator updated online from \emph{past outcomes only}. \textbf{Forecast (F)}: a quantity computed from H-quantities for the future.
-\textbf{Calibrated (C)}: a constant or formula fixed before the run from the calibration bundle, the function catalogue or the geography model; \emph{not} learned online.
-\textbf{Policy (P)}: configured by the tenant or operator. Table~\ref{tab:info} lists every quantity.
+For every number a decision uses, a reviewer should be able to tell whether it was observed, learned, forecast or assumed.
+\emph{Observed} inputs (busy slots, cached state, provisioned tenants, session expiry, assurance) are reported by workers every 2\,s, plus the scheduler's own dispatches since.
+\emph{Learned} inputs (session survival, omission rate, execution time per function and machine) come from online estimators fed only by past outcomes, and \emph{forecasts} (demand over the next 60\,s) are computed from them.
+\emph{Calibrated or configured} inputs (start-up and trust costs, network times, host speeds, weights, tenant policy) are fixed before the run and not re-learned.
+The scheduler never sees the true end of a session, an invocation's true run time, a host's true behaviour or future arrivals. The code base enforces this by forbidding the policy layer from importing the simulated world.
+The speculative part is the last group: the scheduler assumes start-up costs and network times equal their calibrated values and that declared host speeds are exact. A deployment would measure these online. This prototype does not (Section~\ref{sec:threats}).
 
-\begin{table*}[t]
-\caption{Every input to a scheduling decision: its kind (O observed, H learned from history, F forecast, C calibrated constant, P policy), its source and update rule, and its value before data exist.}
-\label{tab:info}
-\centering\scriptsize
-\setlength{\tabcolsep}{2.5pt}
-\begin{tabular}{@{}p{3.2cm}p{1.5cm}p{0.9cm}p{7.9cm}p{3.7cm}@{}}
-\toprule
-Quantity & Used by & Kind & Source and update rule & Before enough data \\
-\midrule
-Slots, memory and disk budgets, speed, link rates, location, tier, session start & planner, placer & O & declared by the worker agent at join; \textbf{speed and link rates are taken as exact} & -- \\
-Busy and queued slots, cache tier per function, provisioned tenants, expiry, drain deadline & planner, placer & O & heartbeat every 2\,s; own dispatches since then counted as in flight; hosts silent for 7\,s are left out of plans & host left out \\
-Assurance $a_j$ & planner, placer & O & issued by the verifier: substrate base $\times$ firmware-policy factor & -- \\
-Execution time on a host & placer & H & Bayesian log-linear regression per function, forgetting factor $0.995$, per-worker offsets shrunk toward 0 (prior count 5), conformal rescaling of the spread over the last 500 residuals & catalogue prior (reference work, size exponent, $\sigma=0.35$) \\
-Wait for a slot & placer & O+H & queue length $(\text{busy}+\text{queued}+\text{in flight}-\text{slots}+1)^+$ times the scheduler's EWMA of observed run times (weights $0.98/0.02$), divided by slots & $1$\,s \\
-Start-up and trust-establishment time per tier and substrate & placer, planner & C & means of the substrate profile (calibration bundle); \textbf{not re-learned online} & -- \\
-Network RTT and transfer time & placer, router & C & great-circle distance at 100\,km per ms $\times1.3$; bytes over the declared link rate; \textbf{no jitter, no measurement} & -- \\
-Session survival $S_j(\tau)$ & planner, placer & H$\to$F & per-tier Weibull by censored maximum likelihood on completed sessions and live ages, refit every 60\,s; hour-of-day hazard multiplier after 48 session ends; drain notices only shorten & shape $0.7$, scale 7200\,s until 20 sessions of the tier ended \\
-Omission probability $p_j$ & planner, placer, detectors & H & Beta posterior of accepted invocations that return no result, mid-session only; CUSUM ($k=0.1$, $h=5$) resets a host to Beta$(2,4)$ & Beta$(0.5,20)$, mean $0.024$ \\
-Arrival rate per tenant and function & planner & H$\to$F & counts in 10\,s bins; EWMAs with $\tau=60$ and $900$\,s; forecast is the maximum of both and of the regional rate pushed by routers & not planned until seen \\
-Demand quantile $q_t$ & planner & F & Poisson 95\% quantile of rate $\times$ service time (M/G/$\infty$); service time per key is an EWMA ($0.9/0.1$) of observed run times & catalogue reference work \\
-Warm-start benefit $b_f$ & planner & F+C & rate $\times H\times$ (rootfs fetch + boot + init seconds saved) per warm unit & -- \\
-Tenant sensitivity, assurance floor, robustness $f_t$ & all & P & tenant configuration & default $f_t=\lceil0.1\,N\rceil$ \\
-Objective weights & planner, placer & P & configuration, assumed, swept in E04, E19, E23 & -- \\
-Cluster load, observed miss rate, overhead, cold prices & router & O & scheduler summary every 1\,s; cold prices are what the cluster \emph{measured} & priors $3$\,s and $0.5$\,s \\
-\bottomrule
-\end{tabular}
-\end{table*}
-
-\textbf{What is never used.} The true session end time, the true run time and noise of an invocation, a host's true adversarial behaviour, future arrivals, and the true state of other hosts. The code base forbids the policy layer from importing the simulated world, which enforces this
-statically. A baseline that does use ground truth exists for analysis only and is never part of \voss{}.
-
-\textbf{How much is history, how much is forecast, how much is assumed.} The \emph{slow loop is mostly forecast}: demand and survival over a 60\,s horizon, extrapolated from rates smoothed over minutes and from session-length statistics accumulated over the whole run.
-The \emph{fast loop is mostly observation}: occupancy, cache state and provisioning are at most a few seconds old, and only the execution-time distribution, survival over the next few seconds and the omission probability are statistical estimates learned from past outcomes.
-The \emph{speculative} parts are exactly those marked C in Table~\ref{tab:info}: the scheduler assumes start-up costs and network times equal their calibrated nominal values, and that declared host speeds are exact. A deployment would measure these online; this prototype does not,
-which is a stated limitation (Section~\ref{sec:threats}). Sensitivity of results to prediction error or staleness (error-injection sweeps) is not part of the paper's experiments.
-
-\subsection{Slow loop: robust provisioning and warm-state planning}
+\subsection{The slow loop: planning keys and warm state}
 \label{sec:planner}
-\textbf{Inputs.} Every $T_{\text{plan}}=30$\,s the scheduler builds a planning instance from its stale view (Table~\ref{tab:info}). The \emph{pool} is the live hosts that are not draining, whose last heartbeat is under 7\,s old and whose session has not expired, capped at 40 hosts (previous holders first, then slots $\times$ assurance).
-The \emph{hot set} is the top 20 tenants and top 50 functions whose forecast rate is at least $0.01$\,s$^{-1}$; the long tail stays on the unprovisioned path (hosts without the key or warm state are used as they come), which keeps the program small. Keys are provisioned per tenant, because the secret belongs to the tenant, so the planner first decides which hosts hold each hot tenant's key, ranked by demand times cold penalty, and then, among the hosts that hold it, which functions to keep warm, ranked by start-up time saved per megabyte of memory. A tenant's hotness therefore decides where its functions may be warm, and a function's hotness decides whether it is kept warm. The evaluation workload has six tenants and 12 functions (Section~\ref{sec:sim}), so these limits do not bind there. For each hot tenant the planner receives demand $q_t$ (the Poisson 95\% quantile of forecast rate times service time); for each host the survival $S_j(H)$ over the horizon $H=2T_{\text{plan}}=60$\,s, the omission probability $p_j$, the assurance $a_j$, the failure domain, slots, memory, snapshot space and cache inventory; and tenant policy ($\sigma_t$, $a_{\min,t}$, $f_t$).
-All are \emph{estimates} from the scheduler's view; no ground truth is used. \textbf{Output.} A plan $\{y,s,w,c\}$ with $y_{tj}$ (host $j$ holds the key of tenant $t$), $s_{fj}$ (snapshot of $f$ pinned on $j$), $w_{fj}$ (warm sandboxes) and $c_{tj}$ (slots earmarked for $t$ on $j$), valid for $H$.
+Every 30\,s the planner looks at the live, non-draining machines in its view (at most 40), and at the 20 busiest tenants and 50 busiest functions. The long tail stays on the unprovisioned path, which keeps the problem small; the evaluation workload has six tenants and 12 functions, so these caps never bind.
+Keys belong to tenants, so the planner first decides which machines hold each hot tenant's key, then which of its functions stay warm there. The result is a \emph{plan} valid for the next 60\,s.
 
-\textbf{Objective.} The planner minimizes uncovered demand, donor cost, exposure and plan churn, less the value of warm starts:
-\begin{multline}
-\min \sum_t \Lambda_t u_t + \sum_j \Bigl(\rho_{\text{mem}}\sum_f m_f w_{fj} + \rho_{\text{ssd}}\sum_f z_f s_{fj}\Bigr)\\
-+ \lambda \sum_t \sigma_t \sum_j (1-a_j)\,y_{tj}\\
-+ \nu \sum_{t,j}\bigl(y_{tj}-y^{\text{prev}}_{tj}\bigr)^{+}
-- \beta \sum_{f,j} b_f\,(w_{fj}+\gamma s_{fj}),
-\label{eq:obj}
-\end{multline}
-where $u_t\ge0$ is the uncovered demand of tenant $t$ (the number of slots of its forecast demand $q_t$ that the provisioned capacity does not cover), charged at $\Lambda_t$ per slot, $m_f$ and $z_f$ are the memory and
-snapshot size of $f$, $b_f$ the start-up time a warm sandbox saves, and the remaining coefficients ($\rho_{\text{mem}},\rho_{\text{ssd}},\lambda,\nu,\beta,\gamma$) are weights that put memory, disk, exposure, plan churn and warm-start benefit in the same cost unit. Each term is logged separately so
-that latency, exposure and donor cost can be traded off explicitly (Section~\ref{sec:res-ft}).
-
-\textbf{Robust coverage.} Provisioned capacity must still cover demand when any $f_t$ hosts defect together (crash, omit, or stall):
+\textbf{Robust coverage.} The planner requires that provisioned, available capacity still covers forecast demand after removing the $f$ largest allocations:
 \begin{equation}
-\begin{gathered}
-\sum_j e_j\,c_{tj} - \Bigl(f_t\,\theta_t + \sum_j \pi_{tj}\Bigr) + u_t \ge q_t,\\
-\pi_{tj}\ge c_{tj}-\theta_t,\quad \pi_{tj},\theta_t\ge 0\quad\forall j.
-\end{gathered}
+\sum_j e_j\,c_{tj} \;-\; (\text{the } f_t \text{ largest } c_{tj}) \;+\; u_t \;\ge\; q_t .
 \label{eq:robust}
 \end{equation}
-Here $e_j=S_j(H)(1-p_j)$ is the effective availability of host $j$ (the probability that its session lasts the horizon and that it does not omit), $c_{tj}$ the slots of $j$ earmarked for tenant $t$, $q_t$ the demand quantile to cover, $f_t$ the number of hosts to tolerate, and $\theta_t$ and $\pi_{tj}$ auxiliary variables that encode the sum of the $f_t$ largest allocations. The bracket equals the sum of the $f_t$ largest allocations $c_{tj}$: for non-negative $c$, $\sum_{(f_t)} c = \min_{\theta\ge0}\{f_t\theta+\sum_j(c_{j}-\theta)^+\}$ by LP duality,
-the standard reformulation of a cardinality-constrained uncertainty set \cite{bertsimas2004price}. Because $e_j\le1$, removing the $f_t$ largest
-\emph{slot allocations} removes at least as much as losing any $f_t$ hosts removes from the coverage sum, so Eq.~\eqref{eq:robust} is a sufficient condition and
-remains linear. The $f_t$ hosts that are removed are chosen by worst case, so no probabilistic model of the adversary is needed for them: the constraint holds against $f_t$ hosts with a perfect record, which is what an adversary who
-builds a clean history before defecting would be. The allocations that remain are weighted by the estimated availability $e_j$. By default $f_t=\lceil\alpha_{\text{assumed}}N_{\text{cluster}}\rceil$ and tenants may opt down.
+Here $c_{tj}$ is the number of slots of machine $j$ reserved for tenant $t$, $e_j$ the estimated chance that $j$ survives the horizon and does not omit, $q_t$ the demand to cover, and $u_t$ the shortfall that is charged.
+This is a standard budgeted-robustness constraint~\cite{bertsimas2004price}, written so the integer program stays linear. It needs no model of the adversary, because it assumes the $f_t$ worst machines fail together, even ones with a perfect record. By default $f_t$ is a tenth of the cluster, rounded up, and tenants may opt down.
+Allocation also respects each machine's slots, memory and disk, a cap on how much of a tenant's capacity may sit in one failure domain (one network provider or city), the assurance floor, and attestation freshness.
 
-\textbf{Remaining constraints.} Allocation requires provisioning ($c_{tj}\le \mathrm{cap}_j\,y_{tj}$, $w_{fj}\le W_{\max}\,y_{t(f)j}$, $s_{fj}\le y_{t(f)j}$). Slots, memory and
-snapshot storage of each host are respected. A \emph{failure-domain cap} $\sum_{j\in D}c_{tj}\le \kappa_{\text{dom}}\sum_j c_{tj}$ for every domain $D$ prevents a
-correlated outage from removing most of a tenant's capacity. The assurance floor forces $y_{tj}=0$ if $a_j<a_{\min,t}$, and a freshness constraint excludes a
-host whose attestation would expire within the horizon without time to re-quote.
+\textbf{Two ways to solve it.} The exact formulation is a mixed-integer program with about a thousand variables per cluster, which we solve with HiGHS~\cite{huangfu2018highs} under a time limit. The \emph{greedy planner} serves hot tenants in decreasing order of demand times cold penalty. For each it repeatedly adds the machine with the best survival-times-assurance per unit of memory and exposure cost, until coverage with the $f_t$ largest removed reaches the demand. It then adds warm sandboxes and snapshots in decreasing order of start-up time saved per megabyte.
+Greedy planning takes about \GreedySolveMs\,ms per solve. In a pilot, the exact program needed 0.3--1.1\,s for 10 hosts, 4.7--5.0\,s for 40 and 17--24\,s for 80. Before the experiments we fixed a decision rule: if the exact program improves P99 by less than 5\% over greedy in every regime, greedy is the method and the exact program a reference (Section~\ref{sec:res-plan}).
 
-\textbf{Solving.} One cluster has tens of workers and a bounded set of hot tenants, so the program has about $10^3$--$3\cdot10^3$ integer variables (a pool of at most 40 hosts, 20 tenants and 50 functions gives at most 800 key variables $y$, 800 allocations $c$, and 2{,}000 each of snapshot pins $s$ and warm counts $w$). The greedy planner takes the same inputs and produces the same output. Its work is a few sorted passes over hosts and functions (8\,ms per solve in our runs), whereas the exact program's solve time grows steeply with the pool: in a pilot outside the reported experiments the median solve took 0.3--1.1\,s for 10 hosts, 4.7--5.0\,s for 40 and 17--24\,s for 80. We solve it with
-HiGHS \cite{huangfu2018highs} under a time limit, warm-started from the previous plan, falling back to the incumbent and then to a greedy
-heuristic. The \emph{greedy planner} serves hot tenants in decreasing order of demand times cold penalty. For each tenant it repeatedly adds the
-host with the highest $S_j(1-p_j)a_j$ per unit of memory and exposure cost, subject to the assurance floor and domain cap, until coverage with the
-$f_t$ largest contributions removed is at least $q_t$; it then adds warm sandboxes and snapshots in decreasing value density (start-up time saved per megabyte) until each host's memory or disk is used up. We
-adopt a decision rule fixed before the experiments: if the exact program improves P99 by less than 5\% over the heuristic in all regimes, the heuristic is the method and the program is
-a reference (Section~\ref{sec:res-plan}).
+\textbf{From plan to action.} A plan is re-solved only if the situation changed materially. Otherwise it is compared with its predecessor and turned into idempotent, rate-limited actions sent to workers: prepare (fetch the key and decrypt bundles), pin a snapshot, warm a sandbox, release. Workers confirm completion in heartbeats, and the plan counts only for state they have \emph{confirmed}.
 
-\textbf{When the plan is recomputed.} The plan is re-solved only if the instance changed materially: the hot set or the host pool differs, or $\ln(1+q_t)$ or the per-function warm-unit demand moved by more than a tolerance of $0.2$ in any bucket. Otherwise the previous plan is reused for another horizon, and only unconfirmed actions are re-sent. Solve time and status are logged (\texttt{solver}, \texttt{plans}), and the modelled decision latency of a re-plan is charged to the clock.
-
-\textbf{From plan to actions.} The plan $\{y,s,w,c\}$ is differenced against its predecessor into idempotent, rate-limited actions sent to workers:
-\texttt{PREPARE} (obtain the key from the KBS, fetch and decrypt bundles), \texttt{PIN\_SNAPSHOT}, \texttt{WARM} and \texttt{RELEASE}. Workers confirm completion in
-heartbeats, and the plan is treated as valid only for state they have \emph{confirmed}, so the placer never counts on a host that is not yet warm.
-
-\subsection{Fast loop: invocation placement}
+\subsection{The fast loop: placing each invocation}
 \label{sec:placer}
-\textbf{Inputs and output.} For each invocation $i$ the placer receives only metadata (function, tenant, deadline budget $b_i$, input size, idempotence, SLO class), the scheduler's cluster view (at most one heartbeat old plus its own dispatches) and the current plan. It outputs one of: a host $j$ (optionally with a hedge host), \emph{reject} or \emph{defer}.
+For each invocation the placer sees only metadata (function, tenant, remaining deadline, input size, idempotence), the scheduler's current view and the plan. It considers the best $K=12$ machines by a cheap lower bound, from the confirmed provisioned machines and from other attested machines (the \emph{unprovisioned path}, which needs a key release and usually a start-up). Draining, soon-to-expire, low-assurance or memory-short machines are out.
+For each candidate it estimates and logs five delays: the wait for a slot, the trust cost (zero if the key is already held), the start-up cost, the network time and the execution time. Completion time is modelled as a shifted log-normal over these parts, and failure probability is the chance that the machine ends its session or omits before the run is over.
+A synchronous invocation takes the lowest $J$ immediately. Asynchronous and filler work arrives in 0.2\,s windows and is assigned by minimum-cost matching. All baseline placers use the same candidates and cost model, so differences come from the decision rule alone.
 
-\textbf{Candidates and feasibility.} Candidates are the best $K=12$ hosts by a cheap lower bound, drawn from (a)~confirmed provisioned hosts and (b)~other attested hosts (the \emph{unprovisioned path}, which needs a key release and, usually, a start-up). A host is infeasible if it is draining or its session would expire within 5\,s of the predicted completion, if its assurance is below the tenant floor, or if it lacks memory for a new sandbox.
-
-\textbf{Cost matrix.} For each feasible pair $(i,j)$ the model forms named components, logged per invocation: \emph{wait} for a slot $\bigl(\text{busy}+\text{queued}+\text{in flight}-\text{slots}+1\bigr)^{+}\cdot\bar s/\text{slots}$ with $\bar s$ the EWMA service time; \emph{trust} (zero if $K[t,j]=1$, else key-release round trip plus policy check, calibrated); \emph{start-up} (by the function's tier on $j$ and its disk tier, calibrated); \emph{network} (input and output over the geographic model); and \emph{execution}, a log-normal from the Bayesian regression scaled by declared host speed and substrate slowdown.
-The completion time $T_{ij}$ is a moment-matched shifted log-normal over these components. The failure probability is $p^{\text{fail}}_{ij}=1-S_j(\bar e+2\,\text{s})(1-p_j)$, with $\bar e$ the predicted mean execution time: the host must survive the run and not omit. Failure counts as a violation in Eq.~\eqref{eq:J}, so the cost trades a host that is fast but about to leave against one that is slower but safe.
-
-\textbf{Placers.} The default placer assigns each synchronous invocation to the feasible host with the lowest $J_{ij}$ (Eq.~\eqref{eq:J}). For asynchronous and filler work, which arrives in small windows, a minimum-cost flow (\texttt{linear\_sum\_assignment}) maps window invocations to (host, slot) pairs in polynomial time; the window is 0.2\,s. A synchronous invocation is placed immediately, and invocations already routed to a host and still in flight count against its free slots (the wait term above), so a host is judged by its current load and not only by how good it is. All baseline placers use the same candidates and cost matrix, so differences are due to the rule alone.
-
-\textbf{Admission, hedging and retries.} \emph{Admission}: if every candidate has $P_{\text{miss}}\ge 0.95$ \emph{and} even the shortest slot wait exceeds the remaining budget (overload), a synchronous request is rejected and an asynchronous one deferred; misses caused only by cold start-up are admitted, because they warm the caches later requests need.
-\emph{Hedging}: if the best candidate has $P_{\text{miss}}>\theta=0.2$, the function is idempotent and the cluster's hedge budget (10\% of placements, token bucket) allows, a tied duplicate goes to the best candidate in a \emph{different failure domain}; the loser is cancelled on the first result \cite{dean2013tail}. Attested receipts make duplicates integrity-safe, but not effect-safe: hedging and retries apply only to \emph{idempotent} functions (calling the function twice has the same effect as calling it once; each function carries this flag), and for other functions a lost result is reported as a failure.
-\emph{Retries}: on a watchdog or a failure the invocation is re-placed with the failed host excluded, preferring provisioned hosts, within a per-invocation budget and a per-cluster retry token bucket, and only if the function is idempotent or the failure occurred before execution began.
+\textbf{Admission, hedging and retries.} If every candidate is almost sure to miss and even the shortest wait exceeds the remaining deadline, the system is overloaded: a synchronous request is rejected and an asynchronous one deferred. Misses caused only by a cold start are admitted, because they warm the caches later requests need.
+If the best candidate's miss probability is above 0.2, the function is idempotent and a budget of 10\% of placements allows it, the placer sends a duplicate to the best machine in a \emph{different failure domain} and cancels the loser when the first result arrives~\cite{dean2013tail}.
+After a watchdog or failure the invocation is placed again with the failed machine excluded, within a budget. Receipts make duplicates safe for integrity but not for side effects, so hedges and retries apply only to idempotent functions.
 
 \subsection{Estimators}
 \label{sec:estimators}
-Four estimators feed both loops and are trained online, using only outcomes visible to the scheduler. Parameters are in Table~\ref{tab:info}.
-\emph{Survival} $S_j(\tau)$ is a Weibull distribution per tier fitted by censored maximum likelihood on completed sessions and live session ages, refit every 60\,s from a prior (shape $0.7$, scale 7200\,s) until 20 sessions of the tier have ended, with an hour-of-day hazard multiplier once 48 have ended; drain notices only shorten predicted life, since they may be fake.
-\emph{Omission} $p_j$ is a Beta posterior over accepted invocations that return a result, counting mid-session outcomes only so that session ends are not double counted; a Beta-CUSUM change-point detector ($k=0.1$, $h=5$) resets a flagged host's eligibility and its posterior to Beta$(2,4)$, which defeats hosts that behave until they defect.
-\emph{Execution time} is a Bayesian log-linear regression per function with forgetting factor $0.995$ and shrinkage of per-worker offsets, and a conformal rescaling of the spread over the last 500 residuals \cite{shafer2008conformal}.
-\emph{Arrivals} are forecast per hot tenant and function from counts in 10\,s bins by EWMAs with time constants $60$ and $900$\,s; the forecast is the maximum of both and of the regional rate reported by routers.
-The estimators keep a few numbers each, not a history table: one regression per function with one offset per worker, two Weibull parameters per tier, a Beta pair per host and the arrival counts. They live in the scheduler's memory and are checkpointed to the control plane every 30\,s (Section~\ref{sec:succession}); there is no stored record of past runtimes for every (function, worker) pair. What these estimators do \emph{not} learn is stated in Section~\ref{sec:info}: start-up and trust costs, network times and declared speeds are calibrated constants. The planner's robustness (Eq.~\eqref{eq:robust}) does not depend on the omission estimator being right; the estimator only reduces how often robustness is exercised.
+Four small estimators feed both loops, trained online from outcomes the scheduler can see. \emph{Survival} is a Weibull distribution of session length per machine tier, refitted every 60\,s with a time-of-day adjustment. Drain notices can only shorten predicted life, since they may be fake.
+\emph{Omission} is a Beta posterior over accepted invocations that return no result, and a change-point test (CUSUM) resets a machine whose behaviour shifts, which defeats owners who behave until they defect.
+\emph{Execution time} is a Bayesian regression per function with per-machine offsets~\cite{shafer2008conformal}, and \emph{arrivals} are forecast per tenant and function from counts in 10\,s bins.
+Each keeps a few numbers, not a table of past runs, and lives in the scheduler's memory with a checkpoint at the control plane every 30\,s. The planner's robustness does not depend on the omission estimator being right; the estimator only reduces how often robustness has to be used.
 
-\subsection{Cluster arrangement and routing}
+\subsection{Clusters and routing}
 \label{sec:cluster}
-Clusters keep the planner small and intra-cluster latency low. The orchestrator groups workers into geographic clusters by $k$-medoids over a round-trip-time embedding with $k=\lceil N/N_{\text{target}}\rceil$ (target size 30, between 10 and 60 hosts), requires each to
-contain enough failure domains and assurance mass for robust plans to be feasible, and adjusts them on triggers (size bounds, SLO health, demand imbalance, forecast, diversity deficit, scheduler loss) with hysteresis,
-dwell times and a migration cost, since a moved worker loses its provisioned state. A router (one per region, trusted for availability) scores each cluster $c$ for an invocation of tenant $t$ and function $f$ by
-\begin{equation}
-\begin{split}\text{score}(c)={}&\text{rtt}_{c}+o_c+\text{backlog}_c+h_s\max(0,\hat m_c-\theta)\\&+\pi_c(t)\,[\text{no provisioned capacity}]+\text{cold}_c(f),\end{split}
-\label{eq:route}
-\end{equation}
-where every term is in seconds of expected delay. $\text{rtt}_c$ is the round-trip time from the request's origin to cluster $c$, $o_c$ the cluster's measured scheduling overhead, $\text{backlog}_c$ the queueing delay when the cluster is full, and the health term charges $h_s$ seconds per unit of observed miss rate $\hat m_c$ above $\theta$ (the cluster sends its summary every 1\,s). $\pi_c(t)$ is charged only when $c$ has no provisioned capacity for tenant $t$: the key-release time that $c$ has measured plus an exposure charge. $\text{cold}_c(f)$ is charged only when $c$ has no warm sandbox of $f$: the cold-start time $c$ has measured for it, taken from its recent starts (priors of 3\,s and 0.5\,s until data exist). The score is evaluated per request on the latest summaries, not over a long window. Spillover to another cluster is therefore a decision with an explicit cost in seconds, and a router falls back to the next-best cluster when the dispatch watchdog fires (1\,s).
+The orchestrator groups workers geographically by clustering on round-trip times, targeting 30 machines per cluster (10 to 60), requires enough failure domains for a robust plan, and rebalances with hysteresis, since a moved worker loses its provisioned state.
+A router scores each cluster for an invocation by the delay it expects there, in seconds: the round trip, the cluster's scheduling overhead and backlog, a penalty for a high recent miss rate, the key-release time if the cluster has no capacity provisioned for the tenant, and the cold-start time if it has no warm sandbox. Spilling over to another cluster is thus a decision with an explicit price.

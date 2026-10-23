@@ -1,0 +1,40 @@
+\section{Reproduction}
+\label{app:repro}
+Every result in this paper can be regenerated from raw logs. Table~\ref{tab:repro} lists what bit-for-bit reproduction needs. We checked it three ways. Before the NumPy pin, runners with and without AVX-512 disagreed on every run of one experiment (0 of 50 matched). After the pin, a probe experiment gave identical hashes on an Intel Xeon Platinum 8573C and on AMD EPYC 9V74, 9V45 and 7763 (the last without AVX-512), under Ubuntu 22.04 and 24.04. And the full sweep, re-executed on independently provisioned runners, matched 2{,}366 of 2{,}366 runs, with identical tables.
+
+\begin{table}[h]
+\caption{Requirements to reproduce the results bit for bit.}
+\label{tab:repro}
+\centering\small
+\begin{tabular}{@{}P{2.8cm}P{9.6cm}@{}}
+\toprule
+CPU & x86-64 with fused multiply-add (every Intel and AMD CPU since 2013). AVX-512 is neither required nor used: the pin selects the SSE4 baseline, so AVX2 and AVX-512 machines agree. \\
+Operating system & Linux with the GNU C library (tested: Ubuntu 22.04 and 24.04, glibc 2.35 and 2.39). \\
+Software & Python 3.11 and the dependency versions in the committed lockfile (NumPy 2.x, SciPy with HiGHS, pandas, PyArrow); \texttt{NPY\_DISABLE\_CPU\_FEATURES="X86\_V4 X86\_V3 AVX512\_ICL AVX512\_SPR"}, set by the package, the Makefile and the CI workflows. \\
+Special hardware & None: no TPM, reboot or BIOS access. The calibration bundle is committed. \\
+Compute & 21 experiments, 2{,}366 runs. About four hours as 21 parallel jobs on hosted runners; compressed raw logs are 0.1--0.7\,GB per experiment. \\
+Not covered & ARM, other operating systems and other C libraries are not bit-comparable; for them the portable claim is statistical (ten paired seeds). Wall-clock columns vary by machine and are excluded from the hashes. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent With the lockfile installed, the following regenerates the runs, compares them with the recorded hashes and rebuilds this document.
+{\small
+\begin{verbatim}
+uv sync --frozen
+make paper          # 21 specs x 10 seeds
+make paper-verify   # compare hashes
+voss repro runs/E09/<run>/manifest.json
+make manuscript
+\end{verbatim}}
+
+\section{Hypothesis Summary}
+\label{app:score}
+Table~\ref{tab:score} lists every hypothesis, stated before the runs, with its verdict by the rules of Section~\ref{sec:protocol}. A dash marks cost-side information without a verdict.
+
+\begin{table}[h]
+\caption{Hypotheses, paired relative change with 95\% bootstrap interval, and verdict.}
+\label{tab:score}
+\centering\scriptsize
+\resizebox{\textwidth}{!}{\input{generated/tab_scorecard}}
+\end{table}
