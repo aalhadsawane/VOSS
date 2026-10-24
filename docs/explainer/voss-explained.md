@@ -534,7 +534,8 @@ f = 1:  A+B = 1.6, A+B+C = 2.8, A+B+C+D = 4.6  → 4 machines
 
 - **Idempotent**: calling twice has the same effect as once. **Hedging and retries only apply to idempotent functions**; a lost non-idempotent call is **reported as a failure**.
 - **Dispatch watchdog** (router, 1 s): no acknowledgement ⇒ re-send or spill. Nothing ran, so this is always safe. **Result watchdog** (scheduler): no result by the q90 prediction × 1.2 (at least 3 s) ⇒ probe, mark **suspected**.
-- AWS: synchronous Lambda calls are retried by the *client*; asynchronous ones are retried and developers are told to write idempotent handlers. That works where failures are rare. Volunteer churn is not rare. *(AWS details to be checked before citing.)*
+- **Do platforms guarantee at-least-once? Only on some paths** (checked against vendor docs, Oct 2026): **AWS Lambda** retries failed *asynchronous* calls twice by default and warns of duplicates; a direct *synchronous* call is **not** retried, the caller does it. **Google** event-driven functions run at least once per event (v2 retries are off by default, then a failed event is dropped), HTTP functions are not retried. **Azure** Event Hubs triggers and Durable activities are at-least-once. **Cloudflare Queues**: at least once. OpenWhisk: not verified.
+- So the claim is **at-least-once on event and async paths, client retries on request-response paths**. Either way every vendor tells developers to write **idempotent** code, because duplicates arrive sooner or later. VOSS relies on that contract, and goes further by also retrying and hedging **synchronous** calls of idempotent functions.
 - In our workload **11 of 12** functions are idempotent, **all synchronous ones**, **by our assumption** (modelled on SeBS). The success results under omission **rest on that**. Whether VOSS should require idempotence or provide idempotency keys is open (C-09, C-10).
 
 ---
