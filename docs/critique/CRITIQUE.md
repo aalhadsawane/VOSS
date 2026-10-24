@@ -264,7 +264,7 @@ Concretely, when a worker accepts an invocation and returns nothing, the result 
 
 **Cascades.** C-10, C-13 (what "robust coverage buys"), C-27.
 
-**Status.** Text fixed (assumption stated); design question open.
+**Status.** Text fixed (assumption stated); design question open. Fact-check (Oct 2026, vendor docs; the pages could not be fetched directly, so the wording comes from search excerpts): the platform guarantee is at-least-once on event and asynchronous paths (AWS Lambda async: 2 retries by default and a duplicate-event warning; Google event-driven functions: at least once per event, v2 retries off by default; Azure Event Hubs triggers and Durable activities; Cloudflare Queues), but **not** on direct request-response paths (AWS Lambda synchronous calls and Google HTTP functions are not retried by the platform, the client retries). OpenWhisk was not verified. Every vendor tells developers to write idempotent code, which supports requiring idempotence as the contract. Manuscript draft 11 states this in the background section. VOSS is stronger than commodity platforms in that it also retries and hedges synchronous calls.
 
 ---
 

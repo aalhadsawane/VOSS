@@ -14,7 +14,7 @@ Draft for **ACM Transactions on Internet Technologies** (`acmart`, `acmsmall`, j
 - `diagrams/*.tex`, `diagram-styles.tex`: TikZ figures sized for the 139 mm `acmsmall` column (architecture with the broker, session and start-up levels,
   attestation, control loops, failover, broker topics). Compile one on its own with a `standalone` wrapper to iterate on layout.
   `diagrams/lifecycle.tex` is kept but no longer included in the text.
-- `draft/voss-draft10.pdf`: built PDF of the current draft, a rewrite for ACM TOIT in plain language with a problem-to-solution narrative, shorter text, and a
+- `draft/voss-draft11.pdf`: built PDF of the current draft (draft 10 plus a fact-checked paragraph on idempotence and at-least-once delivery across serverless platforms), a rewrite for ACM TOIT in plain language with a problem-to-solution narrative, shorter text, and a
   new section on reaching the scheduler (a provider-hosted publish/subscribe broker with one topic per cluster; a provider-hosted scheduler as the alternative;
   the simulator models network delay only). Drafts 4-9 are kept for comparison.
 - `ieee-draft9/`: the IEEE draft 9 sources, kept for reference. They use the old diagram files and no longer build; the PDF is `draft/voss-draft9.pdf`.
