@@ -33,6 +33,7 @@ class PlanParams:
     tie_break: float = 0.0  # reputation tie-break strength (doc 09 §1: tie-breaks only)
     e_budget: float = 1.5  # erlang_dpp: default exposure budget Σ_j y_tj (1 − a_j) per tenant and round; assumed
     session_horizons: float = 3.0  # erlang: residence window E[min(L_j, T)] with T this many horizons; assumed
+    survival_blind: bool = False  # E25: survival, residence = cluster mean (plan.ablate)
 
 
 @dataclass(frozen=True)

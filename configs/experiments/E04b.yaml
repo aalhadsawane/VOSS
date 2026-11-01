@@ -1,0 +1,32 @@
+# E04b (round 4, WP3): E04 v2 — planner vs single-loop baselines on the corrected request placement (D-77).
+# Pre-registered hypotheses H12-H15: docs/architecture/06-experiments.md "Round 4 (pre-registered)".
+# Differences from E04: horizon 1800 s, seeds 1-20 (plan_milp 1-10), per-worker wait estimate and synchronous priority
+# for every system except the continuity row plan_greedy_oldwait (old defaults, to bridge to E04).
+# Analysis should exclude arrivals before 300 s (warm-up); experiments.analysis.lib.WARMUP_S is a global (60 s) today.
+experiment: E04b
+base: ../pilot.yaml
+overrides:
+  - horizon_s=1800
+  - scenario.workers=200
+  - scenario.load.rate=10
+  - voss.cost.wait_model=per_worker
+  - voss.worker.sync_priority=true
+systems:
+  plan_none: [voss.planner.name=none, voss.worker.warm_ttl_s=0]
+  keepalive_ttl: [voss.planner.name=keepalive_ttl]
+  keepalive_inf: [voss.planner.name=keepalive_ttl, voss.worker.warm_ttl_s=1000000000.0]
+  hist_prewarm: [voss.planner.name=histogram_prewarm]
+  provisioned_keys: [voss.planner.name=provisioned_keys]
+  plan_greedy: [voss.planner.name=greedy]
+  plan_milp: [voss.planner.name=milp]
+  erlang_greedy: [voss.planner.name=erlang_greedy]
+  erlang_dpp: [voss.planner.name=erlang_dpp]
+  plan_greedy_oldwait: [voss.planner.name=greedy, voss.cost.wait_model=ewma, voss.worker.sync_priority=false]
+grid:
+  scenario.regime: [churn_med, churn_high]
+seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+seeds_by_system:
+  plan_milp: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+report:
+  keys: [label, scenario.regime]
+  metrics: [success, met, p50_sync, p99_sync, exposure, waste, warm_mb]

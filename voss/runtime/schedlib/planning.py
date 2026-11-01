@@ -17,6 +17,7 @@ from voss.policy.cache_value import source_score
 from voss.policy.cost.inputs import CostContext
 from voss.policy.keepalive_hist import HistParams
 from voss.policy.plan import registry as _planners  # noqa: F401  (registers planners)
+from voss.policy.plan.ablate import survival_blind
 from voss.policy.plan.diff import PlanAction, diff, rate_limit
 from voss.policy.plan.types import Plan, PlanInput, PlanParams
 from voss.policy.predict.arrivals import poisson_quantile
@@ -66,6 +67,10 @@ class Planning:
         return out
 
     def build(self, view: ClusterView, now: float) -> PlanInput:
+        inp = self._build(view, now)
+        return survival_blind(inp) if self.params.survival_blind else inp
+
+    def _build(self, view: ClusterView, now: float) -> PlanInput:
         pc = self.cfg.planner
         horizon = pc.horizon_factor * pc.T_plan
         idx = self._workers(view, now, horizon)
