@@ -33,6 +33,7 @@ from voss.core.messages import (
     Warm,
 )
 from voss.core.messages_ft import Probe
+from voss.core.messages_ka import KeepWarm
 from voss.core.types import CacheEntry, Outcome, WorkerState
 from voss.metrics.schema import Table
 from voss.policy.cache_value import GdsfState
@@ -235,7 +236,7 @@ class WorkerAgent(RecoveryMixin, PlannedMixin, FetchMixin, SessionMixin, Actor):
             self._chunk(msg)
         elif isinstance(msg, Fetch):
             self._serve(msg)
-        elif isinstance(msg, Prepare | PinSnapshot | Warm | Release):
+        elif isinstance(msg, Prepare | PinSnapshot | Warm | Release | KeepWarm):
             self._plan_action(msg)
         elif isinstance(msg, Assign):
             self._assign(msg)

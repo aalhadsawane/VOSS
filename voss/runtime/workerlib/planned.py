@@ -8,16 +8,18 @@ from typing import TYPE_CHECKING, Any
 
 from voss.core.ids import Addr, FnId, TenantId, WorkerId
 from voss.core.messages import PinSnapshot, Prepare, Release, Warm
+from voss.core.messages_ka import KeepWarm
 from voss.metrics.schema import Table
 from voss.runtime.actor import ActorContext
 from voss.runtime.workerlib.host import HostLocal
+from voss.runtime.workerlib.keepwarm import KeepWarmMixin
 from voss.world.lifecycle import OpEnv, OpRun, artifact_sizes, cache_level, ops_of, split_path
 from voss.world.workload import FunctionSpec
 
 MB = 1024 * 1024
 
 
-class PlannedMixin:
+class PlannedMixin(KeepWarmMixin):
     host: HostLocal
     ctx: ActorContext
     addr: Addr
@@ -43,7 +45,7 @@ class PlannedMixin:
         ) -> None: ...
         def touched_frac(self) -> float: ...
 
-    def _plan_action(self, m: Prepare | PinSnapshot | Warm | Release) -> None:
+    def _plan_action(self, m: Prepare | PinSnapshot | Warm | Release | KeepWarm) -> None:
         if m.epoch < self.epoch or not self.host.attested:
             return
         if isinstance(m, Prepare):
@@ -52,6 +54,8 @@ class PlannedMixin:
             self._pin_snapshot(m)
         elif isinstance(m, Warm):
             self._warm(m)
+        elif isinstance(m, KeepWarm):
+            self._keep_warm(m)
         else:
             self._release(m)
 
