@@ -90,6 +90,7 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, SuccessionMixin, EventsMixin,
         self.token = 0
         rc = cfg.router
         self.prices = Prices(cold_trust=rc.cold_penalty_s, cold_fn=rc.cold_fn_s)  # measured card prices (D-33)
+        self.planning.prices = self.prices
 
     # --- membership and epochs ----------------------------------------------------------------------------
     def on_message(self, msg: Message) -> None:

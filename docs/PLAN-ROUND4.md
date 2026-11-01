@@ -93,6 +93,47 @@ This is the working plan and the single source of truth for round 4. Agents read
   planner v2 math right and does it fit the inputs we have? are the hypotheses fair?).
 - After results: critique the outcome and the 25-page outline; update `docs/critique/CRITIQUE.md` and `ACTION.md`.
 
+## 2b. Revisions after the design review (`docs/proposals/round4-review.md`)
+
+Verified by the main session against `paper/tables/E04.csv`: the planner beats keep-alive in 19 of 20 seeds, but the large
+headline gains come from seeds 2, 8 and 10; elsewhere the gap is about 5-15%. Trust-cold starts are about 0.1% for every
+system. So the mechanism behind the planner's gain must be shown, not assumed.
+
+- **E04 v2:** 1800 s runs, 300 s warm-up, 20 seeds (exact MILP 10). Systems: `plan_none`, `keepalive_ttl`, `keepalive_inf`
+  (config only), `hist_prewarm` (WP1, scheduler-side, idle times per sandbox, re-warm on any key holder),
+  `provisioned_keys` (new: keys held ahead on the N most reliable workers, exposure matched to greedy), `plan_greedy`,
+  `plan_milp`, `erlang_greedy`, `erlang_dpp`.
+- **Decision rule (non-inferiority, replaces H13's superiority test):** adopt `erlang_greedy` as default if its P99 is no worse
+  than greedy by more than 5% (medium churn) and 10% (high churn) with no more warm memory or exposure; then rerun all
+  experiments inheriting `configs/pilot.yaml`. Holm correction across H12-H15.
+- **H12** is against the best single loop per regime (max of `keepalive_ttl`, `keepalive_inf`, `hist_prewarm`), not the TTL.
+- **E25 (new):** session-length and session-shape sweep, with a `survival_blind` planner ablation. Pre-registered expectation:
+  the planner's advantage over the best single loop is an inverted U in session length (too short: nothing survives to pay
+  back; very long: reactive key fetches also persist), and depends on falling hazard (Weibull shape < 1).
+- **Tail breakdown** of the slowest 1% of requests in E04 seeds 2, 8, 10 before writing the session-spanning argument.
+- **Math claims:** only the per-tenant (1-1/e) bound (cardinality limit, non-negative modular cost) and submodularity
+  (which holds even with correlated survival) are claimed; robust-submodular and drift-plus-penalty constants are motivation
+  only (review §2.2 has the wording). Fix C-44 accordingly.
+- **Paper:** 25-page outline in review §5 is the starting point.
+
+## 2c. Tail breakdown result (`docs/validation/E04-tail.md`) and WP6
+
+All 14 rerun cells reproduce E04 bit for bit. In seeds 2, 8, 10 the keep-alive tail is one 40-120 s episode per run of
+head-of-line blocking: synchronous image-recognition requests (high-sensitivity tenant t-ml) queue for about 10 s behind long
+asynchronous jobs on the 2-6 workers holding t-ml's key, while greedy has 11-20 holders. Not key-release latency, not
+shocks, not departing workers. In normal seeds greedy's 8-12% edge comes from landing work on faster workers.
+
+So the planner's gain in E04 is **capacity spread across more key holders**, and the baseline's collapse is partly a
+**request-placement defect shared by all systems**: the slot-wait estimate uses one scheduler-wide mean service time, so
+queues of long jobs look short, and placement prefers a 10 s queue over releasing a key to another worker.
+
+- **WP6 (Sonnet, code):** make the wait estimate per worker from the predicted remaining work of what is running and queued
+  (the scheduler already predicts run time per function); evaluate a variant that lets synchronous requests overtake queued
+  asynchronous ones. This changes every system's results, so it must land before the full rerun. Record as C-46 and a
+  decision entry.
+- Consequence for the paper: the planner's value must be argued as holding keys and capacity on enough reliable workers
+  ahead of demand, measured against `provisioned_keys` and the corrected single loops; not as avoiding key-release latency.
+
 ## 3. Order
 
 1. WP5 design review, WP1 and WP2 implementation, WP4 term audit, in parallel.
