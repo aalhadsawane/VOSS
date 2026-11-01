@@ -116,6 +116,24 @@ system. So the mechanism behind the planner's gain must be shown, not assumed.
   only (review §2.2 has the wording). Fix C-44 accordingly.
 - **Paper:** 25-page outline in review §5 is the starting point.
 
+## 2c. Tail breakdown result (`docs/validation/E04-tail.md`) and WP6
+
+All 14 rerun cells reproduce E04 bit for bit. In seeds 2, 8, 10 the keep-alive tail is one 40-120 s episode per run of
+head-of-line blocking: synchronous image-recognition requests (high-sensitivity tenant t-ml) queue for about 10 s behind long
+asynchronous jobs on the 2-6 workers holding t-ml's key, while greedy has 11-20 holders. Not key-release latency, not
+shocks, not departing workers. In normal seeds greedy's 8-12% edge comes from landing work on faster workers.
+
+So the planner's gain in E04 is **capacity spread across more key holders**, and the baseline's collapse is partly a
+**request-placement defect shared by all systems**: the slot-wait estimate uses one scheduler-wide mean service time, so
+queues of long jobs look short, and placement prefers a 10 s queue over releasing a key to another worker.
+
+- **WP6 (Sonnet, code):** make the wait estimate per worker from the predicted remaining work of what is running and queued
+  (the scheduler already predicts run time per function); evaluate a variant that lets synchronous requests overtake queued
+  asynchronous ones. This changes every system's results, so it must land before the full rerun. Record as C-46 and a
+  decision entry.
+- Consequence for the paper: the planner's value must be argued as holding keys and capacity on enough reliable workers
+  ahead of demand, measured against `provisioned_keys` and the corrected single loops; not as avoiding key-release latency.
+
 ## 3. Order
 
 1. WP5 design review, WP1 and WP2 implementation, WP4 term audit, in parallel.
