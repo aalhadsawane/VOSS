@@ -31,6 +31,26 @@ class PlanParams:
     use_freshness: bool = True
     exposure_weight: float = 1.0
     tie_break: float = 0.0  # reputation tie-break strength (doc 09 §1: tie-breaks only)
+    e_budget: float = 1.5  # erlang_dpp: default exposure budget Σ_j y_tj (1 − a_j) per tenant and round; assumed
+    session_horizons: float = 3.0  # erlang: residence window E[min(L_j, T)] with T this many horizons; assumed
+
+
+@dataclass(frozen=True)
+class LossInputs:
+    """Resolved loss-model arrays. ``[F]``: ``rate_f``, ``hold_f``, ``boot_f``, ``restore_f``. ``[T]``: ``load_t``,
+    ``delta_t``, ``slots_t`` (integer slots per holder), ``k_t`` (holder limit), ``budget_t``.
+    ``[J]``: ``residence``."""
+
+    rate_f: np.ndarray
+    hold_f: np.ndarray
+    boot_f: np.ndarray
+    restore_f: np.ndarray
+    load_t: np.ndarray
+    delta_t: np.ndarray
+    residence: np.ndarray
+    slots_t: np.ndarray
+    k_t: np.ndarray
+    budget_t: np.ndarray
 
 
 @dataclass(frozen=True)
@@ -62,12 +82,61 @@ class PlanInput:
     y_prev: np.ndarray  # [T, J] previous trust-warm sets
     params: PlanParams = field(default_factory=PlanParams)
     rep: np.ndarray | None = None  # [J] reputation tie-break scores in [0, 1] (doc 09 §2)
+    # Loss-model inputs of the Erlang planners (proposal planner-v2 §6); optional, derived when absent.
+    fn_rate: np.ndarray | None = None  # [F] arrival rate λ_f (1/s)
+    fn_hold: np.ndarray | None = None  # [F] mean slot hold time (s): start-up + execution
+    fn_boot: np.ndarray | None = None  # [F] cold start (boot + rootfs + init) seconds
+    fn_restore: np.ndarray | None = None  # [F] restore-from-snapshot seconds
+    delta_t: np.ndarray | None = None  # [T] slow-path delay Δ_t in seconds (measured trust-cold price)
+    tenant_load: np.ndarray | None = None  # [T] offered load a_t = λ_t s_t (slots)
+    residence: np.ndarray | None = None  # [J] E[min(L_j, T)] seconds a holder is expected to stay
+    holder_slots: np.ndarray | None = None  # [T] integer slots reserved per holder
+    holders_k: np.ndarray | None = None  # [T] holder limit k per tenant
+    exposure_budget: np.ndarray | None = None  # [T] per-round exposure budget (erlang_dpp)
+    measured_exposure: np.ndarray | None = None  # [T] Σ_j (1 − a_j) over workers that really hold the key
 
     def preference(self) -> np.ndarray:
         """``[J]`` tie-break multiplier ``1 + tie_break × score`` (1 without reputation)."""
         if self.rep is None or self.params.tie_break == 0:
             return np.ones(len(self.workers))
         out: np.ndarray = 1.0 + self.params.tie_break * self.rep
+        return out
+
+    def loss_inputs(self) -> LossInputs:
+        """Loss-model arrays; where the scheduler gave none they are derived from the older fields."""
+        n_f, n_t = len(self.fns), len(self.tenants)
+        ft = self.fn_tenant
+        per_t = np.bincount(ft, minlength=n_t).clip(min=1) if n_f else np.ones(n_t)
+        rate_f = self.fn_rate if self.fn_rate is not None else self.rate[ft] / per_t[ft]
+        hold = self.fn_hold if self.fn_hold is not None else np.full(n_f, 0.1)
+        boot = self.fn_boot
+        if boot is None:  # invert fn_benefit = λ_f H τ_f / units
+            units = np.maximum(self.fn_units, 1.0)
+            boot = np.where(rate_f > 0, self.fn_benefit * units / np.maximum(rate_f * self.horizon_s, 1e-9), 0.0)
+        restore = self.fn_restore if self.fn_restore is not None else (1.0 - self.params.gamma) * boot
+        load = self.tenant_load
+        if load is None:
+            load = np.bincount(ft, weights=rate_f * hold, minlength=n_t) if n_f else np.zeros(n_t)
+        delta = self.delta_t
+        if delta is None:
+            delta = np.bincount(ft, weights=boot, minlength=n_t) / per_t if n_f else np.zeros(n_t)
+        return LossInputs(rate_f, hold, boot, restore, load, delta, *self._holder_inputs(load))
+
+    def _holder_inputs(self, load: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        slots = self.holder_slots if self.holder_slots is not None else np.ceil(load) + 1
+        k = self.holders_k if self.holders_k is not None else np.minimum(np.ceil(2 * (self.q + self.f)), 16)
+        budget = self.exposure_budget if self.exposure_budget is not None else np.full(len(load), self.params.e_budget)
+        return self._residence(), slots.astype(int), np.maximum(k, 1).astype(int), budget
+
+    def _residence(self) -> np.ndarray:
+        """``E[min(L_j, T)]``, ``T = session_horizons·H``. Proxy when not supplied: exponential lifetime with the
+        hazard implied by ``S_j(H)``, ``(1 − e^{−hT})/h`` (loses the age effect of a Weibull shape below 1)."""
+        if self.residence is not None:
+            return self.residence
+        t_max = self.params.session_horizons * self.horizon_s
+        h = -np.log(np.clip(self.survival, 1e-6, 1.0)) / self.horizon_s
+        safe = np.where(h < 1e-12, 1.0, h)
+        out: np.ndarray = np.where(h < 1e-12, t_max, (1.0 - np.exp(-safe * t_max)) / safe)
         return out
 
     @property

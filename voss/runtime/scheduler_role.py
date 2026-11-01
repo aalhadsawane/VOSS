@@ -1,8 +1,5 @@
-"""Scheduler role (doc 03 §5, doc 07 §3, doc 08 §4): latent in every attested worker, active when appointed.
-
-Thin actor: decodes messages, calls the fast-loop decision pipeline (``schedlib.decide``) and applies its result after
-the decision latency (doc 01 §7); keeps only soft state (in-flight copies, learned models).
-"""
+"""Scheduler role (doc 03 §5, doc 07 §3, doc 08 §4): latent in every attested worker, active when appointed. Thin actor:
+calls the decision pipeline (``schedlib.decide``) after the decision latency (doc 01 §7); keeps only soft state."""
 
 from __future__ import annotations
 
@@ -40,6 +37,7 @@ from voss.policy.retry import BasicRetry
 from voss.runtime.actor import Actor, ActorContext
 from voss.runtime.schedlib.decide import Decider, Decision
 from voss.runtime.schedlib.inflight import Copy, Inflight, job_estimates
+from voss.runtime.schedlib.keepalive import KeepaliveMixin
 from voss.runtime.schedlib.models import SchedModels
 from voss.runtime.schedlib.planner_mixin import PlannerMixin
 from voss.runtime.schedlib.planning import Planning
@@ -52,7 +50,7 @@ from voss.runtime.schedlib.watchdog import WatchdogMixin
 from voss.runtime.workerlib.host import HostLocal
 
 
-class SchedulerRole(WatchdogMixin, SuccessionMixin, EventsMixin, ReportMixin, PlannerMixin, Actor):
+class SchedulerRole(KeepaliveMixin, WatchdogMixin, SuccessionMixin, EventsMixin, ReportMixin, PlannerMixin, Actor):
     role = "sched"
 
     def __init__(self, host: HostLocal, ctx: ActorContext, cost: CostContext, priors: dict[str, FnPrior]) -> None:
@@ -89,6 +87,7 @@ class SchedulerRole(WatchdogMixin, SuccessionMixin, EventsMixin, ReportMixin, Pl
         self.token = 0
         rc = cfg.router
         self.prices = Prices(cold_trust=rc.cold_penalty_s, cold_fn=rc.cold_fn_s)  # measured card prices (D-33)
+        self.planning.prices = self.prices
 
     # --- membership and epochs ----------------------------------------------------------------------------
     def on_message(self, msg: Message) -> None:
@@ -297,6 +296,7 @@ class SchedulerRole(WatchdogMixin, SuccessionMixin, EventsMixin, ReportMixin, Pl
         load = (st.busy + st.queued) / max(1, st.slots) if st else 0.0
         rec.copies[a] = Copy(a, w, self.now, hedge, mu=mu, sigma=var, load=load)
         self.views.dispatched(w, self.now)
+        self._ka_dispatch(rec.inv.fn, w)
         inv = replace(rec.inv, attempt=a)
         src = self.dispatch_sources(inv.fn, w)
         d = Dispatch(
@@ -345,6 +345,7 @@ class SchedulerRole(WatchdogMixin, SuccessionMixin, EventsMixin, ReportMixin, Pl
         del self.inflight[o.inv]
         self.done.add(o.inv)
         self.streak.pop(c.worker, None)
+        self._ka_end(rec.inv.fn, rec.inv.tenant, c.worker)
         self.prices.outcome(o, c.t_dispatch - rec.t_in if rec.inv.slo_class == SloClass.SYNC else None)
         for other in sorted(rec.copies.values(), key=lambda x: x.attempt):
             if other.attempt != o.attempt:

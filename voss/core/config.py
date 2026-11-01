@@ -189,6 +189,21 @@ class WorkerConfig(Frozen):
     sync_priority: bool = False  # D-77: a free slot serves waiting synchronous requests before queued async ones
 
 
+class KeepaliveHistConfig(Frozen):
+    """Hybrid-histogram keep-alive baseline (Shahrad et al., ATC 2020; D-77). Used by planner ``histogram_prewarm``.
+    tag: literature (percentiles, margin, CV threshold); range and sample/OOB limits are assumed."""
+
+    bin_s: float = 1.0  # assumed: 1 s bins over 30 min (paper: 1 min over 4 h = 240 bins)
+    range_s: float = 1800.0  # assumed: paper 4 h; scaled to E04 v2 runs of 1800 s
+    head_pct: float = 5.0  # literature
+    tail_pct: float = 99.0  # literature
+    margin: float = 0.10  # literature
+    min_samples: int = 10  # assumed
+    cv_min: float = 2.0  # literature: bin-count CV at or below this = not representative
+    oob_max: float = 0.2  # assumed: more out-of-range idle times than this = fallback (paper: ARIMA, omitted)
+    fallback_ttl_s: float = 600.0  # the classic fixed keep-alive (WorkerConfig.warm_ttl_s)
+
+
 class OrchestratorConfig(Frozen):
     """Doc 03 §2, doc 07 §3."""
 
@@ -298,6 +313,7 @@ class VossConfig(Frozen):
     planner: PlannerConfig = Field(default_factory=PlannerConfig)
     scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
     worker: WorkerConfig = Field(default_factory=WorkerConfig)
+    keepalive_hist: KeepaliveHistConfig = Field(default_factory=KeepaliveHistConfig)
     orchestrator: OrchestratorConfig = Field(default_factory=OrchestratorConfig)
     clusters: ClustersConfig = Field(default_factory=ClustersConfig)
     cache: CacheConfig = Field(default_factory=CacheConfig)

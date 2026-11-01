@@ -56,6 +56,7 @@ from voss.core.messages_acct import (
     SettleRows,
 )
 from voss.core.messages_ft import Handover, Lease, Pong, Probe, PutCheckpoint, RollCallReport, Stall, Standby
+from voss.core.messages_ka import KeepWarm
 
 SIZE: dict[type[Message], int] = {
     Invoke: 600,
@@ -95,6 +96,7 @@ SIZE: dict[type[Message], int] = {
     PinSnapshot: 200,
     Warm: 120,
     Release: 100,
+    KeepWarm: 120,
     DbCasEpoch: 200,
     DbCasResult: 200,
     RoleRecord: 128,
