@@ -1,8 +1,18 @@
 \section{Conclusion}
 \label{sec:conclusion}
-Latency-sensitive serverless computing on volunteer machines needs more than redundancy and keep-alive. Churn destroys the state that makes short functions fast, and untrusted owners make that state dangerous to create.
-We showed that attestation of a locked appliance reduces hostile owners to the same omissions and delays that churn causes, and that this exposes the real scheduling problem: managing attested session state, which is slow to create, perishable and exposing.
-\voss{} answers with a slow planner and a fast placer, progress-based detection of gray failures, and epoch-fenced failover without consensus among volunteers, and it reaches volunteer-hosted schedulers through a provider-hosted publish/subscribe broker, with a provider-hosted scheduler as the simpler alternative.
-In a calibrated simulator it is feasible in regimes where simple baselines are not (\ViabAPThreeVoss{} of \ViabACells{} and \ViabBPThreeVoss{} of \ViabBCells{} cells at a 3\,s target), it lowers tail latency by \GreedyNoneMed--\GreedyNoneHigh\% against no planning, and it keeps success at \VossSuccAlpha\% with 20\% omitting owners.
-The advantage is not universal. On confidential-VM substrates at high load the simple baseline is the only feasible system, and geo-clustering, sophisticated caching and reputation do not pay for themselves in our experiments. The exact solver's advantage over greedy planning is not established.
-The next step is a real multi-machine testbed, which would validate the simulator and the networking design that this paper only models as delay.
+Serving latency-sensitive functions from volunteer machines needs more than running tasks several times and keeping
+sandboxes alive. Churn destroys the state that makes short functions fast, and untrusted owners make that state risky to
+create. We argued that attesting a locked image reduces hostile owners to the stops and delays that churn already causes,
+and that what remains is a scheduling problem: deciding which machines are attested, given a tenant's key and kept warm,
+when all of that is slow to set up, lost at the end of every session, and a leak risk on every extra machine.
+\voss{} plans this state every 30 seconds with spare capacity for lost machines, places each request by its own chance of
+missing the deadline, judges machines by the work they return, and replaces failed schedulers through a provider-run
+coordinator without an agreement protocol among volunteers. In the clustered architecture, schedulers on volunteer machines
+are reached through a provider-run publish/subscribe broker; in the global architecture, the scheduler runs on provider
+hardware.
+In a calibrated simulator \voss{} keeps P99 under 3\,s in \ViabAPThreeVoss{} of \ViabACells{} and \ViabBPThreeVoss{} of \ViabBCells{} settings where simple baselines do not, lowers P99 by
+\GreedyNoneMed--\GreedyNoneHigh\% against provisioning on demand, and keeps \VossSuccAlpha\% of requests successful when 20\% of owners drop work. The advantage is not
+universal: on confidential virtual machines at high load the simple baseline is the only feasible system, and geographic
+clusters, cost-aware caching and the reliability score did not pay for themselves. The next steps are the loss-model planner
+of Section~\ref{sec:discussion} and a multi-machine testbed to validate the simulator and the networking design that this
+paper models only as delay.

@@ -1,44 +1,78 @@
-\section{Fault Tolerance and Accountability}
+\section{Detecting Failures and Replacing Schedulers}
 \label{sec:ft}
 
-By Property 1, one set of mechanisms must cover crashes, churn and malice. We now say how a failure is noticed, how a failed scheduler is replaced, and how work is accounted for.
+By Property 1, the same mechanisms must handle crashes, churn and malicious owners. This section says how a failure is
+noticed, how a failed scheduler is replaced, and how work is recorded.
 
-\subsection{Progress, not liveness}
-The hard failures are the ones where \emph{liveness signals look healthy}. A \emph{black-holing} host (a node that quietly swallows what it receives) keeps sending heartbeats while dropping the work it accepted. An on--off host builds a clean record and then defects. A drain notice may be a lie.
-So we adopt a rule: \emph{liveness signals from untrusted machines are hints, and progress observed by trusted or attested parties is evidence.} The trusted observers are the routers. The attested observers are the worker agents and the scheduler code, although their \emph{hosts} are still untrusted for availability.
+\subsection{Judging machines by returned work}
+A heartbeat is a periodic message in which a machine says it is running. It shows only that the machine can still send
+messages. The failures that matter most here keep heartbeats going: a worker that accepts requests and silently discards
+them (a \emph{black hole}), a worker that behaves well for hours and then starts dropping work, and an owner who announces
+a departure that never happens. We therefore judge a machine by \emph{returned work}: whether work it accepted comes back,
+as observed by a party that cannot be faked. Routers run on provider hardware, so their observations are trusted. Workers
+and schedulers run attested code, so their observations are honest, although their hosts can still stop or delay them.
 
-Each detector watches an event that must happen if a component works, and blames a suspect when it does not. The router's \emph{dispatch watchdog} suspects a scheduler when an enqueued invocation is not acknowledged within 1\,s.
-The scheduler's \emph{result watchdog} suspects a worker that accepted work but has not returned a result by the predicted 90th-percentile completion time, times 1.2, and at least 3\,s. Repeated dispatch timeouts become a \emph{cluster-stall} report, and a \emph{decision-latency} limit on the scheduler's attested timestamps catches a scheduler that is alive but slow.
-A running record of each worker's omission rate, with a change-point test, catches selective and on--off behaviour. Heartbeats stay as a fast path for plain crashes and are never sufficient alone.
-A suspected worker gets no new work, its in-flight work is duplicated or retried, and it loses provisioned eligibility. A suspected scheduler triggers failover.
+Each detector watches for something that must happen if a component works. The router's \emph{dispatch timer} expects the
+scheduler to acknowledge a request within 1\,s; if it does not, the router suspects the scheduler. The scheduler's
+\emph{result timer} expects a result by the predicted 90th-percentile completion time times 1.2, and at least 3\,s; if none
+arrives, it probes the worker and suspects it. Three dispatch timeouts within 5\,s make the router report the cluster as
+stalled to the orchestrator. The orchestrator also tracks how long the scheduler takes to place requests, from the
+scheduler's signed timestamps, and treats more than 200\,ms as a failure. Finally, the dropped-work estimator and its change
+detector (Section~\ref{sec:estimators}) catch workers that drop work selectively or only after a while. Heartbeats remain
+as a fast way to notice plain crashes, but a working heartbeat never clears a suspicion. A suspected worker gets no new
+work, its unfinished work is duplicated or retried, and it is removed from the plan. A suspected scheduler is replaced.
 
-\subsection{Replacing a scheduler without consensus}
+\subsection{Replacing a scheduler without an agreement protocol}
 \label{sec:succession}
-Once a failure is suspected, the scheduler must be replaced. The textbook way is a replicated state machine among the candidates, but that is slow, and it brings an agreement problem onto machines that may be adversarial.
-\voss{} avoids the problem for two reasons: the provider's orchestrator is a reliable referee, and a scheduler's state is \emph{soft}. Figure~\ref{fig:failover} shows the sequence.
+The textbook way to replace a failed coordinator is to replicate its state across several machines with a consensus
+protocol. Among volunteers that would be slow, and it would bring back an agreement problem among machines that may be
+adversarial. \voss{} avoids it for two reasons: the provider's orchestrator is a reliable referee, and a scheduler keeps no
+state that cannot be rebuilt. Figure~\ref{fig:failover} shows the sequence.
 
-\textbf{Appointment and fencing.} The orchestrator appoints a scheduler by an atomic compare-and-swap on the cluster's \emph{epoch} number in its database, like a lease~\cite{burrows2006chubby}. The appointment binds the cluster, the epoch and the session-certificate identifier of the appointee, so a cloned appliance with a different session key is not appointed.
-Workers accept dispatches only from the current epoch and certificate and answer older epochs with a \texttt{STALE} reply, which fences the old scheduler off. A scheduler that cannot reach the orchestrator for one lease period stops dispatching on its own.
-A partitioned scheduler can therefore cause only duplicate work, which at-least-once execution allows. That is safe for idempotent functions. For a non-idempotent function, a duplicate sent within the lease period could repeat its effect, and the protocol does not prevent this (Section~\ref{sec:threats}).
+\textbf{Appointment and epochs.} Each cluster has an \emph{epoch} number in the orchestrator's database. The orchestrator
+appoints a scheduler by an atomic compare-and-swap that increments the epoch, much like a lease~\cite{burrows2006chubby}.
+The appointment names the cluster, the epoch and the appointee's session certificate. Workers accept assignments only from
+the current epoch and the appointed certificate, and answer older epochs with a refusal, so an old scheduler that is still
+running is shut out. A scheduler that cannot reach the orchestrator for one lease period (5\,s) also stops on its own. A
+cut-off scheduler can therefore cause only duplicate work, which is safe for idempotent functions; for a non-idempotent
+function a duplicate sent within the lease period could repeat its effect, and the protocol does not prevent that
+(Section~\ref{sec:threats}).
 
-\textbf{Soft state.} A scheduler keeps nothing durable on its host. Undispatched invocations are held by routers, running work and confirmed provisioning by workers, and estimator state in a checkpoint at the control plane.
-After appointment the successor installs the new epoch and performs a \emph{roll call}: it asks the workers for their running work, confirmed pins and keys and recent outcomes, rebuilds its view and re-plans from the checkpoint. Because nothing authoritative lives on the old host, a restarted appliance is a new instance that must be appointed again.
+\textbf{Rebuilding the state.} Requests not yet assigned are held by routers, which resend them. Running work and
+completed plan actions are held by workers. The estimators' numbers are copied to the provider every 30\,s. Work records are
+receipts held by routers. So the new scheduler installs its epoch, asks every worker for its running work, keys and cached
+state, restores the estimators from the last copy, and plans again. Because nothing authoritative lives on the old host, a
+scheduler machine that restarts is a new instance and must be appointed again.
 
-\textbf{Succession.} The orchestrator keeps a ranked list of candidates by survival, speed, centrality and assurance, with diversity across failure domains. Every attested worker can serve, because the scheduler code is in the image, so promotion needs no boot. Planned handovers flush a checkpoint first, and a \emph{fake} drain by a malicious scheduler host just causes a clean handover.
-With the broker of Section~\ref{sec:broker}, the successor takes over by subscribing to the cluster's scheduler topic.
+\textbf{Choosing a successor.} The orchestrator keeps a ranked list of candidates by expected session length, speed,
+network position and trust score, spread across cities and providers. Any attested worker can serve, because the scheduler
+code is in the image, so promotion needs no boot. A planned handover, for example when the scheduler's owner announces a
+departure, first copies the estimators; a false announcement by a malicious owner only causes a clean handover. With the
+broker, the successor takes over by subscribing to the cluster's scheduler topic.
 
 \begin{figure}[t]
 \centering
 \resizebox{0.8\columnwidth}{!}{\input{diagrams/failover}}
-\caption{Scheduler failover. The router's dispatch watchdog detects a crashed or black-holing scheduler. The orchestrator changes the epoch atomically and appoints a successor, which rebuilds soft state from workers and a checkpoint.}
+\caption{Scheduler replacement. The router's dispatch timer detects a crashed scheduler or one that discards requests. The orchestrator increments the epoch atomically and appoints a successor, which rebuilds its state from the workers and the last copy of its estimators.}
 \label{fig:failover}
 \end{figure}
 
-\textbf{Worker failures.} When a session ends, keys and warm sandboxes vanish and the invocation is retried or duplicated elsewhere, preferring provisioned machines. A per-cluster retry budget and router spillover contain retry storms. Owner notices such as drain make the scheduler more careful but never excuse an omission in the estimators.
+\textbf{Worker failures.} When a session ends, its keys and warm sandboxes are lost and its unfinished requests are
+retried or duplicated elsewhere, preferably on workers that hold the key. Per-cluster retry limits and spilling to other
+clusters prevent retry storms. An owner's notice of departure makes the scheduler stop sending new work to that machine,
+but never excuses work that machine dropped.
 
-\subsection{Receipts and credits}
+\subsection{Receipts and credit}
 \label{sec:receipts}
-Each result carries a receipt signed with the session key. It names the invocation and attempt, the worker and certificate, the epoch, the execution time, the work done in reference units and a digest of the output.
-The router checks it against the certificate and the verifier's revocation list and appends it to the operational database. A machine cannot claim work it did not do. It can only decline to do work, which is an omission handled above.
-Credits are proportional to reference work, not elapsed time, so throttling earns nothing, and a small credit rewards cache that the plan asked a host to hold. Reputation is kept apart from the survival and omission estimators, so no signal is counted twice, and it is used only for rewards and as a tie-breaker.
-We leave out a blockchain on purpose. Receipts are already verifiable by third parties, and the only risk that remains is the control plane withholding records, which a signed transparency log would address better.
+Each result carries a receipt signed with the worker's session key. It names the request and attempt, the worker and its
+certificate, the epoch, the run time, the amount of work in benchmark units, and a hash of the output. The router checks it
+against the certificate and the verifier's revocation list and stores it. A worker cannot claim work it did not do; it can
+only decline work, which the detectors above handle.
+
+Receipts pay donors in \emph{credit}, proportional to the benchmark work done rather than elapsed time, so a throttled machine
+earns nothing extra. Separately, the provider keeps a long-term \emph{reliability score} per machine: whether its owner kept the
+commitments they declared, for example a promised all-night session that ended early. It is used only to reward donors and
+to break ties in the planner. It is kept apart from the session-survival and dropped-work estimators, which use other
+evidence, so no outcome is counted twice. We do not use a blockchain: a receipt signed by an attested key can already
+be checked by anyone, and the remaining risk, the provider deleting records, is better addressed by a signed append-only
+log.

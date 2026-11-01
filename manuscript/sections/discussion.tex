@@ -1,23 +1,31 @@
 \section{Discussion}
 \label{sec:discussion}
 
-\textbf{What the evidence supports.} The central claim holds in simulation: managing attested session state as a planned, perishable resource beats reactive policies. Planning cuts tail latency by roughly half under churn, lifecycle-aware placement and planning are the two largest contributors in the ablation, and progress-based detection is what keeps success high when owners omit.
+\textbf{What the evidence supports.} The central claim holds in simulation: planning ahead which machines hold keys and warm sandboxes beats simple reactive rules. Planning cuts tail latency by roughly half under churn, lifecycle-aware placement and planning are the two largest contributors in the ablation, and progress-based detection is what keeps success high when owners omit.
 These statements concern mechanisms and are backed by paired intervals. They hold across churn levels and adversary fractions in the feasibility maps, not at one operating point.
 
 \textbf{What it does not.} Four expected benefits did not appear.
 Geo-clustering is slower than a single scheduler and holds several times the exposure at our scale.
 The exact solver is not demonstrably better than the greedy planner, so its cost is justified only by the coverage guarantee, which we could not show matters for success.
-Caching sophistication and reputation change P99 by a few percent at most, and credit is extremely concentrated.
+Cost-aware caching and the reliability score change P99 by a few percent at most, and credit is extremely concentrated.
 A commercial-style reference is faster, and \voss{} is cheaper per invocation only once its fixed control plane is amortised.
 None of this contradicts the premise that volunteer hardware can serve latency-sensitive functions. It narrows which components earn their complexity. A leaner \voss{} (attestation, a greedy robust planner, a cost-based placer with hedging, progress-based detection, epoch-fenced failover and receipts) is the version our evidence favours.
 
 \textbf{Exposure is the price of latency.} Planning, robustness and warm state all enlarge the set of machines holding a tenant's key. The simple baseline has about half of \voss{}'s exposure, and moderate robustness captures most of the benefit in aggregate but not for every tenant class. A deployment should offer exposure and robustness as per-tenant policy, not global constants.
-The feasibility maps add that the trust substrate and a minimum population matter more than tuning: on confidential-VM substrates the simple baseline can suffice at high load, and below a few hundred hosts no system is feasible.
+The feasibility maps add that the trust technology and a minimum population matter more than tuning: on confidential virtual machines the simple baseline can suffice at high load, and below a few hundred hosts no system is feasible.
 
 \textbf{Reliance on attestation.} Every robustness result uses omission and timing faults only. If attestation failed, for example through the physical attacks we excluded, adversaries could forge results and read keys, and exposure would stop being a proxy for risk.
 
-\textbf{Where the scheduler runs.} Section~\ref{sec:network} argued that a volunteer-hosted scheduler needs a broker and a provider-hosted one does not. The planner and placer results do not depend on the scheduler's location, except through one router-to-scheduler round trip and decision latency. The scheduler-fault results are specific to volunteer hosting, and the geo-clustering result suggests that larger scheduling domains, which a provider-hosted scheduler can offer, are better.
-We did not run the provider-hosted variant. We expect the planner and placer conclusions to carry over and the fault-tolerance results not to, but that is a prediction.
+\textbf{Where the scheduler runs.} Section~\ref{sec:network} argued that a volunteer-hosted scheduler needs a broker and a provider-hosted one does not. The planner and request-placement results do not depend on the scheduler's location, except through one router-to-scheduler round trip and decision latency. The scheduler-fault results are specific to volunteer hosting, and the geo-clustering result suggests that larger scheduling domains, which a provider-hosted scheduler can offer, are better.
+We did not run the provider-hosted variant. We expect the planner and request-placement conclusions to carry over and the fault-tolerance results not to, but that is a prediction.
+
+\textbf{A better-founded planner.} The greedy planner was chosen because it is cheap and the exact program did not beat it,
+but its scores are hand-built. In particular, it values the tenth warm sandbox of a function as highly as the first, although
+the first serves most requests and the tenth very few. Treating each tenant's prepared slots as an Erlang loss system, in
+which a request that finds every slot busy goes to the slower path, gives the missing structure: the chance of finding every
+slot busy depends only on the mean run time, and it falls with each added slot by less than the previous slot. Warm sandboxes
+can then be allocated by marginal analysis, which is optimal for such diminishing returns, and key holders chosen by greedy
+selection with approximation guarantees. We have designed this planner and leave its evaluation to future work.
 
 \textbf{Function workflows.} We treat invocations as independent, but many applications are graphs of functions in which one completion triggers the next~\cite{copik2024sebsflow}, and each stage can pay a cold start in turn~\cite{daw2020xanadu}. A trust-aware scheduler could prepare the keys and warm state of a function's successors while it runs. The risk is speculation: warming a function that a branch never calls wastes memory and may widen exposure, so look-ahead warming should be budgeted like hedging. We do not evaluate this.
 
@@ -25,8 +33,8 @@ We did not run the provider-hosted variant. We expect the planner and placer con
 \label{sec:threats}
 \begin{itemize}
 \item \textbf{Simulation, partly validated.} No multi-machine deployment has validated the simulator. The single-box emulation (E01) agrees on success and start-up levels but not on the shape of the latency distribution, and it did not exercise the network, attestation, key release, session boot or failover. Policies are the real code, while the world (network, churn, adversaries) is a model.
-\item \textbf{Calibration scope.} One consumer laptop with a hard disk, with the appliance in host mode. Confidential-VM and hypervisor parameters are literature values. The main comparison survives a change of bundle (E24), but another CPU, disk or firmware could shift absolute costs.
-\item \textbf{Assumed workload and churn.} No public trace of donation sessions exists. The workload has 12 functions of six tenants, so the planner's hot-set limits never bind and the long tail of rarely used functions is not exercised. Functions make no calls to external services. 11 of 12 are marked idempotent by us, and the retry, hedging and success results under omission rest on that. This matches what providers already ask of developers (Section~\ref{sec:background}), but we did not measure how many real functions meet it. The adversary uses a fixed menu of strategies, and an adaptive one could do worse.
+\item \textbf{Calibration scope.} One consumer laptop with a hard disk, with the image's measurement steps run on the installed operating system. Confidential-VM and hypervisor parameters are literature values. The main comparison survives a change of bundle (E24), but another CPU, disk or firmware could shift absolute costs.
+\item \textbf{Assumed workload and churn.} No public trace of donation sessions exists. The workload has 12 functions of six tenants, so the planner's limits of 20 tenants and 50 functions never apply and the long tail of rarely used functions is not exercised. Functions make no calls to external services. 11 of 12 are marked idempotent by us, and the retry, hedging and success results under omission rest on that. This matches what providers already ask of developers (Section~\ref{sec:background}), but we did not measure how many real functions meet it. The adversary uses a fixed menu of strategies, and an adaptive one could do worse.
 \item \textbf{Idealised knowledge of costs.} The scheduler uses calibrated start-up, trust and network times and takes declared host speeds as exact, whereas the simulated world adds noise. We did not sweep prediction error.
 \item \textbf{Network and decision costs.} Network delay is geographic plus 20\,ms for 15\% of workers behind a relay. Broker capacity, connection set-up, address changes and reconnection are not modelled, and decision latency is a placeholder formula.
 \item \textbf{Scale and statistics.} The two largest scalability points use three seeds and a cheaper mode, and the geo-clustering comparison is too small to stress one scheduler. Ten seeds give wide intervals for tail metrics, and many experiments were run, so a single verdict should be read with that in mind. Literature parameters are quoted as reported and tagged for re-verification.
@@ -34,4 +42,4 @@ We did not run the provider-hosted variant. We expect the planner and placer con
 
 \subsection{Future work}
 \label{sec:future}
-The most valuable next steps are to validate the simulator on a small real testbed, which would also test the host-mode assumption; to compare the three scheduler placements of Table~\ref{tab:placement} under a load that stresses one scheduler, with a sweep of the relayed share; to measure confidential-VM hosts and refit decision costs; to revisit geo-clustering at larger populations; to evaluate workflow-aware warming; and to study adaptive adversaries and the concentration of credit.
+The most valuable next steps are to evaluate the loss-model planner described above against a stronger single-loop baseline; to validate the simulator on a small real testbed, which would also test the host-mode assumption; to compare the three scheduler placements of Table~\ref{tab:placement} under a load that stresses one scheduler, with a sweep of the relayed share; to measure confidential-VM hosts and refit decision costs; to revisit geo-clustering at larger populations; to evaluate workflow-aware warming; and to study adaptive adversaries and the concentration of credit.

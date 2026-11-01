@@ -24,7 +24,7 @@
   \node[att, minimum width=84mm, minimum height=21mm, font=\scriptsize] (w) at (45,-69)
        {\textbf{Worker (attested appliance)}\\[2pt]{\tinyx\begin{tabular}{@{}l@{\hspace{4mm}}l@{}}agent and TPM quote & keys in memory only\\ Firecracker microVMs & sealed, encrypted cache\end{tabular}}};
   \node[att, minimum width=38mm, minimum height=21mm, font=\scriptsize] (sch) at (115,-69)
-       {\textbf{Worker with}\\[-1pt]\textbf{scheduler role}\\[-1pt]\tinyx planner and placer\\[-2pt]\tinyx soft state, epoch $e$};
+       {\textbf{Worker with}\\[-1pt]\textbf{scheduler role}\\[-1pt]\tinyx planner and request placement\\[-2pt]\tinyx rebuildable state, epoch $e$};
   \node[untr, minimum width=73mm, minimum height=6mm, font=\tinyx] (own) at (99,-87) {Owner controls hardware, power, network: untrusted};
   % ---------- tenant domain ----------
   \node[zone, fill=orange!6, minimum width=66mm, minimum height=21mm, anchor=north west] (tenant) at (3,-96) {};

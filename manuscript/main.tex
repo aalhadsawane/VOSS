@@ -32,21 +32,24 @@
 \email{aalhadsawane@gmail.com}
 
 \begin{abstract}
-Short serverless functions spend most of their time waiting for a sandbox to start or for packets to cross a long distance,
-while machines close to users sit idle. We ask whether those idle consumer machines can serve latency-sensitive requests.
-Two things make this hard. Owners switch machines off without warning, which destroys every warm sandbox on the host.
-And owners cannot be trusted: they can read the code and data they run.
-We observe that remote attestation, in which a machine proves what software it booted, turns a hostile owner into an
-unreliable one. The owner can still stop or delay the machine, but can no longer read or forge anything.
-What remains is a scheduling problem over \emph{attested session state}: proof of trust, secret keys and warm sandboxes
-are slow to create, vanish when a session ends, and widen the attack surface with every host that holds them.
-We present \voss{}, a scheduler built around this problem. A slow loop plans where keys and warm state live, with spare
-capacity for lost hosts. A fast loop places each request and duplicates risky ones. Failures are detected from missing
-progress rather than missing heartbeats, and schedulers are replaced without consensus among volunteers. Workers
-reach their scheduler through a provider-hosted publish/subscribe broker, because volunteer addresses are neither stable nor reachable.
-In a deterministic simulator calibrated on a TPM-equipped machine, \voss{} meets a 3\,s tail-latency target in
-\ViabAPThreeVoss{} of \ViabACells{} churn-and-adversary settings and \ViabBPThreeVoss{} of \ViabBCells{} substrate-and-load settings,
-where the strongest simple baseline meets it in none. Several designed components do not pay off, and we report those too.
+Short serverless functions spend most of their time waiting for an isolated environment to start or for packets to cross a
+long distance, while computers close to users sit idle. We ask whether idle consumer computers can answer requests that
+must finish within seconds. Two things make this hard. Owners switch machines off without warning, which destroys every
+prepared environment on them. And owners cannot be trusted with the code and data they run.
+Remote attestation, in which a machine proves to a verifier which software it booted, changes the second problem: an owner
+who controls the machine's software, power and network can still stop or delay it, but can no longer read or forge
+anything. What is left is a scheduling problem. Proving trust, handing a machine a customer's decryption key, and starting
+environments are slow; all of it is lost when the owner switches off; and every extra machine that holds a key is one more
+place it could leak from.
+We present \voss{}, a scheduler built for this problem. A planner, run every 30 seconds, decides which machines hold which
+keys and ready environments, with spare capacity for machines that disappear. A per-request step then picks a machine for
+each call and duplicates calls at risk. A machine is judged failed when work it accepted does not come back, not when it
+stops sending heartbeats, and a failed scheduler is replaced without any agreement protocol among volunteers. We describe
+two architectures, one global scheduler on provider hardware and geographic clusters with volunteer-hosted schedulers
+reached through a publish/subscribe broker.
+In a deterministic simulator calibrated on a TPM-equipped laptop, \voss{} keeps 99th-percentile latency under 3\,s in
+\ViabAPThreeVoss{} of \ViabACells{} churn-and-adversary settings and \ViabBPThreeVoss{} of \ViabBCells{} settings that vary the trust technology and load,
+where the strongest simple baseline does so in none. We also report the parts that did not pay off.
 \end{abstract}
 
 \begin{CCSXML}

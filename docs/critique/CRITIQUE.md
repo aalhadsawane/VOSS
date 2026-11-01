@@ -70,6 +70,18 @@ round: C-32 and C-33.
 | C-31 | Why is the scheduler on a volunteer host at all? | Design, S1 | X(C-01,C-04,C-17) |
 | C-32 | Which supply is the paper about? | Text, S1 | A (wider lens) |
 | C-33 | Baseline families versus industry cold-start techniques | Eval, S2 | A (wider lens) |
+| C-34 | Volunteer links are slow and asymmetric; the registry is far away | Design, S2 | U (round 3) |
+| C-35 | Why two loops: information horizons, not only latency | Text, S2 | U (round 3) |
+| C-36 | Code and snapshots are encrypted at rest: say so before the key service | Text, S2 | U (round 3) |
+| C-37 | Missing positioning: two-timescale edge papers, Falcon, ALPS, phi-accrual | Text, S2 | U (round 3) |
+| C-38 | An untrusted MQTT broker and forged dispatches (MQTT-I; SEC-2 code gap) | Design + code, S1 | U (round 3) |
+| C-39 | mTLS everywhere and the certificate lifecycle | Text, S2 | U (round 3) |
+| C-40 | Architectures considered: global versus clustered scheduling | Text, S2 | U (round 3) |
+| C-41 | The router's role is under-explained | Text, S3 | U (round 3) |
+| C-42 | **[MAJOR]** Do we need the slow planner at all? | Design, S1 | U (round 3) |
+| C-43 | **[MAJOR]** If attested nodes are honest, why limit key exposure? | Design, S1 | U (round 3) |
+| C-44 | **[MAJOR]** The greedy planner is ad hoc for the paper's central contribution | Design, S1 | U (round 3) |
+| C-45 | **[MAJOR]** Writing: coined terms, undefined words, unjustified methods | Text, S1 | U (round 3) |
 
 Section 2 gives the cascade map (how items combine) and Section 3 a proposed order for the discussion.
 
@@ -703,6 +715,267 @@ with C-15.
 
 ---
 
+## Round 3 (author review of draft 11)
+
+### C-34 · Volunteer links are slow and asymmetric; the registry is far away `[Design] S2` — origin **U**
+
+**Critique.** A volunteer machine sits on a home connection, possibly Wi-Fi, with a slow and asymmetric link. Code bundles,
+root file systems and snapshots come from a registry that may be far away, at a long round trip and through that link. The
+paper does not say how VOSS accounts for this.
+
+**Evidence.**
+- `voss/world/workers.py` `LinkParams`: download speed log-normal with median 100 Mbit/s (sigma 0.8, so a tenth of hosts are
+  below about 36 Mbit/s); upload is a fraction of download with median 0.3 (about 30 Mbit/s); last-mile delay median 10 ms.
+  All tagged *assumed*.
+- Transfers share each host's access link (processor sharing); disk reads have their own tier speeds.
+- `voss/policy/cost/arrays.py` `startup_arrays`: for a machine with nothing cached, the placer charges the registry round
+  trip plus `(bundle + root file system) / download speed` plus verification. So a slow link makes a machine look slower.
+- `voss/runtime/workerlib/fetching.py`: artifacts come from a peer first (chosen by the scheduler from upload headroom and
+  RTT, `cache_value.source_score`) and from the registry otherwise; **snapshots never come from the registry**, they are
+  made locally after the first boot or copied from a peer.
+- `configs/functions.yaml`: root file systems 90–450 MB, snapshots 48–600 MB.
+
+**Defense.** The slow link is in the model in three places: the plan prepares machines ahead of demand so most transfers
+are off the request path; the per-request cost charges the transfer, so a slow machine loses to a fast one; peers nearby
+serve artifacts before the registry does.
+
+**Where the defense is weak.** No Wi-Fi loss or variable-rate model; a 600 MB snapshot over a 30 Mbit/s peer upload takes
+about 160 s, which the planner's warm-start value does not price explicitly; link speeds are declared and taken as exact
+(C-22); no sweep of link speed.
+
+**Resolution.** Text: state the three mechanisms and the numbers (done in draft 12). Sweep: link median 25/50/100 Mbit/s
+with E04's systems (class S).
+
+**Status.** Text fixed; sweep open.
+
+---
+
+### C-35 · Why two loops: information horizons, not only latency `[Text] S2` — origin **U**
+
+**Critique.** The paper justifies two loops mainly by "planning is slow and requests are fast". The deeper reason is that
+the decisions use information that arrives at different rates and have effects that last for different times. A
+preliminary discussion should come first.
+
+**Resolution.** Draft 12 opens the scheduling section with a table of the inputs (how often each changes) and the decisions
+(how long each lasts): a key release lasts a whole session (minutes to hours) and is informed by session-length statistics
+gathered over hours; a warm sandbox lasts minutes and is informed by arrival rates averaged over a minute; a placement lasts
+one request and is informed by occupancy two seconds old. A decision whose effect outlasts the refresh period of its inputs
+must be made against a forecast, ahead of time; one whose effect is shorter can react to the latest state.
+
+**Status.** Text fixed.
+
+---
+
+### C-36 · Code and snapshots are encrypted at rest: say so before the key service `[Text] S2` — origin **U**
+
+**Critique.** The manuscript introduces the key service before it says that code bundles and snapshots are stored encrypted
+with the tenant's key. Without that, the reader cannot see why a compromised provider (registry, database, broker) learns
+nothing.
+
+**Resolution.** Draft 12 states, in the design section before the key service appears: the tenant encrypts its code before
+upload; the registry, peers' disks and the broker only ever hold ciphertext; the key goes from the tenant's key service
+straight to an attested machine. A full compromise of the provider exposes ciphertext and metadata, not code or data.
+
+**Status.** Text fixed.
+
+---
+
+### C-37 · Missing positioning: two-timescale edge papers, Falcon, ALPS, phi-accrual `[Text] S2` — origin **U**
+
+**Critique.** Slow placement plus fast scheduling is an established pattern in mobile edge computing (for example Tang et
+al., arXiv:2405.20560, 2024; Farhadi et al., IEEE/ACM ToN 2021). Fast placement cites only Sparrow (2013); successors such
+as Falcon (EuroP4 2020, in-switch scheduling) and ALPS (USENIX ATC 2024, a per-machine CPU scheduler for functions) are
+missing. The phi-accrual detector is the canonical adaptive detector.
+
+**Defense.** phi-accrual (Hayashibara et al., SRDS 2004) is already cited in drafts 10–11, in the failure model. ALPS
+schedules CPU time inside one machine and Falcon accelerates a central scheduler in a switch; neither places work across
+untrusted machines, so they are context, not competitors.
+
+**Resolution.** Draft 12 adds a related-work paragraph on two-timescale edge scheduling that states what VOSS shares (slow
+placement, fast dispatch) and what differs (the placed resource is trust with an exposure cost; machines vanish with
+estimated probabilities; robustness against worst-case losses), cites Falcon and ALPS next to Sparrow, and cites
+phi-accrual where progress-based detection is argued.
+
+**Status.** Text fixed. All new entries marked "TODO verify" in `refs.bib`.
+
+---
+
+### C-38 · An untrusted MQTT broker and forged dispatches (MQTT-I; SEC-2 code gap) `[Design + code] S1` — origin **U**
+
+**Critique.** Draft 11 claims the broker cannot forge a dispatch. Buccafurri, De Angelis and Lazzaro (MQTT-I, IEEE TDSC
+21(5), 2024) report that no prior proposal gave end-to-end data-flow integrity under an untrusted MQTT broker. Worse, the
+code did not back the claim: a worker checked only the cluster and epoch of a DISPATCH, not the sender's certificate
+(`worker_agent._dispatch`), so a clone at the current epoch would have been accepted (finding "SEC-2").
+
+**Resolution.**
+- Code (D-75): `worker_agent.accepts_dispatch` now rejects a DISPATCH at the installed epoch whose certificate is not the
+  one in the orchestrator's appointment. Test: `tests/unit/test_dispatch_fencing.py`. The repro-smoke hash is unchanged
+  (no honest run is affected). Residual, stated in the code: a DISPATCH with a *newer* epoch that arrives before its
+  EPOCH_INSTALL is accepted; a deployment verifies the orchestrator-signed appointment token there (not modelled).
+- Design (text, draft 12): every leg to the broker is mTLS, and every control message is signed end to end with the
+  sender's attested session key and carries the epoch and a sequence number. The receiver checks the signature against the
+  verifier-issued certificate. The broker can drop, delay or reorder (omission and timing faults, already handled) but
+  cannot forge or replay. This is the property MQTT-I targets; we cite it as the reason MQTT alone is not enough.
+
+**Where the defense is weak.** Signatures, sequence numbers and their CPU cost are not modelled in the simulator (messages
+are typed objects); completeness (detecting a dropped message) relies on the progress watchdogs, not on the channel.
+
+**Status.** Code fixed (equal-epoch case); text fixed; newer-epoch token check open (not modelled).
+
+---
+
+### C-39 · mTLS everywhere and the certificate lifecycle `[Text] S2` — origin **U**
+
+**Critique.** The paper says "TLS". The design is mutual TLS on every channel (worker to router, worker to key service,
+worker and scheduler to the broker, scheduler to worker when direct), and the certificate's life should be stated.
+
+**Design statement (draft 12).** The certificate authority sits at the verifier. When a machine's quote is accepted, the
+CA issues its session certificate; the certificate's expiry is the session's expiry; when the session ends, the CA revokes
+it. Periodic re-quotes keep it valid during the session.
+
+**Feasibility note (for us, not for the paper).** Standard practice. Two details make it work: (1) the session end is not
+always known in advance (abrupt power loss), so "expiry = session expiry" is implemented as a short validity renewed by
+each re-quote, which bounds how long a dead machine's certificate stays usable even if revocation lags; (2) revocation must
+reach relying parties (routers, key services, broker), by push from the verifier (as the simulator does: `RevokeSession`)
+or by stapled status.
+
+**Status.** Text fixed.
+
+---
+
+### C-40 · Architectures considered: global versus clustered scheduling `[Text] S2` — origin **U**
+
+**Critique.** The paper should say that two architectures were designed and compared: one global scheduler, and
+geographic clusters each with its own scheduler. The broker exists because of the clustered design: with hundreds or
+thousands of volunteer-hosted schedulers at changing addresses, no request/response scheme (HTTP, gRPC) scales; topics by
+cluster id do. In the global design the scheduler runs on provider hardware and needs no broker.
+
+**Evidence.** E05 compares exactly these (`voss.clusters.mode=none_global` against static regions, k-means and dynamic
+clusters). In the simulator the global scheduler is still appointed from a volunteer worker (`orchestrator._form`, one
+cluster), so the measured global design pays volunteer delays and failures it would not pay on provider hardware.
+
+**Resolution.** Draft 12 presents both architectures up front, places the scheduler on a volunteer only in the clustered
+design, and states that the simulated global scheduler ran on a volunteer, which makes the reported comparison
+conservative for the global design.
+
+**Status.** Text fixed.
+
+---
+
+### C-41 · The router's role is under-explained `[Text] S3` — origin **U**
+
+**Resolution.** Draft 12 and the explainer state the router's four jobs in one place: it is the public entry point for
+clients; it chooses the cluster; it holds a copy of each request until a worker accepts it and resends or redirects it if
+the scheduler does not answer within 1 s; and it receives the result and the signed receipt and records the receipt. It
+never sees tenant keys.
+
+**Status.** Text fixed.
+
+---
+
+### C-42 · **[MAJOR]** Do we need the slow planner at all? `[Design] S1` — origin **U**
+
+**Critique.** Could a single per-request loop, provisioning machines when a request finds none ready and keeping sandboxes
+alive with a timer, do as well, with less machinery?
+
+**Defense.**
+- Data: against provisioning on arrival, planning lowers synchronous P99 by 54% (medium churn) and 59% (high churn); against
+  a 10-minute keep-alive timer, by 27% and 57% (E04, H1 supported). Removing planning from full VOSS adds 1.1 s of P99
+  (E19). These are paired, 10 seeds.
+- Information horizons (C-35): a key release lasts a session and costs about a second plus exposure; it must be decided
+  from forecasts before demand arrives, and its value depends on which other machines hold the key (a set decision). A
+  per-request loop sees one request and two-second-old state; it cannot weigh how many machines should hold a key.
+- Robustness against `f` losses is a property of the set of holders; it cannot be enforced one request at a time.
+
+**Where the defense is weak.**
+- Both single-loop baselines are weak. A strong single-loop alternative (a per-function idle-time histogram keep-alive in
+  the style of Shahrad et al., plus pre-warming on predicted arrivals) is not tested (C-33).
+- A periodic warm-pool sizing rule is itself a slow loop; the question is really whether it needs an optimiser.
+
+**Resolution.** Keep the planner (rebut), and add the strong single-loop baseline to E04 (class C, with C-33). If it comes
+within 5% of the planner, the paper must say the gain is from planning *keys*, not warm sandboxes.
+
+**Status.** Rebutted in text; strong baseline open.
+
+---
+
+### C-43 · **[MAJOR]** If attested nodes are honest, why limit key exposure? `[Design] S1` — origin **U**
+
+**Critique.** The threat model makes attested machines honest. A dishonest machine would fake results, not read code. So
+why pay for limiting how many machines hold a key? Dropping it would only help performance.
+
+**Defense (the case for keeping it).**
+1. *Honesty is conditional.* Property 1 holds only under assumptions the paper lists as out of scope, and on consumer
+   hardware those are the realistic failures: reading memory of a running machine (cold boot, DMA, bus probing) on machines
+   without memory encryption, TPM and firmware flaws (faulTPM; TPM-Fail), and bugs in the appliance. Exposure is the
+   defense in depth for when the assumption breaks. It is not needed if attestation is perfect; it is the plan for when
+   it is not.
+2. *The two failures are not symmetric.* A forged result damages one invocation, is active, and can be caught (receipts,
+   re-execution of idempotent calls, spot checks). A leaked key is passive, silent and permanent: it decrypts every code
+   bundle and snapshot of that tenant, past and future, wherever the ciphertext sits. Passive reading of memory is also the
+   easiest physical attack. A design that only worried about forgery would leave the worse failure unbounded.
+3. *Fewer copies is standard practice.* Key-management and data-protection practice minimise where keys and plaintext
+   live; tenants with sensitive data ask "how many machines can see it", and exposure is the answer in a number.
+4. *It costs nothing measurable.* Removing the exposure term (E19, `no_exposure`) changes synchronous P99 by +0.018 s
+   (95% interval −0.021 to +0.061 s, includes zero) and raises exposure by 2.6 units. Dropping it gains no performance.
+
+**Where the defense is weak.** The trust scores behind exposure are policy numbers, not measured probabilities (C-11); the
+benefit (smaller blast radius) is argued, not measured.
+
+**Resolution.** Rebut and keep. Draft 12 and the explainer state points 1, 2 and 4 in plain words.
+
+**Status.** Rebutted.
+
+---
+
+### C-44 · **[MAJOR]** The greedy planner is ad hoc for the paper's central contribution `[Design] S1` — origin **U**
+
+**Critique.** The planner is the core novelty, yet it is a two-pass heuristic with hand-picked scores (survival × trust per
+cost; seconds saved per MB with a value that does not fall as more sandboxes are added). Reviewers expect a derived
+algorithm with a guarantee, in line with the greedy-scheduling literature.
+
+**Defense.** It is cheap (8 ms), and the exact MILP is not measurably better (H8 inconclusive), so the heuristic is not
+leaving a demonstrated gain on the table.
+
+**Where the defense is weak.** "Not worse than our MILP" says nothing about whether the objective is the right one. The
+warm-sandbox pass ignores diminishing returns, which is a modelling error, not just a solver gap.
+
+**Resolution (accept, major).** `docs/proposals/planner-v2.md`: treat provisioned capacity as an Erlang loss system
+(insensitive to the service-time distribution); the value of keys becomes a monotone submodular function, chosen by
+distorted greedy with a (1 − 1/e) guarantee and protected against `f` worst-case losses by robust submodular selection;
+warm sandboxes are allocated by marginal analysis on the convex Erlang-B curve, optimal for equal sizes; a second variant
+enforces a per-tenant exposure budget with drift-plus-penalty virtual queues. Needs code and reruns of E04, E19, E20, E23
+(ACTION M6).
+
+**Status.** Accepted; design written; implementation open.
+
+---
+
+### C-45 · **[MAJOR]** Writing: coined terms, undefined words, unjustified methods `[Text] S1` — origin **U**
+
+**Critique.** Drafts 10–11 and the explainer use labels that look self-explanatory but are not: "uncovered demand", "free
+slots", "substrate", "placer", "demand quantile", "assurance", "liveness signals are hints; progress is evidence",
+"reputation" next to "credit". Estimators are named (Weibull, Beta, CUSUM, Bayesian regression) without saying what each is
+used for and why it was chosen over alternatives. Reviewers read this as machine-written.
+
+**Resolution (draft 12 and the explainer).**
+- One name per thing, defined once in plain words, and only if used more than once. "Placer" becomes "the per-request step
+  of the scheduler"; "substrate" becomes "trust technology"; "assurance" becomes "trust score"; "uncovered demand" and
+  "demand quantile" are replaced by what they mean (requests that would find no prepared machine; the number of slots
+  needed 95% of the time).
+- Progress and liveness are defined operationally: a heartbeat says the machine is running; progress means a result came
+  back for work the machine accepted, observed by the router or scheduler.
+- Credit (what a donor earns for work) and reputation (a long-term reliability score used only to break ties) are defined
+  once and not used interchangeably.
+- Every estimator states what it predicts, which decision uses it, and why it beats the alternatives (for example: Bayesian
+  linear regression on log run time and log input size, because run time follows a power law in input size, and a prior
+  lets it work with a handful of samples per machine; Gaussian processes or BART would only pay off for clearly non-linear
+  effects and need more data).
+
+**Status.** Text fixed in draft 12.
+
+---
+
 ## 2. Cascade map
 
 Several items interact so that one answer changes another. The combinations below are where a design change, if any, is most likely to be forced.
@@ -713,6 +986,7 @@ Several items interact so that one answer changes another. The combinations belo
 4. **Scale and realism chain: C-14 + C-21 + C-28 + C-17 + C-19.** Six tenants never hit the hot-set cap; the global baseline has a pool cap that hides its cost; the decision cost model does not grow with population; the scalability experiment shows the central decision path is the limit. The geo-clustering and "planning pays" conclusions are about a small head-of-distribution workload.
 5. **Time-constant chain: C-12 + C-16 + C-17 + C-20.** `T_plan` (30 s) is not swept; the MILP's real solve (4–24 s) can approach it, but is charged about 0.1 s; watchdogs (1–3 s) are assumed against RTTs that grow with relays; plan staleness interacts with the 60 s horizon and 2–60 s failover. A single mis-set constant can flip which components appear to pay.
 6. **Supply chain: C-08 + C-26 + C-25.** If donation is a scheduled, exclusive reboot, the supply looks like dedicated spare machines, whose economics against always-on cloud hosts (C-25) are what the commercial-reference comparison measures.
+8. **Round 3 chain: C-42 + C-44 + C-33.** Whether the planner is needed and whether it is good enough are one question: a strong single-loop baseline and planner v2 must be compared in the same E04 rerun.
 7. **Evidence chain: C-24 + C-22 + C-16.** E01's scope (start-up and execution only), well-specified estimator worlds, and a modelled decision clock mean the simulator's absolute and relative results are validated least exactly where the design is least conventional.
 
 ---

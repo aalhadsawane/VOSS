@@ -1,45 +1,100 @@
 \section{Background and Problem}
 \label{sec:background}
 
-\textbf{Terms.} A \emph{tenant} is a customer of the platform: the developer or company that writes functions. An \emph{invocation} is one call of a function. The \emph{provider} runs the platform, and a \emph{volunteer} or \emph{owner} owns a machine that donates capacity.
-A \emph{sandbox} is a small virtual machine (microVM) that runs one function in isolation, and it is \emph{warm} when it is started and idle. A tenant's \emph{secret} is a cryptographic key that only the tenant controls. It decrypts the tenant's code and the saved memory images (snapshots) of its sandboxes, so whoever holds it can read that tenant's code and data.
+\textbf{Terms.} A \emph{tenant} is a customer of the platform: a developer or company that deploys functions. An
+\emph{invocation} is one call of a function. The \emph{provider} runs the platform. A \emph{volunteer}, or \emph{owner},
+owns a machine that donates capacity, and a \emph{worker} is such a machine while it runs our software. A \emph{sandbox} is
+a small virtual machine (a microVM) that runs one function in isolation; it is \emph{warm} when it has already started and
+sits idle, ready for a call. A \emph{snapshot} is a saved copy of a started sandbox's memory, which can be restored faster
+than a sandbox can boot. A tenant's \emph{key} is a secret decryption key that only the tenant controls.
 
 \subsection{Where the time goes}
-The latency of an invocation is a sum of waiting times: choosing a region and a machine, queueing for a slot, making the machine able to run this tenant's code, starting a sandbox, moving data, and running. For functions of tens to hundreds of milliseconds, starting the sandbox dominates unless one is already warm.
-Platforms therefore keep sandboxes alive or restore them from snapshots~\cite{shahrad2020wild,fuerst2021faascache,ao2022faasnap,cadden2020seuss}. We distinguish four start-up levels for a function on a machine:
-\textbf{L0}, nothing cached; \textbf{L1}, code and file system on local disk (boot and initialise); \textbf{L2}, a snapshot on disk (restore it); \textbf{L3}, an idle warm sandbox in memory (just send the request).
-Higher levels cost memory or disk, so choosing which functions to keep at which level where is already a scheduling problem.
+An invocation waits for several things in turn: choosing a region and a machine, waiting for a free slot on that machine,
+making the machine able to run this tenant's code, starting a sandbox, moving the input and output, and running. For
+functions that run for tens to hundreds of milliseconds, starting the sandbox dominates unless one is already warm. This is
+why platforms keep sandboxes alive after use or restore them from
+snapshots~\cite{shahrad2020wild,fuerst2021faascache,ao2022faasnap,cadden2020seuss}.
+A function can be in one of four states on a machine, from slowest to fastest start:
+\textbf{L0}, nothing on the machine, so the code and file system must be fetched and checked first;
+\textbf{L1}, code and file system on local disk, so a sandbox must boot and initialise;
+\textbf{L2}, a snapshot on local disk, so it is restored;
+\textbf{L3}, a warm sandbox in memory, so the request is simply handed to it.
+Each step up costs memory or disk, so choosing which functions to keep at which level on which machines is already a
+scheduling problem.
 
-Volunteer machines add a term datacenters do not have. Before a machine may run tenant code it must prove what software it runs, and before it may decrypt a tenant's code it must be given that tenant's key.
-Figure~\ref{fig:cost} puts these costs on one scale, using a consumer laptop with a TPM, a hardware security chip (Section~\ref{sec:calib}). Resuming a warm sandbox takes milliseconds. Booting a fresh one takes about \CalFcBootWarmMs\,ms if its files are in memory and \CalFcBootColdS\,s if they come from a hard disk.
-Getting from power-off to an attested worker takes \CalAttested\,s (median of \CalAttestedN{} boots): \CalReboot\,s for firmware, boot loader and kernel start, and \CalAttestedKernel\,s more until the verifier accepts the machine's proof.
-These are upper bounds, because we ran the appliance on a hard disk and in a simplified mode. Even so, trust costs thousands of times more than resuming a sandbox, so \emph{where} it is established cannot be left to the per-request path.
+Volunteer machines add a cost that datacenters do not have. Before a machine may run tenant code it must prove which
+software it runs, and before it can decrypt a tenant's code it must receive that tenant's key. Figure~\ref{fig:cost} puts
+these costs on one scale, measured on a consumer laptop with a TPM, the security chip found on most modern PCs
+(Section~\ref{sec:calib}). Handing a request to a warm sandbox takes milliseconds. Booting a new sandbox takes about
+\CalFcBootWarmMs\,ms if its files are already in memory and \CalFcBootColdS\,s if they must be read from the hard disk. Getting from
+power-off to an attested worker takes \CalAttested\,s (median of \CalAttestedN{} boots): \CalReboot\,s for firmware, boot loader and kernel start,
+then \CalAttestedKernel\,s until the verifier accepts the machine's proof. These numbers are upper bounds, because the laptop had a hard
+disk and we ran the image in a simplified mode. Even so, establishing trust costs thousands of times more than reusing a
+sandbox, so it has to be done before requests arrive, not while they wait.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.9\columnwidth]{figures/fig_cost}
-\caption{Time to reach each state on the calibration machine, log scale. Blue: sandbox start-up. Red: becoming an attested worker. Grey: model value, not measured. \emph{Warm cache}: the file is already in memory; \emph{cold}: it is read from the hard disk. \emph{Reboot to kernel} is the physical machine's firmware, loader and kernel start.}
+\caption{Time to reach each state on the calibration laptop, on a log scale. Blue: sandbox start-up. Red: becoming an attested worker. Grey: model value, not measured. \emph{Warm cache}: the file is already in memory; \emph{cold}: it is read from the hard disk. \emph{Reboot to kernel} is the physical machine's firmware, loader and kernel start.}
 \label{fig:cost}
 \end{figure}
 
-\subsection{Proving what a machine runs}
-\label{sec:rats}
-We use the vocabulary of the IETF attestation architecture~\cite{rfc9334}. While the machine (the \emph{attester}) boots, each stage (firmware, loader, kernel) is hashed into registers of its TPM, so the final values are a fingerprint of everything that ran~\cite{tcg2019tpm}.
-When asked, the TPM signs those values together with a fresh random number from the checker. This signed object is the \emph{quote}. The \emph{verifier} checks the signature, follows the certificate chain back to the chip manufacturer, and compares the fingerprint with known-good values.
-A \emph{relying party}, here the tenant's key service, hands over a secret only to a machine with a good result~\cite{schear2016keylime}.
-Two facts matter for scheduling: a quote shows what ran at one moment, so evidence goes stale and must be refreshed, and attestation says nothing about availability, since a machine that passes can still stop working.
+The network is the second difference. A volunteer machine sits behind a home connection, often on Wi-Fi, with less upload
+than download capacity. In our model the download speed has a median of 100\,Mbit/s and the upload speed a median of about
+30\,Mbit/s, with a wide spread across machines (Section~\ref{sec:sim}). Code and file systems are 90 to 450\,MB per function
+and snapshots 48 to 600\,MB. A 450\,MB file system takes about 36\,s at 100\,Mbit/s, and a 600\,MB snapshot copied from a
+neighbour's 30\,Mbit/s upload takes almost three minutes. \voss{} handles this in three ways. The planner prepares machines
+before demand arrives, so most transfers happen while no request waits. The per-request step charges each candidate the
+time to fetch what it is missing over that machine's own link, so a machine on a slow link loses to a machine that is ready.
+And workers fetch from a nearby worker before the provider's registry, while snapshots are never downloaded from the
+registry at all: a worker creates one locally after the first boot, or copies one from a nearby worker.
 
-\subsection{Volunteer machines and how they fail}
-A volunteer machine alternates between off and a \emph{session}, an interval in which it is booted into the platform. Session lengths are heavy-tailed and follow the time of day~\cite{javadi2013fta}. A session can end gracefully, with notice, or abruptly, sometimes for a whole city at once.
-We classify failures in the standard way~\cite{cristian1991understanding,avizienis2004basic}: a crash stops the machine, an \emph{omission} is a result that never arrives, and a \emph{timing} failure is a result that arrives too late.
-Churn produces crashes. An owner who cannot forge anything can still choose \emph{when} to omit or delay, selectively, while the machine keeps reporting that it is healthy. That is the gray failure of Section~\ref{sec:intro}, and it defeats heartbeat detectors, including adaptive ones~\cite{hayashibara2004phi}.
+\subsection{Proving which software a machine runs}
+\label{sec:rats}
+We use the vocabulary of the IETF attestation architecture~\cite{rfc9334}. While a machine boots, each stage (firmware,
+boot loader, kernel) is hashed into registers of its TPM, so the final register values are a fingerprint of everything that
+ran~\cite{tcg2019tpm}. When asked, the TPM signs these values together with a fresh random number chosen by the checker. The
+signed object is called a \emph{quote}. The \emph{verifier} checks the signature, follows the certificate chain back to the
+chip's manufacturer, and compares the fingerprint with the values expected for our image. A \emph{key service}, run for
+the tenant, then releases a key only to machines the verifier accepted~\cite{schear2016keylime}.
+Two facts matter for scheduling. A quote shows what ran at one moment, so the evidence goes stale and must be refreshed.
+And attestation says nothing about availability: an attested machine can still stop working.
+
+\subsection{How volunteer machines fail}
+A volunteer machine alternates between being off and a \emph{session}, an interval during which it runs our image. Session
+lengths are heavy-tailed and follow the time of day~\cite{javadi2013fta}. A session ends either with notice from the owner
+or abruptly, by reboot or power loss, and sometimes for a whole city at once. We use the standard classes of
+failure~\cite{cristian1991understanding,avizienis2004basic}: a \emph{crash} stops the machine; an \emph{omission} is a result
+that never arrives; a \emph{timing} failure is a result that arrives too late. Churn produces crashes. An owner who cannot
+forge anything can still choose when to drop or delay work, and can do so selectively while the machine keeps sending
+heartbeats. Heartbeat-based detectors, including adaptive ones such as the $\varphi$-accrual detector~\cite{hayashibara2004phi},
+cannot see this.
 
 \subsection{The problem}
-The input is a stream of invocations, each with a tenant, a function, a service class (synchronous, asynchronous, or low-priority filler), a deadline and an \emph{idempotence} flag. A function is idempotent if calling it twice has the same effect as calling it once.
-The platform retries and duplicates only idempotent functions; for the others a lost result is a failure.
-Asking for idempotence is not new. Every major platform already hands it to developers, though the underlying guarantee differs by call path. AWS Lambda retries a failed asynchronous invocation twice by default and warns that a function may receive the same event more than once~\cite{awslambdaasync}. For a direct synchronous call it does not retry at all, and leaves the retry, with the same warning about repeats, to the caller~\cite{awslambdaretries}.
-Google's event-driven functions run at least once per event, retried functions must be idempotent, and plain HTTP functions are not retried by the platform~\cite{gcfretries}. Azure documents at-least-once delivery for Event Hubs triggers and asks for idempotent consumers~\cite{azureeventhubsfunctions}, and Cloudflare Queues deliver at least once~\cite{cloudflarequeues}.
-So the guarantee is at least once on event and asynchronous paths, and \emph{not} on direct request--response paths, where the client retries instead. On both, a duplicate arrives sooner or later, from the platform or from the client, so developers are told to write idempotent code. \voss{} relies on the same contract. It goes one step further than commodity platforms by also retrying and hedging \emph{synchronous} calls for the functions that declare it, because failures on volunteer machines are common. The machines are a changing population with slots, memory, disk, a location and a session that can end at any time.
-The decisions are which machines to attest and provision for which tenants, which functions to keep at which level where, and which machine runs each invocation.
-The goals are: \textbf{G1}, a hostile owner learns no tenant secret and forges no result; \textbf{G2}, tail latency stays within target despite churn; \textbf{G3}, a machine that drops work or a scheduler that stalls is bypassed within seconds without trusting liveness signals; \textbf{G4}, a machine cannot claim work it did not do.
-We do not defend against physical attacks on the TPM, flaws in the appliance image, side channels, or failure of the provider's own control plane (Section~\ref{sec:threat}).
+Requests arrive from clients in many places. Each names a tenant and a function, belongs to a service class (synchronous,
+where the client waits; asynchronous; or low-priority background work), and carries a deadline. Each function is marked
+\emph{idempotent} or not; a function is idempotent if calling it twice has the same effect as calling it once. The
+platform retries and duplicates only idempotent functions, and for the others a lost result is reported as a failure.
+
+Asking for idempotence is not new. Every major platform already asks it of developers, although the guarantee differs by
+how a function is called. AWS Lambda retries a failed asynchronous invocation twice by default and warns that a function
+may receive the same event more than once~\cite{awslambdaasync}; for a direct synchronous call it does not retry, and leaves
+the retry, with the same warning, to the caller~\cite{awslambdaretries}. Google's event-driven functions run at least once
+per event, functions that are retried must be idempotent, and plain HTTP functions are not retried by the
+platform~\cite{gcfretries}. Azure documents at-least-once delivery for Event Hubs triggers and asks for consumers that
+tolerate duplicates~\cite{azureeventhubsfunctions}, and Cloudflare Queues deliver at least once~\cite{cloudflarequeues}. So
+delivery is at least once on event-driven and asynchronous paths, and the client retries on request--response paths. On
+both, a duplicate eventually arrives, so developers are told to write idempotent code. \voss{} relies on the same
+contract, and goes further than these platforms by also retrying and duplicating synchronous calls, because failures on
+volunteer machines are common.
+
+The machines form a changing population, each with a number of slots for concurrent invocations, memory, disk, a location
+and a session that can end at any time. The scheduler decides which machines to attest and give which tenant's key, which
+functions to keep at which level where, and which machine runs each invocation. We pursue four goals.
+\textbf{G1:} an owner who controls the machine's software, power and network learns no tenant secret and forges no result.
+\textbf{G2:} 99th-percentile latency stays within the target although sessions end at any time.
+\textbf{G3:} a machine that accepts work and drops it, or a scheduler that stalls, is bypassed within seconds, without
+relying on the machine's own reports.
+\textbf{G4:} a machine cannot claim credit for work it did not do.
+We do not defend against physical attacks on the TPM, flaws in our image, side channels, or failure of the provider's own
+services (Section~\ref{sec:threat}).

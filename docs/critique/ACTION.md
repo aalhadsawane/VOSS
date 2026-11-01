@@ -458,6 +458,36 @@ Not major: everything else in Section 4 (T, A, or small S).
 
 ---
 
+
+## 10. Round 3 (author review of draft 11): what changes, and how big
+
+| Item | Class | Outcome |
+|---|---|---|
+| C-34 slow volunteer links | T + S | Text states how links are modelled (transfer time charged per request, preparation off the request path, peers before registry, snapshots never from the registry). Sweep of link speed with E04's systems. |
+| C-35 information horizons | T | Scheduling section opens with what each input's refresh period is and how long each decision lasts. |
+| C-36 encryption at rest first | T | Design section says the provider only holds ciphertext before the key service appears. |
+| C-37 positioning | T | Related work adds two-timescale edge scheduling, Falcon, ALPS; phi-accrual cited where progress detection is argued. |
+| C-38 broker forgery, SEC-2 | C (small, done) + T | Worker now checks the scheduler's certificate at the installed epoch (D-75, results unchanged). Text: mTLS legs plus end-to-end signed messages with epoch and sequence number; MQTT-I cited. |
+| C-39 mTLS and certificate lifecycle | T | CA at the verifier; certificate on attestation; expiry equals session expiry; revoked when the session ends (D-76). |
+| C-40 architectures considered | T | Global (scheduler on provider hardware, no broker) and clustered (volunteer schedulers, broker) presented as the two designs; E05 compares them; the simulated global scheduler ran on a volunteer, which favours clusters. |
+| C-41 router role | T | One paragraph and one explainer slide with the router's four jobs. |
+| **C-42 need for the planner** | **C** | Keep the planner (data and information horizons). Add a strong single-loop baseline (idle-time histogram keep-alive plus predicted pre-warming) to E04. |
+| **C-43 need for exposure** | T | Keep (conditional honesty, asymmetric harm, standard practice, measured cost about zero). Stated in manuscript and explainer. |
+| **C-44 planner sophistication** | **M** | Planner v2 (`docs/proposals/planner-v2.md`): Erlang loss model; submodular key selection by distorted greedy with robust buffer; marginal allocation of warm sandboxes on the convex Erlang-B curve; drift-plus-penalty variant for exposure budgets. Reruns E04, E19, E20, E23. |
+| **C-45 writing** | T (major) | Draft 12 rewritten: one plain name per thing, every estimator justified against alternatives. Explainer under 50 slides. |
+
+### M6. Planner v2 and a strong single-loop baseline (new major change)
+
+- **What:** implement `erlang_greedy` and `erlang_dpp` planners and a `histogram_prewarm` single-loop baseline, all with the
+  same inputs and outputs as today's planner; charge measured solve time to the simulated clock (C-16).
+- **Why:** answers C-42 and C-44 together. If planner v2 beats greedy and the strong baseline, the central contribution
+  rests on a derived algorithm with guarantees. If the strong baseline matches it, the paper's claim narrows to planning
+  keys.
+- **Experiments:** E04 (planners and baselines, medium and high churn), E19 (ablation), E20 (feasibility maps), E23
+  (latency-exposure front). Pre-stated hypotheses in the proposal, §7.
+- **Order:** after this text round; before any further manuscript polishing of the results section, because the planner
+  numbers in draft 12 belong to the current greedy planner.
+
 ## 9. Sources for external facts used here (re-verify before quoting)
 
 - Hole-punching success about 70% (large-scale measurement, IMC 2026 paper; earlier 2022 talks 60–80%): https://arxiv.org/html/2510.27500v1 and https://probelab.io/blog/can-libp2p-punch-through-nats/
