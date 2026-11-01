@@ -62,6 +62,9 @@ class WorkerCache:
         self.value: Callable[[Entry], float] = lambda e: e.last_used  # LRU
         self.on_evict: Callable[[Entry], None] = lambda e: None
         self.warm_pins: dict[str, int] = {}  # fn → warm VMs the plan wants kept
+        self.warm_ttls: dict[
+            str, float
+        ] = {}  # fn → keep-alive override (histogram baseline, D-77); default: global TTL
 
     # --- disk tiers ------------------------------------------------------------------------------------------
     def used(self, tier: DiskTier) -> float:
@@ -205,7 +208,8 @@ class WorkerCache:
         for fn in sorted(self.warm):
             vs = self.warm[fn]
             pinned = self.warm_pins.get(fn, 0)
-            keep = [v for i, v in enumerate(vs) if now - v.idle_since < ttl or i >= len(vs) - pinned]
+            fn_ttl = self.warm_ttls.get(fn, ttl)
+            keep = [v for i, v in enumerate(vs) if now - v.idle_since < fn_ttl or i >= len(vs) - pinned]
             dropped += len(self.warm[fn]) - len(keep)
             if keep:
                 self.warm[fn] = keep
@@ -218,6 +222,7 @@ class WorkerCache:
         """RAM state is lost; disk state survives as ciphertext (doc 02 §5). Plan pins end with the session."""
         self.warm.clear()
         self.warm_pins.clear()
+        self.warm_ttls.clear()
         for e in self.disk.values():
             e.pinned = False
         self.running_mb = 0.0

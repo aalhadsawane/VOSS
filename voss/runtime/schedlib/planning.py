@@ -15,6 +15,7 @@ from voss.core.registry import create
 from voss.core.types import ClusterView
 from voss.policy.cache_value import source_score
 from voss.policy.cost.inputs import CostContext
+from voss.policy.keepalive_hist import HistParams
 from voss.policy.plan import registry as _planners  # noqa: F401  (registers planners)
 from voss.policy.plan.diff import PlanAction, diff, rate_limit
 from voss.policy.plan.types import Plan, PlanInput, PlanParams
@@ -41,6 +42,8 @@ class Planning:
         kw: dict[str, Any] = {}
         if pc.name == "milp":
             kw = {"time_limit": pc.T_solve, "node_limit": pc.node_limit}
+        if pc.name == "histogram_prewarm":
+            kw = {"params": HistParams(**cfg.keepalive_hist.model_dump())}
         self.planner: Any = create("planner", pc.name, **kw)
         self.params = PlanParams(**{"tie_break": cfg.reputation.tie_break, **pc.params})
         self.prev: Plan | None = None
