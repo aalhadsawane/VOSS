@@ -5,9 +5,9 @@ We organise the results around the questions the design raises. Appendix~\ref{ap
 
 \subsection{What does trust cost, and how does it shape start-up?}
 \label{sec:res-cs1}
-The appliance pays a large one-off cost for each session, \SimApplSession\,s with our pre-measurement parameters and \CalAttested\,s from power-on on the calibration machine. A confidential VM needs \SimCvmSession\,s and a confidential-container pool \SimCocoSession\,s.
-We had expected confidential VMs to be 10 to 100 times \emph{slower} at establishing trust. That was refuted: they are about 93\% faster, because the appliance's cost is a reboot.
-Once the session exists, though, the appliance is as fast as an unattested Firecracker host: warm and snapshot starts are within a few percent of the unattested figures (H5, supported), because attestation is paid per session, not per invocation.
+The TPM image pays a large one-off cost for each session, \SimApplSession\,s with our pre-measurement parameters and \CalAttested\,s from power-on on the calibration machine. A confidential VM needs \SimCvmSession\,s and a confidential-container pool \SimCocoSession\,s.
+We had expected confidential VMs to be 10 to 100 times \emph{slower} at establishing trust. That was refuted: they are about 93\% faster, because the TPM image's cost is a reboot.
+Once the session exists, though, the TPM image is as fast as an unattested Firecracker host: warm and snapshot starts are within a few percent of the unattested figures (H5, supported), because attestation is paid per session, not per invocation.
 
 \subsection{Where does volunteer serverless work at all?}
 \label{sec:res-viab}
@@ -17,20 +17,20 @@ Averages hide the regimes in which a design fails, so we map feasibility. Figure
 \centering
 \includegraphics[width=\textwidth]{figures/fig_viability}
 \caption{Feasibility maps. Cell colour shows which of \voss{} and the best simple baseline meets the target (success at least 0.99 and 95\% of deadlines met). Numbers are \voss{}'s synchronous P99 in seconds.
-(a) churn against the fraction of omitting owners, (b) trust substrate against load in invocations per second, (c) population against load.}
+(a) churn against the fraction of owners who drop work, (b) trust technology against load in invocations per second, (c) population against load.}
 \label{fig:viab}
 \end{figure}
 
-\voss{} is the only feasible system in all \ViabACells{} cells of panel A, which spans three churn levels and up to 20\% omitting owners, in \ViabBMetOnly{} of \ViabBCells{} cells of panel B and in \ViabCMetOnly{} of \ViabCCells{} cells of panel C.
+\voss{} is the only feasible system in all \ViabACells{} cells of panel A, which spans three churn levels and up to 20\% of owners dropping work, in \ViabBMetOnly{} of \ViabBCells{} cells of panel B and in \ViabCMetOnly{} of \ViabCCells{} cells of panel C.
 With an absolute P99 target of 3\,s it is feasible in \ViabAPThreeVoss{} of \ViabACells{}, \ViabBPThreeVoss{} of \ViabBCells{} and \ViabCPThreeVoss{} of \ViabCCells{} cells, and the simple baseline in none. At 5\,s, \voss{} is feasible in \ViabAPFiveVoss{}, \ViabBPFiveVoss{} and \ViabCPFiveVoss{} cells.
 
-The map also shows where \voss{} is the wrong choice. On confidential-VM substrates at higher load, the simple baseline is the only feasible system in \ViabBMetBase{} cells. We conjecture that with cheap session set-up there is little cold-start cost left for planning to remove, but we did not test this.
+The map also shows where \voss{} is the wrong choice. On confidential virtual machines at higher load, the simple baseline is the only feasible system in \ViabBMetBase{} cells. We conjecture that with cheap session set-up there is little cold-start cost left for planning to remove, but we did not test this.
 With 100 workers no system is feasible in any cell of panel C, so the design needs a minimum population, and at a deadline-met target of 0.98 no system is feasible anywhere.
 
-\subsection{Does planning attested session state pay?}
+\subsection{Is the planner needed?}
 \label{sec:res-plan}
-This is the central claim, so we compare planners on identical scenarios (Table~\ref{tab:plan}). The greedy planner lowers synchronous P99 by \GreedyNoneMed\% at medium churn and \GreedyNoneHigh\% at high churn against no planning, and by \GreedyKeepMed\% and \GreedyKeepHigh\% against a keep-alive timer.
-The exact planner gives \HOnePctNoneMed\% and \HOnePctNoneHigh\% against no planning, and \HOnePctKeepMed\% and \HOnePctKeepHigh\% against keep-alive (H1, supported). Planning costs donor memory: the exact planner holds about \MilpWarmRatio{} times the warm memory of keep-alive at medium churn.
+Section~\ref{sec:why2} argued that keys and warm sandboxes must be planned ahead. We test that by comparing planners with two single-loop alternatives on identical scenarios (Table~\ref{tab:plan}): no planner, where a worker gets a tenant's key only when a request needs it, and a 10-minute keep-alive timer. The greedy planner lowers synchronous P99 by \GreedyNoneMed\% at medium churn and \GreedyNoneHigh\% at high churn against no planner, and by \GreedyKeepMed\% and \GreedyKeepHigh\% against a keep-alive timer.
+The exact planner gives \HOnePctNoneMed\% and \HOnePctNoneHigh\% against no planner, and \HOnePctKeepMed\% and \HOnePctKeepHigh\% against keep-alive (H1, supported). Planning costs donor memory: the exact planner holds about \MilpWarmRatio{} times the warm memory of keep-alive at medium churn.
 
 \begin{table}[t]
 \caption{Planner comparison (E04): mean $\pm$ 95\% half-width over 10 seeds. Met: share of deadlines met; Warm: GB of idle warm memory.}
@@ -42,8 +42,10 @@ The exact planner gives \HOnePctNoneMed\% and \HOnePctNoneHigh\% against no plan
 The extra gain from the exact solver is small and not established. At medium churn it improves P99 by \MilpGreedyMed\% over the greedy planner, \MilpGreedyMedBelow{} our 5\% threshold. At high churn its point estimate is \MilpGreedyHigh\%, \MilpGreedyHighBelow{} the threshold, but the 95\% interval runs from a \MilpGreedyHighBest\% reduction to a \MilpGreedyHighWorst\% increase and includes zero (H8, inconclusive). Ten seeds can neither confirm that the exact solver matters nor show that it does not.
 Its solve takes \MilpSolveS\,s per cluster against \GreedySolveMs\,ms, yet the simulated clock charges both about 0.1\,s. Our rule required the gain to be below 5\% in every regime, and the data do not show that at high churn, so we do not claim the rule is met. We keep greedy as the default, a choice made before these runs.
 
-To see which components matter, Figure~\ref{fig:abl} removes one at a time (10\% omitting owners). Removing lifecycle-aware placement costs \AblLifecycleP\,s of P99, removing planning \AblPlanningP\,s, removing robust coverage \AblRobustP\,s and removing hedging \AblHedgeP\,s.
-The components that buy P99, planning and robustness, also raise exposure: without planning, total exposure is lower by \AblPlanningExp{} units (Eq.~\ref{eq:exposure}), because fewer hosts hold keys. Geo-clustering is the only component whose removal \emph{improves} P99 (by \AblGeoP\,s) and also cuts exposure (by \AblGeoExp{} units). We return to this in Section~\ref{sec:res-nopay}.
+Both alternatives are simple. A stronger single-loop rule, such as a keep-alive time learned per function from its idle times~\cite{shahrad2020wild} combined with pre-warming on predicted arrivals, is not in this comparison, so these numbers show that planning beats simple reactive rules, not every reactive rule.
+
+To see which components matter, Figure~\ref{fig:abl} removes one at a time (10\% of owners dropping work). Making request placement ignore start-up levels costs \AblLifecycleP\,s of P99, removing planning \AblPlanningP\,s, removing the protection against losing $f$ machines \AblRobustP\,s and removing hedging \AblHedgeP\,s.
+The components that buy P99, planning and robustness, also raise exposure: without planning, total exposure is lower by \AblPlanningExp{} units (Eq.~\ref{eq:exposure}), because fewer hosts hold keys. Removing the exposure term changes P99 by only \AblExposureP\,s and raises exposure by \AblExposureExp{}, so limiting exposure costs no measurable latency (Section~\ref{sec:exposure}). Geo-clustering is the only component whose removal \emph{improves} P99 (by \AblGeoP\,s) and also cuts exposure (by \AblGeoExp{} units). We return to this in Section~\ref{sec:res-nopay}.
 
 \begin{figure}[t]
 \centering
@@ -64,18 +66,18 @@ For crashes, detection takes \CrashDetectProg\,s and failover \CrashFailover\,s.
 \input{generated/tab_faults}
 \end{table}
 
-\textbf{Omitting owners.} Table~\ref{tab:adv} raises the fraction $\alpha$ of omitting owners. At $\alpha=0.2$, \voss{} keeps \VossSuccAlpha\% of requests succeeding, while heartbeat-only detection with otherwise identical machinery falls to \HbSuccAlpha\% (H4, supported) and loses \HbOmitRatio{} times more results to omitting owners.
-Success under omission stays near the churn-only level, which supports the claim that attested omitting owners behave like churn once detection uses progress.
+\textbf{Owners who drop work.} Table~\ref{tab:adv} raises the fraction $\alpha$ of owners who drop work. At $\alpha=0.2$, \voss{} keeps \VossSuccAlpha\% of requests succeeding, while heartbeat-only detection with otherwise identical machinery falls to \HbSuccAlpha\% (H4, supported) and loses \HbOmitRatio{} times more results to them.
+Success with these owners stays near the level with churn alone, which supports the claim that attested owners who drop work behave like churn once machines are judged by returned work.
 The robust-coverage constraint is not what keeps success. Setting $f=0$ changes success by only \FzeroSuccDelta{} percentage points (H2, inconclusive), though it lengthens P99. Detection and re-dispatch carry success; robust planning buys tail latency.
 
 \begin{table}[t]
-\caption{Omitting owners (E08): mean $\pm$ 95\% half-width over 10 seeds. Omissions are results dropped by adversaries.}
+\caption{Owners who drop work (E08): mean $\pm$ 95\% half-width over 10 seeds. Omissions are results dropped by adversaries.}
 \label{tab:adv}
 \centering\small
 \input{generated/tab_adversary}
 \end{table}
 
-\textbf{Hedging.} Always duplicating cuts P99 but wastes \AlwaysWastePct\% extra attempts. Risk-proportional hedging wastes \RpWastePct\%, and its P99 is \HedgePNinetyninePct\% lower at $\alpha=0.1$, with an interval from \HedgePNinetynineLo\% to $+$\HedgePNinetynineHi\% (H-FT3, inconclusive). It is cheap insurance, not shown to be necessary.
+\textbf{Duplicates.} Always sending a duplicate cuts P99 but wastes \AlwaysWastePct\% extra attempts. Duplicating only requests whose miss probability exceeds 0.2 wastes \RpWastePct\%, and its P99 is \HedgePNinetyninePct\% lower at $\alpha=0.1$, with an interval from \HedgePNinetynineLo\% to $+$\HedgePNinetynineHi\% (H-FT3, inconclusive). It is cheap insurance, not shown to be necessary.
 
 \subsection{What do robustness and exposure cost?}
 \label{sec:res-pareto}
@@ -87,11 +89,11 @@ Per tenant class the picture is less benign. Low-sensitivity tenants stay at abo
 \label{sec:res-nopay}
 \textbf{Geo-clustering.} We compare one global scheduler with static regions, static $k$-means and dynamic clusters on 600 workers (about 225 of them attested) at 20 invocations per second, with clusters of about 20 to 35 attested hosts. The global scheduler plans over at most 40 hosts, which is part of why it holds fewer keys, and nothing in this load stresses one scheduler's capacity.
 Dynamic clusters (E05) have \emph{higher} P99 than the global scheduler by \HSevenEu\% in Europe, \HSevenEuNa\% in Europe and North America and \HSevenWorld\% worldwide (H7, refuted in all three), and hold \GeoExpRatio{} times the exposure in Europe, since each of the \GeoClusters{} clusters must cover demand with its own key holders.
-We attribute this to fewer hosts per cluster for pooling warm state and keys, but did not isolate the mechanism. We found no population in which geo-clustering wins at this scale.
+In this experiment the global scheduler was itself hosted on a volunteer machine; on provider hardware it would avoid volunteer delays and failures, so the comparison favours clusters. We attribute this to fewer hosts per cluster for pooling warm state and keys, but did not isolate the mechanism. We found no population in which geo-clustering wins at this scale.
 
-\textbf{Routing, caching, reputation.} Without flash crowds, nearest-region routing meets \RouteNearMet{} of deadlines and least-loaded routing \RouteLeastMet{}, because it ignores distance.
+\textbf{Routing, caching, reliability score.} Without flash crowds, nearest-region routing meets \RouteNearMet{} of deadlines and least-loaded routing \RouteLeastMet{}, because it ignores distance.
 Cost-aware caching with peer fetch and a disk tier is at most \HSixPct\% better than plain LRU in P99, and the intervals include zero (H6, inconclusive); all variants start about 98\% of invocations from a warm sandbox, which leaves little for disk tiers to improve.
-Receipts stay off the critical path (H10, supported): lengthening settlement from 10 to 300\,s changes P99 by at most $\pm$\HTenPct\%, and the stream is small, about \RecvRows{} rows and \RecvKBs\,KB per second at 20 invocations per second. Reputation adds little (\RepPNinetyninePct\% lower P99, weak), and credit is highly concentrated (Gini \RepGini; the top 10\% of workers earn \RepTopTen\% of credit and \RepStarved\% earn almost none), which is a fairness problem for an incentive that relies on credits.
+Receipts stay off the critical path (H10, supported): lengthening settlement from 10 to 300\,s changes P99 by at most $\pm$\HTenPct\%, and the stream is small, about \RecvRows{} rows and \RecvKBs\,KB per second at 20 invocations per second. Using the reliability score to break ties adds little (\RepPNinetyninePct\% lower P99, weak), and credit is highly concentrated (Gini \RepGini; the top 10\% of workers earn \RepTopTen\% of credit and \RepStarved\% earn almost none), which is a fairness problem for an incentive that relies on credits.
 
 \subsection{How does \voss{} compare with baselines and a commercial reference?}
 \label{sec:res-simple}

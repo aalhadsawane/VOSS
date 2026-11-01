@@ -5,7 +5,7 @@
   \node[zone, fill=green!4, minimum width=67mm, minimum height=82mm, anchor=north west] (fast) at (72,0) {};
   \node[font=\scriptsize\bfseries, anchor=north west] at ([xshift=2mm,yshift=-1mm]slow.north west) {Slow loop: the planner};
   \node[font=\tinyx, anchor=north west] at ([xshift=2mm,yshift=-5mm]slow.north west) {every 30\,s and when things change};
-  \node[font=\scriptsize\bfseries, anchor=north west] at ([xshift=2mm,yshift=-1mm]fast.north west) {Fast loop: the placer};
+  \node[font=\scriptsize\bfseries, anchor=north west] at ([xshift=2mm,yshift=-1mm]fast.north west) {Fast loop: request placement};
   \node[font=\tinyx, anchor=north west] at ([xshift=2mm,yshift=-5mm]fast.north west) {for every invocation, in milliseconds};
   % slow loop
   \node[box, minimum width=60mm, fill=white] (in) at (33.5,-20) {\textbf{Estimates}\\[-1pt]\tinyx survival, omission rate, assurance,\\[-2pt]\tinyx failure domains, forecast demand};

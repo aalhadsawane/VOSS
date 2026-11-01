@@ -14,13 +14,14 @@ Draft for **ACM Transactions on Internet Technologies** (`acmart`, `acmsmall`, j
 - `diagrams/*.tex`, `diagram-styles.tex`: TikZ figures sized for the 139 mm `acmsmall` column (architecture with the broker, session and start-up levels,
   attestation, control loops, failover, broker topics). Compile one on its own with a `standalone` wrapper to iterate on layout.
   `diagrams/lifecycle.tex` is kept but no longer included in the text.
-- `draft/voss-draft11.pdf`: built PDF of the current draft (draft 10 plus a fact-checked paragraph on idempotence and at-least-once delivery across serverless platforms), a rewrite for ACM TOIT in plain language with a problem-to-solution narrative, shorter text, and a
-  new section on reaching the scheduler (a provider-hosted publish/subscribe broker with one topic per cluster; a provider-hosted scheduler as the alternative;
-  the simulator models network delay only). Drafts 4-9 are kept for comparison.
+- `draft/voss-draft12.pdf`: built PDF of the current draft. Draft 12 answers the round-3 review (`docs/critique/CRITIQUE.md` C-34 to C-45):
+  plain, direct wording with one defined name per thing; why two loops (how often inputs change and how long decisions last); encryption at rest
+  before the key service; mutual TLS and the certificate lifecycle; the two architectures (global on provider hardware, clustered with a broker);
+  the router's role; end-to-end signed broker messages (MQTT-I); slow volunteer links; why exposure is kept; each estimator justified against
+  alternatives; new related work (two-timescale edge scheduling, Falcon, ALPS). Results are unchanged from draft 11. Drafts 4-11 are kept for comparison.
 - `ieee-draft9/`: the IEEE draft 9 sources, kept for reference. They use the old diagram files and no longer build; the PDF is `draft/voss-draft9.pdf`.
 - `refs.bib`: written from memory; **verify every entry** (entries marked "TODO verify" first) before submission.
 
 Open items: author list and affiliations (`main.tex`), related-work completeness, bibliography check, a real-testbed validation.
 
-Length: draft 10 is 29 pages in `acmsmall` (about 25 of body, 1.5 of references, 2 of appendices) against the recommended 20-25. Trimming candidates, least
-important first: Appendix B (move it online), the planner and fault tables in the results, the attestation figure.
+Length: draft 12 is 34 pages in `acmsmall` (about 30 of body) against the recommended 20-25. Trimming candidates, least important first: Appendix B (move it online), the planner and fault tables in the results, the attestation figure, the information-horizon table.

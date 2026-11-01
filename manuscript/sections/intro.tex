@@ -1,39 +1,66 @@
 \section{Introduction}
 \label{sec:intro}
 
-Serverless platforms run small pieces of customer code, called \emph{functions}, whenever a request arrives. Most of these functions finish in well under a second~\cite{shahrad2020wild}, so the useful work is tiny compared with everything around it.
-Before a function can run, the platform must create an isolated environment for it and load its language runtime. This is the \emph{cold start}. The request must also travel to wherever the function happens to run.
-Providers hide the cold start by keeping environments alive in their datacenters, which holds memory around the clock~\cite{shahrad2020wild,fuerst2021faascache}. They can do little about distance.
+Serverless platforms run small pieces of customer code, called \emph{functions}, whenever a request arrives. Most of these
+functions finish in well under a second~\cite{shahrad2020wild}, so the useful work is small compared with what surrounds it.
+Before a function can run, the platform must create an isolated environment for it and load its language runtime. This
+\emph{cold start} can take longer than the function itself. The request must also travel to wherever the function runs.
+Providers hide cold starts by keeping environments alive in their datacenters, which holds memory around the
+clock~\cite{shahrad2020wild,fuerst2021faascache}. They can do little about distance.
 
-Meanwhile, millions of home and office computers are close to users and idle for most of the day. Volunteer computing has used such machines for two decades~\cite{anderson2002seti,anderson2004boinc}, but only for batch jobs with deadlines of hours.
-We ask a harder question: can volunteer machines answer requests that must finish in a few seconds?
+Meanwhile, millions of home and office computers sit close to users and idle for most of the day. Volunteer computing has
+used such machines for two decades~\cite{anderson2002seti,anderson2004boinc}, but only for batch jobs with deadlines of
+hours. We ask whether volunteer machines can answer requests that must finish in a few seconds.
 
-Two things stand in the way.
-The first is \textbf{churn}. An owner can switch off, reboot or reclaim the machine at any moment, and everything the platform prepared on it disappears: warm environments, cached code and the secret keys it was given. For a function that runs for tens of milliseconds, preparing this state again costs far more than the function.
-The second is \textbf{distrust}. The owner controls the hardware and the operating system, so the owner can read the customer's code and data, return forged results, or walk away at the worst moment.
-The two feed on each other. The usual cure for distrust is to check a machine before using it, and that check takes time. Churn throws the result away each time a session ends.
+Two problems stand in the way. The first is \textbf{churn}: an owner can switch off, reboot or reclaim the machine at any
+moment, and everything the platform prepared on it disappears, including started environments, cached code and the secret
+keys it was given. For a function that runs for tens of milliseconds, preparing this state again costs far more than the
+function. The second is \textbf{distrust}: the owner controls the hardware and the operating system, so the owner can read
+the customer's code and data, return forged results, or walk away at the worst moment. The two problems feed on each
+other. The usual answer to distrust is to check a machine before using it, and that check takes time; churn throws the
+result away whenever a session ends.
 
-Earlier work solves only parts of this. Volunteer-computing systems tolerate untrusted machines by running every task several times and comparing answers~\cite{anderson2004boinc}. That multiplies cost, works only for tasks with a single right answer, and still shows the input to whoever runs it.
-Serverless schedulers avoid cold starts well~\cite{shahrad2020wild,fuerst2021faascache} but assume trusted machines that stay up. Confidential serverless designs protect customers from the platform operator~\cite{arnautov2016scone,wallet2025} but run on provider servers and treat the trust check as a one-time setup.
-And the standard way to notice a dead machine, listening for its periodic ``I am alive'' message (a heartbeat), fails against an owner who keeps sending heartbeats while throwing work away. Such a quiet failure is a \emph{gray failure}~\cite{huang2017gray}.
+Earlier work solves parts of this. Volunteer-computing systems run every task on several machines and compare the
+answers~\cite{anderson2004boinc}. That multiplies cost, works only for tasks with one right answer, and still shows the
+input to every machine that runs it. Serverless schedulers avoid cold starts well~\cite{shahrad2020wild,fuerst2021faascache}
+but assume trusted machines that stay up. Confidential-computing designs protect customers from the platform
+operator~\cite{arnautov2016scone,wallet2025}, but they run on provider servers and treat the trust check as a one-time setup
+step. And the usual way to notice a failed machine, waiting for its periodic ``I am alive'' message (a heartbeat), does not
+work against an owner who keeps sending heartbeats while discarding the work. Huang et al.\ call such a failure, where a
+component looks healthy to simple checks but fails the requests it serves, a \emph{gray failure}~\cite{huang2017gray}.
 
-\textbf{Our starting point} is that proving what software a machine runs changes the fault model. If the customer's code and the scheduler's own code run only inside a locked, measured software image, and a verifier has checked hardware-signed evidence of that image (\emph{remote attestation}), the owner cannot read, forge or tamper with anything inside.
-The owner keeps only the power switch and the network cable. A hostile owner can therefore do exactly what churn already does: stop, or delay. This failure class has a standard name, \emph{omission and timing failures}~\cite{cristian1991understanding,avizienis2004basic}, and a volunteer platform has to tolerate it anyway. One set of mechanisms then covers crashes, churn and malice.
+\textbf{Our starting point} is that proving which software a machine runs changes what a hostile owner can do. Suppose the
+customer's code, and the scheduler's own code, run only inside a locked operating-system image, and a verifier has checked
+hardware-signed evidence that the machine booted exactly that image. This check is \emph{remote attestation}. The owner can
+then no longer read, forge or change anything inside the image. What the owner keeps is the power switch and the network
+cable, so a hostile owner can stop the machine or delay its answers, which is what churn does anyway. The literature calls
+these \emph{omission} and \emph{timing} failures~\cite{cristian1991understanding,avizienis2004basic}. A volunteer platform
+must tolerate them regardless, so the same mechanisms cover crashes, churn and malicious owners.
 
-That reduction exposes the real scheduling problem. A machine is \emph{attested} for one session. It becomes \emph{provisioned} for a customer once that customer's key service has released a secret key to it, and \emph{warm} for a function once a ready environment is waiting.
-We call these together \emph{attested session state}. It is \emph{slow to create}: on our measurements a powered-off machine needs \CalAttested\,s to become an attested worker, thousands of times longer than resuming a warm environment. It is \emph{perishable}, since every session end destroys it. And it is \emph{exposing}, since each machine holding a customer's key is one more place the key could leak.
-Choosing where this state lives is a scheduling decision with a price, and it cannot be left to the per-request path.
+This leaves a scheduling problem with a specific shape. During one session a machine goes through three steps for a
+customer: it is attested; it receives the customer's decryption key from a key service the customer controls; and it starts
+environments for the customer's functions. All three are expensive, since a powered-off laptop needs \CalAttested\,s to
+become an attested worker, thousands of times longer than reusing an environment that is already running. All three are
+lost when the session ends. And every machine that holds a customer's key is one more place the key could leak from if the
+trust assumptions fail. Choosing which machines go through these steps, and when, is a decision with a cost, and it cannot
+be made one request at a time.
 
-\voss{} is a scheduler built around this view (Figure~\ref{fig:arch}). It has three ideas. First, it separates \emph{where state lives} from \emph{where a request runs}. A slow loop decides which machines hold which keys and warm environments, with spare capacity so that losing a few machines does not hurt. A fast loop then picks a machine for each request and duplicates the risky ones.
-Second, it detects failures from missing \emph{progress}, meaning work accepted but never finished, instead of missing heartbeats, and it replaces a failed scheduler without asking volunteers to agree on anything. Third, it records work with signed receipts rather than a blockchain.
-Because volunteer machines sit behind home routers and change address often, machines reach the scheduler through a provider-hosted publish/subscribe broker with one topic per cluster (Section~\ref{sec:network}).
+We present \voss{}, a scheduler built around this problem (Figure~\ref{fig:arch}). A \emph{planner} runs every 30 seconds
+and decides which machines hold which customer's key and which functions they keep ready, keeping enough spare capacity
+that losing a few machines does not hurt. A per-request step then chooses a machine for each call and sends a duplicate
+when the chosen machine is likely to fail. A machine is judged failed when work it accepted does not come back, and a
+failed scheduler is replaced by a provider-run coordinator without asking volunteers to agree on anything. Signed receipts
+record who did which work. We describe two architectures: one global scheduler on provider hardware, and geographic
+clusters whose schedulers run on volunteer machines and are reached through a publish/subscribe broker.
 
 Our contributions are:
-(1)~showing that attestation reduces hostile owners to omission and timing failures, and stating the resulting problem of managing attested session state;
-(2)~a two-timescale scheduler whose planner keeps coverage even if any $f$ machines fail together;
-(3)~a communication architecture for unstable, unreachable volunteer addresses, and a comparison of volunteer-hosted and provider-hosted schedulers;
-(4)~fault tolerance without agreement among volunteers;
-(5)~a deterministic, calibrated evaluation with hypotheses and decision rules fixed in advance, including what did not work.
+(1)~an argument that attestation reduces hostile owners to omission and timing failures, and a statement of the scheduling
+problem that remains;
+(2)~a two-part scheduler whose planner keeps capacity even if any $f$ machines fail together;
+(3)~an architecture for reaching schedulers on volunteer machines whose addresses change and cannot accept incoming
+connections, compared with a provider-hosted global scheduler;
+(4)~failure detection and scheduler replacement that need no agreement among volunteers;
+(5)~a deterministic, calibrated evaluation whose hypotheses and decision rules were fixed before the runs, reported with the
+results that went against us.
 
-Planning is the largest lever: it lowers tail latency by \GreedyNoneMed--\GreedyNoneHigh\% against no planning, and progress-based detection keeps \VossSuccAlpha\% of requests succeeding when 20\% of owners drop work, where heartbeat-only detection falls to \HbSuccAlpha\%.
-\voss{} meets a 3\,s tail-latency target in most settings we map, and the strongest simple baseline never does. Yet some designed components do not earn their complexity: geographic clustering was slower than one scheduler, an exact solver was not distinguishable from a greedy heuristic, and a commercial-style reference is still faster. All results come from simulation and one calibration machine (Section~\ref{sec:threats}).
+Planning has the largest effect: it lowers 99th-percentile latency by \GreedyNoneMed--\GreedyNoneHigh\% against provisioning machines only when requests arrive, and judging machines by returned work keeps \VossSuccAlpha\% of requests successful when 20\% of owners drop work, against \HbSuccAlpha\% with heartbeats. Some components did not pay off, including geographic clusters and an exact solver, and a commercial-style datacenter reference is still faster. All results come from simulation and one calibration machine (Section~\ref{sec:threats}).

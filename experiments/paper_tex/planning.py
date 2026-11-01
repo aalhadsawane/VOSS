@@ -103,6 +103,9 @@ def ablations(g: Gen) -> None:
     g.mac("AblGeoExp", f"{-delta['no_geo'][2][0]:.0f}")
     g.mac("AblGeoP", f"{-delta['no_geo'][0][0]:.2f}")
     g.mac("AblRepExp", f"{delta['reputation_in_cost'][2][0]:.0f}")
+    g.mac("AblExposureP", f"{delta['no_exposure'][0][0]:.2f}")
+    g.mac("AblExposurePHi", f"{delta['no_exposure'][0][2]:.2f}")
+    g.mac("AblExposureExp", f"{delta['no_exposure'][2][0]:.1f}")
     g.mac("AblNoProgSucc", f"{-100 * delta['no_progress'][1][0]:.1f}")
     expect(delta["no_geo"][0][2] < 0.0, "removing geo clusters lowers P99 (hi < 0)")
     top2 = sorted(delta, key=lambda k: -delta[k][0][0])[:2]
