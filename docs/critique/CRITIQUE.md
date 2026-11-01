@@ -82,6 +82,7 @@ round: C-32 and C-33.
 | C-43 | **[MAJOR]** If attested nodes are honest, why limit key exposure? | Design, S1 | U (round 3) |
 | C-44 | **[MAJOR]** The greedy planner is ad hoc for the paper's central contribution | Design, S1 | U (round 3) |
 | C-45 | **[MAJOR]** Writing: coined terms, undefined words, unjustified methods | Text, S1 | U (round 3) |
+| C-46 | **[MAJOR]** The planner's E04 gain is capacity spread, and the baseline's collapse is a placement defect | Design + Eval, S1 | A (round 4) |
 
 Section 2 gives the cascade map (how items combine) and Section 3 a proposed order for the discussion.
 
@@ -974,6 +975,28 @@ used for and why it was chosen over alternatives. Reviewers read this as machine
 
 **Status.** Text fixed in draft 12.
 
+
+---
+
+### C-46 · **[MAJOR]** The planner's E04 gain is capacity spread, and the baseline's collapse is a placement defect `[Design + Eval] S1` — origin **A** (round 4)
+
+**Finding (`docs/validation/E04-tail.md`, reproduced bit for bit).** The large P99 gains of the planner over keep-alive come
+from one 40–120 s episode per run in seeds 2, 8 and 10: synchronous requests of a high-sensitivity tenant queue about 10 s
+behind long asynchronous jobs on the 2–6 workers that hold its key. Greedy spreads the key over 11–20 workers. Trust-cold
+starts are 0.1–0.4% for both; no shocks or departures are involved. In ordinary seeds the planner's 8–12% edge comes from
+placing work on faster workers.
+
+**Why it matters.** (1) The paper's mechanism story (avoiding key-release delay, session-spanning state) is not what E04
+shows. (2) Request placement, shared by every system, estimates slot waits with one scheduler-wide mean service time, so a
+queue of long jobs looks short and placement prefers it to releasing the key to another worker. A fairer baseline would not
+collapse as badly.
+
+**Resolution.** WP6: per-worker wait estimate from predicted remaining work, plus a variant where synchronous requests
+overtake queued asynchronous ones; full rerun afterwards. Compare against `provisioned_keys` (keys held ahead on the most
+reliable workers, exposure matched) to separate "holding keys early" from "planning". Rewrite the planner's claimed mechanism
+from the corrected results.
+
+**Status.** Open (code + rerun).
 ---
 
 ## 2. Cascade map
