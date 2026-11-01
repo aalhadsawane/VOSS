@@ -20,6 +20,7 @@ from voss.policy.plan.diff import PlanAction, diff, rate_limit
 from voss.policy.plan.types import Plan, PlanInput, PlanParams
 from voss.policy.predict.arrivals import poisson_quantile
 from voss.runtime.schedlib.models import SchedModels
+from voss.runtime.schedlib.prices import Prices
 
 
 @dataclass
@@ -43,6 +44,7 @@ class Planning:
         self.planner: Any = create("planner", pc.name, **kw)
         self.params = PlanParams(**{"tie_break": cfg.reputation.tie_break, **pc.params})
         self.prev: Plan | None = None
+        self.prices: Prices | None = None  # set by the scheduler: measured card prices (D-33)
         self._last_sig: tuple[object, ...] = ()
 
     def _workers(self, view: ClusterView, now: float, horizon: float) -> np.ndarray:
@@ -79,7 +81,6 @@ class Planning:
         hour = np.mod(self.start_utc_h + now / 3600 + tz[idx], 24)
         survival = self.models.survival.p_alive_arr(k[idx], lam[idx], now - start[idx], horizon, hour, drain[idx], now)
         f_default = math.ceil(pc.f_from_alpha * len(idx))
-        prev_y = self._prev_y(tenants, workers)
         return PlanInput(
             now=now,
             horizon_s=horizon,
@@ -105,10 +106,69 @@ class Planning:
             fn_size=np.array([self.ctx.fns[f].snapshot_mb for f in fns]),
             fn_benefit=np.array([self._benefit(f, fn_rates[f], horizon, demand.q) for f in fns]),
             fn_units=np.array([float(poisson_quantile(fn_rates[f] * self._svc(f), 0.95)) for f in fns]),
-            y_prev=prev_y,
+            y_prev=self._prev_y(tenants, workers),
             params=self.params,
             rep=np.array([self.models.rep.get(int(w), 0.0) for w in workers]) if self.models.rep else None,
+            **self._loss_inputs(view, idx, now, horizon, tenants, fns, fn_rates, demand.rate),
         )
+
+    def _loss_inputs(
+        self,
+        view: ClusterView,
+        idx: np.ndarray,
+        now: float,
+        horizon: float,
+        tenants: list[str],
+        fns: list[str],
+        fn_rates: dict[str, float],
+        t_rates: dict[str, float],
+    ) -> dict[str, np.ndarray]:
+        """Estimates for the Erlang planners (planner-v2 §6), all from the scheduler's own view: slot hold time =
+        warm dispatch + execution; boot and restore from the cost card the placer uses; Δ_t = measured price of a
+        trust-cold start (``Prices.cold_trust``, D-33); residence ``E[min(L_j, T)]`` by quadrature of the survival
+        model; measured exposure from the keys workers actually hold (``view.trust``)."""
+        sm = next(iter(self.ctx.startup.values()))
+        info = [self.ctx.fns[f] for f in fns]
+        # TODO verify: 500 MB/s rootfs pull rate (same constant as ``_benefit``)
+        boot = np.array([i.rootfs_mb / 500.0 + sm.boot_s + i.init_s for i in info])
+        hold = np.array([self._svc(f) + sm.dispatch_s for f in fns])
+        by_t = [[i for i, f in enumerate(fns) if self.ctx.fns[f].tenant == t] for t in tenants]
+        t_svc = [
+            self.models.forecaster.service.get(t, float(np.mean(hold[ix])) if ix else 0.1)
+            for t, ix in zip(tenants, by_t, strict=True)
+        ]
+        delta = self.prices.cold_trust if self.prices is not None else self.cfg.router.cold_penalty_s
+        trust = [view.trust[i] for i in idx]
+        return {
+            "fn_rate": np.array([fn_rates[f] for f in fns]),
+            "fn_hold": hold,
+            "fn_boot": boot,
+            "fn_restore": np.full(len(fns), sm.restore_s),
+            "delta_t": np.full(len(tenants), float(delta)),
+            "tenant_load": np.array([t_rates[t] * float(v) for t, v in zip(tenants, t_svc, strict=True)]),
+            "residence": self._residence(view, idx, now, horizon),
+            "measured_exposure": np.array(
+                [
+                    sum(1 - view.assurance[i] for i, tr in zip(idx, trust, strict=True) if TenantId(t) in tr)
+                    for t in tenants
+                ]
+            ),
+        }
+
+    def _residence(self, view: ClusterView, idx: np.ndarray, now: float, horizon: float) -> np.ndarray:
+        """``E[min(L_j, T)] = ∫₀ᵀ S_j(τ) dτ`` with ``T = session_horizons·H``, by trapezoid over 9 points."""
+        k, lam, start, tz, drain = self.models._static(view)
+        t_max = self.params.session_horizons * horizon
+        hour = np.mod(self.start_utc_h + now / 3600 + tz[idx], 24)
+        grid = np.linspace(0.0, t_max, 9)
+        s = np.array(
+            [
+                self.models.survival.p_alive_arr(k[idx], lam[idx], now - start[idx], g, hour, drain[idx], now)
+                for g in grid
+            ]
+        )
+        out: np.ndarray = np.trapezoid(s, grid, axis=0)
+        return out
 
     def _svc(self, fn: str) -> float:
         return float(self.models.forecaster.service.get(f"fn:{fn}", self.ctx.fns[fn].work_ref_s))
@@ -170,6 +230,8 @@ class Planning:
         sig = self._signature(inp)
         if self.prev is not None and sig == self._last_sig:
             plan = replace(self.prev, valid_until=now + inp.horizon_s, status="reused")
+            if hasattr(self.planner, "on_reused"):  # stateful planners (erlang_dpp) advance every round
+                self.planner.on_reused(inp)
         else:
             plan = self.planner.plan(inp)
             self._last_sig = sig
