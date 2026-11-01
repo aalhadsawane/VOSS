@@ -493,3 +493,17 @@ messages are sealed with the session keys and carry the epoch. A global or regio
 architecture statement for the paper only: the simulator still models only network delay (the 20 ms relay term), no code changes, no
 experiment changes, and the paper states that broker capacity, connection set-up and reconnection are not modelled. A comparison of
 volunteer-hosted (with broker) and provider-hosted schedulers (E-SCHED) remains future work.
+
+**D-75 Workers check the scheduler's certificate on every DISPATCH at the installed epoch** (P11, doc 07 §3, critique C-38). `worker_agent._dispatch`
+checked only the cluster and epoch, although DISPATCH carries the scheduler's certificate id and EPOCH_INSTALL tells the worker which certificate was
+appointed. The rule is now a pure function, `accepts_dispatch`: same cluster, no older epoch, and at the installed epoch the certificate must match
+the appointment. A newer epoch is still accepted before its EPOCH_INSTALL arrives (in a deployment the orchestrator-signed appointment token is
+checked there; not modelled). No honest run reaches the new branch: the repro-smoke hash is unchanged.
+
+**D-76 Channel security and certificate lifecycle as stated in the paper** (P11, doc 04, doc 08 §2, critique C-38, C-39). Every channel is mutual
+TLS with the session certificate (worker to router, key service, verifier and broker; scheduler to broker; scheduler to worker when direct). The
+certificate authority is at the verifier: it issues the certificate when the quote is accepted, sets its expiry to the session's expiry (renewed
+by each re-quote) and revokes it when the session ends. Control messages that pass through the broker are additionally signed end to end with the
+sender's session key and carry the epoch and a sequence number, so the broker can drop or delay but not forge or replay. The simulator models the
+delays and the revocation push, not signatures or their CPU cost.
+
