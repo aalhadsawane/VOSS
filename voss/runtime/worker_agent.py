@@ -51,6 +51,15 @@ from voss.world.workload import FunctionSpec
 MB = 1024 * 1024
 
 
+def accepts_dispatch(cluster: int | None, epoch: int, sched_cert: str, m: Dispatch) -> bool:
+    """Fencing rule for a DISPATCH (doc 07 §3): same cluster, no older epoch, and at the installed epoch the sender's
+    session certificate must be the one the orchestrator appointed. A newer epoch is accepted before its EPOCH_INSTALL
+    arrives; a deployment checks the orchestrator-signed appointment token there (not modelled)."""
+    if m.cluster != cluster or m.epoch < epoch:
+        return False
+    return m.epoch != epoch or sched_cert in ("", m.cert_id)
+
+
 class WorkerAgent(RecoveryMixin, PlannedMixin, FetchMixin, SessionMixin, Actor):
     role = "agent"
 
@@ -246,7 +255,7 @@ class WorkerAgent(RecoveryMixin, PlannedMixin, FetchMixin, SessionMixin, Actor):
     def _dispatch(self, m: Dispatch) -> None:
         if not self.host.cert_valid(self.now):
             return
-        if m.cluster != self.cluster or m.epoch < self.epoch:
+        if not accepts_dispatch(self.cluster, self.epoch, self.sched_cert, m):
             self.send(
                 m.scheduler, Stale(self.host.worker, self.epoch, -1 if self.cluster is None else int(self.cluster))
             )
