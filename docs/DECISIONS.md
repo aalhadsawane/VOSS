@@ -507,3 +507,19 @@ by each re-quote) and revokes it when the session ends. Control messages that pa
 sender's session key and carry the epoch and a sequence number, so the broker can drop or delay but not forge or replay. The simulator models the
 delays and the revocation push, not signatures or their CPU cost.
 
+
+**D-77 Per-worker slot-wait estimate and an optional synchronous-priority slot queue; both off by default** (WP6, doc 03 §5.2, critique C-46, `docs/validation/E04-tail.md`). The tail analysis found that the
+request placer estimated the wait for a slot as `(busy + queued + in-flight - slots + 1)^+ * svc / slots` with one scheduler-wide EWMA `svc` of service time, so a queue of 6-s asynchronous jobs looked as short as a
+queue of 0.3-s jobs, and slots are FIFO shared by synchronous and asynchronous work. Two independent options (defaults keep the old behaviour, the repro-smoke hash is unchanged, and `RunConfig.config_hash` omits both
+keys while they hold their defaults so existing run directories and `paper/run-hashes.csv` stay valid):
+
+1. `voss.cost.wait_model: ewma | per_worker` (default `ewma`). `per_worker` replays the worker's FIFO over `slots` servers with the predicted run time (`Copy.mu`, the cost model's own prediction at dispatch) of every copy the
+   scheduler dispatched there and has not heard back about (`voss/policy/cost/wait.py::expected_wait`, pure; records from `schedlib/inflight.py::job_estimates`), and returns the time until a slot frees for a new
+   arrival. A job past its predicted end holds its slot for a further 25% of its prediction (`# TODO verify`); load the worker reports beyond the scheduler's own records counts as jobs of one `svc` each. Cost: one O(n log n) replay per worker per decision.
+2. `voss.worker.sync_priority: false | true` (default false). `Slots` serves the waiting request with the lowest SLO class first (sync, then async, then filler), FIFO among equals; running jobs are never preempted.
+   With `per_worker`, a synchronous arrival's wait estimate in the cost matrix then ignores queued asynchronous jobs.
+
+Measured (E04 `churn_high`, seeds 2 and 8, same scenarios; the default cells reproduce the published P99 of 5.27, 4.89, 1.50 and 1.49 s): P99 sync, keepalive_ttl: default 5.27 / 4.89 s, `per_worker` 3.07 / 6.10 s, `per_worker` + priority 1.71 / 2.94 s;
+plan_greedy: 1.50 / 1.49 s, 1.41 / 1.44 s, 1.34 / 1.38 s. Success, warm memory and exposure change by at most the run-to-run shift of a different trajectory (keepalive warm RAM 73-96 GB, exposure 9.2-10.5; greedy 110-125 GB, 18.0-19.0).
+So a better wait estimate alone does not remove the keep-alive collapse (it helps in seed 2, hurts in seed 8: 2 cells, not a result), while letting synchronous work overtake queued asynchronous jobs removes most of it
+(P99 -68% and -40% for keepalive) and still leaves keep-alive 0.4-1.6 s above greedy, which holds 2x the key holders. Full tables: `docs/validation/E04-wait-model.md`. The full rerun of the paper should decide whether either option becomes the default for every system.

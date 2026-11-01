@@ -80,7 +80,7 @@ class Attempt:
         lad = h.profile.ladder
         self.level, self.tier = cache_level(h.cache, self.fn, lad, h.snapshot_class, self._digests())
         self.trust_cold = bool(h.profile.trust) and self.inv.tenant not in self.port.keys
-        self.slot = h.slots.acquire(lambda _tok: self._ready("slot", 0.0))
+        self.slot = h.slots.acquire(lambda _tok: self._ready("slot", 0.0), int(self.inv.slo_class))
         self._run(h.profile.trust if self.trust_cold else (), lambda d: self._ready("trust", d))
         prep, _ = split_path(lad, self.level)
         self._run(ops_of(lad, prep), lambda d: self._ready("prep", d))

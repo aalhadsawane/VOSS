@@ -119,6 +119,7 @@ class CostConfig(Frozen):
     sync_weight: float = 1.0
     sigma: dict[str, float] = Field(default_factory=lambda: {"low": 0.1, "medium": 1.0, "high": 3.0})
     lifecycle_aware: bool = True  # False: ablation, placement sees one startup estimate for every candidate
+    wait_model: Literal["ewma", "per_worker"] = "ewma"  # slot-wait estimate (D-77): scheduler-wide EWMA or per worker
 
 
 class HedgeConfig(Frozen):
@@ -185,6 +186,7 @@ class WorkerConfig(Frozen):
     m_base_mb: float = 512.0
     prebooted_at_start: bool = True
     assurance_tofu_factor: float = 0.9  # f_policy for TOFU firmware (doc 04 §8). tag: assumed
+    sync_priority: bool = False  # D-77: a free slot serves waiting synchronous requests before queued async ones
 
 
 class OrchestratorConfig(Frozen):
@@ -305,6 +307,9 @@ class VossConfig(Frozen):
     reputation: ReputationConfig = Field(default_factory=ReputationConfig)
 
 
+_HASH_OMIT_DEFAULT = (("cost", "wait_model", "ewma"), ("worker", "sync_priority", False))
+
+
 class RunConfig(Frozen):
     """Root of the config tree."""
 
@@ -321,7 +326,11 @@ class RunConfig(Frozen):
     label: str = ""
 
     def config_hash(self) -> str:
-        return hash_obj(self.model_dump(mode="json", exclude={"out_dir", "label"}))
+        tree = self.model_dump(mode="json", exclude={"out_dir", "label"})
+        for sect, key, default in _HASH_OMIT_DEFAULT:  # D-77: knobs added later keep old run directories valid
+            if tree["voss"][sect][key] == default:
+                del tree["voss"][sect][key]
+        return hash_obj(tree)
 
 
 def deep_merge(base: dict[str, Any], over: dict[str, Any]) -> dict[str, Any]:

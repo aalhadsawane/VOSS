@@ -5,6 +5,7 @@ The scheduler role calls this and applies the result after the decision latency 
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -17,9 +18,10 @@ from voss.core.types import ClusterView, Invocation, SloClass
 from voss.policy import hedge as _hedge  # noqa: F401  (registers hedge policies)
 from voss.policy.admission import admit, filler_mask
 from voss.policy.cost.arrays import ArrayCache
-from voss.policy.cost.components import CostMatrix, PredsFn, build_cost_matrix
+from voss.policy.cost.components import CostMatrix, PredsFn, Waits, build_cost_matrix
 from voss.policy.cost.inputs import CostContext
 from voss.policy.cost.scalarize import SCALARIZERS
+from voss.policy.cost.wait import JobEst, worker_waits
 from voss.policy.hedge import TokenBucket
 from voss.policy.place import registry as _placers  # noqa: F401  (registers placers)
 from voss.policy.place.base import PlaceRequest
@@ -61,6 +63,7 @@ class Decider:
         gen: np.random.Generator,
         windowed: bool,
         idx: dict[WorkerId, int] | None = None,
+        jobs: Mapping[WorkerId, Sequence[JobEst]] | None = None,
     ) -> Decision:
         out = Decision(work=len(invs) * max(1, len(view)))
         if not len(view):
@@ -68,7 +71,8 @@ class Decider:
             return out
         preds = self.models.preds_fn(invs, view, now, self.start_utc_h)
         svc = self.models.svc
-        cm = build_cost_matrix(invs, view, self.ctx, preds, now, routers, self.cache, svc_s=svc)
+        waits = self._waits(view, jobs, now, svc)
+        cm = build_cost_matrix(invs, view, self.ctx, preds, now, routers, self.cache, svc_s=svc, waits=waits)
         cm = self._filler(invs, view, cm)
         scores = self.scalarize(cm, invs, self.ctx)
         keep = self._admission(invs, cm, out)
@@ -96,6 +100,16 @@ class Decider:
             out.predicted[(inv.id, w)] = _pred(req.cm, r, j)
             self._maybe_hedge(inv, r, j, req, view, out, preds, keep[r])
         return out
+
+    def _waits(
+        self, view: ClusterView, jobs: Mapping[WorkerId, Sequence[JobEst]] | None, now: float, svc: float
+    ) -> Waits | None:
+        """Doc 03 §5.2 / D-77: per-worker wait from predicted remaining work (``cost.wait_model: per_worker``)."""
+        if self.cfg.cost.wait_model != "per_worker" or jobs is None:
+            return None
+        prio = self.cfg.worker.sync_priority
+        asyn = worker_waits(view, jobs, now, svc, False, prio)
+        return Waits(asyn, worker_waits(view, jobs, now, svc, True, True) if prio else asyn)
 
     def _filler(self, invs: tuple[Invocation, ...], view: ClusterView, cm: CostMatrix) -> CostMatrix:
         if not any(i.slo_class == SloClass.FILLER for i in invs):
