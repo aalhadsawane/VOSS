@@ -1,54 +1,28 @@
 \section{Related Work}
 \label{sec:related}
 
-\voss{} needs six things at once: tolerance of untrusted machines, tolerance of churn, latency targets, planning of keys and
-warm sandboxes, detection of gray failures, and verifiable records of work. Each line of work below covers some of them.
+\textbf{Cold starts and serverless scheduling.} Platforms decide when to keep sandboxes alive or start them early, for example
+by learning each application's idle times~\cite{shahrad2020wild} or treating keep-alive as caching~\cite{fuerst2021faascache},
+and make start-up faster with lighter sandboxes and snapshots~\cite{agache2020firecracker,oakes2018sock,ao2022faasnap,cadden2020seuss}.
+Placement schedulers sample a few machines~\cite{ousterhout2013sparrow}, move the scheduler into a switch~\cite{kettaneh2020falcon},
+or pack long jobs onto fleets~\cite{verma2015borg}; ALPS schedules function processes inside one machine~\cite{fu2024alps}. All
+assume trusted machines that stay up, so a warm sandbox disappears only by policy and nothing resembles a key whose release
+costs time and adds exposure. We use the Azure histogram policy as our strongest single-loop baseline.
 
-\textbf{Volunteer computing.} BOINC-style systems use idle machines for scientific batch
-work~\cite{anderson2002seti,anderson2004boinc}. Because the machines are untrusted, they run each task several times and
-accept a result when enough copies agree, and they use deadlines of hours to tolerate machines that disappear. Replication
-multiplies cost, needs tasks that always give the same answer, protects results but not the confidentiality of inputs, and
-works on a timescale of hours. \voss{} uses attestation for integrity and confidentiality instead, and duplicates work only
-against dropped results, and only for requests at risk.
+\textbf{Two-timescale placement and submodular selection.} Edge computing often places services slowly and routes requests
+quickly~\cite{farhadi2021ton,tang2024rmws}. \voss{} shares this structure; what differs is that the placed resource is trust,
+whose cost is exposure, on machines that disappear with estimated probabilities, protected against worst-case losses. Our
+planner uses diminishing-returns structure in the style of submodular maximisation~\cite{nemhauser1978,harshaw2019}, the
+convexity of the Erlang loss formula~\cite{messerli1972}, and budgeted robustness~\cite{bertsimas2004price}.
 
-\textbf{Serverless scheduling and cold starts.} Work on cold starts decides when to keep sandboxes alive or start them
-early~\cite{shahrad2020wild}, treats keep-alive as caching~\cite{fuerst2021faascache}, or makes start-up faster with lighter
-sandboxes and snapshots~\cite{agache2020firecracker,oakes2018sock,ao2022faasnap,cadden2020seuss}. For placement, Sparrow
-schedules short tasks by sampling a few machines~\cite{ousterhout2013sparrow}, Falcon moves a central scheduler into a
-programmable switch to cut its latency~\cite{kettaneh2020falcon}, and Borg packs long-running jobs onto large
-fleets~\cite{verma2015borg}. Inside one machine, ALPS learns a priority schedule for function processes from recent
-traces~\cite{fu2024alps}. All of these assume trusted machines that stay up: a warm sandbox disappears only when a policy
-evicts it, and there is nothing like a key whose release costs time and adds exposure. \voss{} reuses the start-up levels and
-the per-request placement ideas, and adds a trust step per session and a plan that accounts for churn and exposure.
+\textbf{Volunteer and confidential computing.} BOINC runs each task several times and compares results~\cite{anderson2002seti,anderson2004boinc},
+which multiplies cost and exposes inputs; \voss{} uses attestation instead. Confidential serverless designs protect code from
+the operator on provider servers~\cite{arnautov2016scone,wallet2025,segarra2024sesame,misono2025cvm} but do not handle machines
+that vanish, nor schedule trust as a resource. Platforms on harvested or edge capacity~\cite{zhang2021harvest,rausch2021edge}
+handle announced evictions by trusted owners.
 
-\textbf{Two-timescale placement in edge computing.} Mobile edge computing commonly splits decisions by timescale: which
-services or resources to place on edge servers is decided slowly, and where each request goes is decided quickly. Farhadi et
-al.\ place services and schedule requests at two timescales with an approximation guarantee~\cite{farhadi2021ton}, and Tang
-et al.\ combine slow resource provisioning by Gibbs sampling with fast workload scheduling for cloud-assisted edge
-computing~\cite{tang2024rmws}. \voss{} shares this structure, and Section~\ref{sec:why2} gives our reason for it. What differs
-is the resource being placed: trust in the form of keys, whose cost is exposure and whose benefit is the slow path avoided;
-machines that disappear with probabilities we estimate; and protection against worst-case rather than random losses. The
-Lyapunov drift-plus-penalty method often used in that literature is a natural way to turn our exposure weight into a budget.
-
-\textbf{Harvested and edge serverless.} Platforms on spare datacenter capacity~\cite{zhang2021harvest} and edge schedulers~\cite{rausch2021edge} run on machines that belong to the provider or a trusted party, so they handle announced evictions, not machines that silently stop answering, and give no secret to a party that might read it.
-
-\textbf{Confidential serverless.} Trusted execution environments protect code from the host operating system and the
-platform operator~\cite{arnautov2016scone,costan2016sgx,amd2020snp}, and recent work runs serverless functions in
-confidential virtual machines and containers~\cite{wallet2025,segarra2024sesame,misono2025cvm}. These designs target
-provider-managed servers. They do not deal with machines whose sessions end without warning, and they do not schedule the
-establishment of trust as a resource with a cost, a lifetime and an exposure. \voss{} can run over either kind of machine.
-
-\textbf{Trusted components and failure detection.} Small trusted components, such as a counter or log, restrict what a faulty
-node can do and reduce the replication needed for Byzantine agreement~\cite{levin2009trinc,veronese2013minbft}. We use
-attestation differently: it does not make agreement cheaper, it removes the need for it, because an attested machine can
-stop but not lie, so a provider-run referee can replace agreement among volunteers. For detection, heartbeat detectors,
-including the adaptive $\varphi$-accrual detector~\cite{hayashibara2004phi}, estimate whether a process is running from the
-timing of its heartbeats. Gray failures~\cite{huang2017gray} show why that is not enough, and \voss{} instead checks whether
-accepted work comes back.
-
-\textbf{Brokers and duplicates.} MQTT~\cite{mqtt5} gives no protection against the broker itself, and MQTT-I adds end-to-end
-integrity for data flows through an untrusted broker~\cite{buccafurri2024mqtti}; we sign messages end to end for the same
-reason. Hedged requests reduce tail latency by duplicating slow work~\cite{dean2013tail}; \voss{} duplicates in proportion to
-estimated risk, on a machine in a different city or provider, within a budget. For protection against losing $f$ machines we
-use the budgeted robust optimisation of Bertsimas and Sim~\cite{bertsimas2004price}, which answers ``is demand still covered
-if any $f$ machines fail together?'' without a probability model of the adversary.
+\textbf{Failure detection and coordination.} Trusted components reduce the replication needed for Byzantine
+agreement~\cite{levin2009trinc,veronese2013minbft}; we use attestation to remove the need for agreement, since an attested
+machine can stop but not lie. Heartbeat detectors, including $\varphi$-accrual~\cite{hayashibara2004phi}, cannot see gray
+failures~\cite{huang2017gray}; we check returned work. Duplicating slow requests cuts tail latency~\cite{dean2013tail}; we
+duplicate only at-risk idempotent requests, within a budget.
