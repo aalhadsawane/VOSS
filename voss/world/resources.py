@@ -206,18 +206,23 @@ class Psp(FifoServer):
 
 
 class Slots:
-    """FIFO counting semaphore for VM slots: ``acquire(cb)`` calls ``cb(token)`` once a slot is free."""
+    """Counting semaphore for VM slots: ``acquire(cb)`` calls ``cb(token)`` once a slot is free.
 
-    def __init__(self, n: int) -> None:
+    FIFO by default. With ``priority`` a free slot goes to the waiting request with the lowest ``prio`` (SLO class, sync
+    first), FIFO among equals; running requests are never preempted (D-77).
+    """
+
+    def __init__(self, n: int, priority: bool = False) -> None:
         self.n = max(1, n)
+        self.priority = priority
         self.held: set[int] = set()
-        self.waiting: deque[tuple[int, Callback]] = deque()
+        self.waiting: deque[tuple[int, int, Callback]] = deque()
         self._seq = 0
 
-    def acquire(self, cb: Callback) -> int:
+    def acquire(self, cb: Callback, prio: int = 0) -> int:
         token = self._seq
         self._seq += 1
-        self.waiting.append((token, cb))
+        self.waiting.append((token, prio, cb))
         self._pump()
         return token
 
@@ -227,7 +232,7 @@ class Slots:
             self.held.discard(token)
             self._pump()
         else:
-            self.waiting = deque((t, c) for t, c in self.waiting if t != token)
+            self.waiting = deque(w for w in self.waiting if w[0] != token)
 
     def reset(self) -> None:
         self.held.clear()
@@ -243,6 +248,12 @@ class Slots:
 
     def _pump(self) -> None:
         while self.waiting and len(self.held) < self.n:
-            token, cb = self.waiting.popleft()
+            if self.priority:
+                best = min(range(len(self.waiting)), key=lambda i: (self.waiting[i][1], i))
+                self.waiting.rotate(-best)
+                token, _, cb = self.waiting.popleft()
+                self.waiting.rotate(best)
+            else:
+                token, _, cb = self.waiting.popleft()
             self.held.add(token)
             cb(token)

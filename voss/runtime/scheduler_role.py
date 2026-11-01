@@ -1,8 +1,5 @@
-"""Scheduler role (doc 03 §5, doc 07 §3, doc 08 §4): latent in every attested worker, active when appointed.
-
-Thin actor: decodes messages, calls the fast-loop decision pipeline (``schedlib.decide``) and applies its result after
-the decision latency (doc 01 §7); keeps only soft state (in-flight copies, learned models).
-"""
+"""Scheduler role (doc 03 §5, doc 07 §3, doc 08 §4): latent in every attested worker, active when appointed. Thin actor:
+calls the decision pipeline (``schedlib.decide``) after the decision latency (doc 01 §7); keeps only soft state."""
 
 from __future__ import annotations
 
@@ -39,7 +36,7 @@ from voss.policy.predict.base import ExecObs, FnPrior
 from voss.policy.retry import BasicRetry
 from voss.runtime.actor import Actor, ActorContext
 from voss.runtime.schedlib.decide import Decider, Decision
-from voss.runtime.schedlib.inflight import Copy, Inflight
+from voss.runtime.schedlib.inflight import Copy, Inflight, job_estimates
 from voss.runtime.schedlib.keepalive import KeepaliveMixin
 from voss.runtime.schedlib.models import SchedModels
 from voss.runtime.schedlib.planner_mixin import PlannerMixin
@@ -253,7 +250,10 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, SuccessionMixin, EventsMixin,
         view = self.views.view(self.eligible(), self.now)
         routers = tuple(str(r.router[1]) for r in recs)
         t0 = time.perf_counter()
-        d = self.decider.decide(tuple(r.inv for r in recs), view, self.now, routers, self.gen, windowed, self.views.idx)
+        jobs = job_estimates(self.inflight) if self.ctx.cfg.voss.cost.wait_model == "per_worker" else None
+        d = self.decider.decide(
+            tuple(r.inv for r in recs), view, self.now, routers, self.gen, windowed, self.views.idx, jobs
+        )
         wall = time.perf_counter() - t0
         delay = self.ctx.clock.charge("place", work=d.work, host_speed=self.hl.speed, wall_s=wall)
         if self.now < self.hl.extra.get("slow_until", 0.0):

@@ -39,6 +39,18 @@ PredsFn = Callable[[int, np.ndarray], Preds]  # (row, view indices) -> predictio
 
 
 @dataclass(frozen=True)
+class Waits:
+    """Per-worker slot-wait vectors from ``voss.policy.cost.wait`` (D-77); ``sync`` is used by synchronous requests when
+    they may overtake queued asynchronous ones."""
+
+    asyn: np.ndarray
+    sync: np.ndarray
+
+    def pick(self, inv: Invocation) -> np.ndarray:
+        return self.sync if inv.slo_class == SloClass.SYNC else self.asyn
+
+
+@dataclass(frozen=True)
 class CostMatrix:
     """Doc 05 §3: named components over ``[I, K]`` candidate grids; ``candidates`` index into the view."""
 
@@ -139,6 +151,7 @@ def build_cost_matrix(
     margin_s: float = 5.0,
     prune_factor: int = 3,
     svc_s: float = 1.0,
+    waits: Waits | None = None,
 ) -> CostMatrix:
     """Doc 03 §5.2 for every invocation (rows) over its top-K eligible candidates."""
     cache = cache or ArrayCache()
@@ -147,6 +160,7 @@ def build_cost_matrix(
     wait = np.maximum(0, occ - view.slots + 1) * svc_s / np.maximum(view.slots, 1)
     rows, tops = [], []
     for i, inv in enumerate(invs):
+        wait = waits.pick(inv) if waits is not None else wait  # D-77: per-worker estimate, by SLO class
         st = static_parts(inv, view, ctx, cache, now, routers[i], margin_s)
         sub = prune(inv, view, ctx, st, wait, prune_factor * k)
         p = _slice(preds, i, sub) if isinstance(preds, Preds) else preds(i, sub)

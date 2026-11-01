@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from voss.core.ids import Addr, WorkerId
-from voss.core.types import Invocation
+from voss.core.ids import Addr, InvId, WorkerId
+from voss.core.types import Invocation, SloClass
+from voss.policy.cost.wait import JobEst
 
 
 @dataclass
@@ -38,3 +39,14 @@ class Inflight:
 
     def live_on(self, w: WorkerId) -> list[Copy]:
         return [c for c in self.copies.values() if c.worker == w]
+
+
+def job_estimates(inflight: dict[InvId, Inflight]) -> dict[WorkerId, list[JobEst]]:
+    """What the scheduler dispatched and has not heard back about, per worker, in dispatch order (D-77)."""
+    out: dict[WorkerId, list[JobEst]] = {}
+    for _, rec in sorted(inflight.items()):
+        for _, c in sorted(rec.copies.items()):
+            out.setdefault(c.worker, []).append(JobEst(c.t_dispatch, c.mu, rec.inv.slo_class == SloClass.SYNC))
+    for js in out.values():
+        js.sort(key=lambda j: j.t_dispatch)
+    return out

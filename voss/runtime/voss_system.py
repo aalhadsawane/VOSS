@@ -154,6 +154,7 @@ class VossSystem:
             meta,
             self.cfg.voss.cache.hdd_tier,
         )
+        host.slots.priority = self.cfg.voss.worker.sync_priority
         g = self.rng.stream("host.slowdown", w)
         host.cpu_slowdown = _sample(prof.slowdown.get("cpu", 1.0), g) * _sample(prof.slowdown.get("mem", 1.0), g)
         host.io_slowdown = _sample(prof.slowdown.get("io", 1.0), g)
