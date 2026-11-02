@@ -83,15 +83,15 @@ pooled figures above are unaffected. This does not support "one release serves e
 2. **Decomposition.** `provisioned_keys` is not "holding keys early without planning": each round it calls the greedy planner to
    obtain the number of holders per tenant, which is the set-level, forecast-driven decision (how many workers should hold each
    key, given demand, survival and the `f` losses to tolerate). It then picks *which* workers by reliability only, with no
-   robust coverage and no warm-state planning. That decision is about four fifths of the gain over the single loops (-19%
-   against -23%). Choosing the workers well and planning warm sandboxes adds about 5%, at about 20 GB more warm memory. A
+   robust coverage and no warm-state planning. That decision is about four fifths of the gain over the single loops (-17% and -14% against -21% and -18%, per-seed ratios). Choosing the workers well and planning warm sandboxes adds about 5%, at about 20 GB more warm memory. A
    per-request loop or a per-function timer cannot make the sizing decision.
 3. **Mechanism.** The gain is not avoided key-release latency (E04-tail: trust-cold starts are 0.1-0.4% everywhere) and not
-   survival-aware choice of holders (H16b). It is spare capacity on enough key holders at the moment demand arrives, plus
-   the fact that one key release serves every later request of the session (amortisation; see the per-session statistic
-   from `work/round4-macros`). Survival information is probably uninformative in these runs because the planner's horizon is
-   60 s (greedy) or about 180 s (`erlang_greedy`) while sessions last hours, so survival is close to 1 for most workers;
-   this is a likely explanation that has not been checked.
+   survival-aware choice of holders (H16b). It is spare capacity on enough key holders when demand arrives. It is also not
+   amortisation: the planner releases keys about 270 times per run after warm-up against about 6 for a keep-alive timer (keep-alive
+   does nearly all its releases in the first minutes and then keeps them), so one release serves about 30 synchronous invocations
+   against about 1350. Survival information is probably uninformative in these runs because the planner's horizon is 60 s
+   (greedy) or about 180 s (`erlang_greedy`) while sessions last hours, so survival is close to 1 for most workers; this is a
+   likely explanation that has not been checked.
 4. Planner v2 (`erlang_greedy`) trades latency for exposure: -14 to -20% exposure for +2.5 to +5% P99 and +9 to +13% warm
    memory. It is not adopted as the default (H13); it is reported as the lower-exposure point on the exposure-latency
    front. `erlang_dpp` did not deliver its budget (H14a). A likely cause, unverified: its measured exposure counts only the
