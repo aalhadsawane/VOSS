@@ -51,7 +51,7 @@ baseline that holds keys ahead on the most reliable machines, with an honest acc
 (5)~failure detection and scheduler replacement without agreement among volunteers; and
 (6)~a deterministic, calibrated evaluation whose hypotheses were fixed before the runs.
 
-In simulation the planner lowers P99 latency by \RfourDecompGreedyMed\% and \RfourDecompGreedyHigh\% against the best keep-alive policy at medium and high churn, at about 2.5
+In simulation the planner lowers 99th-percentile (P99) latency by \RfourDecompGreedyMed\% and \RfourDecompGreedyHigh\% against the best keep-alive policy at medium and high churn, at about 2.5
 times the key exposure; most of this comes from deciding how many workers should hold each key, not from choosing which.
 Judging workers by returned work keeps \VossSuccAlpha\% of requests successful when 20\% of owners drop work, against \HbSuccAlpha\% with
 heartbeats. Several designed components did not pay off, including geographic clusters and an exact solver, and a first version

@@ -44,7 +44,7 @@ capacity for machines that disappear; a per-invocation step picks a machine for 
 accepted work comes back, not by heartbeats; and failed schedulers are replaced without agreement among volunteers. We describe
 a global scheduler on provider hardware and a clustered design whose volunteer-hosted schedulers are reached through a
 publish/subscribe broker.
-In a deterministic simulator calibrated on a TPM-equipped laptop, the planner lowers P99 latency by about
+In a deterministic simulator calibrated on a laptop with a Trusted Platform Module (TPM, the chip that signs boot measurements), the planner lowers 99th-percentile (P99) latency by about
 \RfourDecompGreedyMed\% against the strongest keep-alive policies, including an Azure-style histogram policy, at about 2.5 times their key
 exposure. A baseline that holds keys ahead on the most reliable machines captures about \RfourDecompShareMed\% of the gain, so most of the value is
 deciding how many machines should hold each key. Several designed components did not pay off, and we report those too.
