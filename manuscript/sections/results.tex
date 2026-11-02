@@ -97,8 +97,25 @@ routing, are faster (E17b). At 20 invocations per second \voss{}'s P99 is \Rerun
 \RerunCommPNinetynineAzureTwentyDiff\,s above the Azure-like one, and at 40 per second \RerunCommPNinetynineLambdaFortyDiff\,s and \RerunCommPNinetynineAzureFortyDiff\,s; at 10 per second the gap to the Azure-like
 reference is not distinguishable from zero. Median latency is about 0.13\,s higher at every load. Cost per million invocations,
 counting the control plane and not volunteer credits, falls from \RerunCommCostTen{} USD at 10 invocations per second to \RerunCommCostTwenty{} at 20 and
-\RerunCommCostForty{} at 40, against about \RerunCommCostRefLambda{} USD for the references, so \voss{} is cheaper only above about 20 invocations per second.
+\RerunCommCostForty{} at 40, against about \RerunCommCostRefLambda{} USD for the references, so \voss{} is cheaper from about 20 invocations per second upward.
 
-\textbf{Feasibility and scale.} \todo{Feasibility map (E20ab) still running.}
+\textbf{Feasibility.} We crossed three churn levels with three adversary settings (none, and 10\% and 20\% of owners dropping or
+delaying work), giving \RerunViabCells{} cells with 10 seeds each (E20ab, corrected placement). We compared \voss{}, the simple
+baseline, and the simple baseline run on workers without attestation. \voss{} is feasible, in the sense of Section~\ref{sec:method}, in \RerunViabPTwoVoss{} of \RerunViabCells{} cells at P99
+targets of 2\,s, 3\,s and 5\,s, and in \RerunViabMetVoss{} of \RerunViabCells{} against the deadline criterion; its mean P99 per cell lies between
+\RerunViabPNinetynineLoVoss{} and \RerunViabPNinetynineHiVoss\,s. The simple baseline is feasible in \RerunViabPFiveSimple{} cells under every criterion: its P99 lies between
+\RerunViabPNinetynineLoSimple{} and \RerunViabPNinetynineHiSimple\,s, although its success is at least \RerunViabSuccLoSimple\% in every cell. Without attestation,
+success is about \RerunViabSuccLoNoattest\% (P99 \RerunViabPNinetynineLoNoattest--\RerunViabPNinetynineHiNoattest\,s). The baseline is never feasible where \voss{} is not
+(Table~\ref{tab:viab}). These P99 values are larger than in the comparison above (E10b) because every cell here includes churn, and
+the adversary cells add owners who drop work; we did not separate the two causes.
+
+\begin{table}[t]
+\caption{Cells (of \RerunViabCells) in which a system is feasible under each criterion (E20ab).}
+\label{tab:viab}
+\centering\small
+\input{generated/tab_rerun_viability}
+\end{table}
+
+\textbf{Scale.}
 Scalability (E18, original placement): success stays at \ScaleTenKSucc\% up to $10^4$ workers and falls to \ScaleMidSucc\% at $3\times10^4$ and \ScaleBigSucc\% at $10^5$,
 where decision latency has grown from about 0.1\,s to tens of seconds; control traffic per worker stays flat, so the limit is the central decision path.

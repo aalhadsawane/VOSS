@@ -484,12 +484,11 @@ Remove one part at a time (10% of owners dropping work, E19, original placement)
 
 ## TODO: baselines, feasibility map, commercial reference
 
-- **TODO** (reruns in progress with the corrected placement: E10b, E17b, E20ab, E24b).
-- Simple baseline against VOSS: *to be filled*.
-- Commercial-style datacenter reference: *to be filled*. The current draft says only that it is faster.
-- Feasibility map (which systems meet a latency target in which settings): *to be filled*.
-- Calibration sensitivity: *to be filled*.
-- Do not quote older numbers for these.
+- Reruns with the corrected placement: E10b, E17b, E20ab, E24b (numbers below come from them).
+- Simple baseline against VOSS (homogeneous pool): P99 1.69x VOSS's (95% interval 1.34-2.06), 2.03x on mixed hardware (1.80-2.30); VOSS holds about 1.9x and 1.8x the key exposure.
+- Commercial-style datacenter reference: faster. At 20 invocations/s VOSS's P99 is 0.17 s above the Lambda-like reference and 0.11 s above the Azure-like one (0.37 s and 0.33 s at 40/s). Cost per million invocations: 19.6 USD at 10/s, 9.8 at 20/s, 4.9 at 40/s, against about 12 USD for the references.
+- Feasibility map (3 churn levels x 3 adversary settings, 10 seeds): VOSS feasible in 9 of 9 cells at 2 s, 3 s and 5 s P99 targets (mean P99 1.3-1.7 s); the simple baseline in 0 of 9 (P99 6.4-8.0 s); without attestation success is about 81%.
+- Calibration sensitivity: VOSS P99 1.00 s with measured costs against 1.36 s with placeholders; simple baseline 4.24 s against 3.67 s.
 
 ---
 

@@ -119,6 +119,15 @@ def viability(g: Gen) -> None:
         v = cells(d, cell, p99_max=t).verdict.value_counts()
         g.mac(f"RerunViabP{NUM[int(t)]}VossOnly", int(v.get("voss_only", 0)))
         g.mac(f"RerunViabP{NUM[int(t)]}BaseBetter", int(v.get("baseline_better", 0)))
+    cm = d.groupby([*cell, "label"])[["p99_sync", "success"]].mean().reset_index()
+    for label, stem in (("voss", "Voss"), ("simple", "Simple"), ("noattest", "Noattest")):
+        c = cm[cm.label == label]
+        g.mac(f"RerunViabP99Lo{stem}", f"{c.p99_sync.min():.1f}")
+        g.mac(f"RerunViabP99Hi{stem}", f"{c.p99_sync.max():.1f}")
+    nc = cm[cm.label == "noattest"]
+    g.mac("RerunViabSuccLoNoattest", f"{100 * nc.success.min():.0f}")
+    g.mac("RerunViabSuccHiNoattest", f"{100 * nc.success.max():.0f}")
+    g.mac("RerunViabSuccLoSimple", f"{100 * cm[cm.label == 'simple'].success.min():.1f}")
     body = []
     for tgt in (None, *P99_TARGETS):
         kw: dict[str, float | None] = {"met_min": MET_MIN} if tgt is None else {"p99_max": tgt}
