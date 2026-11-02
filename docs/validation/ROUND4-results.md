@@ -2,7 +2,7 @@
 
 Runs: GitHub workflow `paper-rerun` (run 41351691046, release `paper-runs-41351691046`), main at `123ce65`, E04b 380 runs and
 E25 360 runs, all `ok`. Analysis: `python -m experiments.analysis.round4 E04b|E25 <csv>` (300 s warm-up, paired by seed) and
-`experiments/analysis/round4_h16.py`; per-run metrics in `docs/validation/data/`. Pre-registration:
+`experiments/analysis/round4_h16.py`; per-run metrics in `paper/tables/`. Pre-registration:
 `docs/architecture/06-experiments.md` §8. Verdict rule as registered, except that Holm is applied to one-sided
 bootstrap p-values of "mean ratio >= bound" (10,000 resamples) over the eight P99 comparisons of H12-H15 instead of widening
 CIs (equivalent in effect; stated here so it is not a silent change).
@@ -42,8 +42,8 @@ the tail between 1.2 and 1.7 s.
 | H15 high | same | 0.957 [0.932, 0.981], 16/20 | <= 0.95 | weak (CI excludes 1 but not the 5% bound) |
 
 Reading: planning beats the strongest single loops by about 18-21% in P99 at 2.5x their exposure. Holding the same number
-of keys ahead on the most reliable workers (`provisioned_keys`, same exposure as greedy) captures most of it (-19% against
-the single loops); planning adds about 5% on top, with the CI excluding zero but not the 5% bound. The Azure-style
+of keys ahead on the most reliable workers (`provisioned_keys`, same exposure as greedy) captures most of it (-17% / -14% against
+the single loops as mean of per-seed ratios; -19% as ratio of mean P99 at churn_med); planning adds about 5% on top, with the CI excluding zero but not the 5% bound. The Azure-style
 histogram policy uses 31-33% less warm memory than the fixed timer at 2-9% higher P99. The corrected placement
 (per-worker wait, sync priority) lowers every system's tail; `plan_greedy` with the old placement is within 2%.
 
@@ -64,6 +64,18 @@ length multiple M against churn_med, Weibull shape k of idle and dedicated tiers
 - **H16a (inverted U): weak.** At shape 1.0 the point estimates order as predicted (A(1) > A(0.25), A(1) > A(4)) but only A(1) - A(4) = 0.097 [0.008, 0.202] excludes 0. At shape 0.6 A falls slightly with session length, CIs include 0.
 - **H16b (survival information matters): not supported.** B is within about +-3% of zero in every cell and has the wrong sign at shape 0.6 and at (1.0, 4); the only positive cell with a CI excluding 0 is (1.0, 1), the only negative one is (1.0, 4). The planner's gain over single loops is not explained by choosing longer-lived holders.
 - Across all six cells the planner beats the best single loop by 15-25%. Session length changes the size of the gap only mildly.
+
+## Key-release amortisation (E04b, from `events.parquet`)
+
+Synchronous requests served per `key_release` event (one per worker session and tenant, logged by the tenant key broker), after
+the 300 s warm-up, pooled over seeds: keepalive_ttl 1349 (med) / 1524 (high), keepalive_inf 1184 / 1510, provisioned_keys 69 / 86,
+plan_greedy 30 / 36. Planning releases far more keys per request than the keepalive loops, not fewer. Whole-run means per run (events table): keepalive
+~36 releases over ~36 distinct (worker, tenant) pairs and no `key_dropped`; plan_greedy ~388 releases over ~140 pairs with ~310
+`key_dropped` (keys are dropped and released again); provisioned_keys ~208 over ~107 with ~135 dropped; ~60 attested sessions
+in every system. Runs with no release after the warm-up (21 of 380, all keepalive/plan_none) have no per-run ratio; the
+pooled figures above are unaffected. This does not support "one release serves every later request" for the planner. The per-run columns
+`sync_served`, `key_releases`, `sync_per_release` (post-warm-up) and `sync_per_release_all` (whole run) are in
+`paper/tables/E04b_runs.csv`; `python -m experiments.analysis.round4 amort <csv> <runs dir with events.parquet>` adds them.
 
 ## What this says for the paper
 

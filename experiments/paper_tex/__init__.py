@@ -15,6 +15,7 @@ from experiments.paper_tex.core import REPO, Gen, write
 from experiments.paper_tex.measured import calibration, calibration_sensitivity, ecs1_sim
 from experiments.paper_tex.planning import ablations, adversaries, faults, hedging, planners
 from experiments.paper_tex.results import commercial, geo_and_null, pareto_and_rest, scalability, scorecard
+from experiments.paper_tex.round4 import round4
 from experiments.paper_tex.viab import extras, viability
 
 
@@ -36,6 +37,7 @@ def build() -> Gen:
         calibration_sensitivity,
         extras,
         scorecard,
+        round4,
     ):
         step(g)
     return g

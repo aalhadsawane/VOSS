@@ -1,22 +1,60 @@
-"""Round-4 analysis (docs/architecture/06-experiments.md §8): E04b and E25 against the pre-registered hypotheses H12-H16.
+"""Round-4 analysis (docs/architecture/06-experiments.md §8): E04b and E25 against the pre-registered H12-H16.
 
 Reads raw run directories (``runs/E04b``, ``runs/E25``), computes per-run metrics with a 300 s warm-up, pairs systems by
-seed (same scenario hash), and reports the mean of per-seed ratios with a paired bootstrap 95% CI, the median ratio and a
-Wilcoxon signed-rank p-value. Usage: ``python -m experiments.analysis.round4 E04b|E25 [out.csv]``.
+seed (same scenario hash), and reports the mean of per-seed ratios with a paired bootstrap 95% CI, the median and a
+Wilcoxon signed-rank p-value. Usage: ``python -m experiments.analysis.round4 E04b|E25 [out.csv]``;
+``... amort <csv> <runs dir>`` adds the key-release amortisation columns from ``events.parquet``.
 """
 
 from __future__ import annotations
 
+import ast
 import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from scipy.stats import wilcoxon
+from voss.core.rng import stream
 
 from experiments.analysis.common import bootstrap_ci, latency_metrics, manifest, table
 
 WARMUP_S = 300.0
+SINGLE_LOOPS = ("keepalive_ttl", "keepalive_inf", "hist_prewarm")
+E25_SHAPES = (0.6, 1.0)
+E25_MULTS = (0.25, 1.0, 4.0)
+
+
+def amortisation(run: Path) -> dict[str, float]:
+    """Key-release amortisation of one run: synchronous requests served per ``key_release`` event (doc 04 §6; the
+    tenant key broker logs one per released key, i.e. per (worker session, tenant)), counted after the warm-up and over
+    the whole run. NaN when ``events.parquet`` is absent (the E04b release archive carries it, ``runs/`` may not)."""
+    nan = {"sync_served": np.nan, "key_releases": np.nan, "sync_per_release": np.nan, "sync_per_release_all": np.nan}
+    if not (run / "events.parquet").exists():
+        return nan
+    inv, ev = table(run, "invocations"), table(run, "events")
+    ok = inv[(inv.slo_class == 0) & (inv.outcome == "ok")]
+    rel = ev[ev.kind == "key_release"]
+    late_n, late_k = int((ok.t_arrive >= WARMUP_S).sum()), int((rel.t >= WARMUP_S).sum())
+    return {
+        "sync_served": float(late_n),
+        "key_releases": float(late_k),
+        "sync_per_release": late_n / late_k if late_k else np.nan,
+        "sync_per_release_all": len(ok) / len(rel) if len(rel) else np.nan,
+    }
+
+
+def add_amortisation(df: pd.DataFrame, runs: Path) -> pd.DataFrame:
+    """Merge ``amortisation`` of every run under ``runs`` (``index.csv`` + run dirs) into a per-run frame, keyed by
+    (label, scenario hash): a seed repeats across regimes, so (label, seed) is not unique."""
+    idx = pd.read_csv(runs / "index.csv")
+    idx = idx[idx.status.isin(["ok", "cached"])]
+    rows = [
+        {"label": r.label, "scenario_hash": r.scenario_hash, **amortisation(runs / Path(r.run_dir).name)}
+        for r in idx.itertuples()
+    ]
+    keep = [c for c in df.columns if c not in rows[0] or c in ("label", "scenario_hash")]
+    return df[keep].merge(pd.DataFrame(rows), on=["label", "scenario_hash"], how="left", validate="1:1")
 
 
 def per_run(exp: str) -> pd.DataFrame:
@@ -45,6 +83,7 @@ def per_run(exp: str) -> pd.DataFrame:
                 "exposure": float(late.exposure.mean()),
                 "trust_cold": cold,
                 "scenario_hash": r.scenario_hash,
+                **amortisation(run),
             }
         )
     return pd.DataFrame(rows)
@@ -61,13 +100,18 @@ def paired(df: pd.DataFrame, cell: str, cand: str, ref: str, col: str = "p99") -
         p = float(wilcoxon(a[s] - b[s]).pvalue)
     except ValueError:
         p = float("nan")
-    return {"n": float(len(s)), "mean_ratio": mean, "lo": lo, "hi": hi, "median_ratio": float(np.median(ratio)), "wilcoxon_p": p}
+    return {
+        "n": float(len(s)),
+        "mean_ratio": mean,
+        "lo": lo,
+        "hi": hi,
+        "median_ratio": float(np.median(ratio)),
+        "wilcoxon_p": p,
+    }
 
 
 def boot_p(ratio: np.ndarray, bound: float, n: int = 10000) -> float:
     """One-sided bootstrap p-value for H0: mean ratio >= bound (small = evidence that the ratio is below the bound)."""
-    from voss.core.rng import stream
-
     g = stream(0, "analysis.round4.p", len(ratio))
     means = ratio[g.integers(0, len(ratio), (n, len(ratio)))].mean(axis=1)
     return float((means >= bound).mean())
@@ -87,15 +131,14 @@ def ratios(df: pd.DataFrame, regime: str, cand: str, ref: str, col: str = "p99")
     a = df[(df.regime == regime) & (df.label == cand)].set_index("seed")[col]
     b = df[(df.regime == regime) & (df.label == ref)].set_index("seed")[col]
     s = a.index.intersection(b.index)
-    return (a[s] / b[s]).to_numpy()
+    return np.asarray((a[s] / b[s]).to_numpy(), dtype=float)
 
 
 def hypotheses(df: pd.DataFrame) -> pd.DataFrame:
     """H12-H15 (pre-registered thresholds, Holm over the eight P99 comparisons)."""
     rows, pv = [], {}
     for reg, margin in (("churn_med", 1.05), ("churn_high", 1.10)):
-        single = {k: df[(df.regime == reg) & (df.label == k)].p99.mean() for k in ("keepalive_ttl", "keepalive_inf", "hist_prewarm")}
-        best = min(single, key=lambda k: single[k])
+        best = best_single(df, reg)
         tests = {
             f"H12 {reg}: plan_greedy / {best}": (ratios(df, reg, "plan_greedy", best), 0.95),
             f"H13 {reg}: erlang_greedy / plan_greedy": (ratios(df, reg, "erlang_greedy", "plan_greedy"), margin),
@@ -105,26 +148,121 @@ def hypotheses(df: pd.DataFrame) -> pd.DataFrame:
         for name, (r, bound) in tests.items():
             m, lo, hi = bootstrap_ci(r, n=10000)
             pv[name] = boot_p(r, bound)
-            rows.append({"test": name, "n": len(r), "mean_ratio": m, "ci_lo": lo, "ci_hi": hi, "median": float(np.median(r)),
-                         "bound": bound, "p_boot": pv[name], "seeds_below_1": int((r < 1).sum())})
+            rows.append(
+                {
+                    "test": name,
+                    "n": len(r),
+                    "mean_ratio": m,
+                    "ci_lo": lo,
+                    "ci_hi": hi,
+                    "median": float(np.median(r)),
+                    "bound": bound,
+                    "p_boot": pv[name],
+                    "seeds_below_1": int((r < 1).sum()),
+                }
+            )
     ok = holm(pv)
     out = pd.DataFrame(rows)
     out["holm_supported"] = out.test.map(ok)
-    for reg in ("churn_med", "churn_high"):
-        for col in ("warm_mb", "exposure"):
-            r = ratios(df, reg, "erlang_greedy", "plan_greedy", col)
-            print(f"H13 {reg} {col}: erlang_greedy / plan_greedy mean ratio {r.mean():.3f}")
     return out
+
+
+def h13_resources(df: pd.DataFrame) -> dict[tuple[str, str], float]:
+    """H13 secondary criteria: mean paired ratio erlang_greedy / plan_greedy of warm memory and exposure per regime."""
+    return {
+        (reg, col): float(ratios(df, reg, "erlang_greedy", "plan_greedy", col).mean())
+        for reg in ("churn_med", "churn_high")
+        for col in ("warm_mb", "exposure")
+    }
+
+
+def best_single(df: pd.DataFrame, regime: str) -> str:
+    """Best single loop of a regime: lowest mean P99 of the three single-loop baselines (chosen on the test seeds)."""
+    single = {k: df[(df.regime == regime) & (df.label == k)].p99.mean() for k in SINGLE_LOOPS}
+    return min(single, key=lambda k: single[k])
+
+
+def e25_cells(df: pd.DataFrame) -> pd.DataFrame:
+    """Add ``M`` (session-length multiple) and ``k`` (idle-tier Weibull shape) parsed from the churn column."""
+    out = df.copy()
+    mult = {5400.0: 0.25, 21600.0: 1.0, 86400.0: 4.0}
+    parsed = [ast.literal_eval(s)["tiers"] for s in out.churn]
+    out["M"] = [mult[float(t["nightly"]["length"]["median"])] for t in parsed]
+    out["k"] = [float(t["idle"]["length"]["shape"]) for t in parsed]
+    return out
+
+
+def e25_get(df: pd.DataFrame, m: float, k: float, label: str) -> pd.Series:
+    """P99 per seed of one system in one (M, k) cell (``df`` from ``e25_cells``)."""
+    return df[(m == df.M) & (df.k == k) & (df.label == label)].set_index("seed").p99
+
+
+def e25_best(df: pd.DataFrame, m: float, k: float) -> str:
+    """Best single loop of an E25 cell (lowest mean P99 of keepalive_inf, hist_prewarm)."""
+    return min(("keepalive_inf", "hist_prewarm"), key=lambda lab: e25_get(df, m, k, lab).mean())
+
+
+def e25_advantage(df: pd.DataFrame, m: float, k: float) -> np.ndarray:
+    """Per-seed advantage A = 1 - P99(plan_greedy) / P99(best single loop) in cell (M, k)."""
+    return np.asarray(
+        (1 - e25_get(df, m, k, "plan_greedy") / e25_get(df, m, k, e25_best(df, m, k))).to_numpy(), dtype=float
+    )
+
+
+def e25_blind(df: pd.DataFrame, m: float, k: float) -> np.ndarray:
+    """Per-seed survival dependence B = P99(plan_greedy_blind) / P99(plan_greedy) - 1 in cell (M, k)."""
+    return np.asarray(
+        (e25_get(df, m, k, "plan_greedy_blind") / e25_get(df, m, k, "plan_greedy") - 1).to_numpy(), dtype=float
+    )
+
+
+def e25_table(df: pd.DataFrame) -> pd.DataFrame:
+    """H16 table: A and B with bootstrap CIs per (k, M)."""
+    rows = []
+    for k in E25_SHAPES:
+        for m in E25_MULTS:
+            a, b = bootstrap_ci(e25_advantage(df, m, k), n=10000), bootstrap_ci(e25_blind(df, m, k), n=10000)
+            rows.append(
+                {
+                    "k": k,
+                    "M": m,
+                    "best": e25_best(df, m, k),
+                    "A": a[0],
+                    "A_lo": a[1],
+                    "A_hi": a[2],
+                    "B": b[0],
+                    "B_lo": b[1],
+                    "B_hi": b[2],
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def e25_differences(df: pd.DataFrame, k: float) -> dict[float, tuple[float, float, float]]:
+    """A(M=1) - A(M) with bootstrap CI for M in (0.25, 4) at shape ``k`` (H16a)."""
+    ref = e25_advantage(df, 1.0, k)
+    return {m: bootstrap_ci(ref - e25_advantage(df, m, k), n=10000) for m in (0.25, 4.0)}
 
 
 def summary(df: pd.DataFrame, key: str) -> pd.DataFrame:
     g = df.groupby([key, "label"])
-    out = g.agg(n=("seed", "size"), p99=("p99", "mean"), p99_med=("p99", "median"), success=("success", "mean"),
-                met=("met", "mean"), warm_gb=("warm_mb", lambda x: x.mean() / 1e3), exposure=("exposure", "mean"))
+    out = g.agg(
+        n=("seed", "size"),
+        p99=("p99", "mean"),
+        p99_med=("p99", "median"),
+        success=("success", "mean"),
+        met=("met", "mean"),
+        warm_gb=("warm_mb", lambda x: x.mean() / 1e3),
+        exposure=("exposure", "mean"),
+    )
     return out.round(3)
 
 
 def main(argv: list[str]) -> int:
+    if argv[0] == "amort":  # amort <per-run csv> <runs dir with events.parquet>: add the amortisation columns in place
+        csv = Path(argv[1])
+        add_amortisation(pd.read_csv(csv), Path(argv[2])).to_csv(csv, index=False)
+        return 0
     exp = argv[0]
     df = per_run(exp)
     if len(argv) > 1:
@@ -134,6 +272,8 @@ def main(argv: list[str]) -> int:
     print(summary(df, key).to_string())
     if exp == "E04b":
         print(hypotheses(df).round(3).to_string())
+        for (reg, col), v in h13_resources(df).items():
+            print(f"H13 {reg} {col}: erlang_greedy / plan_greedy mean ratio {v:.3f}")
     return 0
 
 

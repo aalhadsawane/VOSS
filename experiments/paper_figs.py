@@ -1,6 +1,7 @@
 """Manuscript figures (IEEE column widths) drawn from the committed per-seed and per-cell tables in ``paper/tables``:
-the three E20 viability panels in one row, the E23 Pareto fronts, the E19 ablation tornado and the E18 scalability
-curves. ``python -m experiments.paper_figs`` writes ``manuscript/figures/*.pdf`` (deterministic: no creation date).
+the three E20 viability panels in one row, the E23 Pareto fronts, the E19 ablation tornado, the E18 scalability
+curves and the round-4 latency-exposure front (E04b). ``python -m experiments.paper_figs`` writes
+``manuscript/figures/*.pdf`` (deterministic: no creation date).
 """
 
 from __future__ import annotations
@@ -221,13 +222,57 @@ def cost_fig(out: Path) -> Path:
     return save(fig, out, "fig_cost")
 
 
+FRONT_SYSTEMS = (  # (label, Okabe-Ito colour, marker); marker shape repeats the identity for greyscale print
+    ("plan_none", "#000000", "x"),
+    ("keepalive_ttl", "#E69F00", "s"),
+    ("keepalive_inf", "#D55E00", "D"),
+    ("hist_prewarm", "#CC79A7", "v"),
+    ("provisioned_keys", "#56B4E9", "^"),
+    ("plan_greedy", "#0072B2", "o"),
+    ("plan_milp", "#009E73", "P"),
+    ("erlang_greedy", "#F0E442", "h"),
+    ("erlang_dpp", "#999999", "*"),
+)
+
+
+def front_fig(out: Path) -> Path:
+    """Round 4 (E04b): sync P99 against key-holder exposure, one panel per churn regime, 95% bootstrap CI on P99."""
+    d = pd.read_csv(T / "E04b_runs.csv")
+    fig, axes = plt.subplots(1, 2, figsize=(5.47, 2.9), sharey=True)  # 139 mm text width, fonts at true size
+    for ax, reg, ttl in zip(axes, ("churn_med", "churn_high"), ("medium churn", "high churn"), strict=True):
+        for lab, color, marker in FRONT_SYSTEMS:
+            x = d[(d.regime == reg) & (d.label == lab)]
+            m, lo, hi = bootstrap_ci(x.p99.to_numpy())
+            ax.errorbar(
+                x.exposure.mean(),
+                m,
+                yerr=[[m - lo], [hi - m]],
+                fmt=marker,
+                color=color,
+                ms=5,
+                capsize=2,
+                elinewidth=0.8,
+                mec="k" if marker not in "x" else color,
+                mew=0.4,
+                label=lab.replace("_", " "),
+            )
+        ax.set_title(ttl)
+        ax.set_xlabel("key-holder exposure (time average)")
+        ax.grid(alpha=0.3, lw=0.4)
+    axes[0].set_ylabel("sync P99 (s)")
+    h, lab = axes[0].get_legend_handles_labels()
+    fig.legend(h, lab, loc="lower center", ncol=5, frameon=False, bbox_to_anchor=(0.5, -0.12), handletextpad=0.3)
+    fig.tight_layout()
+    return save(fig, out, "fig_front")
+
+
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--out", type=Path, default=REPO / "manuscript" / "figures")
     a = p.parse_args(argv)
     a.out.mkdir(parents=True, exist_ok=True)
     style()
-    for f in (viability_fig, pareto_fig, ablation_fig, scale_fig, cost_fig):
+    for f in (viability_fig, pareto_fig, ablation_fig, scale_fig, cost_fig, front_fig):
         print(f(a.out))
 
 
