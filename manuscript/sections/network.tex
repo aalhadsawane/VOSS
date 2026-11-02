@@ -15,7 +15,7 @@ connection to it. Each cluster has its own topics, named by the cluster's number
 scheduler topic, workers to their own topics, and routers publish invocations to the scheduler topic. Nobody needs another
 party's address, and replacing a scheduler means only that the successor subscribes to the same topic. We take
 MQTT~\cite{mqtt5} as the protocol, whose clients always connect outwards and whose at-least-once delivery suits messages
-that are idempotent or carry the scheduler's epoch. MQTT gives no protection against the broker itself~\cite{buccafurri2024mqtti},
+that are idempotent or carry the scheduler's \emph{epoch}, a counter the orchestrator increments each time it appoints a scheduler (Section~\ref{sec:ft}). MQTT gives no protection against the broker itself~\cite{buccafurri2024mqtti},
 so each connection is mutual TLS and every control message is signed end to end with the sender's session key and carries
 the epoch and a sequence number; workers accept an assignment only from the scheduler appointed for the current epoch. The
 broker can drop or delay messages, faults the detectors of Section~\ref{sec:ft} already handle, but cannot forge or replay

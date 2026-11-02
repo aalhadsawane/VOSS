@@ -28,7 +28,7 @@ absolute latencies.
 \textbf{Protocol.} Each experiment is frozen before it runs. Systems are paired by seed, and we report the mean per-seed
 difference with a 95\% bootstrap interval~\cite{efron1993bootstrap}; percentiles are computed per run and then averaged.
 Hypotheses and their verdict rules (supported, weak, inconclusive, refuted) were written down before the runs, and for the
-round of planner comparisons (H12--H16) we apply a Holm correction. A system is \emph{feasible} in a setting if the lower 95\%
+round of planner comparisons (H12--H16) we apply a Holm correction, which keeps the chance of a false positive across the several tests below 5\%. A system is \emph{feasible} in a setting if the lower 95\%
 bound of its success is at least 0.99 and its share of deadlines met, or its P99, meets a target. All systems share
 candidates and cost model and differ in one policy. Single-loop baselines: no planner (a worker gets a key only when an
 invocation needs it); a 10-minute keep-alive timer; unbounded keep-alive; and the hybrid histogram policy of Azure
