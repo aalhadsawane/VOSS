@@ -161,7 +161,7 @@ def amortisation(g: Gen, d: pd.DataFrame) -> None:
             stem = SYSTEMS[lab]
             pooled[(reg, lab)] = x.sync_served.sum() / x.key_releases.sum()
             g.mac(f"RfourAmort{stem}{r}", f"{pooled[(reg, lab)]:.0f}")
-            g.mac(f"RfourAmortMed{stem}{r}", f"{x.sync_per_release.median():.0f}")
+            g.mac(f"RfourAmortMedian{stem}{r}", f"{x.sync_per_release.median():.0f}")
             g.mac(f"RfourAmortRun{stem}{r}", f"{x.sync_per_release_all.median():.0f}")
             g.mac(f"RfourRel{stem}{r}", f"{x.key_releases.mean():.0f}")
     for reg in REGIMES:
