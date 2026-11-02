@@ -1,126 +1,12 @@
 {
   "artifacts": [
-    "paper/figures/E17_commercial.pdf",
-    "paper/figures/E18_scalability.pdf",
-    "paper/figures/E19_ablations.pdf",
-    "paper/figures/E20a_map.pdf",
-    "paper/figures/E20b_map.pdf",
-    "paper/figures/E20c_map.pdf",
-    "paper/figures/E23_pareto.pdf",
-    "paper/figures/E24_calibration.pdf",
     "paper/hypotheses.md",
     "paper/negative-results.md",
-    "paper/tables/E03.md",
-    "paper/tables/E04.md",
-    "paper/tables/E05.md",
-    "paper/tables/E06.md",
-    "paper/tables/E07.md",
-    "paper/tables/E08.md",
-    "paper/tables/E09.md",
-    "paper/tables/E10.md",
-    "paper/tables/E12.md",
-    "paper/tables/E13.md",
-    "paper/tables/E14.md",
-    "paper/tables/E15.md",
-    "paper/tables/E16.md",
-    "paper/tables/E17.md",
-    "paper/tables/E18.md",
-    "paper/tables/E19.md",
-    "paper/tables/E20a.md",
-    "paper/tables/E20b.md",
-    "paper/tables/E20c.md",
-    "paper/tables/E23.md",
-    "paper/tables/E24.md",
     "paper/tables/ECS1-measured.md",
     "paper/tables/ECS1-sim.md"
   ],
-  "git_sha": "2026b15e95a85d30adc2c5c736b21ff1f1e49147",
-  "runs": {
-    "E03": {
-      "failed": 0,
-      "runs": 180
-    },
-    "E04": {
-      "failed": 0,
-      "runs": 80
-    },
-    "E05": {
-      "failed": 0,
-      "runs": 120
-    },
-    "E06": {
-      "failed": 0,
-      "runs": 60
-    },
-    "E07": {
-      "failed": 0,
-      "runs": 100
-    },
-    "E08": {
-      "failed": 0,
-      "runs": 120
-    },
-    "E09": {
-      "failed": 0,
-      "runs": 50
-    },
-    "E10": {
-      "failed": 0,
-      "runs": 40
-    },
-    "E12": {
-      "failed": 0,
-      "runs": 40
-    },
-    "E13": {
-      "failed": 0,
-      "runs": 100
-    },
-    "E14": {
-      "failed": 0,
-      "runs": 80
-    },
-    "E15": {
-      "failed": 0,
-      "runs": 80
-    },
-    "E16": {
-      "failed": 0,
-      "runs": 120
-    },
-    "E17": {
-      "failed": 0,
-      "runs": 90
-    },
-    "E18": {
-      "failed": 0,
-      "runs": 36
-    },
-    "E19": {
-      "failed": 0,
-      "runs": 140
-    },
-    "E20a": {
-      "failed": 0,
-      "runs": 270
-    },
-    "E20b": {
-      "failed": 0,
-      "runs": 320
-    },
-    "E20c": {
-      "failed": 0,
-      "runs": 240
-    },
-    "E23": {
-      "failed": 0,
-      "runs": 60
-    },
-    "E24": {
-      "failed": 0,
-      "runs": 40
-    }
-  },
+  "git_sha": "680449195b75045f7a87951c997e628b609b0c13",
+  "runs": {},
   "specs": {
     "E03": "195427f06215a669",
     "E04": "c26c2096e67b1e0a",
