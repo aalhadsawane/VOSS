@@ -84,6 +84,21 @@ because evidence must build up before a slowdown can be told from load. Protecti
 could not show to be necessary.
 
 \subsection{Baselines, feasibility and scale}
-\todo{Rerun in progress (E10b, E17b, E20ab, E24b with the corrected placement): simple baseline, commercial-style reference, feasibility map, calibration sensitivity.}
+\textbf{Simple baseline.} The simple baseline combines static regional clusters, nearest-region routing, least-loaded placement
+and keep-alive without hedging. On a homogeneous, stable pool we expected it to match \voss{} (E10b, corrected placement); it
+does not. Its P99 is \RerunSimplePNinetynineHomRatio{} times \voss{}'s (95\% interval [\RerunSimplePNinetynineHomLo, \RerunSimplePNinetynineHomHi]), and \RerunSimplePNinetynineMixRatio{} times on mixed hardware
+[\RerunSimplePNinetynineMixLo, \RerunSimplePNinetynineMixHi]. \voss{} holds about \RerunSimpleExpHomRatio{} and \RerunSimpleExpMixRatio{} times the key exposure. Whether the latency is worth the exposure is a policy
+choice, which Figure~\ref{fig:front} lets a deployer make. Calibration changes the size of the gap but not its sign: with
+costs measured on the laptop \voss{} reaches P99 \RerunCalSensVossPNinetynineMeas\,s against \RerunCalSensVossPNinetyninePlc\,s with placeholders, while the simple baseline
+moves from \RerunCalSensSimplePNinetyninePlc\,s to \RerunCalSensSimplePNinetynineMeas\,s (E24b).
+
+\textbf{Commercial-style references.} Datacenter hosts that are always on, with per-function keep-alive and nearest-region
+routing, are faster (E17b). At 20 invocations per second \voss{}'s P99 is \RerunCommPNinetynineLambdaTwentyDiff\,s above the Lambda-like reference's and
+\RerunCommPNinetynineAzureTwentyDiff\,s above the Azure-like one, and at 40 per second \RerunCommPNinetynineLambdaFortyDiff\,s and \RerunCommPNinetynineAzureFortyDiff\,s; at 10 per second the gap to the Azure-like
+reference is not distinguishable from zero. Median latency is about 0.13\,s higher at every load. Cost per million invocations,
+counting the control plane and not volunteer credits, falls from \RerunCommCostTen{} USD at 10 invocations per second to \RerunCommCostTwenty{} at 20 and
+\RerunCommCostForty{} at 40, against about \RerunCommCostRefLambda{} USD for the references, so \voss{} is cheaper only above about 20 invocations per second.
+
+\textbf{Feasibility and scale.} \todo{Feasibility map (E20ab) still running.}
 Scalability (E18, original placement): success stays at \ScaleTenKSucc\% up to $10^4$ workers and falls to \ScaleMidSucc\% at $3\times10^4$ and \ScaleBigSucc\% at $10^5$,
 where decision latency has grown from about 0.1\,s to tens of seconds; control traffic per worker stays flat, so the limit is the central decision path.
