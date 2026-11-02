@@ -38,7 +38,7 @@ jobs:
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import json, os
           allexp = "E20a E20b E20c E24 E23 E04 E19 E17 E08 E16 E15 E05 E07 E10 E06 E13 E14 E09 E03 E12 E18".split()
-          extra = "E04b E25".split()  # round-4 experiments: run only when named explicitly (no recorded hashes yet)
+          extra = "E04b E10b E17b E20ab E24b E25".split()  # round-4 experiments: run only when named explicitly (no recorded hashes yet)
           sel = [s.strip() for s in os.environ.get("SELECTED", "").split(",") if s.strip()] or allexp
           bad = sorted(set(sel) - set(allexp) - set(extra))
           assert not bad, f"unknown experiments {bad}"
