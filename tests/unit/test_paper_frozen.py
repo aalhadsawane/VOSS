@@ -23,7 +23,8 @@ def test_every_paper_spec_has_ten_seeds_or_a_documented_exception() -> None:
 
 def test_every_experiment_spec_is_in_the_paper_or_is_the_documented_pilot() -> None:
     specs = {p.stem for p in (REPO / "configs" / "experiments").glob("E*.yaml")}
-    assert specs - set(paper.ORDER) == {"E02", "E04b", "E25"}  # E04b, E25: round 4, not in the frozen paper
+    # E04b, E25: round 4; E10b, E17b, E20ab, E24b: corrected-placement reruns (D-77): none in the frozen paper
+    assert specs - set(paper.ORDER) == {"E02", "E04b", "E25", "E10b", "E17b", "E20ab", "E24b"}
 
 
 def test_committed_results_come_from_the_current_specs() -> None:

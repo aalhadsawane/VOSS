@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import ast
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -57,17 +59,26 @@ def add_amortisation(df: pd.DataFrame, runs: Path) -> pd.DataFrame:
     return df[keep].merge(pd.DataFrame(rows), on=["label", "scenario_hash"], how="left", validate="1:1")
 
 
-def per_run(exp: str) -> pd.DataFrame:
-    """One row per run: label, seed, regime/cell keys, P99 sync, success, met, warm_mb, exposure, trust-cold share."""
-    idx = pd.read_csv(Path("runs") / exp / "index.csv")
+def per_run(
+    exp: str,
+    warmup_s: float = WARMUP_S,
+    root: Path = Path("runs"),
+    extra: Callable[[Path, dict[str, Any]], dict[str, Any]] | None = None,
+) -> pd.DataFrame:
+    """One row per run: label, seed, regime/cell keys, P99 sync, success, met, warm_mb, exposure, trust-cold share.
+
+    ``warmup_s`` is the warm-up window (300 s for the round-4 specs, 60 s for the pilot reruns E10b/E17b/E20ab/E24b),
+    ``root`` the directory holding ``<exp>/index.csv`` and the run directories, ``extra`` adds per-run columns from
+    the run directory and its config (grid keys, cost)."""
+    idx = pd.read_csv(root / exp / "index.csv")
     rows = []
     for r in idx[idx.status.isin(["ok", "cached"])].itertuples():
-        run = Path(r.run_dir)
+        run = root / exp / Path(r.run_dir).name
         cfg = manifest(run)["config"]
         inv, cache = table(run, "invocations"), table(run, "cache")
-        m = latency_metrics(inv, WARMUP_S)
-        late = cache[cache.t >= WARMUP_S]
-        sync = inv[(inv.t_arrive >= WARMUP_S) & (inv.slo_class == 0) & (inv.outcome == "ok")]
+        m = latency_metrics(inv, warmup_s)
+        late = cache[cache.t >= warmup_s]
+        sync = inv[(inv.t_arrive >= warmup_s) & (inv.slo_class == 0) & (inv.outcome == "ok")]
         cold = float((sync.trust > 0).mean()) if "trust" in sync and len(sync) else np.nan
         rows.append(
             {
@@ -84,12 +95,13 @@ def per_run(exp: str) -> pd.DataFrame:
                 "trust_cold": cold,
                 "scenario_hash": r.scenario_hash,
                 **amortisation(run),
+                **(extra(run, cfg) if extra else {}),
             }
         )
     return pd.DataFrame(rows)
 
 
-def paired(df: pd.DataFrame, cell: str, cand: str, ref: str, col: str = "p99") -> dict[str, float]:
+def paired(df: pd.DataFrame, cell: tuple[str, Any], cand: str, ref: str, col: str = "p99") -> dict[str, float]:
     """Ratio candidate/reference per seed within one cell (same scenario hash), summarised."""
     a = df[(df[cell[0]] == cell[1]) & (df.label == cand)].set_index("seed")[col]
     b = df[(df[cell[0]] == cell[1]) & (df.label == ref)].set_index("seed")[col]
