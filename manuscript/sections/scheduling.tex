@@ -97,7 +97,7 @@ by less with each added slot (the Erlang loss formula is convex in the number of
 set of key holders is a monotone submodular function and greedy selection has the classic $(1-1/e)$ guarantee for each
 tenant~\cite{nemhauser1978,harshaw2019}, while warm sandboxes can be allocated by marginal gain. The guarantee holds per
 tenant only; slots shared across tenants, the domain caps and memory limits remove it for the joint plan. We evaluate it as
-\emph{erlang\_greedy}, and it trades latency for exposure rather than replacing greedy (Section~\ref{sec:res-plan}).
+the loss-model planner, and it trades latency for exposure rather than replacing greedy (Section~\ref{sec:res-plan}).
 
 A new plan is computed only if its inputs changed beyond a tolerance. The difference to the previous plan becomes actions that
 are safe to repeat and rate-limited: fetch the key and decrypt the bundle, keep a snapshot, start a warm sandbox, release.

@@ -34,18 +34,18 @@ high churn) while holding about 1.5 times the warm memory, and its solve time is
 (Section~\ref{sec:method}), which favours it.
 
 What part of this is planning, and what is merely holding keys? We compared against a baseline that holds each tenant's key
-ahead of demand on the most reliable workers, in the number the greedy planner would use for that tenant but with no robust
-cover and no warm-state planning (\emph{provisioned\_keys}). It has the same exposure as greedy and P99 \RfourPProvisionedKeysMed\,s,
+ahead of demand on the most reliable workers (\emph{early keys}), in the number the greedy planner would use for that tenant but with no robust
+cover and no warm-state planning. It has the same exposure as greedy and P99 \RfourPProvisionedKeysMed\,s,
 which is \RfourDecompPkMed\% below the best single loop at medium churn and \RfourDecompPkHigh\% at high churn: about \RfourDecompShareMed\% of greedy's gain.
 Choosing the workers well and planning warm sandboxes adds the remaining fifth, with greedy at \RfourHfifteenMedRatio{} of
-\emph{provisioned\_keys}' P99 at medium churn (interval [\RfourHfifteenMedLo, \RfourHfifteenMedHi]) and \RfourHfifteenHighRatio{} at high churn, which excludes 1 but not our 5\%
+the early-keys baseline's P99 at medium churn (interval [\RfourHfifteenMedLo, \RfourHfifteenMedHi]) and \RfourHfifteenHighRatio{} at high churn, which excludes 1 but not our 5\%
 threshold (H15, weak). Most of the planner's value is therefore the set-level decision of how many workers should hold each key,
 which a per-request loop cannot make, and not the finer choices of who and what.
 
-The loss-model planner \emph{erlang\_greedy} lowers exposure by \RfourHthirteenMedExp{} and \RfourHthirteenHighExp{} of greedy's at medium and high churn, but
+The loss-model planner lowers exposure by \RfourHthirteenMedExp{} and \RfourHthirteenHighExp{} of greedy's at medium and high churn, but
 holds \RfourHthirteenMedWarm{} and \RfourHthirteenHighWarm{} times the warm memory and is \RfourHthirteenMedRatio{} and \RfourHthirteenHighRatio{} times as slow (H13, not supported
 as a replacement). We report it as the lower-exposure point on the front. The variant that enforces an exposure budget
-(\emph{erlang\_dpp}) matches its latency but did not meet its budget (H14).
+matches its latency but did not meet its budget (H14).
 
 \subsection{Where the gain comes from}
 \label{sec:res-session}
@@ -100,14 +100,14 @@ counting the control plane and not volunteer credits, falls from \RerunCommCostT
 \RerunCommCostForty{} at 40, against about \RerunCommCostRefLambda{} USD for the references, so \voss{} is cheaper from about 20 invocations per second upward.
 
 \textbf{Feasibility.} We crossed three churn levels with three adversary settings (none, and 10\% and 20\% of owners dropping or
-delaying work), giving \RerunViabCells{} cells with 10 seeds each (E20ab, corrected placement). We compared \voss{}, the simple
-baseline, and the simple baseline run on workers without attestation. \voss{} is feasible, in the sense of Section~\ref{sec:method}, in \RerunViabPTwoVoss{} of \RerunViabCells{} cells at P99
-targets of 2\,s, 3\,s and 5\,s, and in \RerunViabMetVoss{} of \RerunViabCells{} against the deadline criterion; its mean P99 per cell lies between
-\RerunViabPNinetynineLoVoss{} and \RerunViabPNinetynineHiVoss\,s. The simple baseline is feasible in \RerunViabPFiveSimple{} cells under every criterion: its P99 lies between
-\RerunViabPNinetynineLoSimple{} and \RerunViabPNinetynineHiSimple\,s, although its success is at least \RerunViabSuccLoSimple\% in every cell. Without attestation,
-success is about \RerunViabSuccLoNoattest\% (P99 \RerunViabPNinetynineLoNoattest--\RerunViabPNinetynineHiNoattest\,s). The baseline is never feasible where \voss{} is not
-(Table~\ref{tab:viab}). These P99 values are larger than in the comparison above (E10b) because every cell here includes churn, and
-the adversary cells add owners who drop work; we did not separate the two causes.
+delaying work), giving \RerunViabCells{} cells with 10 seeds each (E20ab, corrected placement), and compared \voss{} with the simple
+baseline of the previous paragraph. A system is feasible in a cell by the definition in Section~\ref{sec:method}.
+\voss{} is feasible in \RerunViabPTwoVoss{} of \RerunViabCells{} cells at P99 targets of 2\,s, 3\,s and 5\,s, and in \RerunViabMetVoss{} of \RerunViabCells{} when the
+criterion is the share of deadlines met; its mean P99 per cell lies between \RerunViabPNinetynineLoVoss{} and \RerunViabPNinetynineHiVoss\,s. The simple baseline is feasible in
+\RerunViabPFiveSimple{} cells under every criterion, with P99 between \RerunViabPNinetynineLoSimple{} and \RerunViabPNinetynineHiSimple\,s even in the cells without adversaries
+(Table~\ref{tab:viab}), while its success stays above \RerunViabSuccLoSimple\%. This gap does not show that planning matters: the
+baseline differs from \voss{} in its clusters, routing, placement and hedging as well as in keep-alive, and the keep-alive
+baselines of the first subsection, which share \voss{}'s placement, all met 3\,s.
 
 \begin{table}[t]
 \caption{Cells (of \RerunViabCells) in which a system is feasible under each criterion (E20ab).}

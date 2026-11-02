@@ -32,8 +32,8 @@ round of planner comparisons (H12--H16) we apply a Holm correction, which keeps 
 bound of its success is at least 0.99 and its share of deadlines met, or its P99, meets a target. All systems share
 candidates and cost model and differ in one policy. Single-loop baselines: no planner (a worker gets a key only when an
 invocation needs it); a 10-minute keep-alive timer; unbounded keep-alive; and the hybrid histogram policy of Azure
-Functions~\cite{shahrad2020wild}, which learns each sandbox's idle times and pre-warms and keeps alive accordingly. A
-planned-keys baseline holds each tenant's key ahead of demand on the most reliable workers, as many as the greedy planner
+Functions~\cite{shahrad2020wild}, which learns each sandbox's idle times and pre-warms and keeps alive accordingly. An
+early-keys baseline holds each tenant's key ahead of demand on the most reliable workers, as many as the greedy planner
 uses. Planners: greedy, the exact program and the loss-model planner of Section~\ref{sec:sched}. Commercial-style references
 run always-on datacenter hosts with per-function keep-alive.
 

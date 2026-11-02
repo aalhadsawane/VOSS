@@ -9,6 +9,7 @@ import pandas as pd
 
 from experiments.analysis.common import bootstrap_ci
 from experiments.analysis.round4 import (
+    PLAIN_NAMES,
     best_single,
     e25_advantage,
     e25_blind,
@@ -58,7 +59,7 @@ def front_table(g: Gen, d: pd.DataFrame) -> None:
         for reg in REGIMES:
             x = d[(d.regime == reg) & (d.label == lab)]
             cells += [ms(x.p99, 3), f"{x.warm_mb.mean() / 1e3:.1f}", f"{x.exposure.mean():.1f}"]
-        body.append(" & ".join([f"\\texttt{{{esc(lab)}}}", *cells]) + r" \\")
+        body.append(" & ".join([PLAIN_NAMES[lab], *cells]) + r" \\")
     sub = ["P99 (s)", "Warm (GB)", "Exposure"] * 2
     head = [
         r"\begin{tabular}{lrrrrrr}",

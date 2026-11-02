@@ -22,6 +22,7 @@ from matplotlib.patches import Patch, Rectangle
 
 from experiments.analysis import pareto
 from experiments.analysis.common import bootstrap_ci
+from experiments.analysis.round4 import PLAIN_NAMES
 from experiments.analysis.viability import VERDICTS, paired_by_seed
 from experiments.figures.p10 import COLORS, _order, short
 
@@ -254,7 +255,7 @@ def front_fig(out: Path) -> Path:
                 elinewidth=0.8,
                 mec="k" if marker not in "x" else color,
                 mew=0.4,
-                label=lab.replace("_", " "),
+                label=PLAIN_NAMES[lab],
             )
         ax.set_title(ttl)
         ax.set_xlabel("key-holder exposure (time average)")

@@ -128,10 +128,14 @@ def viability(g: Gen) -> None:
     g.mac("RerunViabSuccLoNoattest", f"{100 * nc.success.min():.0f}")
     g.mac("RerunViabSuccHiNoattest", f"{100 * nc.success.max():.0f}")
     g.mac("RerunViabSuccLoSimple", f"{100 * cm[cm.label == 'simple'].success.min():.1f}")
+    n = len(d.groupby(cell))
+    for t in P99_TARGETS:
+        expect(feasible(d, "voss", p99_max=t) == n, f"VOSS is feasible in every E20ab cell at P99 {t:g} s")
+    expect(feasible(d, "simple", p99_max=max(P99_TARGETS)) == 0, "the simple baseline is feasible in no E20ab cell")
     body = []
     for tgt in (None, *P99_TARGETS):
         kw: dict[str, float | None] = {"met_min": MET_MIN} if tgt is None else {"p99_max": tgt}
-        name = "met $\\geq$ 0.95" if tgt is None else f"P99 $\\leq$ {tgt:g} s"
+        name = f"deadlines met, lower bound $\\geq$ {MET_MIN:g}" if tgt is None else f"P99 $\\leq$ {tgt:g} s"
         body.append(rows(name, *(feasible(d, lab, **kw) for lab in ("voss", "simple"))))
     g.files["tab_rerun_viability.tex"] = tabular("lrr", ["Target", "VOSS", "Simple"], body)
 

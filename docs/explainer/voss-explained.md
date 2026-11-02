@@ -389,7 +389,7 @@ An estimator turns past outcomes into a number a decision needs.
 ## Baselines and protocol
 
 - **Same candidates, same cost model, same request placement** for every system; one policy differs.
-- Single-loop baselines: no planner (a key is fetched when an invocation needs it); a 10-minute keep-alive timer; unbounded keep-alive; the **Azure hybrid histogram** policy (learns each sandbox's idle times, pre-warms and keeps alive accordingly). Plus **provisioned_keys**: holds each tenant's key ahead on the most reliable workers.
+- Single-loop baselines: no planner (a key is fetched when an invocation needs it); a 10-minute keep-alive timer; unbounded keep-alive; the **Azure hybrid histogram** policy (learns each sandbox's idle times, pre-warms and keeps alive accordingly). Plus **early keys**: holds each tenant's key ahead on the most reliable workers.
 - **Paired seeds**: the same simulated world for both systems. We report the mean per-seed ratio with a 95% **bootstrap interval** (resample the seeds to see how far the mean could move).
 - Hypotheses and their pass rules were **written down before the runs**. For H12 to H16 a **Holm correction** keeps the chance of any false positive below 5%.
 - 20 seeds (10 for the exact solver and the session-length experiment).
@@ -415,9 +415,9 @@ An estimator turns past outcomes into a number a decision needs.
 
 ## Result 2: where the gain comes from (decomposition)
 
-- **provisioned_keys** asks the greedy planner *how many* workers should hold each tenant's key, then picks *which* workers by reliability only: no cover against losses, no warm-sandbox planning. Same exposure as greedy.
+- **early keys** asks the greedy planner *how many* workers should hold each tenant's key, then picks *which* workers by reliability only: no cover against losses, no warm-sandbox planning. Same exposure as greedy.
 - Its P99 is 1.243 s: 17% (medium) and 14% (high) below the best single loop. That is about **80% of greedy's gain**.
-- Choosing the workers well and planning warm sandboxes adds the rest: greedy is 0.949 [0.927, 0.970] of provisioned_keys' P99 at medium churn and 0.957 at high churn. Excludes 1, but not our 5% bar (H15: weak).
+- Choosing the workers well and planning warm sandboxes adds the rest: greedy is 0.949 [0.927, 0.970] of early-keys baseline's P99 at medium churn and 0.957 at high churn. Excludes 1, but not our 5% bar (H15: weak).
 - So most of the value is the **set-level decision of how many workers hold each key**, which a per-request loop cannot make. The finer choices of who and what add about a fifth.
 
 ---
@@ -443,9 +443,9 @@ An estimator turns past outcomes into a number a decision needs.
 
 ## Result 5: planner v2 and the exposure budget
 
-- **Erlang (loss-model) planner, erlang_greedy**: treats each tenant's reserved slots as a loss system (a call that finds all slots busy goes to a worker without the key). Why: the value of a set of holders is then submodular, so greedy has the classic (1 - 1/e) guarantee **per tenant only** (not for the joint plan).
+- **Loss-model planner**: treats each tenant's reserved slots as a loss system (a call that finds all slots busy goes to a worker without the key). Why: the value of a set of holders is then submodular, so greedy has the classic (1 - 1/e) guarantee **per tenant only** (not for the joint plan).
 - Outcome vs greedy: **14 to 20% less exposure**, but **+2.5% to +5% P99** and **+9% to +13% warm memory**. Not adopted (H13); reported as the lower-exposure point on the front.
-- **Exposure-budget variant (erlang_dpp)**: P99 matches, but it **did not meet its budget** (exposure 17.7 against 14.6 for erlang_greedy at medium churn; H14). A likely cause, unverified: it measures exposure over the planning pool only.
+- **Exposure-budget variant of the loss-model planner**: P99 matches, but it **did not meet its budget** (exposure 17.7 against 14.6 for the loss-model plannereedy at medium churn; H14). A likely cause, unverified: it measures exposure over the planning pool only.
 - **Exact program**: P99 1.167 against 1.177 s (medium) and 1.232 against 1.209 s (high), about 1.5 times the warm memory, and its 4 s solve time is not charged to the simulated clock, which favours it. Not better, so greedy stays.
 
 ---
@@ -482,12 +482,12 @@ Remove one part at a time (10% of owners dropping work, E19, original placement)
 
 ---
 
-## TODO: baselines, feasibility map, commercial reference
+## Simple baseline, commercial reference, feasibility map, calibration
 
 - Reruns with the corrected placement: E10b, E17b, E20ab, E24b (numbers below come from them).
 - Simple baseline against VOSS (homogeneous pool): P99 1.69x VOSS's (95% interval 1.34-2.06), 2.03x on mixed hardware (1.80-2.30); VOSS holds about 1.9x and 1.8x the key exposure.
 - Commercial-style datacenter reference: faster. At 20 invocations/s VOSS's P99 is 0.17 s above the Lambda-like reference and 0.11 s above the Azure-like one (0.37 s and 0.33 s at 40/s). Cost per million invocations: 19.6 USD at 10/s, 9.8 at 20/s, 4.9 at 40/s, against about 12 USD for the references.
-- Feasibility map (3 churn levels x 3 adversary settings, 10 seeds): VOSS feasible in 9 of 9 cells at 2 s, 3 s and 5 s P99 targets (mean P99 1.3-1.7 s); the simple baseline in 0 of 9 (P99 6.4-8.0 s); without attestation success is about 81%.
+- Feasibility map (3 churn levels x 3 adversary settings, 10 seeds): VOSS feasible in 9 of 9 cells at 2 s, 3 s and 5 s P99 targets (mean P99 1.3-1.7 s); the simple baseline in 0 of 9 (P99 6.4-8.0 s). The gap is not evidence for planning alone: the simple baseline also differs in clusters, routing, placement and hedging.
 - Calibration sensitivity: VOSS P99 1.00 s with measured costs against 1.36 s with placeholders; simple baseline 4.24 s against 3.67 s.
 
 ---

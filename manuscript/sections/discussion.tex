@@ -41,7 +41,7 @@ scale) ran with the original placement, which changes VOSS's own P99 by about 2\
 \item \textbf{Assumed workload and churn.} No public trace of donation sessions exists. The workload has six tenants and 12
 functions on 200 workers, so the planner's limits on tenants and functions never apply, the planner is not stressed by a long
 tail of rare functions, and 11 functions are idempotent by our assumption. Absolute differences are 0.3--0.5\,s of P99, with
-every system under 3\,s.
+every system of the planner comparison under 3\,s.
 \item \textbf{Idealised knowledge.} The scheduler takes start-up, trust and network costs and declared worker speeds as exact,
 and we did not sweep prediction error. Calibration comes from one laptop with a hard disk, and confidential-VM costs from the
 literature.

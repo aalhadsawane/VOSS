@@ -21,6 +21,18 @@ from voss.core.rng import stream
 
 from experiments.analysis.common import bootstrap_ci, latency_metrics, manifest, table
 
+PLAIN_NAMES = {  # one plain name per system, used in the paper's table and figure (doc 06 §8)
+    "plan_none": "No planner",
+    "keepalive_ttl": "Keep-alive, 10 min",
+    "keepalive_inf": "Keep-alive, unbounded",
+    "hist_prewarm": "Histogram keep-alive",
+    "provisioned_keys": "Early keys",
+    "plan_greedy": "Greedy planner",
+    "plan_milp": "Exact planner",
+    "erlang_greedy": "Loss-model planner",
+    "erlang_dpp": "Loss-model, exposure budget",
+}
+
 WARMUP_S = 300.0
 SINGLE_LOOPS = ("keepalive_ttl", "keepalive_inf", "hist_prewarm")
 E25_SHAPES = (0.6, 1.0)
