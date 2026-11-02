@@ -1,98 +1,28 @@
 \section{Reaching a Scheduler on a Volunteer Machine}
 \label{sec:network}
-
-In the clustered architecture each cluster's scheduler runs on one of its volunteer machines. Routers must send it
-requests, it must send assignments and plan actions to its workers, and workers must send it their reports. This section
-explains why ordinary request--response communication does not work here and what we use instead. In the global
-architecture none of this is needed: the scheduler runs on provider hardware at a stable address, and every worker simply
-opens a connection to it.
-
-\subsection{The problem: volunteer addresses}
-Volunteer machines sit behind home or office routers that perform network address translation. Such a router lets a
-machine open connections to the outside, but it drops connections that arrive from outside, because it does not know which
-machine inside they are for. The public address of a home connection also changes when the router restarts or the internet
-provider reassigns it. A scheduler on a volunteer machine therefore cannot accept incoming connections, and its address
-lasts at most one session.
-
-HTTP and gRPC both assume a server that listens at an address its clients know. Here the server would be a home machine
-with no way in and an address that changes, and every scheduler replacement would force every router and worker to learn a
-new address and reconnect at the same moment. Hole punching, where both sides connect outwards at once, works only for some
-pairs of home routers, and the rest need a relay anyway. With hundreds or thousands of clusters, each scheduler changing
-machines over time, neither approach scales.
-
-\subsection{Our design: a publish/subscribe broker run by the provider}
 \label{sec:broker}
-The provider runs a \emph{broker}: a public service at a stable address. Every party opens one long-lived connection to it.
-Messages are not addressed to machines; they are published to named \emph{topics}, and the broker delivers each message to
-whoever has subscribed to that topic (Figure~\ref{fig:broker}). Each cluster has its own topics, named by the cluster's
-number: the scheduler subscribes to the cluster's scheduler topic, each worker to its own topic and to a cluster-wide one,
-and routers publish requests to the scheduler topic. Nobody needs another party's address; they only need the cluster
-number, which the orchestrator gives them.
-
-\begin{figure}[t]
-\centering
-\resizebox{0.9\columnwidth}{!}{\input{diagrams/broker}}
-\caption{Control messages go through topics on a provider-run broker, one set per cluster. Every connection is opened from the volunteer side. Request inputs and results do not use the broker: each worker keeps its own connection to its regional router.}
-\label{fig:broker}
-\end{figure}
-
-We take MQTT~\cite{mqtt5} as the protocol. It was built for devices on unreliable networks, its clients always connect
-outwards, and its at-least-once delivery suits our messages: plan actions are safe to repeat, and assignments carry the
-scheduler's epoch (Section~\ref{sec:succession}), so a duplicate is recognised. Any broker with topics and outward
-connections would serve.
-
-\textbf{Replacing a scheduler becomes simple.} The new scheduler subscribes to the same topic. The topic name does not
-change, so no address has to be announced and no worker has to reconnect. Workers only learn the new epoch and the new
-scheduler's certificate from the appointment message.
-
-\textbf{The broker cannot forge messages.} MQTT alone does not protect messages from the broker that relays them, and
-Buccafurri et al.\ found no earlier proposal that gave end-to-end integrity against an untrusted MQTT broker~\cite{buccafurri2024mqtti}.
-We therefore add two layers. Each connection to the broker is mutual TLS with the party's certificate. In addition, every
-control message is signed end to end with the sender's session key and carries the epoch and a sequence number; the
-receiver checks the signature against the sender's certificate. A worker accepts an assignment only if it is signed by the
-scheduler the orchestrator appointed for the current epoch. The broker sees topic names, sizes and timing, and can drop,
-delay or reorder messages. These are omission and timing faults, which the detectors of Section~\ref{sec:ft} already handle.
-It cannot create, alter or replay a message.
-
-\textbf{Costs.} A message from a worker to its scheduler now travels through the broker, one extra hop; a broker in the
-provider region nearest to the cluster keeps it short. The broker is also one more provider service that must stay up, and
-production brokers are run as replicated clusters for that reason. The traffic is small: about 0.46\,KB/s per worker in a
-scalability pilot, or about 14\,KB/s for a cluster of 30.
-
-\subsection{Why the scheduler is on a volunteer machine at all}
 \label{sec:placement}
-The clustered design puts the scheduler on a volunteer machine so that the provider runs no server per cluster, and because it is the harder case for fault tolerance, so Section~\ref{sec:ft} tests the mechanisms where they matter.
 
-Compute is not the reason. With the planning times we measured, running every cluster's scheduler on provider hardware
-would need about 0.9 processor cores for greedy planning at $10^5$ workers in clusters of 30, and about one core for request
-placement at 1\,000 requests per second. Only the exact planner would be expensive, at about 450 cores, and it was not
-measurably better (Section~\ref{sec:res-plan}). Hosting on the provider would also remove one round trip from every
-synchronous request, remove a malicious scheduler host from the threat model, take the scheduler code out of the image, and
-allow larger scheduling domains. Table~\ref{tab:placement} compares the options.
+In the clustered architecture, routers must send invocations to a scheduler that runs on a volunteer machine, and the
+scheduler must send assignments to its workers. Home routers perform network address translation: a machine behind one can
+open connections outwards but cannot accept connections from outside, and its public address changes when the router
+restarts. HTTP and gRPC assume a server at an address its clients know, so every scheduler replacement would force every
+router and worker to learn a new address at once; hole punching works only for some pairs of home routers. With hundreds of
+clusters whose schedulers move between machines, neither scales.
 
-\begin{table}[t]
-\caption{Where the scheduler runs. The volunteer-hosted design is the one whose failure handling we evaluate; E05 compares clusters with one global scheduler.}
-\label{tab:placement}
-\centering\small
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{@{}P{3.0cm}P{3.2cm}P{3.3cm}P{2.9cm}@{}}
-\toprule
- & Volunteer, per cluster & Provider, per cluster or region & Provider, global \\
-\midrule
-How workers reach it & through the broker, by cluster topic & connect to its address & connect to its address \\
-Extra provider service & broker & scheduler servers & scheduler servers \\
-When the scheduler fails & epochs and a successor & provider replication & provider replication \\
-Malicious scheduler host & possible & no & no \\
-Extra hop per request & yes & no & no \\
-Scheduling domain & tens of machines & any size & all machines \\
-\bottomrule
-\end{tabular}
-\end{table}
+We therefore use a publish/subscribe broker run by the provider at a stable address. Every party opens one outward
+connection to it. Each cluster has its own topics, named by the cluster's number: the scheduler subscribes to the cluster's
+scheduler topic, workers to their own topics, and routers publish invocations to the scheduler topic. Nobody needs another
+party's address, and replacing a scheduler means only that the successor subscribes to the same topic. We take
+MQTT~\cite{mqtt5} as the protocol, whose clients always connect outwards and whose at-least-once delivery suits messages
+that are idempotent or carry the scheduler's \emph{epoch}, a counter the orchestrator increments each time it appoints a scheduler (Section~\ref{sec:ft}). MQTT gives no protection against the broker itself~\cite{buccafurri2024mqtti},
+so each connection is mutual TLS and every control message is signed end to end with the sender's session key and carries
+the epoch and a sequence number; workers accept an assignment only from the scheduler appointed for the current epoch. The
+broker can drop or delay messages, faults the detectors of Section~\ref{sec:ft} already handle, but cannot forge or replay
+them. The costs are one extra hop and one more replicated provider service; traffic is about 0.46\,KB/s per worker.
 
-\subsection{What the simulator models}
-The simulator models network delay only: each message takes a time derived from the distance between cities, plus 20\,ms
-for each end that sits behind a relay (15\% of workers by default), which stands in for the broker hop. It does not model
-the broker's capacity, connection set-up, address changes, reconnection, or the cost of signing messages. Sending every
-control message through a broker would add the hop for all workers, not 15\%, and we did not sweep this. In E05 the global
-scheduler is also hosted on a volunteer machine, so it pays volunteer delays and failures that provider hardware would not;
-the comparison is therefore tilted towards the clustered design.
+Compute is not why the scheduler runs on a volunteer machine: on provider hardware, greedy planning for $10^5$ workers in
+clusters of 30 needs about one processor core. The global architecture avoids the broker, the extra hop and a malicious
+scheduler host altogether; we keep the clustered one because it needs no per-cluster provider server and because it is the
+harder case for fault tolerance. The simulator models only the delay of messages (a geographic delay plus 20\,ms per relayed
+end), not broker capacity, reconnection or the cost of signatures.

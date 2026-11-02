@@ -32,24 +32,22 @@
 \email{aalhadsawane@gmail.com}
 
 \begin{abstract}
-Short serverless functions spend most of their time waiting for an isolated environment to start or for packets to cross a
-long distance, while computers close to users sit idle. We ask whether idle consumer computers can answer requests that
-must finish within seconds. Two things make this hard. Owners switch machines off without warning, which destroys every
-prepared environment on them. And owners cannot be trusted with the code and data they run.
-Remote attestation, in which a machine proves to a verifier which software it booted, changes the second problem: an owner
-who controls the machine's software, power and network can still stop or delay it, but can no longer read or forge
-anything. What is left is a scheduling problem. Proving trust, handing a machine a customer's decryption key, and starting
-environments are slow; all of it is lost when the owner switches off; and every extra machine that holds a key is one more
-place it could leak from.
-We present \voss{}, a scheduler built for this problem. A planner, run every 30 seconds, decides which machines hold which
-keys and ready environments, with spare capacity for machines that disappear. A per-request step then picks a machine for
-each call and duplicates calls at risk. A machine is judged failed when work it accepted does not come back, not when it
-stops sending heartbeats, and a failed scheduler is replaced without any agreement protocol among volunteers. We describe
-two architectures, one global scheduler on provider hardware and geographic clusters with volunteer-hosted schedulers
-reached through a publish/subscribe broker.
-In a deterministic simulator calibrated on a TPM-equipped laptop, \voss{} keeps 99th-percentile latency under 3\,s in
-\ViabAPThreeVoss{} of \ViabACells{} churn-and-adversary settings and \ViabBPThreeVoss{} of \ViabBCells{} settings that vary the trust technology and load,
-where the strongest simple baseline does so in none. We also report the parts that did not pay off.
+Serverless functions are short, so their latency is dominated by starting an isolated environment and by network distance,
+while computers close to users sit idle. We ask whether idle consumer machines can answer requests that must finish in seconds.
+Owners switch machines off without warning, which destroys everything prepared on them, and owners cannot be trusted with the
+code and data they run. Remote attestation, in which a machine proves to a verifier which software it booted, turns a hostile
+owner into an unreliable one who can stop or delay a machine but not read or forge anything. What remains is a scheduling
+problem: attesting a machine, giving it a customer's decryption key and starting environments are slow, are lost at the end of
+every session, and every machine that holds a key is one more place it could leak from.
+We present \voss{}. A planner decides every 30 seconds which machines hold which keys and ready environments, with spare
+capacity for machines that disappear; a per-invocation step picks a machine for each call; machines are judged by whether
+accepted work comes back, not by heartbeats; and failed schedulers are replaced without agreement among volunteers. We describe
+a global scheduler on provider hardware and a clustered design whose volunteer-hosted schedulers are reached through a
+publish/subscribe broker.
+In a deterministic simulator calibrated on a laptop with a Trusted Platform Module (TPM, the chip that signs boot measurements), the planner lowers 99th-percentile (P99) latency by about
+\RfourDecompGreedyMed\% against the strongest keep-alive policies, including an Azure-style histogram policy, at about 2.5 times their key
+exposure. A baseline that holds keys ahead on the most reliable machines captures about \RfourDecompShareMed\% of the gain, so most of the value is
+deciding how many machines should hold each key. Several designed components did not pay off, and we report those too.
 \end{abstract}
 
 \begin{CCSXML}
@@ -83,7 +81,5 @@ where the strongest simple baseline does so in none. We also report the parts th
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{refs}
 
-\appendix
-\input{sections/appendix}
 
 \end{document}

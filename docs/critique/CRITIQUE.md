@@ -896,7 +896,7 @@ alive with a timer, do as well, with less machinery?
 **Resolution.** Keep the planner (rebut), and add the strong single-loop baseline to E04 (class C, with C-33). If it comes
 within 5% of the planner, the paper must say the gain is from planning *keys*, not warm sandboxes.
 
-**Status.** Rebutted in text; strong baseline open.
+**Status.** Rebutted with E04b (round 4): against the strongest single loops tested (fixed and unbounded keep-alive, Azure-style histogram) and the corrected placement, the greedy planner is 18-21% lower in P99 (H12 supported, 19-20 of 20 seeds), at about 2.5x their exposure. Most of that comes from sizing the set of key holders ahead of demand (`provisioned_keys`), which a per-request loop cannot do.
 
 ---
 
@@ -948,7 +948,7 @@ warm sandboxes are allocated by marginal analysis on the convex Erlang-B curve, 
 enforces a per-tenant exposure budget with drift-plus-penalty virtual queues. Needs code and reruns of E04, E19, E20, E23
 (ACTION M6).
 
-**Status.** Accepted; design written; implementation open.
+**Status.** Done and evaluated (round 4): planner v2 implemented (`erlang_greedy`, `erlang_dpp`) with only the per-tenant (1-1/e) bound claimed. Result (E04b, D-79): not adopted as default (more warm memory, 2.5-5% higher P99, 14-20% less exposure); the exposure-budget variant did not meet its budget. Reported as a point on the exposure-latency front.
 
 ---
 
@@ -996,7 +996,7 @@ overtake queued asynchronous ones; full rerun afterwards. Compare against `provi
 reliable workers, exposure matched) to separate "holding keys early" from "planning". Rewrite the planner's claimed mechanism
 from the corrected results.
 
-**Status.** Open (code + rerun).
+**Status.** Fixed as options (D-78) and evaluated: the per-worker wait estimate alone is mixed, synchronous priority removes most of keep-alive's collapse; greedy's P99 changes by about 2%. Baseline-dependent experiments (E10, E17, E20a, E24) are rerun with the corrected placement as E10b, E17b, E20ab, E24b; VOSS-centred frozen experiments keep the original placement (stated as a limit).
 ---
 
 ## 2. Cascade map

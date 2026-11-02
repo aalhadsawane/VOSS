@@ -1,100 +1,59 @@
 \section{Background and Problem}
 \label{sec:background}
 
-\textbf{Terms.} A \emph{tenant} is a customer of the platform: a developer or company that deploys functions. An
-\emph{invocation} is one call of a function. The \emph{provider} runs the platform. A \emph{volunteer}, or \emph{owner},
-owns a machine that donates capacity, and a \emph{worker} is such a machine while it runs our software. A \emph{sandbox} is
-a small virtual machine (a microVM) that runs one function in isolation; it is \emph{warm} when it has already started and
-sits idle, ready for a call. A \emph{snapshot} is a saved copy of a started sandbox's memory, which can be restored faster
-than a sandbox can boot. A tenant's \emph{key} is a secret decryption key that only the tenant controls.
+\textbf{Terms.} A \emph{tenant} is a customer who deploys functions; an \emph{invocation} is one call of a function. The
+\emph{provider} runs the platform, a \emph{volunteer} owns a donated machine, and a \emph{worker} is that machine while it runs
+our software. A \emph{sandbox} is a small virtual machine (a microVM) that runs one function in isolation. It is \emph{warm}
+when it has started and sits idle, ready for a call; a \emph{snapshot} is a saved copy of a started sandbox that restores
+faster than a sandbox boots. Each worker offers a fixed number of \emph{slots}, each running one invocation at a time. A
+tenant's \emph{key} decrypts its code and snapshots; only the tenant controls it. We report the 99th percentile of the
+latency of synchronous invocations, written P99.
 
 \subsection{Where the time goes}
-An invocation waits for several things in turn: choosing a region and a machine, waiting for a free slot on that machine,
-making the machine able to run this tenant's code, starting a sandbox, moving the input and output, and running. For
-functions that run for tens to hundreds of milliseconds, starting the sandbox dominates unless one is already warm. This is
-why platforms keep sandboxes alive after use or restore them from
-snapshots~\cite{shahrad2020wild,fuerst2021faascache,ao2022faasnap,cadden2020seuss}.
-A function can be in one of four states on a machine, from slowest to fastest start:
-\textbf{L0}, nothing on the machine, so the code and file system must be fetched and checked first;
-\textbf{L1}, code and file system on local disk, so a sandbox must boot and initialise;
-\textbf{L2}, a snapshot on local disk, so it is restored;
-\textbf{L3}, a warm sandbox in memory, so the request is simply handed to it.
-Each step up costs memory or disk, so choosing which functions to keep at which level on which machines is already a
-scheduling problem.
+Before a function runs, the invocation waits for a slot, for the worker to obtain the tenant's key if it lacks it, and
+for a sandbox to start. For functions of tens to hundreds of milliseconds, starting the sandbox dominates unless one is
+already warm, which is why platforms keep sandboxes alive or restore snapshots~\cite{shahrad2020wild,fuerst2021faascache,ao2022faasnap,cadden2020seuss}.
+A function is at one of four levels on a worker: nothing cached (fetch the code, then boot); code on disk (boot); a snapshot
+on disk (restore); or a warm sandbox (hand the request over).
 
-Volunteer machines add a cost that datacenters do not have. Before a machine may run tenant code it must prove which
-software it runs, and before it can decrypt a tenant's code it must receive that tenant's key. Figure~\ref{fig:cost} puts
-these costs on one scale, measured on a consumer laptop with a TPM, the security chip found on most modern PCs
-(Section~\ref{sec:calib}). Handing a request to a warm sandbox takes milliseconds. Booting a new sandbox takes about
-\CalFcBootWarmMs\,ms if its files are already in memory and \CalFcBootColdS\,s if they must be read from the hard disk. Getting from
-power-off to an attested worker takes \CalAttested\,s (median of \CalAttestedN{} boots): \CalReboot\,s for firmware, boot loader and kernel start,
-then \CalAttestedKernel\,s until the verifier accepts the machine's proof. These numbers are upper bounds, because the laptop had a hard
-disk and we ran the image in a simplified mode. Even so, establishing trust costs thousands of times more than reusing a
-sandbox, so it has to be done before requests arrive, not while they wait.
+Volunteer machines add a cost that datacenters do not have: before running tenant code, a machine must prove which software
+it runs, and before decrypting a tenant's code it must receive the tenant's key. Figure~\ref{fig:cost} shows the costs on a
+consumer laptop. Handing a request to a warm sandbox takes milliseconds; booting a sandbox takes \CalFcBootWarmMs\,ms with its files in
+memory and \CalFcBootColdS\,s from a hard disk; going from power-off to an attested worker takes \CalAttested\,s (median of \CalAttestedN{} boots). Trust costs
+thousands of times more than reuse, so it must be prepared before requests arrive. The network adds to this: volunteers sit
+on home links with less upload than download, and file systems of 90--450\,MB and snapshots of up to 600\,MB take tens of
+seconds to minutes to move. The scheduler charges each candidate worker the transfer time over its own link, workers fetch
+from nearby workers before the provider's registry, and snapshots are made locally rather than downloaded.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.9\columnwidth]{figures/fig_cost}
-\caption{Time to reach each state on the calibration laptop, on a log scale. Blue: sandbox start-up. Red: becoming an attested worker. Grey: model value, not measured. \emph{Warm cache}: the file is already in memory; \emph{cold}: it is read from the hard disk. \emph{Reboot to kernel} is the physical machine's firmware, loader and kernel start.}
+\includegraphics[width=0.8\columnwidth]{figures/fig_cost}
+\caption{Time to reach each state on the calibration laptop (log scale). Blue: sandbox start-up; red: becoming an attested worker; grey: model value. \emph{Warm cache}: file already in memory; \emph{cold}: read from the hard disk.}
 \label{fig:cost}
 \end{figure}
 
-The network is the second difference. A volunteer machine sits behind a home connection, often on Wi-Fi, with less upload
-than download capacity. In our model the download speed has a median of 100\,Mbit/s and the upload speed a median of about
-30\,Mbit/s, with a wide spread across machines (Section~\ref{sec:sim}). Code and file systems are 90 to 450\,MB per function
-and snapshots 48 to 600\,MB. A 450\,MB file system takes about 36\,s at 100\,Mbit/s, and a 600\,MB snapshot copied from a
-neighbour's 30\,Mbit/s upload takes almost three minutes. \voss{} handles this in three ways. The planner prepares machines
-before demand arrives, so most transfers happen while no request waits. The per-request step charges each candidate the
-time to fetch what it is missing over that machine's own link, so a machine on a slow link loses to a machine that is ready.
-And workers fetch from a nearby worker before the provider's registry, while snapshots are never downloaded from the
-registry at all: a worker creates one locally after the first boot, or copies one from a nearby worker.
-
-\subsection{Proving which software a machine runs}
+\subsection{Attestation in brief}
 \label{sec:rats}
-We use the vocabulary of the IETF attestation architecture~\cite{rfc9334}. While a machine boots, each stage (firmware,
-boot loader, kernel) is hashed into registers of its TPM, so the final register values are a fingerprint of everything that
-ran~\cite{tcg2019tpm}. When asked, the TPM signs these values together with a fresh random number chosen by the checker. The
-signed object is called a \emph{quote}. The \emph{verifier} checks the signature, follows the certificate chain back to the
-chip's manufacturer, and compares the fingerprint with the values expected for our image. A \emph{key service}, run for
-the tenant, then releases a key only to machines the verifier accepted~\cite{schear2016keylime}.
-Two facts matter for scheduling. A quote shows what ran at one moment, so the evidence goes stale and must be refreshed.
-And attestation says nothing about availability: an attested machine can still stop working.
+We use standard remote attestation~\cite{rfc9334}. While a machine boots, a Trusted Platform Module (TPM), the security
+chip in most PCs, records a hash of each boot stage; on request it signs these hashes and a fresh random number (a
+\emph{quote})~\cite{tcg2019tpm}. A verifier checks the quote against the expected image, and a key service releases a
+tenant's key only to machines that pass, as in Keylime~\cite{schear2016keylime} and measured-boot deployments in commodity
+operating systems. We use this mechanism as it is; what matters here is its cost (above), that its evidence lasts one boot,
+and that it says nothing about whether the machine keeps running.
 
-\subsection{How volunteer machines fail}
-A volunteer machine alternates between being off and a \emph{session}, an interval during which it runs our image. Session
-lengths are heavy-tailed and follow the time of day~\cite{javadi2013fta}. A session ends either with notice from the owner
-or abruptly, by reboot or power loss, and sometimes for a whole city at once. We use the standard classes of
-failure~\cite{cristian1991understanding,avizienis2004basic}: a \emph{crash} stops the machine; an \emph{omission} is a result
-that never arrives; a \emph{timing} failure is a result that arrives too late. Churn produces crashes. An owner who cannot
-forge anything can still choose when to drop or delay work, and can do so selectively while the machine keeps sending
-heartbeats. Heartbeat-based detectors, including adaptive ones such as the $\varphi$-accrual detector~\cite{hayashibara2004phi},
-cannot see this.
+\subsection{How volunteer machines fail, and the problem}
+A worker's \emph{session} lasts from booting our image until the owner switches off. Session lengths are heavy-tailed and
+follow the time of day~\cite{javadi2013fta}; sessions end with notice or abruptly, sometimes for a whole city. A machine can
+crash, drop a result (an \emph{omission}), or deliver it late (a \emph{timing} failure)~\cite{cristian1991understanding,avizienis2004basic}.
+An owner who cannot forge anything can still drop or delay work selectively while the machine keeps sending its periodic
+``I am running'' messages, which defeats detectors built on such heartbeats, adaptive ones included~\cite{hayashibara2004phi,huang2017gray}.
 
-\subsection{The problem}
-Requests arrive from clients in many places. Each names a tenant and a function, belongs to a service class (synchronous,
-where the client waits; asynchronous; or low-priority background work), and carries a deadline. Each function is marked
-\emph{idempotent} or not; a function is idempotent if calling it twice has the same effect as calling it once. The
-platform retries and duplicates only idempotent functions, and for the others a lost result is reported as a failure.
-
-Asking for idempotence is not new. Every major platform already asks it of developers, although the guarantee differs by
-how a function is called. AWS Lambda retries a failed asynchronous invocation twice by default and warns that a function
-may receive the same event more than once~\cite{awslambdaasync}; for a direct synchronous call it does not retry, and leaves
-the retry, with the same warning, to the caller~\cite{awslambdaretries}. Google's event-driven functions run at least once
-per event, functions that are retried must be idempotent, and plain HTTP functions are not retried by the
-platform~\cite{gcfretries}. Azure documents at-least-once delivery for Event Hubs triggers and asks for consumers that
-tolerate duplicates~\cite{azureeventhubsfunctions}, and Cloudflare Queues deliver at least once~\cite{cloudflarequeues}. So
-delivery is at least once on event-driven and asynchronous paths, and the client retries on request--response paths. On
-both, a duplicate eventually arrives, so developers are told to write idempotent code. \voss{} relies on the same
-contract, and goes further than these platforms by also retrying and duplicating synchronous calls, because failures on
-volunteer machines are common.
-
-The machines form a changing population, each with a number of slots for concurrent invocations, memory, disk, a location
-and a session that can end at any time. The scheduler decides which machines to attest and give which tenant's key, which
-functions to keep at which level where, and which machine runs each invocation. We pursue four goals.
-\textbf{G1:} an owner who controls the machine's software, power and network learns no tenant secret and forges no result.
-\textbf{G2:} 99th-percentile latency stays within the target although sessions end at any time.
-\textbf{G3:} a machine that accepts work and drops it, or a scheduler that stalls, is bypassed within seconds, without
-relying on the machine's own reports.
-\textbf{G4:} a machine cannot claim credit for work it did not do.
-We do not defend against physical attacks on the TPM, flaws in our image, side channels, or failure of the provider's own
-services (Section~\ref{sec:threat}).
+Invocations name a tenant and a function, are synchronous (the client waits), asynchronous or background, and carry a
+deadline: five times the function's run time on a warm sandbox, plus 50\,ms. Functions are marked idempotent or not; only
+idempotent ones are retried or duplicated. This is the contract developers already follow: AWS Lambda retries failed
+asynchronous invocations and warns of duplicate events~\cite{awslambdaasync,awslambdaretries}, Google's event-driven
+functions run at least once~\cite{gcfretries}, and Azure and Cloudflare deliver events at least once~\cite{azureeventhubsfunctions,cloudflarequeues}.
+The scheduler decides which workers receive which tenant's key, which functions they keep warm, and which worker runs each
+invocation. The goals are that an owner learns no tenant secret and forges no result; that P99 stays within target despite
+churn; that a worker that drops work, or a scheduler that stalls, is bypassed within seconds without trusting its own
+reports; and that no worker can claim work it did not do.

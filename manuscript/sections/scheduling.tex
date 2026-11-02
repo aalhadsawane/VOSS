@@ -1,217 +1,143 @@
 \section{Scheduling}
 \label{sec:sched}
-
-Section~\ref{sec:trust} made trust a resource with a price. This section decides who should hold it and when, and then
-which machine runs each request. We first explain why these are two separate decisions.
+\label{sec:why2}
+\label{sec:objectives}
+\label{sec:info}
+\label{sec:planner}
+\label{sec:placer}
+\label{sec:estimators}
+\label{sec:cluster}
 
 \subsection{Why two loops}
-\label{sec:why2}
 The scheduler's inputs change at very different rates, and its decisions last for very different times
-(Table~\ref{tab:horizons}). How many requests are running on a worker changes every few milliseconds and reaches the
-scheduler every 2\,s. A tenant's request rate is only meaningful averaged over a minute or more. How long sessions last can
-only be learned from many sessions, over hours. On the decision side, assigning a request to a worker lasts as long as
-that request. Keeping a sandbox warm lasts minutes. Releasing a key to a worker lasts the rest of its session, minutes to
-hours, and cannot be undone.
+(Table~\ref{tab:horizons}). How many invocations run on a worker changes every few milliseconds and reaches the scheduler
+every 2\,s. A tenant's request rate means something only when averaged over a minute. How long sessions last can only be
+learned from many sessions, over hours. On the decision side, assigning an invocation lasts as long as that invocation,
+keeping a sandbox warm lasts minutes, and giving a worker a tenant's key lasts the rest of its session.
 
 \begin{table}[t]
 \caption{How often the scheduler's inputs change, and how long its decisions last.}
 \label{tab:horizons}
 \centering\small
 \setlength{\tabcolsep}{4pt}
-\begin{tabular}{@{}P{4.5cm}P{3.2cm}P{4.6cm}@{}}
+\begin{tabular}{@{}P{5.4cm}P{3.5cm}P{3.6cm}@{}}
 \toprule
 Input or decision & Changes or lasts & Learned from \\
 \midrule
-Busy slots, what is cached on each worker & milliseconds; reported every 2\,s & worker reports \\
-Request rate per tenant and function & meaningful over about a minute & request counts \\
-Session length, chance a worker drops work & learned over hours & past sessions and outcomes \\
+Busy slots, cached state on each worker & milliseconds & worker reports every 2\,s \\
+Request rate per tenant and function & about a minute & request counts \\
+Session length, chance a worker drops work & hours & past sessions and outcomes \\
 \midrule
-Assign one request & one request (milliseconds to seconds) & current state \\
-Keep a sandbox warm & minutes & forecast of the request rate \\
-Release a key to a worker & the rest of the session & forecasts of rate and session survival \\
+Assign one invocation & one invocation & current state \\
+Keep a sandbox warm & minutes & forecast of request rate \\
+Give a worker a tenant's key & the rest of the session & forecasts of rate and survival \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-A decision whose effect outlasts the refresh period of its inputs has to be made from a forecast, ahead of time. A decision
-whose effect is short can react to the latest state. Assigning a request is of the second kind; releasing keys and warming
-sandboxes are of the first. Two further facts separate them. Whether demand is still covered if $f$ machines disappear is a
-property of the whole set of machines holding a key, and so is the key exposure of Section~\ref{sec:exposure}: neither can
-be judged one request at a time. And preparing a machine takes seconds to minutes (Figure~\ref{fig:cost}), far more than a
-request can wait.
+A decision that outlasts the refresh period of its inputs has to be made from a forecast, ahead of time. A short decision can
+react to the latest state. Two more facts separate them. Questions such as ``how many workers hold this tenant's key?'' or
+``is demand still covered if any $f$ workers disappear?'' are about a whole set of workers, and a loop that sees one
+invocation at a time cannot answer them. And preparing a worker takes seconds to minutes (Figure~\ref{fig:cost}), more than
+an invocation can wait. So the scheduler has two parts. The \emph{planner} runs every 30\,s, and earlier if demand or
+membership changes sharply: it decides which workers hold which tenant's key, which functions each keeps warm, and how many
+slots are reserved for each tenant. \emph{Request placement} runs for every invocation and picks a worker, usually from those
+the planner prepared. We did not sweep the 30\,s period: plan actions take from a few hundred milliseconds to several seconds,
+so the period must be longer, and sessions last minutes to hours, so it must be much shorter.
 
-So the scheduler has two parts that share one view of the cluster (Figure~\ref{fig:loops}). The \emph{planner} runs every
-30\,s, and earlier if demand or membership changes sharply. It decides which workers hold which tenant's key, which
-functions each keeps warm and how many, which snapshots stay on disk, and how many slots on each worker are reserved for
-each tenant. \emph{Request placement} runs for every request and chooses a worker, mostly from those the planner prepared.
-The 30\,s period is a design choice, not a measured optimum: plan actions take from a few hundred milliseconds to several
-seconds, so the period must be longer, and sessions last minutes to hours, so it must be much shorter. We did not sweep it.
-Section~\ref{sec:res-plan} tests whether the planner is needed by comparing it with provisioning on demand and with a
-keep-alive timer.
-
-\begin{figure}[t]
-\centering
-\resizebox{0.95\columnwidth}{!}{\input{diagrams/loops}}
-\caption{The two parts of a scheduler. The planner decides where keys and warm sandboxes are kept and sends actions to workers. Request placement picks a worker for each request. Workers confirm completed plan actions in their reports, so placement never counts on a worker that is not ready yet.}
-\label{fig:loops}
-\end{figure}
-
-\subsection{What each part optimises}
-\label{sec:objectives}
-For a synchronous request the deadline is five times the function's run time on a warm sandbox, plus 50\,ms. A request
-\emph{misses} if it fails or finishes after its deadline. We report misses in every experiment. The two parts treat them
-differently.
-
-\textbf{Request placement minimises the chance that this request misses.} For request $i$ and candidate worker $j$ it
-computes
+\subsection{What each part minimises}
+Request placement minimises the chance that this invocation misses its deadline. For invocation $i$ and candidate worker
+$j$ it computes
 \begin{equation}
-J_{ij}=w_i\,P^{\text{miss}}_{ij}+\varepsilon\,\mathbb{E}[T_{ij}]+\lambda\,x_{ij}
+J_{ij}=P^{\text{miss}}_{ij}+0.05\,\mathbb{E}[T_{ij}]+x_{ij},
 \label{eq:J}
 \end{equation}
-and picks the smallest. $P^{\text{miss}}_{ij}$ is the probability that the request misses on $j$: either $j$ fails before
-finishing, or the predicted completion time exceeds the time left before the deadline. $\mathbb{E}[T_{ij}]$ is the expected
-completion time, which separates candidates with similar miss probabilities. $x_{ij}$ is the exposure added if $j$ does not
-hold the tenant's key yet: the tenant's sensitivity times $(1-a_j)$. The weights are chosen so the terms are comparable:
-with $w_i=1$ for synchronous requests, $\varepsilon=0.05$ per second and $\lambda=1$, one second of expected latency counts
-as much as a 5-point rise in miss probability, and giving a medium-sensitivity tenant's key to a new machine with trust
-score 0.8 counts as much as a 20\% chance of missing. We minimise each request's own miss probability rather than a 99th
-percentile because a percentile describes many requests together and cannot be assigned to one decision; the average of
-the per-request miss probabilities is the miss rate.
+and picks the smallest. $P^{\text{miss}}_{ij}$ is the probability that the invocation fails or finishes after its deadline on
+$j$ (the worker may fail first, or the predicted completion may exceed the time left); $\mathbb{E}[T_{ij}]$, in seconds,
+separates candidates with similar miss probabilities; and $x_{ij}=\sigma_t(1-a_j)$ is the exposure added if $j$ does not yet
+hold the tenant's key, with $\sigma_t$ the tenant's sensitivity and $a_j$ the worker's trust score. With these weights one
+second of expected latency counts as much as a 5-point rise in miss probability, and handing a medium-sensitivity tenant's
+key to a new worker with trust score 0.8 counts as much as a 20\% chance of a miss. We minimise each invocation's own miss
+probability rather than P99 because P99 describes many invocations together and cannot be assigned to one decision.
+Asynchronous and background invocations are collected for 0.2\,s and assigned together by a minimum-cost matching.
+Invocations that would miss only because of a cold start are admitted because they warm the sandboxes later
+invocations need; an invocation is rejected only if every candidate is almost sure to miss.
 
-\textbf{The planner minimises cost while keeping enough capacity ready.} When the planner runs, the requests it plans for
-do not exist yet; it has only a forecast. Minimising misses directly would also be circular, since misses depend on later
-placement decisions, which depend on the plan. And warming every function on every worker would minimise misses while
-handing every key to every machine. So the planner instead requires enough ready capacity and minimises what that capacity
-costs.
-
-Capacity is counted in slots. If a tenant's requests arrive at random times (a Poisson process) at rate $\lambda_t$ and each
-occupies a slot for $s_t$ seconds on average, the number running at once follows a Poisson distribution with mean
-$\lambda_t s_t$, whatever the distribution of run times. The planner provisions $q_t$ slots, the 95th percentile of that
-distribution, so that in 95\% of moments an arriving request finds a provisioned slot free. A request that finds none goes
-to a worker without the key and waits for a key release and a start-up. Real arrivals are burstier than Poisson, so during
-bursts fewer than 95\% find a slot; the experiments measure the resulting misses directly.
-
-The planner also tolerates the loss of any $f$ machines. Let $c_{tj}$ be the slots of worker $j$ reserved for tenant $t$,
-and $e_j$ the estimated probability that $j$ stays in its session for the next 60\,s and does not drop work. The plan must
-satisfy
+The planner cannot minimise misses directly: the invocations it plans for do not exist yet, and misses depend on later
+placement choices, which depend on the plan. It instead keeps enough capacity ready and minimises what that capacity costs.
+If a tenant's invocations arrive at random at rate $\lambda_t$ and each occupies a slot for $s_t$ seconds on average, the
+number running at once is Poisson with mean $\lambda_ts_t$. The planner provisions $q_t$ slots, the 95th percentile of that
+number, so that in 95\% of moments an arriving invocation finds a ready slot, and it requires that this survives the loss of
+any $f$ workers (by default a tenth of the cluster). With $c_{tj}$ the slots of worker $j$ reserved for tenant $t$ and $e_j$
+the estimated chance that $j$ stays and does not drop work over the next 60\,s,
 \begin{equation}
-\sum_j e_j\,c_{tj} \;-\; \bigl(\text{sum of the } f \text{ largest } c_{tj}\bigr) \;+\; u_t \;\ge\; q_t .
+\sum_j e_j\,c_{tj} \;-\; \bigl(\text{sum of the } f \text{ largest } c_{tj}\bigr) \;\ge\; q_t .
 \label{eq:robust}
 \end{equation}
-In words: after removing the $f$ workers that contribute most, the expected remaining slots still cover $q_t$. The
-shortfall $u_t$ is allowed but charged a high price, so it appears only when memory or trust limits make full cover
-impossible. Removing the largest contributions is the worst case, so no model of an adversary is needed. Bertsimas and Sim
-show how to write this ``$f$ largest'' term as linear constraints~\cite{bertsimas2004price}, which lets an integer-program
-solver handle it. By default $f$ is a tenth of the cluster, rounded up.
-
-Subject to this, the planner minimises the memory and disk the plan uses, its key exposure, and the number of new key
-releases compared with the previous plan, minus the start-up time that warm sandboxes save. It also respects each worker's
-slots, memory and disk, caps how much of a tenant's capacity may sit in one city or one internet provider, and skips
-workers below the tenant's minimum trust score or whose certificate would expire within the next 60\,s.
-
-\subsection{What the scheduler knows}
-\label{sec:info}
-Every number the scheduler uses is one of four kinds. \emph{Reported} numbers come from workers every 2\,s: busy slots,
-cached state, which keys a worker holds, when its certificate expires, its trust score. The scheduler adds its own
-assignments made since the last report. \emph{Learned} numbers are estimated from past outcomes by the four estimators of
-Section~\ref{sec:estimators}. \emph{Forecasts}, such as next minute's request rate, are computed from learned numbers.
-\emph{Fixed} numbers are set before the run: start-up costs from the calibration, network delays from distance, each
-machine's declared speed and link rate, and the weights and tenant policies. The scheduler never sees when a session will
-really end, how long a request will really run, how a machine will really behave, or future requests; the code forbids the
-scheduling policies from importing the simulated world. The fixed start-up and network costs are the weak point: a
-deployment would measure them as it runs, and our prototype does not (Section~\ref{sec:threats}).
+Removing the largest $f$ contributions is the worst case, so no model of an adversary is needed; Bertsimas and Sim show how
+to write this as linear constraints~\cite{bertsimas2004price}. Subject to this the planner minimises the memory and disk the
+plan uses, key exposure, and the number of new key releases, minus the start-up time that warm sandboxes save. Real arrivals
+are burstier than Poisson, so during bursts fewer than 95\% of invocations find a ready slot; the experiments measure the
+resulting misses directly.
 
 \subsection{The planner}
-\label{sec:planner}
-The planner considers the live workers in its view that are not leaving (at most 40) and the 20 tenants and 50 functions
-with the highest forecast rate. Less frequent tenants and functions are served by request placement alone, on whichever
-worker it finds best. The evaluation workload has six tenants and 12 functions, so these limits never apply there.
+The planner looks at the live, non-leaving workers in its view (at most 40) and at the 20 tenants and 50 functions with the
+highest forecast rate; the evaluation workload has six tenants and 12 functions, so these limits never apply. The
+\emph{greedy planner}, our default, takes tenants in order of how much they lose to cold starts. For each it adds workers one
+at a time, choosing the best ratio of reliability times trust score to memory and exposure cost, until
+condition~\eqref{eq:robust} holds. On the workers that hold each tenant's key it then adds warm sandboxes and snapshots in
+order of start-up time saved per megabyte. It takes about 8\,ms per run. An exact integer program (HiGHS~\cite{huangfu2018highs})
+takes about 4\,s per cluster. Before any experiment we fixed a rule: if the exact program lowered P99 by less than 5\% in every
+setting, greedy would be the method. The data could not show this, and the exact program was not measurably better
+(Section~\ref{sec:res-plan}).
 
-We implemented two planners with the same inputs and outputs. The \emph{exact planner} solves the problem as a mixed-integer
-program with about a thousand variables per cluster, using HiGHS~\cite{huangfu2018highs} with a time limit. The
-\emph{greedy planner} works in two passes. First, it takes tenants in order of how much they would lose to cold starts
-(forecast rate times cold-start delay); for each tenant it adds workers one at a time, choosing the worker with the best
-ratio of reliability times trust score to memory and exposure cost, until the condition~\eqref{eq:robust} holds. Second, on
-the workers that hold each tenant's key, it adds warm sandboxes and snapshots in order of start-up time saved per megabyte
-of memory, until each worker's memory or disk is used. The greedy planner takes about \GreedySolveMs\,ms per run. In a pilot, the exact
-planner needed 0.3--1.1\,s for 10 workers, 4.7--5.0\,s for 40 and 17--24\,s for 80. Before running the experiments we fixed a
-rule: if the exact planner lowers 99th-percentile latency by less than 5\% in every setting, the greedy planner is the method
-and the exact planner a reference (Section~\ref{sec:res-plan}).
+We also derived a planner with more structure. Treat each tenant's reserved slots as a loss system: an invocation that finds
+every slot busy goes to a worker without the key. The chance of finding all busy depends only on the mean run time and falls
+by less with each added slot (the Erlang loss formula is convex in the number of slots~\cite{messerli1972}), so the value of a
+set of key holders is a monotone submodular function and greedy selection has the classic $(1-1/e)$ guarantee for each
+tenant~\cite{nemhauser1978,harshaw2019}, while warm sandboxes can be allocated by marginal gain. The guarantee holds per
+tenant only; slots shared across tenants, the domain caps and memory limits remove it for the joint plan. We evaluate it as
+the loss-model planner, and it trades latency for exposure rather than replacing greedy (Section~\ref{sec:res-plan}).
 
-A new plan is computed only if the inputs changed beyond a tolerance; otherwise the old one is kept. The difference between
-the new and old plan becomes actions sent to workers: fetch the key and decrypt the bundle, keep a snapshot, start a warm
-sandbox, release. Actions are safe to repeat and limited in rate. Workers report completed actions, and the plan counts only
-what they have confirmed.
+A new plan is computed only if its inputs changed beyond a tolerance. The difference to the previous plan becomes actions that
+are safe to repeat and rate-limited: fetch the key and decrypt the bundle, keep a snapshot, start a warm sandbox, release.
+Workers confirm completed actions in their reports, and placement counts only what they have confirmed.
 
-\subsection{Request placement}
-\label{sec:placer}
-For each request, placement sees only its metadata (function, tenant, time left before the deadline, input size, whether it
-is idempotent), the cluster view and the plan. It considers 12 candidates: workers that hold the tenant's key, and other
-attested workers, which would first need a key release and usually a start-up. Workers that are leaving, whose certificate
-is about to expire, whose trust score is below the tenant's minimum or that lack memory are excluded.
+\subsection{Request placement and what the scheduler knows}
+Every number the scheduler uses is reported by a worker (busy slots, cached state, keys held, certificate expiry, trust
+score), learned from past outcomes, forecast from learned numbers, or fixed before the run (start-up and trust costs from
+the calibration, network delays from distance, declared speeds, weights). It never sees when a session will really end, how
+long an invocation will really run, or future arrivals. Placement considers 12 candidates, the workers that hold the tenant's
+key and other attested workers that would first need a key release, and excludes workers that are leaving, about to
+expire, below the tenant's trust floor or short of memory. For each it adds five predicted delays: waiting for a slot, getting
+the key, starting the function at its current level, moving data over the worker's own link, and running.
 
-For each candidate it adds up five predicted delays and logs each: waiting for a free slot, getting the key (zero if held),
-starting the function at its current level, moving data over the network, and running. Completion time is modelled as a
-shifted log-normal distribution matched to these parts, and the failure probability is the chance that the worker ends its
-session or drops the work before finishing. A synchronous request goes to the lowest $J$ at once. Asynchronous and
-background requests are collected for 0.2\,s and assigned together by a minimum-cost matching. All baselines use the same
-candidates and cost model, so differences come from the decision rule alone.
+The wait for a slot needs care. Slots on a worker are shared by synchronous and asynchronous invocations, and one worker's
+slots can be filled by long asynchronous jobs. An earlier version estimated the wait from one cluster-wide mean run time, which
+made a queue of long jobs look short, so synchronous invocations queued for seconds on the few workers holding a tenant's key
+rather than moving to another worker. The scheduler now replays each worker's queue from the predicted run times of the jobs
+it dispatched there, and a free slot goes to a waiting synchronous invocation before queued asynchronous ones (no
+preemption). Every system in our main comparison uses this placement.
 
-If every candidate is almost certain to miss and even the shortest wait exceeds the time left, the cluster is overloaded: a
-synchronous request is rejected and an asynchronous one deferred. Requests that would miss only because of a cold start are
-accepted, because they warm the sandboxes later requests need. If the best candidate's miss probability is above 0.2, the
-function is idempotent and the cluster has used less than 10\% of placements for duplicates, a second copy goes to the best
-candidate in a different city or internet provider, and the slower copy is cancelled when the first result arrives
-~\cite{dean2013tail}. A request lost to a failure is placed again, excluding the failed worker, within a limit per request
-and per cluster.
+If the best candidate's miss probability exceeds 0.2, the function is idempotent and fewer than 10\% of placements have been
+duplicated, a second copy goes to the best worker in a different city or provider and the slower copy is cancelled when the
+first result arrives~\cite{dean2013tail}. A lost invocation is placed again, excluding the failed worker, within a budget.
 
 \subsection{Estimators}
-\label{sec:estimators}
-Four estimators turn past outcomes into the probabilities and times used above. For each we say what it predicts, where it
-is used, and why we chose it.
-
-\emph{Session survival} predicts the probability $S_j(\tau)$ that worker $j$'s session lasts another $\tau$ seconds; the
-planner uses it for $e_j$ and placement for the failure probability. We fit a Weibull distribution for each class of
-machine by maximum likelihood, counting sessions still running as censored observations, and refit every 60\,s. Availability
-studies of volunteer machines find heavy-tailed session lengths that Weibull distributions fit well~\cite{javadi2013fta}.
-A Weibull with shape below one has a falling hazard, which captures what those studies show: a machine that has been up for
-an hour is less likely to leave in the next minute than one that just arrived. It has two parameters, so it can be fitted
-from a few dozen sessions, and its conditional survival has a closed form. An empirical (Kaplan--Meier) estimate needs many
-more finished sessions and says nothing beyond the longest one observed. Until 20 sessions of a class have ended we use a
-prior (shape 0.7, scale 2\,h). An owner's notice that they will leave can only shorten the predicted session, since notices
-may be false.
-
-\emph{Dropped work} predicts the probability $p_j$ that worker $j$ accepts a request and never returns a result. Each
-accepted request either returns or not, so we use a Beta distribution over that probability, updated by counting returns
-and losses during sessions. The update is two counters, and the prior (mean 2.4\%) keeps a new worker from being judged on
-one or two outcomes, which a plain frequency would do. To catch a worker that behaves well and then starts dropping work,
-a CUSUM change detector~\cite{page1954cusum} watches the same outcomes and resets the worker's estimate when the loss rate
-jumps; it reacts faster than a sliding window for the same rate of false alarms.
-
-\emph{Run time} predicts how long function $f$ will run on worker $j$ for a given input size. Run time grows roughly as a
-power of input size and scales with the machine's speed, so its logarithm is close to linear in the logarithm of input
-size, and we fit a linear regression in these logarithms. The regression is Bayesian so that it works from a handful of
-samples: the prior comes from the function's benchmark profile, and a per-worker correction is pulled towards zero until
-that worker has enough samples of its own. A forgetting factor lets it follow slow drift. Because the miss probability
-depends on the tail of the run-time distribution, the spread is recalibrated against the last 500 prediction errors
-(conformal calibration~\cite{shafer2008conformal}). Gaussian processes or Bayesian additive regression trees would capture
-non-linear effects, but they need more data and more computation per decision than a millisecond budget allows, and we saw
-no non-linearity that would justify them.
-
-\emph{Request rate} forecasts each tenant's and function's arrivals for the next minute, for the planner. We count arrivals
-in 10\,s bins and keep two exponentially weighted averages, one with a time constant of 60\,s that follows bursts and one of
-15\,min that keeps the baseline, and take the larger. Taking the larger errs towards preparing too much, which is cheaper
-than preparing too little: an idle warm sandbox costs memory, while a missing one costs a cold start. Seasonal forecasters
-such as Holt--Winters need days of history that a new tenant does not have.
-
-Each estimator keeps a few numbers rather than a table of past runs. They live in the scheduler's memory and are copied
-to the provider every 30\,s, so a replacement scheduler can continue from them (Section~\ref{sec:succession}).
+Four small estimators turn past outcomes into the numbers above; for each we say what it predicts and why we chose it.
+\emph{Session survival} is a Weibull distribution of session length per class of machine, fitted by maximum likelihood with
+running sessions counted as censored; availability studies find heavy-tailed volunteer sessions~\cite{javadi2013fta}, a
+Weibull with shape below one captures that a machine that has been up for an hour is less likely to leave in the next minute,
+and two parameters can be fitted from a few dozen sessions. \emph{Dropped work} is a Beta distribution over the chance that an
+accepted invocation never returns, updated by two counters, with a prior so that a new worker is not judged on one outcome;
+a CUSUM change detector~\cite{page1954cusum} resets it when a worker that behaved starts dropping work.
+\emph{Run time} is a Bayesian linear regression of log run time on log input size per function with a small correction per
+worker, because run time grows roughly as a power of input size, a prior lets it work from a handful of samples, and Gaussian
+processes or regression trees would need more data and time than a millisecond decision allows. \emph{Request rate} is the larger
+of two moving averages (1 and 15 minutes), erring towards preparing too much, which costs memory rather than a cold start.
 
 \subsection{Clusters and routing}
-\label{sec:cluster}
-In the clustered architecture the orchestrator groups workers by round-trip time into clusters of about 30 (between 10 and
-60), each spanning enough cities and internet providers for condition~\eqref{eq:robust} to be satisfiable, and moves
-workers between clusters only with hysteresis, since a moved worker loses its keys. A router scores each cluster for a
-request by the delay it expects there, in seconds: the round trip, the cluster's scheduling time and queue, a penalty if
-its recent miss rate is high, the key-release time if no worker in it holds the tenant's key, and the cold-start time if it
-has no warm sandbox of the function. Sending a request to another cluster is therefore a decision with an explicit price.
+In the clustered architecture the orchestrator groups workers by round-trip time into clusters of about 30 (10 to 60) with
+enough cities and providers for condition~\eqref{eq:robust} to hold. A router scores each cluster for an invocation by the delay
+it expects there: the round trip, the cluster's scheduling time and queue, a penalty for a high recent miss rate, the
+key-release time if no worker in it holds the tenant's key, and the cold-start time if it has no warm sandbox.

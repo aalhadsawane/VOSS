@@ -1,18 +1,11 @@
 \section{Conclusion}
 \label{sec:conclusion}
-Serving latency-sensitive functions from volunteer machines needs more than running tasks several times and keeping
-sandboxes alive. Churn destroys the state that makes short functions fast, and untrusted owners make that state risky to
-create. We argued that attesting a locked image reduces hostile owners to the stops and delays that churn already causes,
-and that what remains is a scheduling problem: deciding which machines are attested, given a tenant's key and kept warm,
-when all of that is slow to set up, lost at the end of every session, and a leak risk on every extra machine.
-\voss{} plans this state every 30 seconds with spare capacity for lost machines, places each request by its own chance of
-missing the deadline, judges machines by the work they return, and replaces failed schedulers through a provider-run
-coordinator without an agreement protocol among volunteers. In the clustered architecture, schedulers on volunteer machines
-are reached through a provider-run publish/subscribe broker; in the global architecture, the scheduler runs on provider
-hardware.
-In a calibrated simulator \voss{} keeps P99 under 3\,s in \ViabAPThreeVoss{} of \ViabACells{} and \ViabBPThreeVoss{} of \ViabBCells{} settings where simple baselines do not, lowers P99 by
-\GreedyNoneMed--\GreedyNoneHigh\% against provisioning on demand, and keeps \VossSuccAlpha\% of requests successful when 20\% of owners drop work. The advantage is not
-universal: on confidential virtual machines at high load the simple baseline is the only feasible system, and geographic
-clusters, cost-aware caching and the reliability score did not pay for themselves. The next steps are the loss-model planner
-of Section~\ref{sec:discussion} and a multi-machine testbed to validate the simulator and the networking design that this
-paper models only as delay.
+Serving short functions from volunteer machines needs more than keep-alive timers and repeated execution. Attesting a locked
+image turns hostile owners into machines that stop or delay, which churn already causes; what remains is deciding which machines
+are attested, given a tenant's key and kept ready, when all of that is slow to set up, lost at every session end and a leak risk
+on each extra machine. \voss{} makes that a slow planning decision, places each invocation by its own chance of missing its deadline,
+judges workers by returned work, and replaces schedulers through a provider-run coordinator. Against the strongest single-loop
+policies we could build, the planner lowers P99 by about \RfourDecompGreedyMed\% at higher key exposure; most of the gain is the set-level choice of
+how many workers hold each key, and the data do not support attributing it to survival-aware choice of workers. Several designed
+parts did not pay off, and a defect in our own request placement initially made the baselines look worse than they are. The next
+steps are a real multi-machine testbed, a many-tenant workload, and a planner that churns keys less.

@@ -1,89 +1,64 @@
 \section{System Design}
 \label{sec:overview}
+\label{sec:trust}
 
-This section describes who takes part, what each party is trusted with, and what happens to one request. Three choices
-shape the design. Everything that touches tenant keys, or makes scheduling decisions, runs inside the attested image, so
-the rest of the system only has to cope with machines that stop or answer late (Section~\ref{sec:trust}). Trust, keys and
-warm sandboxes are prepared ahead of demand, because they take seconds to minutes to establish
-(Section~\ref{sec:sched}). And a machine is judged by whether the work it accepted comes back, as seen by the router or the
-scheduler, not by what the machine says about itself (Section~\ref{sec:ft}).
+\subsection{Threat model and what attestation buys}
+\label{sec:threat}
+We trust the CPU and its TPM, our measured image, each tenant's own key service, and the provider's services, which are
+trusted to stay up and keep correct records but never receive tenant keys. We do not defend against physical attacks on the
+TPM~\cite{jacob2023faultpm}, against reading the memory of a running machine that does not encrypt memory, against flaws in
+our image, or against side channels. Owners control hardware, power and network and may boot modified software, replay,
+drop or delay messages; network attackers may read and change traffic; tenants may run malicious code, which microVMs
+isolate~\cite{agache2020firecracker}.
 
-\subsection{What the provider stores, and why a compromised provider learns little}
+\textbf{Property 1.} Under these assumptions, everything a worker or scheduler machine does that others can observe, and that
+its owner can cause through software, is a crash, a dropped message or a delayed message. An owner cannot run other software
+(it fails attestation and receives no certificate or key), cannot read or change the image's memory or encrypted disk, and
+cannot forge results, which are signed with a key that never leaves the image. So the mechanisms that churn forces on us
+also cover malicious owners, and running every task several times to check results is unnecessary.
+
+\subsection{What the provider stores}
 \label{sec:atrest}
-A tenant encrypts its code bundle with its own key before uploading it. The provider's registry, the disks of workers that
-cache the bundle, and any snapshot of a running sandbox hold only this ciphertext; snapshots are encrypted with the same
-key when they are written. The key itself never passes through the provider: it travels from the tenant's key service
-directly to an attested worker, over a channel that ends inside the attested image, and stays in that worker's memory until
-the session ends. As a result, an attacker who takes over the provider's registry, database, router or broker obtains
-encrypted bundles and request metadata, but no tenant code and no tenant data.
+A tenant encrypts its code with its own key before uploading it, and snapshots are encrypted with the same key when written.
+The provider's registry and workers' disks hold only ciphertext. The key travels from the tenant's key service straight to
+an attested worker and stays in that worker's memory until its session ends. An attacker who takes over the provider's
+registry, database, routers or broker obtains ciphertext and metadata, but no tenant code or data.
 
-\subsection{The parties}
-Figure~\ref{fig:arch} shows the components for the clustered architecture of Section~\ref{sec:arch2}.
+\subsection{Parties and architectures}
+\label{sec:arch2}
+Figure~\ref{fig:arch} shows the components. The \emph{router} is the public entry point: it chooses a cluster for each
+invocation, sends the invocation's metadata (never its input) to that cluster's scheduler, keeps a copy until a worker
+confirms it started, resends or redirects it if the scheduler does not answer within 1\,s, streams the input to the chosen
+worker, returns the result, and stores the worker's signed receipt. The \emph{orchestrator} forms clusters and appoints
+schedulers. The \emph{verifier} checks quotes and acts as certificate authority: it issues each attested worker a session
+certificate that expires with the session, and revokes it when the session ends. Every connection is mutual TLS with these
+certificates. The \emph{registry} stores ciphertext, and each tenant's \emph{key service} releases the tenant's key only to
+workers the verifier accepted. Workers run each invocation in its own Firecracker microVM~\cite{agache2020firecracker}.
 
 \begin{figure}[t]
 \centering
 \input{diagrams/arch}
-\caption{The \voss{} architecture with geographic clusters. Numbers follow one invocation: (1) a client calls a router; (2) the router sends the request's metadata to the cluster's scheduler through the broker; (3) the scheduler sends the assignment to a worker; (4) the router sends the input and the worker returns the result and a signed receipt; (5) the worker proves itself to the verifier; (6) it asks the tenant's key service for the key; (7) it fetches the encrypted code from the registry. (8) The orchestrator appoints schedulers, off the request path.}
+\caption{The \voss{} architecture with geographic clusters. (1) A client calls a router; (2) the router sends the invocation's metadata to the cluster's scheduler through the broker; (3) the scheduler assigns a worker; (4) the router sends the input and receives the result and a signed receipt; (5) the worker attests to the verifier; (6) it obtains the tenant's key; (7) it fetches ciphertext from the registry; (8) the orchestrator appoints schedulers.}
 \label{fig:arch}
 \end{figure}
 
-\textbf{Provider services} are assumed reliable and are trusted to keep running and to keep correct records, but never with
-tenant keys.
-The \emph{router} is the public entry point. A client sends its request to the nearest router. The router chooses a
-cluster, sends the request's metadata (not its input) to that cluster's scheduler, and keeps its own copy of the request
-until a worker confirms it has started. If the scheduler does not answer within 1\,s, the router resends the request or
-sends it to another cluster. When the worker is chosen, the router streams the input to it, receives the result and returns
-it to the client, and checks and stores the receipt the worker signs for that work.
-The \emph{orchestrator} decides which workers form each cluster and appoints each cluster's scheduler.
-The \emph{verifier} checks attestation evidence and acts as the certificate authority: it issues each attested worker a
-session certificate and revokes it when the session ends (Section~\ref{sec:trust}).
-The \emph{registry} stores encrypted code bundles and file systems, and the \emph{broker} carries messages between a
-cluster's machines (Section~\ref{sec:network}).
+We designed two architectures. In the \emph{global} one, a single scheduler runs on provider hardware, workers connect to
+its stable address, and its failures are handled by ordinary replication. In the \emph{clustered} one, the orchestrator groups
+workers by network distance into clusters of about 30, and each cluster's scheduler runs on one of its own volunteer machines:
+the scheduler code is in the image, so any worker can take the role without booting anything, and the provider runs no
+server per cluster. The clustered design must replace failed schedulers (Section~\ref{sec:ft}) and reach schedulers that sit
+behind home routers (Section~\ref{sec:network}). Both use the same scheduler logic. Section~\ref{sec:results} compares them.
 
-\textbf{Tenants} run, or entrust to a service they choose, a \emph{key service} that holds their keys and releases one only
-to a worker the verifier has accepted. The provider does not run it.
-
-\textbf{Volunteer machines} reboot into the \emph{attested image}: a locked, measured operating system containing the worker
-software, the Firecracker microVM monitor~\cite{agache2020firecracker} and the scheduler code. Each worker runs every
-invocation in its own microVM and keeps an encrypted cache of code and snapshots. While the image runs the owner cannot use
-the machine, so donation means a scheduled or dedicated session rather than background use of a desktop. The owner still
-controls power, network and firmware settings, which is why a worker can stop or answer late even though its code cannot
-misbehave.
-
-\subsection{Two architectures}
-\label{sec:arch2}
-We designed and compared two ways to organise scheduling.
-
-\emph{One global scheduler.} A single scheduler, run on provider hardware, plans and places for every worker. Workers open
-connections to it at a stable address, and its failures are handled by ordinary replication inside the provider. This is
-simple, and it lets the planner pool all machines when deciding where keys and warm sandboxes go.
-
-\emph{Geographic clusters.} The orchestrator groups workers into clusters of tens of machines by network distance, and each
-cluster has its own scheduler. Each planning problem stays small and the scheduler is close to its workers. The scheduler
-runs on one of the cluster's own volunteer machines: the scheduler code is part of the image, so any worker can take the
-role without booting anything, and the provider runs no per-cluster server. The price is that a scheduler can now fail like
-any volunteer machine, which Section~\ref{sec:ft} handles, and that it is hard to reach, which Section~\ref{sec:network}
-handles with a publish/subscribe broker.
-
-Both use the same planner, per-request step and workers. Section~\ref{sec:res-nopay} compares them: at the scale we can
-simulate, the global scheduler was faster.
-
-\subsection{Life of an invocation}
-The router sends the request's metadata to the chosen cluster's scheduler, which picks a worker and sometimes a second one for a duplicate copy (a \emph{hedge}). The router then sends the input to the worker over a connection that ends inside the attested image, so the scheduler never sees inputs, results or keys. A worker without the tenant's key first requests it from the key service, then starts the function at whatever level it has reached and runs it. The result returns to the router with a signed receipt (Section~\ref{sec:receipts}). Each part of the latency is logged separately, which lets Section~\ref{sec:results} attribute delays to their causes.
-
-\subsection{Sessions}
-\label{sec:lifecycle}
-A worker becomes usable only after booting and passing attestation, which takes \CalAttested\,s from power-on on our laptop. When the
-session ends, with or without notice, every key and warm sandbox on the worker is gone. Cached bundles and snapshots stay on
-disk, still encrypted, and are usable again after the next attestation and key release. So within a session each function
-on a worker is at one of the levels L0 to L3 of Section~\ref{sec:background}, and separately the worker either holds or
-does not hold the tenant's key. The simulator reads these two facts, and their costs, from a data file for each trust
-technology (Section~\ref{sec:substrates}).
-
-\subsection{Rules for messages and state}
-Machines interact only by typed messages, and every connection is mutual TLS: both ends present certificates, and a worker
-or scheduler presents the session certificate the verifier issued after attestation. The provider's database is private
-to the provider services and is never on the request path, because a database round trip would add to every request's
-latency. State lives where it is created: queues, caches and keys on workers, unassigned requests at routers, estimates in
-the scheduler. After a scheduler is replaced, its successor rebuilds its view by asking the workers
-(Section~\ref{sec:succession}).
+\subsection{Key exposure}
+\label{sec:exposure}
+\label{sec:provisioning}
+\label{sec:substrates}
+A worker that holds a tenant's key is one more place the key could leak from if the assumptions above fail. We measure a
+tenant's \emph{key exposure} as $E_t=\sum_{j}(1-a_j)$ over the workers $j$ holding its key, where $a_j\in[0,1]$ is a
+\emph{trust score} set by policy for the machine's trust technology (0.8 for the TPM image on a consumer PC, 0.95 for a
+confidential virtual machine on a server processor~\cite{amd2020snp,misono2025cvm}). Exposure counts key holders, discounted
+by how well each is protected; it is not a probability of compromise. We limit it even though attested workers are honest
+for two reasons. The attacks we exclude are the realistic ones on consumer hardware, so exposure is the defence when
+attestation is not enough. And the two possible failures differ: a forged result harms one invocation and can be caught by
+re-running it, whereas a leaked key silently decrypts every bundle and snapshot of that tenant. Limiting exposure costs no
+measurable latency (Section~\ref{sec:results}).

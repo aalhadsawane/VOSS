@@ -525,3 +525,12 @@ Measured (E04 `churn_high`, seeds 2 and 8, same scenarios; the default cells rep
 plan_greedy: 1.50 / 1.49 s, 1.41 / 1.44 s, 1.34 / 1.38 s. Success, warm memory and exposure change by at most the run-to-run shift of a different trajectory (keepalive warm RAM 73-96 GB, exposure 9.2-10.5; greedy 110-125 GB, 18.0-19.0).
 So a better wait estimate alone does not remove the keep-alive collapse (it helps in seed 2, hurts in seed 8: 2 cells, not a result), while letting synchronous work overtake queued asynchronous jobs removes most of it
 (P99 -68% and -40% for keepalive) and still leaves keep-alive 0.4-1.6 s above greedy, which holds 2x the key holders. Full tables: `docs/validation/E04-wait-model.md`. The full rerun of the paper should decide whether either option becomes the default for every system.
+
+**D-79 Round-4 outcome: greedy stays the default planner; the corrected request placement is the evaluation configuration of the round-4 experiments, not a new global default** (P11, `docs/validation/ROUND4-results.md`, C-42, C-44, C-46). E04b (380 runs) and E25 (360 runs), pre-registered
+(`docs/architecture/06-experiments.md` §8), gave: H12 supported (greedy is 18-21% below the best single loop in P99), H13 not supported
+(`erlang_greedy` uses 9-13% more warm memory and its medium-churn P99 ratio of 1.049 has a CI [1.021, 1.080] that crosses the 1.05 margin, although it has 14-20% less exposure), H14 partly
+(P99 matches, the exposure budget is not met), H15 weak (planning adds about 5% over `provisioned_keys`, whose holder count comes from greedy), H16 weak for the inverted U and not supported
+for survival dependence. By the decision rule of `docs/PLAN-ROUND4.md` §2b the default stays `greedy`; `erlang_greedy` is documented as the lower-exposure option. The per-worker wait estimate and synchronous priority
+(D-78) stay off by default, because changing defaults changes every frozen result hash; instead the experiments that compare against baselines and are used in the paper are rerun with the two options on
+(E10b, E17b, E20ab, E24b). VOSS-centred frozen experiments keep the original placement, which changes VOSS results by about 2% (E04b `plan_greedy_oldwait`); the paper states this as a limit.
+
