@@ -95,7 +95,8 @@ moves from \RerunCalSensSimplePNinetyninePlc\,s to \RerunCalSensSimplePNinetynin
 \textbf{Commercial-style references.} Datacenter hosts that are always on, with per-function keep-alive and nearest-region
 routing, are faster (E17b). At 20 invocations per second \voss{}'s P99 is \RerunCommPNinetynineLambdaTwentyDiff\,s above the Lambda-like reference's and
 \RerunCommPNinetynineAzureTwentyDiff\,s above the Azure-like one, and at 40 per second \RerunCommPNinetynineLambdaFortyDiff\,s and \RerunCommPNinetynineAzureFortyDiff\,s; at 10 per second the gap to the Azure-like
-reference is not distinguishable from zero. Median latency is about 0.13\,s higher at every load. Cost per million invocations,
+reference is not distinguishable from zero. Median latency is about 0.13\,s higher at every load. \potrem{cost analysis; removed from the abstract}
+Cost per million invocations,
 counting the control plane and not volunteer credits, falls from \RerunCommCostTen{} USD at 10 invocations per second to \RerunCommCostTwenty{} at 20 and
 \RerunCommCostForty{} at 40, against about \RerunCommCostRefLambda{} USD for the references, so \voss{} is cheaper from about 20 invocations per second upward.
 

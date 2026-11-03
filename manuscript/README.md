@@ -20,6 +20,7 @@ Draft for **ACM Transactions on Internet Technologies** (`acmart`, `acmsmall`, j
   and TPM quotes are cut to a short background. Request placement was corrected (D-78), and E10b, E17b, E20ab, E24b and the session-length
   experiment E25 supply the numbers in the baseline, feasibility and calibration paragraphs. Older drafts are kept for comparison.
 - `ieee-draft9/`: the IEEE draft 9 sources, kept for reference. They use the old diagram files and no longer build; the PDF is `draft/voss-draft9.pdf`.
+- `HUMAN_FEEDBACK.md`: the author's review feedback with how each point was fixed, and the heuristics and style preferences drawn from it. **Read it before editing the text, and append to it after every feedback round.**
 - `refs.bib`: written from memory; **verify every entry** (entries marked "TODO verify" first) before submission.
 
 Open items: author list and affiliations (`main.tex`), related-work completeness, bibliography check, a real-testbed validation.

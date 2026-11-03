@@ -15,6 +15,7 @@
 \newcommand{\voss}{\textsc{Voss}}
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
 \newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\potrem}[1]{\textcolor{red}{[POTENTIAL REMOVAL: #1]}}
 \newcommand{\ok}{\ensuremath{\bullet}}
 \newcommand{\partly}{\ensuremath{\circ}}
 
@@ -35,17 +36,16 @@
 We study serverless computing on a volunteered compute pool: running short function invocations, which must finish in seconds,
 on idle home and office computers that their owners donate. Such machines are close to users, but owners switch them off without
 warning and cannot be trusted with the code and data they run. Remote attestation, in which a machine proves to a verifier which
-software it booted, reduces a hostile owner to an unreliable one who can stop or delay a machine but not read or forge anything.
-What remains is a scheduling problem: attesting a machine, giving it a tenant's decryption key and starting environments are
-slow and are lost whenever the owner switches off.
-We present \voss{}, which provisions keys and warm environments on workers with spare capacity for those that disappear,
+software it booted, reduces a hostile owner to an unreliable one who can crash a machine or withhold its results but not read or forge anything.
+Because attesting a machine, giving it a tenant's decryption key and starting environments are slow, and all are lost when the
+owner switches off, we present \voss{}, which provisions keys and warm environments on workers with spare capacity for those that disappear,
 places each invocation, judges workers by whether accepted work comes back rather than by heartbeats, and runs schedulers on
 volunteer machines reached through a publish/subscribe broker, replacing failed ones without agreement among volunteers.
 In a deterministic simulator, \voss{} lowers 99th-percentile (P99) latency by about \RfourDecompGreedyMed\% against the strongest
 keep-alive policies, including the Azure Functions histogram policy, at about 2.5 times their key exposure, and keeps
 \VossSuccAlpha\% of requests successful when 20\% of owners drop work, against \HbSuccAlpha\% with heartbeat-based detection. Against
 datacenter references modelled on AWS Lambda and Azure Functions, its P99 is \RerunCommPNinetynineAzureTwentyDiff--\RerunCommPNinetynineLambdaTwentyDiff\,s
-higher at 20 invocations per second, at \RerunCommCostTwenty{} USD per million invocations against about \RerunCommCostRefLambda{} USD.
+higher at 20 invocations per second.
 \end{abstract}
 
 \begin{CCSXML}
