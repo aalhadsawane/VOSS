@@ -32,18 +32,20 @@
 \email{aalhadsawane@gmail.com}
 
 \begin{abstract}
-Serverless functions are short, so their latency is dominated by starting an isolated environment and by network distance,
-while computers close to users sit idle. We ask whether idle consumer machines can answer requests that must finish in seconds.
-Owners switch machines off without warning, which destroys everything prepared on them, and owners cannot be trusted with the
+We study serverless computing on a volunteered compute pool: running short function invocations, which must finish in seconds,
+on idle home and office computers that their owners donate, instead of on datacenter servers. Such machines are close to users,
+but owners switch them off without warning, which destroys everything prepared on them, and owners cannot be trusted with the
 code and data they run. Remote attestation, in which a machine proves to a verifier which software it booted, turns a hostile
 owner into an unreliable one who can stop or delay a machine but not read or forge anything. What remains is a scheduling
 problem: attesting a machine, giving it a customer's decryption key and starting environments are slow, are lost at the end of
 every session, and every machine that holds a key is one more place it could leak from.
-We present \voss{}. A planner decides every 30 seconds which machines hold which keys and ready environments, with spare
-capacity for machines that disappear; a per-invocation step picks a machine for each call; machines are judged by whether
-accepted work comes back, not by heartbeats; and failed schedulers are replaced without agreement among volunteers. We describe
-a global scheduler on provider hardware and a clustered design whose volunteer-hosted schedulers are reached through a
-publish/subscribe broker.
+We present \voss{}, a scheduler for this setting. A planner works ahead of demand to decide which machines hold which customers'
+keys and ready environments, with spare capacity for machines that disappear; a per-invocation step then picks a machine for
+each call; and machines are judged by whether accepted work comes back, not by heartbeats. \voss{} supports two deployments: a
+single global scheduler on provider hardware, and a clustered deployment in which machines are grouped by geographic proximity
+and each group is scheduled by one of its own volunteer machines, reached through a publish/subscribe broker. Because such a
+scheduler can itself disappear, the clustered deployment replaces failed schedulers through a provider-run coordinator, without
+requiring agreement among volunteers.
 In a deterministic simulator calibrated on a laptop with a Trusted Platform Module (TPM, the chip that signs boot measurements), the planner lowers 99th-percentile (P99) latency by about
 \RfourDecompGreedyMed\% against the strongest keep-alive policies, including an Azure-style histogram policy, at about 2.5 times their key
 exposure. A baseline that holds keys ahead on the most reliable machines captures about \RfourDecompShareMed\% of the gain, so most of the value is
