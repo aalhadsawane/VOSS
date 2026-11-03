@@ -33,26 +33,19 @@
 
 \begin{abstract}
 We study serverless computing on a volunteered compute pool: running short function invocations, which must finish in seconds,
-on idle home and office computers that their owners donate, instead of on datacenter servers. Such machines are close to users,
-but owners switch them off without warning, which destroys everything prepared on them, and owners cannot be trusted with the
-code and data they run. Remote attestation, in which a machine proves to a verifier which software it booted, turns a hostile
-owner into an unreliable one who can stop or delay a machine but not read or forge anything. What remains is a scheduling
-problem: attesting a machine, giving it a customer's decryption key and starting environments are slow, are lost at the end of
-every session, and every machine that holds a key is one more place it could leak from.
-We present \voss{}, a scheduler for this setting. \voss{} periodically provisions workers: from request rates and session
-lengths averaged over minutes to hours, it decides which workers hold which tenants' keys, which functions they keep warm and
-how many slots are reserved for each tenant, with spare capacity for workers that disappear. Request placement then picks a
-worker for each invocation, and workers are judged by whether accepted work comes back, not by heartbeats. In a deterministic
-simulator we evaluate several provisioning algorithms (a greedy algorithm, an exact integer program and a variant with a loss
-model) against keep-alive baselines, and two deployments: one global scheduler on provider hardware, and geographic clusters
-whose schedulers run on volunteer workers, are reached through a publish/subscribe broker, and are replaced when they fail
-without requiring agreement among volunteers.
-The greedy algorithm lowers 99th-percentile (P99) latency by about \RfourDecompGreedyMed\% against the strongest keep-alive
-policies, including an Azure-style histogram policy, at about 2.5 times their key exposure. A baseline that holds keys ahead on
-the most reliable workers captures about \RfourDecompShareMed\% of the gain, so most of the value is deciding how many workers
-should hold each key. The exact program is not measurably better than greedy. The global scheduler was faster than geographic
-clusters by \HSevenWorld--\HSevenEu\% at 600 workers and held \GeoExpRatio{} times less key exposure than nine clusters in
-Europe. Several designed components did not pay off, and we report those too.
+on idle home and office computers that their owners donate. Such machines are close to users, but owners switch them off without
+warning and cannot be trusted with the code and data they run. Remote attestation, in which a machine proves to a verifier which
+software it booted, reduces a hostile owner to an unreliable one who can stop or delay a machine but not read or forge anything.
+What remains is a scheduling problem: attesting a machine, giving it a tenant's decryption key and starting environments are
+slow and are lost whenever the owner switches off.
+We present \voss{}, which provisions keys and warm environments on workers with spare capacity for those that disappear,
+places each invocation, judges workers by whether accepted work comes back rather than by heartbeats, and runs schedulers on
+volunteer machines reached through a publish/subscribe broker, replacing failed ones without agreement among volunteers.
+In a deterministic simulator, \voss{} lowers 99th-percentile (P99) latency by about \RfourDecompGreedyMed\% against the strongest
+keep-alive policies, including the Azure Functions histogram policy, at about 2.5 times their key exposure, and keeps
+\VossSuccAlpha\% of requests successful when 20\% of owners drop work, against \HbSuccAlpha\% with heartbeat-based detection. Against
+datacenter references modelled on AWS Lambda and Azure Functions, its P99 is \RerunCommPNinetynineAzureTwentyDiff--\RerunCommPNinetynineLambdaTwentyDiff\,s
+higher at 20 invocations per second, at \RerunCommCostTwenty{} USD per million invocations against about \RerunCommCostRefLambda{} USD.
 \end{abstract}
 
 \begin{CCSXML}
