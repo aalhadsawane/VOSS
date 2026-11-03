@@ -81,3 +81,13 @@ generated macros before writing them; the author fact-checks and will catch over
   `design.tex`; the cost columns of `generated/tab_*commercial.tex` are not included in the text but still generated; `faulttol.tex`
   mentions paying donors. None changed yet.
 - **Lesson:** heuristics 2, 7, 8.
+
+### Round 7: is "withhold its results" just crashing?
+- **Asked:** Is withholding results the same as crashing, given the owner can neither read nor forge anything?
+- **Answer / did:** No, no wording change. The owner controls the power and the network, not the software. Crashing stops everything
+  (including heartbeats). Withholding is selective: the attested image keeps running and keeps sending heartbeats, but the owner
+  drops or holds back particular result messages on the network path. That is the omission/timing failure the paper builds its
+  detector around (`background.tex`, "How volunteer machines fail"; `faulttol.tex`). Likewise "delay" is possible by holding
+  messages; it was dropped from the abstract only because it was unexplained there, not because it is wrong.
+- **Lesson:** heuristic 7 cuts both ways: keep wording mechanism-accurate, and do not "fix" wording that is accurate. When a
+  question is a question, answer it before editing.
