@@ -39,15 +39,15 @@ code and data they run. Remote attestation, in which a machine proves to a verif
 owner into an unreliable one who can stop or delay a machine but not read or forge anything. What remains is a scheduling
 problem: attesting a machine, giving it a customer's decryption key and starting environments are slow, are lost at the end of
 every session, and every machine that holds a key is one more place it could leak from.
-We present \voss{}, a scheduler for this setting. A slow planner, working from request rates and session lengths averaged over minutes to hours, decides which workers hold
-which tenants' keys, which functions they keep warm and how many slots are reserved for each tenant, with spare capacity for
-workers that disappear; request placement then picks a worker for each invocation; and workers are judged by whether accepted
-work comes back, not by heartbeats. \voss{} supports two deployments: a
+We present \voss{}, a scheduler for this setting. \voss{} periodically provisions workers: from request rates and session lengths averaged over minutes to hours, it decides
+which workers hold which tenants' keys, which functions they keep warm and how many slots are reserved for each tenant, with
+spare capacity for workers that disappear. Request placement then picks a worker for each invocation, and workers are judged
+by whether accepted work comes back, not by heartbeats. \voss{} supports two deployments: a
 single global scheduler on provider hardware, and a clustered deployment in which machines are grouped by geographic proximity
 and each group is scheduled by one of its own volunteer machines, reached through a publish/subscribe broker. Because such a
 scheduler can itself disappear, the clustered deployment replaces failed schedulers through a provider-run coordinator, without
 requiring agreement among volunteers.
-In a deterministic simulator calibrated on a laptop with a Trusted Platform Module (TPM, the chip that signs boot measurements), the planner lowers 99th-percentile (P99) latency by about
+In a deterministic simulator calibrated on a laptop with a Trusted Platform Module (TPM, the chip that signs boot measurements), this provisioning lowers 99th-percentile (P99) latency by about
 \RfourDecompGreedyMed\% against the strongest keep-alive policies, including an Azure-style histogram policy, at about 2.5 times their key
 exposure. A baseline that holds keys ahead on the most reliable machines captures about \RfourDecompShareMed\% of the gain, so most of the value is
 deciding how many machines should hold each key. Several designed components did not pay off, and we report those too.
