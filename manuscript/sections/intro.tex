@@ -38,24 +38,28 @@ We present \voss{}, a scheduler built around this problem. A \emph{provisioning 
 averaged over minutes to hours, it decides which workers hold which tenant's key, which functions they keep warm and how many
 slots are reserved for each tenant, with spare capacity so that losing a few machines does not hurt. \emph{Request placement} then chooses a worker for each invocation and duplicates
 invocations at risk. Workers are judged by whether work they
-accepted comes back. We describe two deployments of this scheduler: a single global scheduler on provider hardware, and a
-clustered one, in which workers are grouped by geographic proximity and each cluster is scheduled by one of its own volunteer
-machines, reached through a publish/subscribe broker. Because a volunteer-hosted scheduler can itself disappear, the clustered
-deployment replaces a failed scheduler through a provider-run coordinator, without asking volunteers to agree on anything.
+accepted comes back. We evaluate several provisioning algorithms and two deployments of this scheduler. The deployments are a single
+global scheduler on provider hardware, and geographic clusters, in which workers are grouped by proximity and each cluster is
+scheduled by one of its own volunteer machines, reached through a publish/subscribe broker. Because a volunteer-hosted
+scheduler can itself disappear, the clustered deployment replaces a failed scheduler through a provider-run coordinator,
+without asking volunteers to agree on anything.
 
 Our contributions are:
 (1)~an argument that attestation reduces hostile owners to omission and timing failures, and the scheduling problem that
 remains;
 (2)~a two-part scheduler, and an analysis of why key placement is a decision about a set of machines, so a slow loop is needed;
-(3)~a comparison against the strongest single-loop alternatives we could build, including an Azure-style histogram policy and a
-baseline that holds keys ahead on the most reliable machines, with an honest account of where the gain from provisioning comes from;
-(4)~a communication design for schedulers on machines whose addresses change and cannot accept connections;
+(3)~an evaluation of three provisioning algorithms (greedy, an exact integer program and a loss-model variant) against the
+strongest single-loop alternatives we could build, including an Azure-style histogram policy and a baseline that holds keys
+ahead on the most reliable machines, with an honest account of where the gain from provisioning comes from;
+(4)~an evaluation of a global and a clustered deployment, with a communication design for clustered schedulers on machines whose
+addresses change and cannot accept connections;
 (5)~failure detection and scheduler replacement without agreement among volunteers; and
-(6)~a deterministic, calibrated evaluation whose hypotheses were fixed before the runs.
+(6)~a deterministic simulation whose hypotheses were fixed before the runs.
 
 In simulation, provisioning lowers 99th-percentile (P99) latency by \RfourDecompGreedyMed\% and \RfourDecompGreedyHigh\% against the best keep-alive policy at medium and high churn, at about 2.5
 times the key exposure; most of this comes from deciding how many workers should hold each key, not from choosing which.
 Judging workers by returned work keeps \VossSuccAlpha\% of requests successful when 20\% of owners drop work, against \HbSuccAlpha\% with
-heartbeats. Several designed components did not pay off, including geographic clusters and an exact solver, and a first version
+heartbeats. The exact solver was not measurably better than greedy, and the global scheduler was faster than geographic clusters and held
+less key exposure. Several other designed components did not pay off, and a first version
 of request placement handicapped every baseline until we corrected it. All results come from simulation and one calibration
 machine (Section~\ref{sec:threats}).
