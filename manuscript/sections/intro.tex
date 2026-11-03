@@ -34,9 +34,10 @@ customer's decryption key, and given started environments for its functions. All
 session, and every machine holding a key is one more place it could leak from. Deciding how many machines to prepare, which, and
 when, cannot be done one request at a time.
 
-We present \voss{}, a scheduler built around this problem. A \emph{planner} works ahead of demand and decides which workers hold
-which tenant's key and which functions they keep ready, with spare capacity so that losing a few machines does not hurt. A
-per-invocation step then chooses a worker for each call and duplicates calls at risk. Workers are judged by whether work they
+We present \voss{}, a scheduler built around this problem. A slow \emph{planner}, working from request rates and session lengths averaged over minutes to hours, decides which workers hold
+which tenant's key, which functions they keep warm and how many slots are reserved for each tenant, with spare capacity so that
+losing a few machines does not hurt. \emph{Request placement} then chooses a worker for each invocation and duplicates
+invocations at risk. Workers are judged by whether work they
 accepted comes back. We describe two deployments of this scheduler: a single global scheduler on provider hardware, and a
 clustered one, in which workers are grouped by geographic proximity and each cluster is scheduled by one of its own volunteer
 machines, reached through a publish/subscribe broker. Because a volunteer-hosted scheduler can itself disappear, the clustered
