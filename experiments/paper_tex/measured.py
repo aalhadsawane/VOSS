@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import pandas as pd
+import yaml
 from tools.calibrate.ingest import load_raw
 
 from experiments import ecs1_measured
@@ -60,7 +62,22 @@ def calibration(g: Gen) -> None:
     cold = tbl[tbl.config.str.contains("mem_mb=256, tier=hdd, cache=cold") & tbl.path.str.contains("boot")].iloc[0]
     g.mac("CalFcBootColdS", f"{cold.p50:.2f}")
     g.mac("CalCpu", "Intel Core i3-7020U")
+    _host_specs(g)
     _cost_ladder(g, tbl, meas, total, float(cold.p50))
+
+
+def _host_specs(g: Gen) -> None:
+    """Hardware of the calibrated machine, from the bundle's ``hardware.yaml`` (doc 10 §1), for the method section."""
+    bundle = REPO / "configs" / "calibration" / "measured" / HOST
+    host = yaml.safe_load((bundle / "meta.yaml").read_text())["host"]
+    disk = yaml.safe_load((bundle / "hardware.yaml").read_text())["classes"]["C0"]
+    g.mac("CalCpuFull", esc(re.sub(r"\((?:R|TM)\)", "", host["cpu_model"]).replace("  ", " ")))
+    g.mac("CalMemGiB", f"{host['mem_kb'] / 2**20:.1f}")
+    g.mac("CalDiskRead", f"{disk['hdd_read_MBps']:.0f}")
+    g.mac("CalDiskWrite", f"{disk['hdd_write_MBps']:.0f}")
+    g.mac("CalBoard", esc(host["board"]))
+    g.mac("CalBios", esc(host["bios_version"]))
+    g.mac("CalKernel", esc(host["kernel"]))
 
 
 def _power_on_to_attested(df: pd.DataFrame) -> tuple[float, int]:

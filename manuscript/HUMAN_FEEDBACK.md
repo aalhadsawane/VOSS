@@ -43,9 +43,15 @@ generated macros before writing them; the author fact-checks and will catch over
 
 ## CRITICAL items (must be resolved before submission)
 
-- **CRITICAL: repeat the calibration on a second machine with an SSD.** All start-up, boot and attestation costs come from one
-  laptop with a hard disk. Marked with `\critical{...}` in `sections/intro.tex` and `sections/method.tex`. Running the calibration
-  harness needs the user's approval (AGENTS.md rule 14).
+- **CRITICAL (MAJOR TODO): make the calibration cover many kinds of volunteer machine, not one.** All start-up, boot and
+  attestation costs come from one laptop with a hard disk. The goal is to show how long each step takes on the different
+  machines volunteers could offer: SSD and NVMe machines, laptops and desktops, different CPU generations and TPMs. Each
+  machine's specification (CPU, board, BIOS, memory, disk type and measured throughput, TPM, kernel) is listed in the method
+  section, as is done now for the first machine (i3-7020U, HDD; macros `Cal*` generated from the bundle's `meta.yaml` and
+  `hardware.yaml` by `experiments/paper_tex/measured.py`). Each new machine gets its own bundle under
+  `configs/calibration/measured/`, and the paper should compare them (a table of step times per machine, and a sensitivity run of
+  the simulator per machine class). Marked with `\critical{...}` in `sections/intro.tex` and `sections/method.tex`. Running the
+  calibration harness needs the user's approval (AGENTS.md rule 14).
 - **CRITICAL: terminology for the two parts of the scheduler** (decided in round 8; keep it consistent everywhere):
   - **Provisioning** = the periodic, set-level decision (which workers hold each tenant's key, warm environments, reserved slots).
     Formerly "planner", "slow loop", "planning". Algorithms: *greedy provisioning*, *exact provisioning* (integer program),
@@ -145,3 +151,13 @@ generated macros before writing them; the author fact-checks and will catch over
   rejected: they describe structure, not purpose, and "single-step" is no clearer than "single-loop".
 - **Lesson:** heuristics 10--13. When a term is reported as confusing in one place, fix it everywhere it appears, including
   generated labels.
+
+### Round 9: calibration must cover many machines (MAJOR TODO)
+- **Said:** Instead of just a second machine with an SSD, calibrate on multiple machines, to show how long things take on the
+  different sorts of machine volunteers could offer. List the specifications (CPU, etc.) of the hard-disk machine already done, and
+  of every further machine, so the calibration is comprehensive.
+- **Did:** The method section now lists the first machine's hardware (CPU, mainboard, BIOS, memory, disk speeds, TPM, kernel), taken
+  from the calibration bundle through new generated macros. The CRITICAL markers in the intro and method section now ask for
+  several machine kinds, each with its specification. The CRITICAL item above was rewritten.
+- **Lesson:** heuristic 12 extends to hardware: a measured number is credible only with the machine it came from, and one machine
+  is one data point. When a TODO is sharpened, replace the old marker instead of adding another.

@@ -32,8 +32,8 @@ anyway~\cite{cristian1991understanding,avizienis2004basic}. The mechanisms that 
 
 What attestation does not remove is cost. On our calibration laptop (Section~\ref{sec:calib}), a machine takes \CalAttested\,s
 from power-on until it has booted the image, passed attestation and can run invocations, thousands of times longer than handing
-a request to an environment that is already running. \critical{calibration uses one laptop with a hard disk; repeat it on a
-second machine with an SSD before submission.} We call a volunteer machine running our image a \emph{worker}, and a customer a
+a request to an environment that is already running. \critical{calibration covers one laptop with a hard disk; extend it to several
+kinds of volunteer machine, each with its specifications listed.} We call a volunteer machine running our image a \emph{worker}, and a customer a
 \emph{tenant}. Before a worker can run a tenant's function, it also needs the tenant's decryption key: tenants encrypt their
 code, and the saved environment images (\emph{snapshots}) made from it, under their own key, so the provider stores and
 transfers only ciphertext, and the tenant's key service releases the key only to attested workers. The worker then needs a
