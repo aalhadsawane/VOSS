@@ -31,6 +31,32 @@ generated macros before writing them; the author fact-checks and will catch over
 9. **Do not cut context the reader needs, and do not clutter.** Do not mention calibration details ("calibrated on a laptop
    with a TPM") where they confuse; they belong in the method and limits sections.
 
+10. **Explain every domain term for a systems reader without serverless background** (cold start, keep-alive, slot, warm,
+    snapshot, why a decryption key is needed). One short clause at first use is enough; never assume the term is known.
+11. **Contributions are what we built and found, not tools we used.** Using remote attestation (and its consequence that owners
+    can only crash, drop or delay) is our premise, not a contribution. Do not list a method's development history ("a first
+    version did X until we corrected it") in the intro or conclusion; that belongs, if anywhere, in the limits section.
+12. **Every number needs its provenance at first use**: what it measures (e.g. power-on to attested and ready, not attestation
+    alone) and on what hardware, with a pointer to the calibration section.
+13. **Contributions must be self-explanatory.** "Hypotheses fixed before the runs" told a reviewer nothing; say what the reader
+    gains (identical conditions for every system, exact reproducibility).
+
+## CRITICAL items (must be resolved before submission)
+
+- **CRITICAL: repeat the calibration on a second machine with an SSD.** All start-up, boot and attestation costs come from one
+  laptop with a hard disk. Marked with `\critical{...}` in `sections/intro.tex` and `sections/method.tex`. Running the calibration
+  harness needs the user's approval (AGENTS.md rule 14).
+- **CRITICAL: terminology for the two parts of the scheduler** (decided in round 8; keep it consistent everywhere):
+  - **Provisioning** = the periodic, set-level decision (which workers hold each tenant's key, warm environments, reserved slots).
+    Formerly "planner", "slow loop", "planning". Algorithms: *greedy provisioning*, *exact provisioning* (integer program),
+    *loss-model provisioning*, *loss-model provisioning with an exposure budget*.
+  - **Request placement** = the per-invocation decision. Formerly "fast loop".
+  - **Keep-alive baselines** = on demand (formerly "no planner"), 10-minute keep-alive, unbounded keep-alive, histogram keep-alive.
+    Formerly "single-loop baselines". *Early keys* stays as the name of the baseline that gives keys early to reliable workers.
+  - Do not use: slow/fast loop, single loop, two-part/two-loop scheduler, planner. "Two-timescale" only when citing the edge
+    literature that uses it. Labels in tables and figures come from `PLAIN_NAMES` in `experiments/analysis/round4.py`.
+  - Not yet renamed: `docs/explainer/voss-explained.md`, code identifiers, configs, `diagrams/loops.tex` (not included in the paper).
+
 ## Log
 
 ### Round 1: abstract opening, 30 s, scheduler types
@@ -91,3 +117,30 @@ generated macros before writing them; the author fact-checks and will catch over
   messages; it was dropped from the abstract only because it was unexplained there, not because it is wrong.
 - **Lesson:** heuristic 7 cuts both ways: keep wording mechanism-accurate, and do not "fix" wording that is accurate. When a
   question is a question, answer it before editing.
+
+### Round 8: introduction (MAJOR)
+- **Said:** (1) "The useful work is small" is generic; say the function's execution is short. (2) A cold start is more than loading
+  the language runtime. (3) "The cold start can take longer than the function" makes no sense if the cold start includes execution.
+  (4) Providers "hide" cold starts: bad wording; explain keep-alive and starting ahead of demand. (5) "They can do little about
+  distance" is abrupt. (6) Attestation does not include boot-up; the 65 s is power-on to a running attested worker; it is the first
+  number, so say what it was measured on and point to the calibration section; **CRITICAL**: calibrate on a second machine with an
+  SSD. (7) Explain briefly why a worker needs the tenant's decryption key (code and snapshots are encrypted at rest). (8) "Slots
+  reserved for a tenant" needs explaining for non-serverless readers. (9, MAJOR) Contributions: attestation is a tool we use, not a
+  contribution; "two-part scheduler", "slow loop" and "single-loop" appear from nowhere and are engineered terms; rename across the
+  paper (**CRITICAL**); "hypotheses fixed before the runs" is too dense; the placement-defect story does not belong in the intro.
+- **Did:** Rewrote the intro. Cold start is now "start a sandbox, fetch the code, load the runtime and libraries, run
+  initialisation code". On (3) the fact check went the other way: in the literature and in this paper (background, explainer) the
+  cold start is the start-up delay *before* execution, so the comparison is valid; it is now worded unambiguously ("this start-up
+  delay ... often exceeds the function's own execution time"). Keep-alive and pre-warming are defined. The 65 s is now "from
+  power-on until it has booted the image, passed attestation and can run invocations", on the calibration laptop (Section 8), with
+  a red `\critical` marker. Worker, tenant, snapshot, warm, slot, heartbeat and key exposure are defined at first use. Attestation
+  moved from the contributions into the premise. Applied the terminology decision above across scheduling, results, discussion,
+  method, related work, conclusion and the generated table/figure labels. Contribution (5) now says what the simulator gives the
+  reader. Removed the defect story from the intro and the conclusion; reworded `scheduling.tex` as design rationale; the factual
+  disclosure stays in the limits section. The paper grew from 21 to 22 pages.
+- **Why these names:** "provisioning" is the standard systems term for preparing resources ahead of use (as in capacity
+  provisioning); "request placement" was already the paper's term and is self-explanatory; the baselines are all keep-alive
+  policies, so naming them by what they are beats naming them by what they lack. "Two-step scheduler" and "single-step" were
+  rejected: they describe structure, not purpose, and "single-step" is no clearer than "single-loop".
+- **Lesson:** heuristics 10--13. When a term is reported as confusing in one place, fix it everywhere it appears, including
+  generated labels.

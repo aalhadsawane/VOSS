@@ -7,12 +7,13 @@ and make start-up faster with lighter sandboxes and snapshots~\cite{agache2020fi
 Placement schedulers sample a few machines~\cite{ousterhout2013sparrow}, move the scheduler into a switch~\cite{kettaneh2020falcon},
 or pack long jobs onto fleets~\cite{verma2015borg}; ALPS schedules function processes inside one machine~\cite{fu2024alps}. All
 assume trusted machines that stay up, so a warm sandbox disappears only by policy and nothing resembles a key whose release
-costs time and adds exposure. We use the Azure histogram policy as our strongest single-loop baseline.
+costs time and adds exposure. We use the Azure histogram policy as our strongest keep-alive baseline.
 
-\textbf{Two-timescale placement and submodular selection.} Edge computing often places services slowly and routes requests
-quickly~\cite{farhadi2021ton,tang2024rmws}. \voss{} shares this structure; what differs is that the placed resource is trust,
+\textbf{Service placement and request routing.} Edge computing often places services on a slow timescale
+and routes requests on a fast one~\cite{farhadi2021ton,tang2024rmws}. \voss{} shares this structure, with provisioning in the role of
+service placement and request placement in the role of routing; what differs is that the placed resource is trust,
 whose cost is exposure, on machines that disappear with estimated probabilities, protected against worst-case losses. Our
-planner uses diminishing-returns structure in the style of submodular maximisation~\cite{nemhauser1978,harshaw2019}, the
+provisioning algorithms draw on submodular maximisation~\cite{nemhauser1978,harshaw2019}, the
 convexity of the Erlang loss formula~\cite{messerli1972}, and budgeted robustness~\cite{bertsimas2004price}.
 
 \textbf{Volunteer and confidential computing.} BOINC runs each task several times and compares results~\cite{anderson2002seti,anderson2004boinc},

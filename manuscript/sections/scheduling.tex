@@ -8,7 +8,7 @@
 \label{sec:estimators}
 \label{sec:cluster}
 
-\subsection{Why two loops}
+\subsection{Why provisioning is separate from request placement}
 The scheduler's inputs change at very different rates, and its decisions last for very different times
 (Table~\ref{tab:horizons}). How many invocations run on a worker changes every few milliseconds and reaches the scheduler
 every 2\,s. A tenant's request rate means something only when averaged over a minute. How long sessions last can only be
@@ -37,12 +37,12 @@ Give a worker a tenant's key & the rest of the session & forecasts of rate and s
 
 A decision that outlasts the refresh period of its inputs has to be made from a forecast, ahead of time. A short decision can
 react to the latest state. Two more facts separate them. Questions such as ``how many workers hold this tenant's key?'' or
-``is demand still covered if any $f$ workers disappear?'' are about a whole set of workers, and a loop that sees one
+``is demand still covered if any $f$ workers disappear?'' are about a whole set of workers, and a decision about one
 invocation at a time cannot answer them. And preparing a worker takes seconds to minutes (Figure~\ref{fig:cost}), more than
-an invocation can wait. So the scheduler has two parts. The \emph{planner} runs every 30\,s, and earlier if demand or
+an invocation can wait. So the scheduler has two parts. \emph{Provisioning} runs every 30\,s, and earlier if demand or
 membership changes sharply: it decides which workers hold which tenant's key, which functions each keeps warm, and how many
 slots are reserved for each tenant. \emph{Request placement} runs for every invocation and picks a worker, usually from those
-the planner prepared. We did not sweep the 30\,s period: plan actions take from a few hundred milliseconds to several seconds,
+provisioning prepared. We did not sweep the 30\,s period: plan actions take from a few hundred milliseconds to several seconds,
 so the period must be longer, and sessions last minutes to hours, so it must be much shorter.
 
 \subsection{What each part minimises}
@@ -63,10 +63,10 @@ Asynchronous and background invocations are collected for 0.2\,s and assigned to
 Invocations that would miss only because of a cold start are admitted because they warm the sandboxes later
 invocations need; an invocation is rejected only if every candidate is almost sure to miss.
 
-The planner cannot minimise misses directly: the invocations it plans for do not exist yet, and misses depend on later
+Provisioning cannot minimise misses directly: the invocations it plans for do not exist yet, and misses depend on later
 placement choices, which depend on the plan. It instead keeps enough capacity ready and minimises what that capacity costs.
 If a tenant's invocations arrive at random at rate $\lambda_t$ and each occupies a slot for $s_t$ seconds on average, the
-number running at once is Poisson with mean $\lambda_ts_t$. The planner provisions $q_t$ slots, the 95th percentile of that
+number running at once is Poisson with mean $\lambda_ts_t$. Provisioning reserves $q_t$ slots, the 95th percentile of that
 number, so that in 95\% of moments an arriving invocation finds a ready slot, and it requires that this survives the loss of
 any $f$ workers (by default a tenth of the cluster). With $c_{tj}$ the slots of worker $j$ reserved for tenant $t$ and $e_j$
 the estimated chance that $j$ stays and does not drop work over the next 60\,s,
@@ -75,15 +75,15 @@ the estimated chance that $j$ stays and does not drop work over the next 60\,s,
 \label{eq:robust}
 \end{equation}
 Removing the largest $f$ contributions is the worst case, so no model of an adversary is needed; Bertsimas and Sim show how
-to write this as linear constraints~\cite{bertsimas2004price}. Subject to this the planner minimises the memory and disk the
+to write this as linear constraints~\cite{bertsimas2004price}. Subject to this, provisioning minimises the memory and disk the
 plan uses, key exposure, and the number of new key releases, minus the start-up time that warm sandboxes save. Real arrivals
 are burstier than Poisson, so during bursts fewer than 95\% of invocations find a ready slot; the experiments measure the
 resulting misses directly.
 
-\subsection{The planner}
-The planner looks at the live, non-leaving workers in its view (at most 40) and at the 20 tenants and 50 functions with the
-highest forecast rate; the evaluation workload has six tenants and 12 functions, so these limits never apply. The
-\emph{greedy planner}, our default, takes tenants in order of how much they lose to cold starts. For each it adds workers one
+\subsection{Provisioning algorithms}
+Provisioning considers the live, non-leaving workers in its view (at most 40) and at the 20 tenants and 50 functions with the
+highest forecast rate; the evaluation workload has six tenants and 12 functions, so these limits never apply. \emph{Greedy
+provisioning}, our default, takes tenants in order of how much they lose to cold starts. For each it adds workers one
 at a time, choosing the best ratio of reliability times trust score to memory and exposure cost, until
 condition~\eqref{eq:robust} holds. On the workers that hold each tenant's key it then adds warm sandboxes and snapshots in
 order of start-up time saved per megabyte. It takes about 8\,ms per run. An exact integer program (HiGHS~\cite{huangfu2018highs})
@@ -91,13 +91,13 @@ takes about 4\,s per cluster. Before any experiment we fixed a rule: if the exac
 setting, greedy would be the method. The data could not show this, and the exact program was not measurably better
 (Section~\ref{sec:res-plan}).
 
-We also derived a planner with more structure. Treat each tenant's reserved slots as a loss system: an invocation that finds
+We also derived a provisioning algorithm with more structure. Treat each tenant's reserved slots as a loss system: an invocation that finds
 every slot busy goes to a worker without the key. The chance of finding all busy depends only on the mean run time and falls
 by less with each added slot (the Erlang loss formula is convex in the number of slots~\cite{messerli1972}), so the value of a
 set of key holders is a monotone submodular function and greedy selection has the classic $(1-1/e)$ guarantee for each
 tenant~\cite{nemhauser1978,harshaw2019}, while warm sandboxes can be allocated by marginal gain. The guarantee holds per
 tenant only; slots shared across tenants, the domain caps and memory limits remove it for the joint plan. We evaluate it as
-the loss-model planner, and it trades latency for exposure rather than replacing greedy (Section~\ref{sec:res-plan}).
+loss-model provisioning, and it trades latency for exposure rather than replacing greedy (Section~\ref{sec:res-plan}).
 
 A new plan is computed only if its inputs changed beyond a tolerance. The difference to the previous plan becomes actions that
 are safe to repeat and rate-limited: fetch the key and decrypt the bundle, keep a snapshot, start a warm sandbox, release.
@@ -113,9 +113,9 @@ expire, below the tenant's trust floor or short of memory. For each it adds five
 the key, starting the function at its current level, moving data over the worker's own link, and running.
 
 The wait for a slot needs care. Slots on a worker are shared by synchronous and asynchronous invocations, and one worker's
-slots can be filled by long asynchronous jobs. An earlier version estimated the wait from one cluster-wide mean run time, which
-made a queue of long jobs look short, so synchronous invocations queued for seconds on the few workers holding a tenant's key
-rather than moving to another worker. The scheduler now replays each worker's queue from the predicted run times of the jobs
+slots can be filled by long asynchronous jobs. Estimating the wait from one cluster-wide mean run time would make a queue of
+long jobs look short, so synchronous invocations would queue for seconds on the few workers holding a tenant's key rather than
+move to another worker. The scheduler therefore replays each worker's queue from the predicted run times of the jobs
 it dispatched there, and a free slot goes to a waiting synchronous invocation before queued asynchronous ones (no
 preemption). Every system in our main comparison uses this placement.
 

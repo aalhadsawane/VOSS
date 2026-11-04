@@ -1,14 +1,16 @@
 \section{Introduction}
 \label{sec:intro}
 
-Serverless platforms run small pieces of customer code, called \emph{functions}, whenever a request arrives. Most finish in
-well under a second~\cite{shahrad2020wild}, so the useful work is small compared with what surrounds it. Before a function
-runs, the platform must create an isolated environment for it and load its language runtime. This \emph{cold start} can take
-longer than the function, and the request must also travel to wherever the function runs. Providers hide cold starts by keeping
-environments alive in their datacenters, which holds memory around the clock~\cite{shahrad2020wild,fuerst2021faascache}.
-They can do little about distance. Meanwhile, millions of home and office computers sit close to users and idle for most of the
-day. Volunteer computing has used such machines for two decades~\cite{anderson2002seti,anderson2004boinc}, but only for batch
-jobs with deadlines of hours. We ask whether they can answer requests that must finish in a few seconds.
+Serverless platforms run small pieces of customer code, called \emph{functions}, each time a request arrives. Most functions
+execute for well under a second~\cite{shahrad2020wild}. Before a function can execute, the platform must prepare an isolated
+environment for it: start a sandbox, fetch the function's code, load its language runtime and libraries, and run its
+initialisation code. This start-up delay, the \emph{cold start}, often exceeds the function's own execution time. Providers avoid
+it by starting environments ahead of demand and by keeping each environment alive for a while after a request in case another
+arrives (\emph{keep-alive}), which holds memory in their datacenters around the clock~\cite{shahrad2020wild,fuerst2021faascache}.
+A request must still travel to the datacenter and back, and keeping environments alive does not shorten that trip. Meanwhile,
+millions of home and office computers sit close to users and idle for most of the day. Volunteer computing has used such
+machines for two decades~\cite{anderson2002seti,anderson2004boinc}, but only for batch jobs with deadlines of hours. We ask
+whether a pool of volunteered machines can serve function invocations that must finish within seconds.
 
 Two problems stand in the way. The first is \textbf{churn}: an owner can switch off or reboot at any moment, and everything
 prepared on the machine disappears, including started environments, cached code and the secret keys it was given. The second is
@@ -19,47 +21,55 @@ this. Volunteer-computing systems run each task on several machines and compare 
 input~\cite{anderson2004boinc}. Serverless schedulers avoid cold starts well but assume trusted machines that stay
 up~\cite{shahrad2020wild,fuerst2021faascache}. Confidential-computing designs protect customers from the platform operator but
 run on provider servers~\cite{arnautov2016scone,wallet2025}. And the usual way to notice a failed machine, waiting for its
-periodic ``I am running'' message, fails against an owner who keeps sending it while discarding work, a \emph{gray
-failure}~\cite{huang2017gray}.
+periodic ``I am running'' message (a \emph{heartbeat}), fails against an owner who keeps sending it while discarding work, a
+\emph{gray failure}~\cite{huang2017gray}.
 
-Our starting point is that proving which software a machine runs changes what a hostile owner can do. If the customer's code
-and the scheduler's own code run only inside a locked operating-system image, and a verifier has checked hardware-signed evidence
-that the machine booted exactly that image (\emph{remote attestation}), the owner can no longer read, forge or change anything
-inside it. What the owner keeps is the power switch and the network cable: a hostile owner can stop the machine or delay its
-answers, which is what churn does anyway~\cite{cristian1991understanding,avizienis2004basic}. One set of mechanisms then covers
-crashes, churn and malice. We use attestation as it is deployed today. Its cost is what matters: a powered-off laptop needs
-\CalAttested\,s to become an attested worker, thousands of times longer than reusing a running environment, and the result is lost
-when the session ends. That leaves a scheduling problem. A machine goes through three steps for a customer: attested, given the
-customer's decryption key, and given started environments for its functions. All are slow, all are lost at the end of a
-session, and every machine holding a key is one more place it could leak from. Deciding how many machines to prepare, which, and
-when, cannot be done one request at a time.
+We rely on \emph{remote attestation} to handle distrust. Customer code and our own software run only inside a locked
+operating-system image, and before a machine is used, a verifier checks hardware-signed evidence that it booted exactly that
+image. The owner can then no longer read, forge or change anything inside it. What the owner keeps is the power switch and the
+network cable: they can switch the machine off, or drop or delay its messages, which churn and unreliable networks cause
+anyway~\cite{cristian1991understanding,avizienis2004basic}. The mechanisms that handle churn therefore also handle hostile owners.
 
-We present \voss{}, a scheduler built around this problem. A \emph{provisioning step} (the planner of Section~\ref{sec:sched}) runs periodically. From request rates and session lengths
-averaged over minutes to hours, it decides which workers hold which tenant's key, which functions they keep warm and how many
-slots are reserved for each tenant, with spare capacity so that losing a few machines does not hurt. \emph{Request placement} then chooses a worker for each invocation and duplicates
-invocations at risk. Workers are judged by whether work they
-accepted comes back. We evaluate several provisioning algorithms and two deployments of this scheduler. The deployments are a single
-global scheduler on provider hardware, and geographic clusters, in which workers are grouped by proximity and each cluster is
-scheduled by one of its own volunteer machines, reached through a publish/subscribe broker. Because a volunteer-hosted
-scheduler can itself disappear, the clustered deployment replaces a failed scheduler through a provider-run coordinator,
-without asking volunteers to agree on anything.
+What attestation does not remove is cost. On our calibration laptop (Section~\ref{sec:calib}), a machine takes \CalAttested\,s
+from power-on until it has booted the image, passed attestation and can run invocations, thousands of times longer than handing
+a request to an environment that is already running. \critical{calibration uses one laptop with a hard disk; repeat it on a
+second machine with an SSD before submission.} We call a volunteer machine running our image a \emph{worker}, and a customer a
+\emph{tenant}. Before a worker can run a tenant's function, it also needs the tenant's decryption key: tenants encrypt their
+code, and the saved environment images (\emph{snapshots}) made from it, under their own key, so the provider stores and
+transfers only ciphertext, and the tenant's key service releases the key only to attested workers. The worker then needs a
+started environment for the function. All of this takes seconds to minutes and is lost when the owner switches off. And every
+worker holding a key is one more place the key could leak from; we call the number of key holders, discounted by how well each
+is protected, the tenant's \emph{key exposure}. Deciding how many workers to prepare for each tenant, and which ones, is a
+decision about a set of workers, and it cannot be made one request at a time.
+
+We present \voss{}, a scheduler for this setting. It separates two decisions. \emph{Provisioning} runs periodically and decides
+which workers hold each tenant's key, which of them keep environments for which functions started and idle (\emph{warm}), and how
+much capacity is reserved for each tenant. A worker runs a fixed number of invocations at once, one per \emph{slot}, and
+provisioning reserves slots on key holders for each tenant. It works from request rates and session lengths averaged over
+minutes to hours, and keeps spare capacity so that losing a few workers does not leave a tenant short. \emph{Request placement}
+runs for each invocation: it picks a worker, usually one that provisioning prepared, and sends a second copy of an invocation
+that is likely to miss its deadline. Workers are judged by whether work they accepted comes back, not by heartbeats. We evaluate
+two deployments of this scheduler. One is a single global scheduler on provider hardware. The other groups workers into
+geographic clusters, each scheduled by one of its own volunteer machines and reached through a publish/subscribe broker; because
+such a scheduler can itself disappear, a provider-run coordinator replaces it when it fails, without asking volunteers to agree
+on anything.
 
 Our contributions are:
-(1)~an argument that attestation reduces hostile owners to omission and timing failures, and the scheduling problem that
-remains;
-(2)~a two-part scheduler, and an analysis of why key placement is a decision about a set of machines, so a slow loop is needed;
-(3)~an evaluation of three provisioning algorithms (greedy, an exact integer program and a loss-model variant) against the
-strongest single-loop alternatives we could build, including an Azure-style histogram policy and a baseline that holds keys
-ahead on the most reliable machines, with an honest account of where the gain from provisioning comes from;
-(4)~an evaluation of a global and a clustered deployment, with a communication design for clustered schedulers on machines whose
-addresses change and cannot accept connections;
-(5)~failure detection and scheduler replacement without agreement among volunteers; and
-(6)~a deterministic simulation whose hypotheses were fixed before the runs.
+(1)~a scheduler for serverless functions on volunteer machines that separates provisioning, a periodic decision about which set
+of workers holds each tenant's key, warm environments and reserved slots, from request placement, a decision about each
+invocation;
+(2)~a comparison of provisioning with the keep-alive policies serverless platforms use, including the hybrid histogram policy of
+Azure Functions, and with a baseline that gives keys early to the most reliable workers, showing where the gain comes from;
+(3)~failure detection that judges workers by returned work rather than by heartbeats;
+(4)~a global and a clustered deployment, the latter with schedulers on volunteer machines that are reached through a
+publish/subscribe broker and replaced without agreement among volunteers; and
+(5)~a deterministic simulator in which every compared system faces the same machine departures and request arrivals, so that
+systems are compared on identical conditions and every result can be reproduced exactly.
 
-In simulation, provisioning lowers 99th-percentile (P99) latency by \RfourDecompGreedyMed\% and \RfourDecompGreedyHigh\% against the best keep-alive policy at medium and high churn, at about 2.5
-times the key exposure; most of this comes from deciding how many workers should hold each key, not from choosing which.
-Judging workers by returned work keeps \VossSuccAlpha\% of requests successful when 20\% of owners drop work, against \HbSuccAlpha\% with
-heartbeats. The exact solver was not measurably better than greedy, and the global scheduler was faster than geographic clusters and held
-less key exposure. Several other designed components did not pay off, and a first version
-of request placement handicapped every baseline until we corrected it. All results come from simulation and one calibration
-machine (Section~\ref{sec:threats}).
+In simulation, provisioning lowers 99th-percentile (P99) latency by \RfourDecompGreedyMed\% and \RfourDecompGreedyHigh\% against
+the best keep-alive policy at medium and high churn, at about 2.5 times the key exposure; most of this comes from deciding how
+many workers should hold each key, not from choosing which. Judging workers by returned work keeps \VossSuccAlpha\% of requests
+successful when 20\% of owners drop work, against \HbSuccAlpha\% with heartbeats. Against datacenter references modelled on AWS
+Lambda and Azure Functions, \voss{}'s P99 is \RerunCommPNinetynineAzureTwentyDiff--\RerunCommPNinetynineLambdaTwentyDiff\,s higher at 20
+invocations per second. A single global scheduler was faster than geographic clusters and held less key exposure. All results
+come from simulation and one calibration machine (Section~\ref{sec:threats}).
