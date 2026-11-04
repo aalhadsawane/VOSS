@@ -55,7 +55,8 @@ generated macros before writing them; the author fact-checks and will catch over
     Formerly "single-loop baselines". *Early keys* stays as the name of the baseline that gives keys early to reliable workers.
   - Do not use: slow/fast loop, single loop, two-part/two-loop scheduler, planner. "Two-timescale" only when citing the edge
     literature that uses it. Labels in tables and figures come from `PLAIN_NAMES` in `experiments/analysis/round4.py`.
-  - Not yet renamed: `docs/explainer/voss-explained.md`, code identifiers, configs, `diagrams/loops.tex` (not included in the paper).
+  - The explainer (`docs/explainer/voss-explained.md`) and the diagrams (`arch`, `sim`, `loops`) use the same terms. Code identifiers
+    and configs (`planner`, `plan_greedy`, ...) are deliberately unchanged; only the paper and its companion docs were renamed.
 
 ## Log
 

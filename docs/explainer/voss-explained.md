@@ -452,7 +452,7 @@ An estimator turns past outcomes into a number a decision needs.
 
 ## The placement defect, and its correction
 
-- **Defect (C-46)**: our first request placement estimated the wait for a slot from one cluster-wide mean run time. A queue of long asynchronous jobs looked short, so synchronous calls queued for seconds on the few workers holding a tenant's key instead of moving to another worker. This handicapped every baseline and **made the planner's lead look larger** (earlier results of 54 to 59% must not be quoted).
+- **Defect (C-46)**: our first request placement estimated the wait for a slot from one cluster-wide mean run time. A queue of long asynchronous jobs looked short, so synchronous calls queued for seconds on the few workers holding a tenant's key instead of moving to another worker. This handicapped every baseline and **made provisioning's lead look larger** (earlier results of 54 to 59% must not be quoted).
 - **Correction**: replay each worker's queue from predicted run times, and let a waiting synchronous call take a free slot before queued asynchronous ones.
 - All systems in the main comparison use the corrected placement. VOSS with the old placement is within about 2%.
 - **Still on the original placement**: ablations, failure detection, geographic clusters and scale. Those are about VOSS alone; the baseline comparisons are being rerun (TODO slide).
