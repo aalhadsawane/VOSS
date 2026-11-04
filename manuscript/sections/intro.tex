@@ -15,8 +15,8 @@ whether a pool of volunteered machines can serve function invocations that must 
 Two problems stand in the way. The first is \textbf{churn}: an owner can switch off or reboot at any moment, and everything
 prepared on the machine disappears, including started environments, cached code and the secret keys it was given. The second is
 \textbf{distrust}: the owner controls the hardware and operating system, so they could read the customer's code and data, return
-forged results, or walk away at the worst moment. The two feed on each other. The usual answer to distrust is to check a machine
-before using it, and that check takes time; churn throws the result away whenever a session ends. Earlier work solves parts of
+forged results, or walk away at the worst moment. The usual answer to distrust is to check a machine before using it, but the
+check takes time, and churn throws its result away whenever a session ends. Earlier work solves parts of
 this. Volunteer-computing systems run each task on several machines and compare answers, which multiplies cost and exposes the
 input~\cite{anderson2004boinc}. Serverless schedulers avoid cold starts well but assume trusted machines that stay
 up~\cite{shahrad2020wild,fuerst2021faascache}. Confidential-computing designs protect customers from the platform operator but
@@ -47,8 +47,9 @@ which workers hold each tenant's key, which of them keep environments for which 
 much capacity is reserved for each tenant. A worker runs a fixed number of invocations at once, one per \emph{slot}, and
 provisioning reserves slots on key holders for each tenant. It works from request rates and session lengths averaged over
 minutes to hours, and keeps spare capacity so that losing a few workers does not leave a tenant short. \emph{Request placement}
-runs for each invocation: it picks a worker, usually one that provisioning prepared, and sends a second copy of an invocation
-that is likely to miss its deadline. Workers are judged by whether work they accepted comes back, not by heartbeats. We evaluate
+runs for each invocation: it picks a worker, usually one that provisioning prepared. If that worker is likely to miss the
+invocation's deadline, the invocation also runs on a second worker in a different city or internet provider, and the first
+result to arrive is used; this is done only for functions that are safe to run twice (\emph{idempotent}). Workers are judged by whether work they accepted comes back, not by heartbeats. We evaluate
 two deployments of this scheduler. One is a single global scheduler on provider hardware. The other groups workers into
 geographic clusters, each scheduled by one of its own volunteer machines and reached through a publish/subscribe broker; because
 such a scheduler can itself disappear, a provider-run coordinator replaces it when it fails, without asking volunteers to agree

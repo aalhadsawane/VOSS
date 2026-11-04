@@ -3,9 +3,48 @@
 **Instruction to agents (read before editing any `.tex` file here).** This is the author's review feedback on the manuscript,
 with what was asked and how it was fixed. Do not just apply each fix to the one place it was reported. For every entry, work
 out the *underlying heuristic* and the author's *stylistic preferences*, then check the rest of the paper for the same problem.
-Read "Heuristics so far" first, and add to it whenever new feedback reveals a pattern. Append every new round of feedback as a
+Read the style profile and "Heuristics so far" first, and extend both whenever new feedback reveals a pattern. Append every new round of feedback as a
 new entry (request, what was done, lesson), then update the heuristics. Verify claims against `sections/results.tex` and the
 generated macros before writing them; the author fact-checks and will catch overstatement.
+
+## The author's writing style (read this first; refine it after every round)
+
+This profile is inferred from all the feedback below. Treat it as the default voice for every edit, and update it when a new
+round shows something it misses. Before finishing any edit, reread your own text as the reviewer described below, and fix what
+would confuse them. The author has repeatedly praised text that follows this profile ("looks amazing") and rejected text that
+does not.
+
+**Reader.** A reviewer with a systems background and no serverless knowledge, reading cold. Every term must be understandable
+from the page alone.
+
+**Voice.**
+- Direct and straight forward. Say what the system does or what was found, in the plainest literal words.
+- Established, self-explanatory technical terms only. No coined labels ("slow loop", "planner", "single-loop", "second copy"), and
+  no jargon without a one-clause definition at first use. If a term exists in the literature, use it; if not, describe the thing.
+- Concrete over generic: "functions execute for well under a second" beats "the useful work is small".
+- No filler, vague or rhetorical sentences ("The two feed on each other", "What remains is...", "providers hide cold starts",
+  "feels abrupt"). Every sentence must state something a reader can check.
+- Neutral, technical-report register. No narrative about how we got here, no embarrassment-inducing details (arbitrary
+  parameters), no story of defects in the intro or abstract.
+- Mechanism-accurate: do not claim a capability you cannot explain; do not "fix" accurate wording.
+
+**Structure.**
+- Abstract: short and crisp; problem, major architectural novelty, and headline results against established research and industry
+  baselines. Nothing internal (greedy versus exact, ablations, cost, tuning).
+- Introduction: build context in the order the reader needs it; define a term before using it; one idea per sentence.
+- Contributions are what we built and found, each self-explanatory. Not the tools we used, not the history, not process claims
+  ("hypotheses fixed before the runs") the reader cannot parse.
+- Numbers come with what they measure and the hardware they come from, linked to the calibration section.
+- Figures must show every step the text claims, with labels that define themselves; captions define every term.
+
+**Working style.**
+- Fact-check each claim against `sections/results.tex` and the macros; correct the author's premise politely when the data
+  disagree (and say so), and do not adopt a wrong premise silently.
+- A reported problem is a pattern: fix it everywhere (text, tables, figure labels, diagrams, explainer), not just where it was cited.
+- Keep open problems visible in the PDF: `\critical{...}` for must-fix, `\potrem{...}` for possible removal.
+- When feedback needs new experiments or code, do not implement it unasked: record it in `docs/EXPERIMENT_TODO.md`, mark it in the
+  paper, and say so. Docs-only requests mean no code changes.
+- Be self-critical: after writing, ask "would a systems reviewer without serverless knowledge be confused here?" and revise.
 
 ## Heuristics so far
 
@@ -30,7 +69,6 @@ generated macros before writing them; the author fact-checks and will catch over
    into the sentence that introduces the system.
 9. **Do not cut context the reader needs, and do not clutter.** Do not mention calibration details ("calibrated on a laptop
    with a TPM") where they confuse; they belong in the method and limits sections.
-
 10. **Explain every domain term for a systems reader without serverless background** (cold start, keep-alive, slot, warm,
     snapshot, why a decryption key is needed). One short clause at first use is enough; never assume the term is known.
 11. **Contributions are what we built and found, not tools we used.** Using remote attestation (and its consequence that owners
@@ -40,8 +78,23 @@ generated macros before writing them; the author fact-checks and will catch over
     alone) and on what hardware, with a pointer to the calibration section.
 13. **Contributions must be self-explanatory.** "Hypotheses fixed before the runs" told a reviewer nothing; say what the reader
     gains (identical conditions for every system, exact reproducibility).
+14. **No vague connective or filler sentences.** If a sentence cannot be checked or does not add a fact ("The two feed on each
+    other"), delete it, and join its neighbours directly.
+15. **Say literally what the system does.** "Sends a second copy of an invocation" was opaque; the real behaviour is "the
+    invocation also runs on a second worker, in a different city or internet provider, and the first result to arrive is used".
+    Describe the mechanism in the words an engineer would use, and check the paper's body that it is what we really do.
+16. **A figure must be as detailed as the claim it supports.** If the text says "power-on to attested worker", the figure shows
+    each step from power-on to the verifier's acceptance, including attestation itself, and the caption defines each label
+    (e.g. direct microVM kernel boot versus a traditional firmware, boot-loader and kernel boot).
+17. **Separate wording fixes from experiment and code work.** Wording goes into the `.tex` files; anything that needs new
+    measurements or generator or harness changes goes into `docs/EXPERIMENT_TODO.md` and is marked in the paper with `\critical{}`.
+18. **Praise tells you the target.** The rewritten introduction was called "amazing" after: defining every term at first use,
+    stating the premise (not listing it as a contribution), naming components by what they do, and removing history. Match it.
 
 ## CRITICAL items (must be resolved before submission)
+
+Items that need experiments or code are tracked in `docs/EXPERIMENT_TODO.md` (X-1 multi-machine calibration, X-2 per-step start-up
+times, X-3 redraw Figure 1).
 
 - **CRITICAL (MAJOR TODO): make the calibration cover many kinds of volunteer machine, not one.** All start-up, boot and
   attestation costs come from one laptop with a hard disk. The goal is to show how long each step takes on the different
@@ -51,7 +104,7 @@ generated macros before writing them; the author fact-checks and will catch over
   `hardware.yaml` by `experiments/paper_tex/measured.py`). Each new machine gets its own bundle under
   `configs/calibration/measured/`, and the paper should compare them (a table of step times per machine, and a sensitivity run of
   the simulator per machine class). Marked with `\critical{...}` in `sections/intro.tex` and `sections/method.tex`. Running the
-  calibration harness needs the user's approval (AGENTS.md rule 14).
+  calibration harness needs the user's approval (AGENTS.md rule 14). Plan: `docs/EXPERIMENT_TODO.md` X-1 and X-2.
 - **CRITICAL: terminology for the two parts of the scheduler** (decided in round 8; keep it consistent everywhere):
   - **Provisioning** = the periodic, set-level decision (which workers hold each tenant's key, warm environments, reserved slots).
     Formerly "planner", "slow loop", "planning". Algorithms: *greedy provisioning*, *exact provisioning* (integer program),
@@ -161,3 +214,23 @@ generated macros before writing them; the author fact-checks and will catch over
   several machine kinds, each with its specification. The CRITICAL item above was rewritten.
 - **Lesson:** heuristic 12 extends to hardware: a measured number is credible only with the machine it came from, and one machine
   is one data point. When a TODO is sharpened, replace the old marker instead of adding another.
+
+### Round 10: Figure 1, "The two feed on each other", "second copy"
+- **Said:** (a) Figure 1 is confusing: what does "boot microVM" mean (a direct kernel boot from an image?), and what does "reboot to
+  kernel" mean when it is a traditional boot rather than a direct kernel boot? There is also no time for attestation, although the
+  text says "power on to attested worker". There are many steps and the diagram is not verbose enough. When the calibration is
+  rerun on several machines, the whole process needs per-step times for each start process. (b) Delete "The two feed on each
+  other": vague, not for a technical report. (c) "Sends a second copy of an invocation": what does this mean, do we even do that?
+  (d) Otherwise the introduction now looks amazing. (e) Put the inferred style and heuristics at the top of this doc and keep refining.
+- **Did:** (a) Fact check: the user's reading is right. "Boot microVM" is a Firecracker direct kernel boot (kernel plus root file
+  system image, no firmware or boot loader); "reboot to kernel" is the physical machine restarting through firmware and boot loader
+  until the OS kernel starts. The figure is generated by code and cannot be fixed with wording, so: the caption in `background.tex`
+  now defines these terms and the 65 s; a red `\critical` note under the figure asks for the per-step redraw; and the work is
+  planned in `docs/EXPERIMENT_TODO.md` (X-2 per-step times for every start process, X-3 redraw, X-1 across machines). No code or
+  experiment was changed. The bundle already hints that about 13 s between "agent ready" (31 s after kernel start) and "verifier
+  accepted" (44 s) is unexplained, which the new breakdown must account for. (b) Removed, and the two neighbouring sentences joined.
+  (c) Yes, we do this (`scheduling.tex`, hedging of at-risk idempotent invocations); the intro now says the invocation also runs on a
+  second worker in a different city or internet provider, the first result is used, and only for idempotent functions. (e) Added the
+  style profile at the top and heuristics 14--18.
+- **Lesson:** heuristics 14--18. When a figure label is unclear to the author it will be unclear to a reviewer: define every label in
+  the caption, and make the figure match the level of detail of the claim.

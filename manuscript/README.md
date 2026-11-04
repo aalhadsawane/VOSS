@@ -21,6 +21,7 @@ Draft for **ACM Transactions on Internet Technologies** (`acmart`, `acmsmall`, j
   experiment E25 supply the numbers in the baseline, feasibility and calibration paragraphs. Older drafts are kept for comparison.
 - `ieee-draft9/`: the IEEE draft 9 sources, kept for reference. They use the old diagram files and no longer build; the PDF is `draft/voss-draft9.pdf`.
 - `HUMAN_FEEDBACK.md`: the author's review feedback with how each point was fixed, and the heuristics and style preferences drawn from it. **Read it before editing the text, and append to it after every feedback round.**
+- `../docs/EXPERIMENT_TODO.md`: review feedback that needs new measurements or code changes (multi-machine calibration, per-step start-up times, Figure 1 redraw). Planning only.
 - `refs.bib`: written from memory; **verify every entry** (entries marked "TODO verify" first) before submission.
 
 Open items: author list and affiliations (`main.tex`), related-work completeness, bibliography check, a real-testbed validation.

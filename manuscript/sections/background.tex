@@ -28,9 +28,11 @@ from nearby workers before the provider's registry, and snapshots are made local
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.8\columnwidth]{figures/fig_cost}
-\caption{Time to reach each state on the calibration laptop (log scale). Blue: sandbox start-up; red: becoming an attested worker; grey: model value. \emph{Warm cache}: file already in memory; \emph{cold}: read from the hard disk.}
+\caption{Time to reach each state on the calibration laptop (log scale). Blue: sandbox start-up; red: becoming an attested worker; grey: model value. \emph{Boot microVM}: Firecracker starts a microVM directly from a kernel and a root file system image, without firmware or a boot loader. \emph{Restore snapshot}: load a saved microVM. \emph{Reboot to kernel}: restart the physical machine through its firmware and boot loader until the operating-system kernel starts. \emph{Power-on to attested worker}: that reboot, then the image's start-up, the TPM quote and the verifier's acceptance. \emph{Warm cache}: file already in memory; \emph{cold}: read from the hard disk.}
 \label{fig:cost}
 \end{figure}
+\critical{redraw as a per-step breakdown of every start process (boot, snapshot restore, power-on to attested worker), including
+the attestation steps, and repeat for each calibrated machine.}
 
 \subsection{Attestation in brief}
 \label{sec:rats}

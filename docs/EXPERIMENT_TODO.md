@@ -1,0 +1,105 @@
+# Experiment and code TODO from manuscript review
+
+**This is a planning document. Nothing here is implemented.** It lists review feedback on the manuscript that cannot be
+fixed by editing `.tex` files, because it needs new measurements, changes to the calibration harness, or changes to the
+generators that build the paper's tables and figures. Feedback that only needs wording changes is in
+`manuscript/HUMAN_FEEDBACK.md`; each item below names the round there that raised it.
+
+Rules that apply to all items: `AGENTS.md` 13 (measured values come only from calibration bundles) and 14 (the calibration
+harness runs on a real machine; never run reboot or BIOS-dependent suites without the user's explicit approval). Calibration
+design is in `docs/architecture/10-calibration.md`. The paper marks each item with a red `\critical{...}` note until it is done.
+
+Status values: TODO, IN PROGRESS, DONE.
+
+---
+
+## X-1. Calibrate on several kinds of volunteer machine (CRITICAL)
+
+- **Raised in:** round 8 (second machine with an SSD) and round 9 (many machines, with specifications).
+- **Status:** TODO. One machine is calibrated (Intel Core i3-7020U, one spinning disk; bundle
+  `configs/calibration/measured/laptop-b9212a4528/`).
+- **Why:** every start-up, boot and attestation cost in the paper comes from one hard-disk laptop. Volunteers will offer very
+  different machines, and the paper should show how long each step takes across them rather than present one data point.
+- **Machines to cover** (choose after the user decides what is available): a laptop and a desktop with a SATA SSD; one with
+  NVMe; an older and a newer CPU generation; machines with different TPM implementations (discrete TPM and firmware TPM);
+  optionally a low-memory machine. Each should be a machine volunteers could realistically donate.
+- **Specification to record for every machine** (extends what `meta.yaml` and `hardware.yaml` hold today): CPU model, core and
+  thread count, memory size, disk type, model and capacity, measured sequential and random throughput (`fio`), TPM
+  manufacturer, version and firmware, firmware type (UEFI or legacy) and version, board, BIOS, Secure Boot state, kernel version.
+  Today the bundle lacks core count, disk model and capacity, and TPM manufacturer; add them to the harness's host record so that
+  the paper's specification list can be generated and not typed in.
+- **Work plan:**
+  1. List the machines and get the user's approval per machine (rule 14, because the `appliance` suite reboots).
+  2. Run the same suites on each (`docs/architecture/10-calibration.md` §3), producing one bundle per machine under
+     `configs/calibration/measured/`.
+  3. Change the paper generators so that they read a list of hosts. `HOST` in `experiments/paper_tex/core.py` is a single
+     constant today, and `experiments/paper_tex/measured.py` emits one set of `Cal*` macros.
+  4. Add a table of step times per machine to the method section (see X-2 for the steps) and a table of machine specifications.
+  5. Map the simulator's worker classes (nightly, idle-hours, dedicated) onto calibrated machine kinds, or state why the mapping
+     is only approximate.
+  6. Rerun the calibration-sensitivity experiments (E24b and the placeholder-versus-measured comparison) with each machine's
+     bundle, and report the spread of VOSS's P99 and of the simple baseline's P99 across machines.
+- **Outputs:** one bundle per machine; `tab_calibration`-style table per machine; a specification table; a sensitivity table or
+  figure across machines.
+- **Open question:** does the conclusion "calibration changes the size of the gap but not its sign" survive across machines?
+
+## X-2. Per-step times for every start process (CRITICAL)
+
+- **Raised in:** round 10 (Figure 1 is not verbose enough).
+- **Status:** TODO.
+- **Why:** Figure 1 shows one bar per state, with no steps inside "reboot to kernel" or "power-on to attested worker", and no
+  bar for attestation itself, although the text says the 65 s runs from power-on to an attested worker. A reader cannot see
+  where the time goes, and the answer will differ by machine.
+- **What is known today** (from the laptop's bundle, median): reboot to kernel 21 s (firmware, boot loader and kernel start);
+  kernel start to agent ready 31 s; kernel start to verifier acceptance 44 s; so 65 s from power-on. The TPM quote takes 0.51 s
+  and the verifier's check 40 ms. That leaves about 13 s between "agent ready" and "verifier accepted" that no figure or table
+  explains. **Before re-running anything, check whether the raw logs in `calibration/raw/laptop-b9212a4528/appliance/` already hold
+  the per-phase timestamps** (doc 10 §3 says the one-shot service logs `systemd-analyze` and attestation timestamps).
+- **Start processes to break down, each into measured steps:**
+  1. *Power-on to attested worker:* firmware (POST), boot loader, kernel start, initial RAM disk, dm-verity and encrypted-partition
+     setup, system services up to the agent, agent start, attestation key loading, TPM quote, network round trip to the verifier,
+     verifier check and certificate issue, first mutual-TLS connection.
+  2. *Boot a microVM* (Firecracker, direct kernel boot): Firecracker and jailer start, kernel boot to init, guest agent ready,
+     language runtime load, function initialisation. Cold and warm page cache.
+  3. *Restore a snapshot:* open and map the snapshot files, restore device state, resume, first request served. Cold and warm.
+  4. *Create a snapshot:* pause, write memory file, write device state.
+  5. *Key release to a worker:* request, policy check, response, key installed (the sub-steps that exist in the model).
+  Which sub-steps exist is limited by what the harness can timestamp; where a step cannot be separated, say so in the table
+  and do not estimate it.
+- **Work plan:** (a) audit raw logs for existing per-phase data; (b) extend the harness probes where a step is missing, adding
+  timestamps and not new behaviour; (c) extend the ingest step so the bundle stores per-step distributions, not only totals;
+  (d) emit a per-step table per machine (this feeds X-1); (e) decide whether the simulator should use the per-step values (for
+  example, to model machines with a faster firmware phase) or only the totals.
+- **Outputs:** per-step table for each start process and machine; a stacked or waterfall figure replacing Figure 1 (X-3).
+
+## X-3. Redraw Figure 1 (cost of reaching each state)
+
+- **Raised in:** round 10. **Depends on:** X-2 (data), X-1 (one panel or colour per machine).
+- **Status:** TODO. The manuscript caption now defines "boot microVM" (direct kernel boot, no firmware or boot loader), "reboot to
+  kernel" (traditional boot through firmware and boot loader) and "power-on to attested worker"; the figure still needs to change.
+- **Needed in the figure:**
+  - the attestation steps (quote, transfer, verifier check) as visible segments of power-on to attested worker;
+  - every start process broken into its steps (X-2), with the same step names as the text and caption;
+  - the labels "Boot microVM" and "Reboot to kernel" replaced by self-explanatory names, for example "Start microVM
+    (direct kernel boot)" and "Restart machine to OS kernel (firmware, boot loader, kernel)";
+  - one panel or marker per calibrated machine (X-1);
+  - model values (the 2 ms resume of a warm microVM) kept visually distinct from measured ones.
+- **Code touched when this is done:** `_cost_ladder` in `experiments/paper_tex/measured.py` (and the schema of
+  `manuscript/generated/cost_ladder.csv`), the cost-figure function in `experiments/paper_figs.py`, and the freshness test
+  `tests/unit/test_manuscript.py`. The LaTeX caption in `manuscript/sections/background.tex` must follow.
+
+## X-4. Decisions recorded as not needing code changes
+
+- **Terminology rename (provisioning, request placement, keep-alive baselines)** applies to the paper, its figures' labels, the
+  explainer and the diagrams only. Code identifiers and configuration keys (`planner`, `plan_greedy`, `keepalive_ttl`, ...) are
+  deliberately unchanged (user decision, round 8). The only code touched was the label map `PLAIN_NAMES` in
+  `experiments/analysis/round4.py`.
+- **Cost analysis (USD per million invocations)** is marked `POTENTIAL REMOVAL` in the results section; the generated
+  `tab_commercial.tex` and `tab_rerun_commercial.tex` still carry a cost column although the text does not include those tables.
+  Decide with the paper whether to drop the column; no experiment is needed.
+
+## Parked ideas surfaced by review
+
+(Add here, then move to `docs/ROADMAP.md` → Parked when scheduled, per `AGENTS.md` 12.)
+
+- A real multi-machine testbed to validate network, attestation and failover (already in the paper's future work).
