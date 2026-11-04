@@ -22,14 +22,14 @@ from voss.core.rng import stream
 from experiments.analysis.common import bootstrap_ci, latency_metrics, manifest, table
 
 PLAIN_NAMES = {  # one plain name per system, used in the paper's table and figure (doc 06 §8)
-    "plan_none": "No planner",
+    "plan_none": "On demand",
     "keepalive_ttl": "Keep-alive, 10 min",
     "keepalive_inf": "Keep-alive, unbounded",
     "hist_prewarm": "Histogram keep-alive",
     "provisioned_keys": "Early keys",
-    "plan_greedy": "Greedy planner",
-    "plan_milp": "Exact planner",
-    "erlang_greedy": "Loss-model planner",
+    "plan_greedy": "Greedy provisioning",
+    "plan_milp": "Exact provisioning",
+    "erlang_greedy": "Loss-model provisioning",
     "erlang_dpp": "Loss-model, exposure budget",
 }
 
