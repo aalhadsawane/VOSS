@@ -48,7 +48,7 @@ A worker's \emph{session} lasts from booting our image until the owner switches 
 follow the time of day~\cite{javadi2013fta}; sessions end with notice or abruptly, sometimes for a whole city. A machine can
 crash, drop a result (an \emph{omission}), or deliver it late (a \emph{timing} failure)~\cite{cristian1991understanding,avizienis2004basic}.
 An owner who cannot forge anything can still drop or delay work selectively while the machine keeps sending its periodic
-``I am running'' messages, which defeats detectors built on such heartbeats, adaptive ones included~\cite{hayashibara2004phi,huang2017gray}.
+liveness messages (\emph{heartbeats}), which defeats detectors built on them, adaptive ones included~\cite{hayashibara2004phi,huang2017gray}.
 
 Invocations name a tenant and a function, are synchronous (the client waits), asynchronous or background, and carry a
 deadline: five times the function's run time on a warm sandbox, plus 50\,ms. Functions are marked idempotent or not; only

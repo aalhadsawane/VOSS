@@ -90,6 +90,11 @@ from the page alone.
     measurements or generator or harness changes goes into `docs/EXPERIMENT_TODO.md` and is marked in the paper with `\critical{}`.
 18. **Praise tells you the target.** The rewritten introduction was called "amazing" after: defining every term at first use,
     stating the premise (not listing it as a contribution), naming components by what they do, and removing history. Match it.
+19. **No colloquial quotations or casual phrasing in a technical paper.** Replace a quoted paraphrase ("I am running") with the
+    formal term (liveness message, heartbeat) and define it once.
+20. **A paragraph opener must be specific.** "What attestation does not remove is cost" left "cost" open to a hundred meanings.
+    Open with the concrete claim the paragraph proves (three things must happen before a machine can run a function, each
+    takes time), then enumerate them.
 
 ## CRITICAL items (must be resolved before submission)
 
@@ -234,3 +239,12 @@ times, X-3 redraw Figure 1).
   style profile at the top and heuristics 14--18.
 - **Lesson:** heuristics 14--18. When a figure label is unclear to the author it will be unclear to a reviewer: define every label in
   the caption, and make the figure match the level of detail of the claim.
+
+### Round 11: informal phrasing, vague opener
+- **Said:** (a) ``I am running'' in quotes is not formal enough for a technical paper. (b) "What attestation does not remove is cost"
+  is an unspecific paragraph opener; "cost" could mean a hundred things.
+- **Did:** (a) Replaced with "periodic liveness messages (heartbeats)" in the intro, and fixed the same phrase in the background
+  section (where heartbeats were not even defined) and in the explainer. (b) The paragraph now opens "Before a volunteer machine can
+  run a customer's function, three things must happen, and each takes time", then gives the three in order: boot and attest (65 s on
+  the calibration laptop), obtain the tenant's key, start an environment.
+- **Lesson:** heuristics 19, 20. Check every paragraph opener against: does it say specifically what the paragraph will establish?

@@ -93,7 +93,7 @@ power-off to attested worker  █████████████ 65 s   (me
 - **Serverless schedulers** (Azure keep-alive, FaasCache, Sparrow, Falcon) assume trusted machines that stay up.
 - **Confidential computing** protects customers from the operator, but on provider servers that do not vanish.
 - **Edge computing** already splits slow placement from fast routing, but it places services, not keys, on machines that disappear.
-- **Heartbeats** (a periodic "I am running" message) show only that a machine can send messages. An owner can keep them coming while discarding work.
+- **Heartbeats** (periodic liveness messages) show only that a machine can send messages. An owner can keep them coming while discarding work.
 
 ---
 
