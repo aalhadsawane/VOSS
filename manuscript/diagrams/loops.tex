@@ -1,18 +1,18 @@
-% The two loops inside a scheduler. Native width 139 mm.
+% The two parts of a scheduler: provisioning and request placement. Native width 139 mm.
 \begin{tikzpicture}[x=1mm,y=1mm]
   \tikzset{box/.append style={font=\scriptsize}}
   \node[zone, fill=blue!3, minimum width=67mm, minimum height=82mm, anchor=north west] (slow) at (0,0) {};
   \node[zone, fill=green!4, minimum width=67mm, minimum height=82mm, anchor=north west] (fast) at (72,0) {};
-  \node[font=\scriptsize\bfseries, anchor=north west] at ([xshift=2mm,yshift=-1mm]slow.north west) {Slow loop: the planner};
+  \node[font=\scriptsize\bfseries, anchor=north west] at ([xshift=2mm,yshift=-1mm]slow.north west) {Provisioning};
   \node[font=\tinyx, anchor=north west] at ([xshift=2mm,yshift=-5mm]slow.north west) {every 30\,s and when things change};
-  \node[font=\scriptsize\bfseries, anchor=north west] at ([xshift=2mm,yshift=-1mm]fast.north west) {Fast loop: request placement};
+  \node[font=\scriptsize\bfseries, anchor=north west] at ([xshift=2mm,yshift=-1mm]fast.north west) {Request placement};
   \node[font=\tinyx, anchor=north west] at ([xshift=2mm,yshift=-5mm]fast.north west) {for every invocation, in milliseconds};
-  % slow loop
+  % provisioning
   \node[box, minimum width=60mm, fill=white] (in) at (33.5,-20) {\textbf{Estimates}\\[-1pt]\tinyx survival, omission rate, assurance,\\[-2pt]\tinyx failure domains, forecast demand};
-  \node[box, minimum width=60mm, fill=white] (pl) at (33.5,-37) {\textbf{Robust planner}\\[-1pt]\tinyx greedy or exact; covers demand\\[-2pt]\tinyx even if any $f$ machines fail};
+  \node[box, minimum width=60mm, fill=white] (pl) at (33.5,-37) {\textbf{Provisioning algorithm}\\[-1pt]\tinyx greedy or exact; covers demand\\[-2pt]\tinyx even if any $f$ machines fail};
   \node[box, minimum width=60mm, fill=white] (pn) at (33.5,-54) {\textbf{Plan}\\[-1pt]\tinyx who holds which key, which snapshots,\\[-2pt]\tinyx how many warm sandboxes};
   \node[box, minimum width=60mm, fill=white] (ac) at (33.5,-71) {\textbf{Actions to workers}\\[-1pt]\tinyx prepare, pin, warm, release\\[-2pt]\tinyx idempotent, rate-limited};
-  % fast loop
+  % request placement
   \node[box, minimum width=60mm, fill=white] (iv) at (105.5,-20) {\textbf{Invocation}\\[-1pt]\tinyx tenant, function, deadline, input size};
   \node[box, minimum width=60mm, fill=white] (cd) at (105.5,-37) {\textbf{Candidates}\\[-1pt]\tinyx provisioned machines, plus other\\[-2pt]\tinyx attested ones (needs a key release)};
   \node[box, minimum width=60mm, fill=white] (cm) at (105.5,-54) {\textbf{Cost of each candidate}\\[-1pt]\tinyx wait, trust, start-up, network,\\[-2pt]\tinyx execution, failure risk, exposure};
