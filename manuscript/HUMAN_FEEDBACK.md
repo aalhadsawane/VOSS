@@ -95,6 +95,13 @@ from the page alone.
 20. **A paragraph opener must be specific.** "What attestation does not remove is cost" left "cost" open to a hundred meanings.
     Open with the concrete claim the paragraph proves (three things must happen before a machine can run a function, each
     takes time), then enumerate them.
+21. **Define a term by what it is, not by a vague size or a conflation.** "A sandbox is a small virtual machine" equated the
+    concept with one implementation and used "small". Define the concept (isolated environment), then state the choice we made
+    and why (virtual machine, for strong isolation between distrusting tenants).
+22. **State modelling assumptions where the terms are defined** (serial execution: concurrency of one per sandbox), and say
+    which real platforms differ.
+23. **A definition sentence must be readable on its own**; define a term by what it contains and does ("memory and processor state
+    written to disk; loading it resumes the sandbox"), not by comparison alone ("restores faster than a sandbox boots").
 
 ## CRITICAL items (must be resolved before submission)
 
@@ -248,3 +255,20 @@ times, X-3 redraw Figure 1).
   run a customer's function, three things must happen, and each takes time", then gives the three in order: boot and attest (65 s on
   the calibration laptop), obtain the tenant's key, start an environment.
 - **Lesson:** heuristics 19, 20. Check every paragraph opener against: does it say specifically what the paragraph will establish?
+
+### Round 12: Background "Terms" paragraph
+- **Said:** (a) "A sandbox is a small virtual machine" makes sandbox mean virtual machine; we choose a VM for strong isolation; do not
+  use "small". (b) "Slots" was not explained. (c) "A snapshot is a saved copy of a started sandbox that restores faster than a
+  sandbox boots" is odd. (d) "A key decrypts code and snapshots" is confusing since a snapshot already captures the code; fact-check.
+  Also state that we assume serial execution (concurrency of one per sandbox, as in AWS Lambda), unlike Cloud Run functions or
+  "AWS Lambda web functions", where one sandbox serves several invocations at once.
+- **Did:** Rewrote the Terms paragraph in `background.tex`. Sandbox: the isolated environment; implemented as a Firecracker
+  microVM (a VM, with the reason for choosing one, and what "microVM" means). Slot: one per donated CPU core, runs one invocation at a
+  time. Snapshot: memory and processor state of a running sandbox written to disk, resumed on load. Key: fact check, the user's
+  premise is only partly right. A snapshot holds the running sandbox's memory, which includes the loaded code, but it also holds data
+  the function handled, which is why it is encrypted; and the code bundle is still needed to boot the first sandbox (a snapshot is
+  made from one) and on any worker with no snapshot. So the key decrypts both, and the text now says why. Serial execution is stated
+  as an assumption with the AWS Lambda / Cloud Run functions contrast. I did not name "AWS Lambda web functions": as far as I know
+  Lambda (including with the Web Adapter) still runs one request per execution environment, so only Cloud Run functions (and
+  similar) is named. No citation added for either platform's concurrency model; add one if wanted.
+- **Lesson:** heuristics 21--23. Slot concurrency is not defined elsewhere in the paper (intro line 47 says only "one per slot").

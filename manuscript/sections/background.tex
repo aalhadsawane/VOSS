@@ -3,10 +3,20 @@
 
 \textbf{Terms.} A \emph{tenant} is a customer who deploys functions; an \emph{invocation} is one call of a function. The
 \emph{provider} runs the platform, a \emph{volunteer} owns a donated machine, and a \emph{worker} is that machine while it runs
-our software. A \emph{sandbox} is a small virtual machine (a microVM) that runs one function in isolation. It is \emph{warm}
-when it has started and sits idle, ready for a call; a \emph{snapshot} is a saved copy of a started sandbox that restores
-faster than a sandbox boots. Each worker offers a fixed number of \emph{slots}, each running one invocation at a time. A
-tenant's \emph{key} decrypts its code and snapshots; only the tenant controls it. We report the 99th percentile of the
+our software. A \emph{sandbox} is the isolated environment in which one function runs. Because a worker runs code from tenants that do not
+trust each other, on a machine whose owner we do not trust, we implement each sandbox as a virtual machine, which isolates
+more strongly than a container: the function runs on its own guest kernel behind hardware virtualization. We use
+Firecracker \emph{microVMs}, virtual machines that skip emulated legacy devices and boot directly from a kernel and a root
+file system image. A sandbox is \emph{warm} when it has finished starting and sits idle, ready for a call. A \emph{snapshot}
+is the memory and processor state of a running sandbox written to disk; loading it resumes the sandbox where it was saved,
+which takes less time than booting a new one. Each worker offers a fixed number of \emph{slots}, one per CPU core its owner
+donates. A slot runs one invocation at a time, so a worker with four slots runs at most four invocations simultaneously. We
+assume \emph{serial execution}: a sandbox serves one invocation at a time (a concurrency of one), as in AWS Lambda, and a
+second invocation of the same function gets its own sandbox. Some platforms, such as Google Cloud Run functions, let one
+instance serve many invocations at once; we do not model that. A tenant's \emph{key} decrypts the tenant's \emph{code bundle}
+(the function's files, from which a sandbox is booted) and the snapshots made from it. Snapshots need the key too because they
+hold the sandbox's memory, including data the function handled, not only its code; the bundle is still needed to boot a
+sandbox on a worker that holds no snapshot. Only the tenant controls the key. We report the 99th percentile of the
 latency of synchronous invocations, written P99.
 
 \subsection{Where the time goes}
