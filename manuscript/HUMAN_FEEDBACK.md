@@ -285,3 +285,17 @@ times, X-3 redraw Figure 1).
   can run at the same time", and the contribution says "reserved capacity". "Sandbox" in the intro is now glossed as a virtual
   machine or container, and "snapshots" as saved memory and processor state of a started environment.
 - **Lesson:** heuristic 24. After any edit, rebuild `manuscript/main.pdf` in place so the viewer shows it.
+
+### Round 14: slots are not CPU cores
+- **Said:** "Slot = one per CPU core" is wrong; verify against the document. Slots do not correspond to cores at all; there can
+  be several per core.
+- **Did:** The manuscript never ties slots to cores (`scheduling.tex` uses them only as concurrent-invocation capacity), so my
+  Round 12 sentence was an unsupported import from `docs/architecture/02-environment-model.md` ("slots = vCPUs"). Terms now
+  define a slot as the capacity to run one invocation at a time and say it is a unit of concurrency, not of hardware.
+  **Open conflict, not changed (tex-only request):** the simulator derives slots as `int(cores x cpu_frac)`
+  (`voss/world/workers.py:128`; `configs/hardware/E0.yaml` "three cores give two slots"), and doc 02 §4 and the explainer say
+  the same, so in the code a slot is roughly a donated core. If slots should be independent of cores, the code and those docs
+  need to change.
+- **Lesson:** do not take a definition from the architecture docs or code into the paper without checking it against the paper
+  body; and say when the paper's definition and the implementation disagree.
+
