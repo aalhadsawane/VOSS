@@ -105,6 +105,7 @@ from the page alone.
     vocabulary) applies only to terms that are general or already defined in the intro; check every intro term against that.
 25. **Define model quantities from the code, not from a doc or a guess.** For slots, read `voss/world` first; state assumed shares
     (donor envelope) as assumed and unswept.
+26. **State each assumed parameter once, in a table, and do not name other platforms' behaviour without a verified citation.**
 23. **A definition sentence must be readable on its own**; define a term by what it contains and does ("memory and processor state
     written to disk; loading it resumes the sandbox"), not by comparison alone ("restores faster than a sandbox boots").
 
@@ -313,4 +314,21 @@ times, X-3 redraw Figure 1).
   `cpu_frac` sweep and no measurement of peak `running_mb / mem_mb`; ROADMAP Parked items (memory admission, per-function vCPU).
 - **Lesson:** heuristic 25. Never define a model quantity from one doc or from the user's word alone; confirm with the code, and
   record what is assumed versus measured.
+
+### Round 16: "slot" replaced by "concurrency limit"; capacity model
+- **Said:** Replace "slot" with "concurrency limit" (and "reserved concurrency" for the per-tenant reservation); define once "A worker
+  runs at most c_j invocations at a time"; add a short Capacity model paragraph (CPU bounds running invocations, memory bounds warm
+  sandboxes, one vCPU per invocation, worst case 83% of the memory budget, slot held through key fetch/boot/execution, no
+  time-sharing or preemption of running work so warm sandboxes are the overcommitted resource); state 0.75 once, in a table, next
+  to the memory/SSD/HDD shares; no new defence; keep code identifier `slots` out of prose; no claimed equivalence with Lambda,
+  OpenWhisk or Firecracker without a verified citation; do not call the planner's lead independent of the capacity model before
+  H17/H18 are run.
+- **Did:** No "slot" remains in the sections. `background.tex`: new Terms definition of $c_j$; new "Capacity model" paragraph; the
+  Lambda and Cloud Run comparisons are removed (no verified citation); Firecracker now cited (`agache2020firecracker`, already in
+  `design.tex`). `method.tex`: new Table `tab:donated` (CPU 0.75, memory 0.6, SSD 0.2, hard disk 0.2, all assumed); the earlier
+  prose repeat of 75% is gone. `scheduling.tex`: reserved concurrency, $c_{tj}\le c_j$. `discussion.tex`: the limit item shortened; the
+  unmeasured over-commit sentence is dropped because the 83% worst case replaces it. Checked: 83% = E0, 2 limit x 1024 MB
+  (largest function) / 2457.6 MB; other classes 20-62%. Filler is preempted by sync (`scheduler_role.py`); the interference factor is
+  1 + 0.1(busy-1)/limit, at most 1.1.
+- **Lesson:** heuristic 26. A parameter value appears once, in a table, not repeated in prose.
 

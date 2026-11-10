@@ -34,7 +34,7 @@ hosting. We did not run a provider-hosted variant, and expect the first to carry
 \item \textbf{Simulation, partly validated.} No multi-machine deployment has validated the simulator. A single-box emulation with
 real microVMs (E01) agrees on success and start-up levels but not on the shape of the latency distribution, and did not exercise
 the network, attestation or failover. Policies are the real code; the world (network, churn, adversaries) is a model.
-\item \textbf{A placement defect, corrected late.} Our first request placement estimated waits for a slot from one cluster-wide
+\item \textbf{A placement defect, corrected late.} Our first request placement estimated waits to start from one cluster-wide
 mean, which handicapped baselines and made provisioning's lead look larger. The corrected placement is used in the provisioning
 comparison and the baseline experiments; the experiments about VOSS alone (ablation, failure detection, geographic clusters,
 scale) ran with the original placement, which changes VOSS's own P99 by about 2\%.
@@ -42,11 +42,10 @@ scale) ran with the original placement, which changes VOSS's own P99 by about 2\
 functions on 200 workers, so the limits of provisioning on tenants and functions never apply, provisioning is not stressed by a long
 tail of rare functions, and 11 functions are idempotent by our assumption. Absolute differences are 0.3--0.5\,s of P99, with
 every system of the provisioning comparison under 3\,s.
-\item \textbf{Assumed donor share and slots.} Each worker offers 75\% of its CPU threads as slots (hyperthreads counted), 60\%
-of its memory and 20\% of each disk tier; none of these shares is measured or swept, so absolute capacity depends on them. Every
-invocation takes exactly one slot whatever its memory demand, and memory limits only how many warm sandboxes a worker keeps,
-not how many invocations it accepts, so a worker could run more invocations than its memory budget holds. We have not yet
-measured whether this happens. The owner's own use of the machine is not modelled.
+\item \textbf{Assumed donor shares and capacity model.} The shares of CPU threads (hyperthreads counted), memory and disk that a
+worker offers (Table~\ref{tab:donated}) are assumed, not measured, and we have not swept them, so absolute capacity depends on
+them. Every invocation uses one vCPU and the same unit of concurrency whatever its memory demand. The owner's own use of the
+machine is not modelled.
 \item \textbf{Idealised knowledge.} The scheduler takes start-up, trust and network costs and declared worker speeds as exact,
 and we did not sweep prediction error. Calibration comes from one laptop with a hard disk, and confidential-VM costs from the
 literature.

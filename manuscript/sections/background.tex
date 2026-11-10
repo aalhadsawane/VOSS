@@ -6,23 +6,28 @@
 our software. A \emph{sandbox} is the isolated environment in which one function runs. Because a worker runs code from tenants that do not
 trust each other, on a machine whose owner we do not trust, we implement each sandbox as a virtual machine, which isolates
 more strongly than a container: the function runs on its own guest kernel behind hardware virtualization. We use
-Firecracker \emph{microVMs}, virtual machines that skip emulated legacy devices and boot directly from a kernel and a root
-file system image. A sandbox is \emph{warm} when it has finished starting and sits idle, ready for a call. A \emph{snapshot}
-is the memory and processor state of a running sandbox written to disk; loading it resumes the sandbox where it was saved,
-which takes less time than booting a new one. Each worker offers a fixed number of \emph{slots}. A slot runs one invocation at a time, and every invocation takes
-exactly one slot, whatever the function. A worker with four slots runs at most four invocations simultaneously. Slots limit
-concurrency and are derived from the machine's CPU threads (a donor offers a fixed share of them, Section~\ref{sec:method});
-a slot is not a virtual CPU of the sandbox, and slots do not account for memory: a warm sandbox holds memory but no slot. We
-assume \emph{serial execution}: a sandbox serves one invocation at a time (a concurrency of one), as in AWS Lambda, and a
-second invocation of the same function gets its own sandbox. Some platforms, such as Google Cloud Run functions, let one
-instance serve many invocations at once; we do not model that. A tenant's \emph{key} decrypts the tenant's \emph{code bundle}
+Firecracker~\cite{agache2020firecracker} \emph{microVMs}, virtual machines with a minimal device model that boot directly from a
+kernel and a root file system image. A sandbox is \emph{warm} when it has finished starting and sits idle, ready for a call. A
+\emph{snapshot} is the memory and processor state of a running sandbox written to disk; loading it resumes the sandbox where it
+was saved, which takes less time than booting a new one. A worker $j$ runs at most $c_j$ invocations at a time; we call $c_j$ its
+\emph{concurrency limit}. We assume \emph{serial execution}: a sandbox serves one invocation at a time, and a second invocation
+of the same function gets its own sandbox. A tenant's \emph{key} decrypts the tenant's \emph{code bundle}
 (the function's files, from which a sandbox is booted) and the snapshots made from it. Snapshots need the key too because they
 hold the sandbox's memory, including data the function handled, not only its code; the bundle is still needed to boot a
 sandbox on a worker that holds no snapshot. Only the tenant controls the key. We report the 99th percentile of the
 latency of synchronous invocations, written P99.
 
+\textbf{Capacity model.} CPU bounds the invocations a worker runs, and memory bounds the sandboxes it keeps warm. The
+concurrency limit $c_j$ is the donated CPU share of the worker's hardware threads (Table~\ref{tab:donated}), rounded down, and at
+least one; each invocation uses one vCPU. A running invocation holds one unit of the limit from the moment it starts, through
+key fetch, boot or restore, and execution, until it finishes. Running invocations are never time-shared or preempted (low-priority
+filler work excepted), so they never oversubscribe the CPU; those running together slow one another by a factor of at most 1.1
+(assumed). A running invocation also holds its function's memory. For the shipped worker classes and functions, running
+invocations stay within the memory budget (at most 83\% of it, when every running invocation is the largest function), so
+warm idle sandboxes are the overcommitted resource: they compete for the memory left over.
+
 \subsection{Where the time goes}
-Before a function runs, the invocation waits for a slot, for the worker to obtain the tenant's key if it lacks it, and
+Before a function runs, the invocation waits for the worker's concurrency limit to admit it, for the worker to obtain the tenant's key if it lacks it, and
 for a sandbox to start. For functions of tens to hundreds of milliseconds, starting the sandbox dominates unless one is
 already warm, which is why platforms keep sandboxes alive or restore snapshots~\cite{shahrad2020wild,fuerst2021faascache,ao2022faasnap,cadden2020seuss}.
 A function is at one of four levels on a worker: nothing cached (fetch the code, then boot); code on disk (boot); a snapshot
