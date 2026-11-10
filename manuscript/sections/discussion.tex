@@ -42,6 +42,11 @@ scale) ran with the original placement, which changes VOSS's own P99 by about 2\
 functions on 200 workers, so the limits of provisioning on tenants and functions never apply, provisioning is not stressed by a long
 tail of rare functions, and 11 functions are idempotent by our assumption. Absolute differences are 0.3--0.5\,s of P99, with
 every system of the provisioning comparison under 3\,s.
+\item \textbf{Assumed donor share and slots.} Each worker offers 75\% of its CPU threads as slots (hyperthreads counted), 60\%
+of its memory and 20\% of each disk tier; none of these shares is measured or swept, so absolute capacity depends on them. Every
+invocation takes exactly one slot whatever its memory demand, and memory limits only how many warm sandboxes a worker keeps,
+not how many invocations it accepts, so a worker could run more invocations than its memory budget holds. We have not yet
+measured whether this happens. The owner's own use of the machine is not modelled.
 \item \textbf{Idealised knowledge.} The scheduler takes start-up, trust and network costs and declared worker speeds as exact,
 and we did not sweep prediction error. Calibration comes from one laptop with a hard disk, and confidential-VM costs from the
 literature.

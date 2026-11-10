@@ -9,9 +9,10 @@ more strongly than a container: the function runs on its own guest kernel behind
 Firecracker \emph{microVMs}, virtual machines that skip emulated legacy devices and boot directly from a kernel and a root
 file system image. A sandbox is \emph{warm} when it has finished starting and sits idle, ready for a call. A \emph{snapshot}
 is the memory and processor state of a running sandbox written to disk; loading it resumes the sandbox where it was saved,
-which takes less time than booting a new one. Each worker offers a fixed number of \emph{slots}, a slot being the capacity to run one invocation at a time. A
-worker with four slots runs at most four invocations simultaneously. Slots are a unit of concurrency, not of hardware: they
-do not correspond to CPU cores, and a core can serve several slots. We
+which takes less time than booting a new one. Each worker offers a fixed number of \emph{slots}. A slot runs one invocation at a time, and every invocation takes
+exactly one slot, whatever the function. A worker with four slots runs at most four invocations simultaneously. Slots limit
+concurrency and are derived from the machine's CPU threads (a donor offers a fixed share of them, Section~\ref{sec:method});
+a slot is not a virtual CPU of the sandbox, and slots do not account for memory: a warm sandbox holds memory but no slot. We
 assume \emph{serial execution}: a sandbox serves one invocation at a time (a concurrency of one), as in AWS Lambda, and a
 second invocation of the same function gets its own sandbox. Some platforms, such as Google Cloud Run functions, let one
 instance serve many invocations at once; we do not model that. A tenant's \emph{key} decrypts the tenant's \emph{code bundle}

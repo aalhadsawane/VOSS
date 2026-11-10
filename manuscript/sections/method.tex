@@ -14,7 +14,9 @@ transfers; disk reads, TPM quotes, key releases and the decision time of every s
 Workers come in three classes (nightly, idle-hours, dedicated) with heavy-tailed session lengths and city-wide shocks;
 no public trace of donation sessions exists, so these parameters follow availability studies~\cite{javadi2013fta}, are marked
 \emph{assumed}, and are swept. The workload has six tenants and 12 functions modelled on SeBS~\cite{copik2021sebs}, with
-skewed popularity and bursty, day-and-night arrivals~\cite{shahrad2020wild}; 11 functions are idempotent. A fraction
+skewed popularity and bursty, day-and-night arrivals~\cite{shahrad2020wild}; 11 functions are idempotent. A donor offers a fixed share of its machine: 75\% of its CPU threads, 60\% of its memory and 20\% of each
+disk tier (\emph{assumed}, not measured, and not swept), so a worker offers $\max(1,\lfloor 0.75\times\text{threads}\rfloor)$ slots.
+The share leaves the owner headroom for their own use, which we do not model, and threads count hyperthreads. A fraction
 $\alpha$ of owners drop or delay work in various patterns but, by Property 1, forge nothing.
 
 \textbf{Calibration and checks.} Start-up, snapshot, quote and boot costs come from one consumer laptop: an \CalCpuFull{} (mainboard \CalBoard, BIOS \CalBios), \CalMemGiB\,GiB of

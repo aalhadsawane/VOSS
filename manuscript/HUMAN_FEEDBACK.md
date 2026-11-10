@@ -103,6 +103,8 @@ from the page alone.
 24. **The introduction uses no serverless-specific vocabulary a general systems reader lacks.** "Slot" belongs in the background
     Terms; the intro says "capacity, counted as invocations a worker can run at the same time". Heuristic 5 (use the paper's later
     vocabulary) applies only to terms that are general or already defined in the intro; check every intro term against that.
+25. **Define model quantities from the code, not from a doc or a guess.** For slots, read `voss/world` first; state assumed shares
+    (donor envelope) as assumed and unswept.
 23. **A definition sentence must be readable on its own**; define a term by what it contains and does ("memory and processor state
     written to disk; loading it resumes the sandbox"), not by comparison alone ("restores faster than a sandbox boots").
 
@@ -298,4 +300,17 @@ times, X-3 redraw Figure 1).
   need to change.
 - **Lesson:** do not take a definition from the architecture docs or code into the paper without checking it against the paper
   body; and say when the paper's definition and the implementation disagree.
+
+### Round 15: what a slot is (codebase author's account)
+- **Said:** Understand what a slot means and how it is modelled; the code's author answered. Slots = `max(1, int(threads x 0.75))`,
+  an assumed donor envelope (`cpu_frac`, with memory 0.6 and SSD/HDD 0.2); every invocation takes one slot; memory is not an
+  admission check; the 0.75 has no derivation or decision record.
+- **Did:** Terms: a slot runs one invocation at a time, every invocation takes exactly one slot, slots are derived from CPU threads
+  and are not a guest vCPU, do not account for memory, and a warm sandbox holds memory but no slot. `method.tex`: the donor shares
+  are stated as assumed, unmeasured and unswept, with the slot formula. `discussion.tex`: new limit (assumed shares, memory-blind
+  slots, hyperthreads counted, no owner load, over-commit not yet measured).
+- **Not done (outside tex-only scope):** doc 02 §4 still says "vCPUs"; `docs/DECISIONS.md` has no entry for `cpu_frac`; no
+  `cpu_frac` sweep and no measurement of peak `running_mb / mem_mb`; ROADMAP Parked items (memory admission, per-function vCPU).
+- **Lesson:** heuristic 25. Never define a model quantity from one doc or from the user's word alone; confirm with the code, and
+  record what is assumed versus measured.
 
