@@ -55,8 +55,23 @@ stateDiagram-v2
 
 ## 4. Execution model
 
-- A worker exposes `slots` (vCPUs available to VOSS within its envelope). Each invocation runs in its own microVM
-  (concurrency 1 per VM by default).
+- A worker exposes `slots`: the number of invocations it runs at once (its *concurrency limit*; `slots` is the code
+  name, the paper says "concurrency limit"). It is `max(1, floor(cpu_frac × cores))` with `cores` the hardware threads
+  of the class and `cpu_frac = 0.75` the donated CPU share (`EnvelopeParams`, tag: assumed; D-80). There is no guest
+  vCPU count: every invocation, whatever the function, takes exactly one slot and runs in its own microVM (concurrency
+  1 per VM), holding the slot through key fetch, boot or restore and execution.
+- **Two resources.** CPU bounds *running* invocations (the slots); memory bounds *warm* sandboxes (budget
+  `mem_gb × 1024 × mem_frac`, minus `m_base_mb` in the plan). Warm sandboxes hold memory but no slot.
+- **Memory is not checked at admission.** This is safe by an invariant: `slots × max function mem_mb ≤ donated memory`
+  for every worker. `world.scenario.check_memory_invariant` enforces it when a scenario is generated (worst case in the
+  shipped classes: 83% of the budget, classes C3 and E0). A run that violates it is refused rather than over-committed.
+- **No CPU overcommit among running work.** An invocation that finds all slots busy waits (FIFO, or sync first with
+  `voss.worker.sync_priority`); a running invocation is never preempted (filler copies can be cancelled by the
+  scheduler). Contention is a static factor `1 + interference × (busy − 1)/slots` evaluated when the invocation
+  starts (at most +10%); it stands in for shared caches, memory bandwidth and hyperthreads. Real hosts overcommit
+  CPU and time-share; H18 tests how much the results depend on this (doc 06 §8).
+- `cores` counts hardware threads while `speed` is per reference core, so a class with hyperthreads (C0: 20 threads
+  on 12 cores) offers more slots than physical cores. Parked (ROADMAP).
 - **True runtime** = `work_f(input) / (speed_j × interference(load)) × substrate_slowdown × noise`:
   - `work_f` comes from SeBS profiles (reference-core seconds, measured on node C0);
   - `substrate_slowdown` per profile: CPU, memory and I/O factors (TME ≈ small, measured; CVM I/O tax from

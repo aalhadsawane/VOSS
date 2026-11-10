@@ -155,6 +155,15 @@ Workflows (SeBS-Flow), GPU functions (the node has 2 × RTX 4060 Ti; no confiden
 provider-signed transparency log, padding against traffic analysis, DRTM real implementation, real multi-machine
 deployment.
 
+From the slots review (D-80):
+- Memory admission (OpenWhisk-style memory pool): admit an invocation only if its `mem_mb` fits; needs a new wait model,
+  planner reservation in MB and Poisson sizing in memory, and a rerun of everything. Today the invariant guard suffices.
+- Per-function vCPU count (heavy functions take several slots); `FunctionSpec` has no CPU field.
+- Physical-core slot counts and an SMT penalty (C0 counts 20 hardware threads at full-core speed).
+- Dynamic processor-sharing execution (rescheduling run times as invocations start and finish); H18 uses a static
+  time-sharing approximation.
+- A `cpu_frac` sweep beyond H17 and a declared-envelope-per-donor model.
+
 From the P5 pilots (to revisit in P8):
 - Geo vs global at larger N and load (E05 × E18): at 600 workers a global scheduler still wins; find the crossover.
 - Per-cluster robust trust sets multiply key exposure by the number of clusters a tenant is hot in: consider

@@ -147,6 +147,38 @@ Results are reported whichever way they fall; regimes where a baseline wins are 
 | **H15** | Planning ahead beats merely holding keys early: `plan_greedy` vs `provisioned_keys` (same holder count per tenant from greedy, workers chosen by reliability only, no robust coverage, no warm-state planning beyond the worker TTL). | `r = P99(plan_greedy)/P99(provisioned_keys) <= 0.95`, per regime. If `r` is within `[0.95, 1.05]` with a CI inside it, the verdict is "no difference" and the planner's gain is attributed to holding keys on enough reliable workers. Holm. |
 | **H16** | In E25, the planner's advantage over the best single loop is an inverted U in mean session length, and depends on survival information. | (a) Advantage `A(M, k) = 1 - P99(plan_greedy)/P99(best single loop)` at each (M, k) (best single loop chosen per cell among `keepalive_inf`, `hist_prewarm`): supported if `A(1) > A(0.25)` and `A(1) > A(4)` at shape 0.6 or at shape 1.0 with paired CIs of both differences excluding 0; weak if only the point estimates order so; refuted if `A` is monotone with CIs excluding 0 on both steps. (b) Survival dependence: `B(M, k) = P99(plan_greedy_blind)/P99(plan_greedy) - 1`; supported if `B > 0` with CI excluding 0 at shape 0.6 and `B` at shape 0.6 exceeds `B` at shape 1.0 (a falling hazard is what survival information exploits); weak if only the point estimates; refuted if `B <= 0` with the CI excluding 0. |
 
+### 8.1 Capacity-model sensitivity (pre-registered before any run; D-80)
+
+The planner's lead in E04b is a queueing effect on the few workers that hold a tenant's key (`docs/validation/E04-tail.md`),
+so it depends on how many invocations a worker runs at once and on whether running work is time-shared. Two assumptions
+fix that in the simulator and are tested here, both on the E04b scenario at `churn_med`, E04b seeds (20), systems
+`plan_greedy`, `keepalive_ttl` and `provisioned_keys`, corrected placement as in E04b, paired by seed. In both, the
+comparison is `r = P99(plan_greedy)/P99(keepalive_ttl)`; `keepalive_ttl` stands for the best single loop (in E04b its
+P99 is within noise of `keepalive_inf`, the other candidate, so the claim is not weaker).
+
+- **E26a (H17), donated CPU share.** `scenario.envelope.cpu_frac` ∈ {0.5, 0.75, 1.0} (0.75 reuses E04b if the config
+  hashes match). Slots per worker are `max(1, floor(cpu_frac × cores))`: C0 10/15/20, C1 2/3/4, C2 4/6/8, C3 2/3/4. The
+  memory invariant of doc 02 §4 holds for all three values on C0-C3 (the guard refuses E0 at 1.0; E0 is not used).
+- **E26b (H18), CPU overcommit with time-sharing.** New parameters, defaults leaving every existing result and hash
+  unchanged: `scenario.envelope.cpu_overcommit` ρ (default 1) and the run-time factor `max(1, busy / (cpu_frac × cores))`
+  applied at the start of an invocation (static, like the existing interference term) only when ρ > 1. The concurrency
+  limit is `min(floor(ρ × cpu_frac × cores), floor(mem_mb / max function mem_mb))`, so memory still bounds
+  running work (this is the worst-case form of memory admission; for ρ = 1 it equals today's `slots`). ρ ∈ {1, 2, 4} at
+  `cpu_frac = 0.75`. Effective limits: C3 3/4/4, C1 3/6/9, C2 6/12/19, C0 15/30/60. Time-sharing lets a short
+  synchronous job start next to a long asynchronous one at the price of a slower run, which is what an overcommitted host
+  does; full processor sharing (re-timing running work as others start and finish) is not modelled (ROADMAP).
+
+| ID | Hypothesis | Comparison and threshold |
+|---|---|---|
+| **H17** | The planner's P99 lead over the best single loop does not depend on the assumed donated CPU share. | `r` at `cpu_frac` 0.5 and 1.0: supported if the upper limit of the 95% CI of `r` is `<= 0.95` at both; weak if both point estimates are `<= 0.95` but a CI includes 0.95; refuted if at either value the CI lies entirely above 0.95. Holm over the two comparisons. Secondary, descriptive: the lead at 0.75, exposure ratio planner/single loop, holders per tenant. |
+| **H18** | The planner's lead survives CPU overcommit with time-sharing. | `r` at ρ = 2 and ρ = 4: same verdict rule and Holm correction as H17. Secondary, descriptive: share of synchronous invocations that wait more than 1 s for a slot, per system and ρ; warm memory; exposure. |
+
+Stated expectation, written before the runs: the lead shrinks as slots per worker rise (H17 at 1.0) and as work is
+time-shared (H18), because both shorten the queue behind long asynchronous jobs; we do not know whether it falls below
+5%. Results are reported whichever way they fall. If H18 is refuted, the paper states that the lead holds for
+run-to-completion workers with a concurrency limit and not for time-shared hosts, in the abstract, results and
+limitations; defaults and the planner are not changed on this evidence alone.
+
 **Limits stated in advance.** Ten seeds (E25, `plan_milp`) and 20 seeds (E04b) give limited power against heavy-tailed
 single-loop P99 (the E04 seeds 2, 8, 10 episodes, `docs/validation/E04-tail.md`); an inconclusive verdict is reported as
 such and does not change the default planner. The decision rule of `docs/PLAN-ROUND4.md` §2b applies: if H13 is supported,
