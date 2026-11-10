@@ -100,6 +100,9 @@ from the page alone.
     and why (virtual machine, for strong isolation between distrusting tenants).
 22. **State modelling assumptions where the terms are defined** (serial execution: concurrency of one per sandbox), and say
     which real platforms differ.
+24. **The introduction uses no serverless-specific vocabulary a general systems reader lacks.** "Slot" belongs in the background
+    Terms; the intro says "capacity, counted as invocations a worker can run at the same time". Heuristic 5 (use the paper's later
+    vocabulary) applies only to terms that are general or already defined in the intro; check every intro term against that.
 23. **A definition sentence must be readable on its own**; define a term by what it contains and does ("memory and processor state
     written to disk; loading it resumes the sandbox"), not by comparison alone ("restores faster than a sandbox boots").
 
@@ -272,3 +275,13 @@ times, X-3 redraw Figure 1).
   Lambda (including with the Web Adapter) still runs one request per execution environment, so only Cloud Run functions (and
   similar) is named. No citation added for either platform's concurrency model; add one if wanted.
 - **Lesson:** heuristics 21--23. Slot concurrency is not defined elsewhere in the paper (intro line 47 says only "one per slot").
+
+### Round 13: PDF not refreshing; "slot" in the intro
+- **Said:** (a) LaTeX Workshop shows the old PDF; make the changes appear. (b) The intro must not use lingo that systems readers
+  outside serverless would not understand, e.g. "slot".
+- **Did:** (a) My earlier check built into a scratch folder, so `manuscript/main.pdf` (git-ignored) was stale. Rebuilt it in place
+  with the same tectonic command LaTeX Workshop uses (`.vscode/settings.json`); `latexmk`/`pdflatex` are not installed here.
+  (b) Removed "slot" from the intro (two places): provisioning reserves "capacity, counted as the number of invocations a worker
+  can run at the same time", and the contribution says "reserved capacity". "Sandbox" in the intro is now glossed as a virtual
+  machine or container, and "snapshots" as saved memory and processor state of a started environment.
+- **Lesson:** heuristic 24. After any edit, rebuild `manuscript/main.pdf` in place so the viewer shows it.

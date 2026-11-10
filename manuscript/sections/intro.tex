@@ -3,7 +3,7 @@
 
 Serverless platforms run small pieces of customer code, called \emph{functions}, each time a request arrives. Most functions
 execute for well under a second~\cite{shahrad2020wild}. Before a function can execute, the platform must prepare an isolated
-environment for it: start a sandbox, fetch the function's code, load its language runtime and libraries, and run its
+environment for it: start a sandbox (a virtual machine or container that isolates the function), fetch the function's code, load its language runtime and libraries, and run its
 initialisation code. This start-up delay, the \emph{cold start}, often exceeds the function's own execution time. Providers avoid
 it by starting environments ahead of demand and by keeping each environment alive for a while after a request in case another
 arrives (\emph{keep-alive}), which holds memory in their datacenters around the clock~\cite{shahrad2020wild,fuerst2021faascache}.
@@ -35,7 +35,7 @@ machine running our image a \emph{worker}, and a customer a \emph{tenant}. First
 attestation. On our calibration laptop (Section~\ref{sec:calib}) this takes \CalAttested\,s from power-on, thousands of times
 longer than handing a request to an environment that is already running. \critical{calibration covers one laptop with a hard
 disk; extend it to several kinds of volunteer machine, each with its specifications listed.} Second, the worker needs the
-tenant's decryption key: tenants encrypt their code, and the saved environment images (\emph{snapshots}) made from it, under
+tenant's decryption key: tenants encrypt their code, and the saved copies of a started environment's memory and processor state (\emph{snapshots}) made from it, under
 their own key, so the provider stores and transfers only ciphertext, and the tenant's key service releases the key only to
 attested workers. Third, the worker needs a started environment for the function. Together this takes seconds to minutes, and
 all of it is lost when the owner switches off. Every worker holding a key is also one more place the key could leak from; we call the number of key holders, discounted by how well each
@@ -44,8 +44,7 @@ decision about a set of workers, and it cannot be made one request at a time.
 
 We present \voss{}, a scheduler for this setting. It separates two decisions. \emph{Provisioning} runs periodically and decides
 which workers hold each tenant's key, which of them keep environments for which functions started and idle (\emph{warm}), and how
-much capacity is reserved for each tenant. A worker runs a fixed number of invocations at once, one per \emph{slot}, and
-provisioning reserves slots on key holders for each tenant. It works from request rates and session lengths averaged over
+much capacity is reserved for each tenant, counted as the number of invocations a worker can run at the same time. It works from request rates and session lengths averaged over
 minutes to hours, and keeps spare capacity so that losing a few workers does not leave a tenant short. \emph{Request placement}
 runs for each invocation: it picks a worker, usually one that provisioning prepared. If that worker is likely to miss the
 invocation's deadline, the invocation also runs on a second worker in a different city or internet provider, and the first
@@ -57,7 +56,7 @@ on anything.
 
 Our contributions are:
 (1)~a scheduler for serverless functions on volunteer machines that separates provisioning, a periodic decision about which set
-of workers holds each tenant's key, warm environments and reserved slots, from request placement, a decision about each
+of workers holds each tenant's key, warm environments and reserved capacity, from request placement, a decision about each
 invocation;
 (2)~a comparison of provisioning with the keep-alive policies serverless platforms use, including the hybrid histogram policy of
 Azure Functions, and with a baseline that gives keys early to the most reliable workers, showing where the gain comes from;
