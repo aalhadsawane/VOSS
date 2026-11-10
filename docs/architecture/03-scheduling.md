@@ -1,5 +1,10 @@
 # 03 · Scheduling (contribution C2: two-timescale, trust-aware)
 
+> **Terminology.** "Slot" in this document and in the code is a unit of *concurrency*: one invocation running at a time
+> on one worker (doc 02 §4). The paper calls it the worker's concurrency limit and the planner's per-tenant
+> reservation "reserved concurrency". `q_t = Q_0.95(λ_t s_t)` below is the number of simultaneously running
+> invocations of tenant *t* (an M/G/∞ occupancy), which is why the plan reserves slots.
+
 All decision logic lives in `voss/policy` as **pure functions** of views, plans and predictions. Runtime actors
 (doc 05) call them on timers or messages and apply results after the decision latency (doc 01 §7).
 
