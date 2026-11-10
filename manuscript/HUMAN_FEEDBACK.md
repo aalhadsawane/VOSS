@@ -58,7 +58,7 @@ from the page alone.
    weakness and is not a contribution.
 4. **Do not assume the reader knows the system's structure.** Introduce the two deployments (global scheduler, clustered
    schedulers) before saying anything that depends on them (such as failed schedulers being replaced).
-5. **Use the paper's own later vocabulary** (workers, tenants, invocations, slots, warm, request placement, provisioning) and
+5. **Use the paper's own later vocabulary** (workers, tenants, invocations, concurrency limit, warm, request placement, provisioning) and
    check how the body actually describes a thing before describing it in the front matter.
 6. **Claims must match the results.** Check `results.tex` before characterising a finding. Stress what the results show
    (e.g. global beat clustered; exact was not better than greedy), not what the design effort emphasised. Keep length in
