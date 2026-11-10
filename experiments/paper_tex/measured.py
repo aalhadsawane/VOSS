@@ -28,12 +28,7 @@ def calibration(g: Gen) -> None:
         "reboot_to_kernel": ("Reboot to kernel start (firmware+loader+kernel)", "s", "reboot"),
         "appliance_userspace": ("Kernel start to agent ready", "s", "userspace"),
     }
-    body = []
-    for k, (label, _, _) in ((k, v) for k, v in names.items()):
-        p, m = plc[k], meas[k]
-        pv, mv = p.quantile(0.5), m.quantile(0.5)
-        body.append(rows(label, f"{pv:.4g}", esc(p.tag), f"{mv:.4g}", f"{mv / pv:.1f}$\\times$"))
-    g.files["tab_calibration.tex"] = tabular("lrlrr", ["Entry", "Placeholder", "Tag", "Measured", "Ratio"], body)
+    _calibration_table(g, names, meas, plc)
 
     def q(k: str) -> float:
         return float(meas[k].quantile(0.5))
@@ -64,6 +59,16 @@ def calibration(g: Gen) -> None:
     g.mac("CalCpu", "Intel Core i3-7020U")
     _host_specs(g)
     _cost_ladder(g, tbl, meas, total, float(cold.p50))
+
+
+def _calibration_table(g: Gen, names: dict[str, tuple[str, str, str]], meas, plc) -> None:  # type: ignore[no-untyped-def]
+    """``tab_calibration.tex``: placeholder against measured median per cost entry."""
+    body = []
+    for k, (label, _, _) in ((k, v) for k, v in names.items()):
+        p, m = plc[k], meas[k]
+        pv, mv = p.quantile(0.5), m.quantile(0.5)
+        body.append(rows(label, f"{pv:.4g}", esc(p.tag), f"{mv:.4g}", f"{mv / pv:.1f}$\\times$"))
+    g.files["tab_calibration.tex"] = tabular("lrlrr", ["Entry", "Placeholder", "Tag", "Measured", "Ratio"], body)
 
 
 def _host_specs(g: Gen) -> None:
