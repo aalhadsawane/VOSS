@@ -2,18 +2,18 @@
 \label{sec:discussion}
 
 \textbf{What the evidence supports.} Deciding ahead of demand how many workers hold each tenant's key beats reactive rules: against
-the strongest single loops we built, the planner lowers P99 by \RfourDecompGreedyMed--\RfourDecompGreedyHigh\% in \RfourHtwelveMedBelow{} and \RfourHtwelveHighBelow{} of 20 paired seeds at medium and high churn, at about 2.5 times their key
+the strongest keep-alive baselines we built, provisioning lowers P99 by \RfourDecompGreedyMed--\RfourDecompGreedyHigh\% in \RfourHtwelveMedBelow{} and \RfourHtwelveHighBelow{} of 20 paired seeds at medium and high churn, at about 2.5 times their key
 exposure. Judging workers by returned work is what keeps success high when owners drop work. These are statements about
 mechanisms, backed by paired intervals, and they hold across churn levels and adversary fractions.
 
 \textbf{What it does not.} Four expected benefits did not appear. Geographic clusters were slower than one scheduler and held
-several times the exposure at our scale. The exact solver was not measurably better than greedy planning. Cost-aware caching and
+several times the exposure at our scale. The exact solver was not measurably better than greedy provisioning. Cost-aware caching and
 the reliability score change P99 by a few percent at most. A commercial-style datacenter reference is faster. Two things we
-believed about the planner did not survive its own experiments. The gain is not from choosing long-lived workers: hiding
+believed about provisioning did not survive its own experiments. The gain is not from choosing long-lived workers: hiding
 survival estimates changes P99 by under 3\%. And it is not key-release delay, which touches 0.1--0.4\% of invocations in every
-system; it is spare capacity on enough key holders when demand arrives. The planner also churns keys, releasing about
-\RfourRelPlanGreedyMed{} per run against \RfourRelKeepaliveTtlMed{} for a keep-alive timer, so each release serves only about \RfourAmortPlanGreedyMed{} invocations. A planner that reused
-keys longer might keep the gain at lower exposure; the loss-model planner reaches lower exposure only by giving up latency and
+system; it is spare capacity on enough key holders when demand arrives. Provisioning also churns keys, releasing about
+\RfourRelPlanGreedyMed{} per run against \RfourRelKeepaliveTtlMed{} for a keep-alive timer, so each release serves only about \RfourAmortPlanGreedyMed{} invocations. Provisioning that reused
+keys longer might keep the gain at lower exposure; loss-model provisioning reaches lower exposure only by giving up latency and
 memory, and its exposure-budget variant did not hold its budget.
 
 \textbf{Exposure is the price of latency.} Every system on the front of Figure~\ref{fig:front} trades the two. A deployment should
@@ -24,7 +24,7 @@ the key on more machines at all.
 example through the physical attacks we excluded, adversaries could forge results and read keys, and exposure would stop being a
 proxy for risk.
 
-\textbf{Where the scheduler runs.} The planner and request-placement results do not depend on where the scheduler runs, except
+\textbf{Where the scheduler runs.} The provisioning and request-placement results do not depend on where the scheduler runs, except
 through one router-to-scheduler round trip and decision latency; the scheduler-fault results are specific to volunteer
 hosting. We did not run a provider-hosted variant, and expect the first to carry over and the second not to.
 
@@ -35,24 +35,29 @@ hosting. We did not run a provider-hosted variant, and expect the first to carry
 real microVMs (E01) agrees on success and start-up levels but not on the shape of the latency distribution, and did not exercise
 the network, attestation or failover. Policies are the real code; the world (network, churn, adversaries) is a model.
 \item \textbf{A placement defect, corrected late.} Our first request placement estimated waits for a slot from one cluster-wide
-mean, which handicapped baselines and made the planner's lead look larger. The corrected placement is used in the planner
+mean, which handicapped baselines and made provisioning's lead look larger. The corrected placement is used in the provisioning
 comparison and the baseline experiments; the experiments about VOSS alone (ablation, failure detection, geographic clusters,
 scale) ran with the original placement, which changes VOSS's own P99 by about 2\%.
 \item \textbf{Assumed workload and churn.} No public trace of donation sessions exists. The workload has six tenants and 12
-functions on 200 workers, so the planner's limits on tenants and functions never apply, the planner is not stressed by a long
+functions on 200 workers, so the limits of provisioning on tenants and functions never apply, provisioning is not stressed by a long
 tail of rare functions, and 11 functions are idempotent by our assumption. Absolute differences are 0.3--0.5\,s of P99, with
-every system of the planner comparison under 3\,s.
+every system of the provisioning comparison under 3\,s.
+\item \textbf{Assumed donor share and slots.} Each worker offers 75\% of its CPU threads as slots (hyperthreads counted), 60\%
+of its memory and 20\% of each disk tier; none of these shares is measured or swept, so absolute capacity depends on them. Every
+invocation takes exactly one slot whatever its memory demand, and memory limits only how many warm sandboxes a worker keeps,
+not how many invocations it accepts, so a worker could run more invocations than its memory budget holds. We have not yet
+measured whether this happens. The owner's own use of the machine is not modelled.
 \item \textbf{Idealised knowledge.} The scheduler takes start-up, trust and network costs and declared worker speeds as exact,
 and we did not sweep prediction error. Calibration comes from one laptop with a hard disk, and confidential-VM costs from the
 literature.
 \item \textbf{Network and decision costs.} Network delay is geographic plus 20\,ms for relayed workers. Broker capacity,
 reconnection and message signing are not modelled, and decision time is a placeholder formula.
 \item \textbf{Statistics.} Twenty seeds (ten for the exact solver and the session experiment) give wide intervals for tail
-metrics, and the best single loop per setting is chosen on the test seeds, which favours the baselines.
+metrics, and the best keep-alive baseline per setting is chosen on the test seeds, which favours the baselines.
 \end{itemize}
 
 \subsection{Future work}
 \label{sec:future}
 The most valuable next steps are a small real testbed that validates the simulator, a many-tenant workload with a long tail of
-functions, a planner that keeps keys longer, a comparison of the volunteer-hosted and provider-hosted schedulers under a load that
+functions, provisioning that keeps keys longer, a comparison of the volunteer-hosted and provider-hosted schedulers under a load that
 stresses one scheduler, and measurement of confidential-VM hosts.

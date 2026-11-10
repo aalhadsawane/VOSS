@@ -20,7 +20,7 @@ Serverless computing on volunteer machines
 - Short serverless functions spend most of their time **starting an environment** and **crossing the network**, not computing.
 - Home and office computers are near users and idle most of the day. But owners **switch them off without warning**, and owners **cannot be trusted** with customers' code.
 - **Remote attestation** (a machine proves which software it booted) means a hostile owner can only **stop or delay** the machine. The owner cannot read or fake anything inside it.
-- What is left is a scheduling question: **which machines get each customer's key and ready environments, and when**. VOSS answers it with a planner that runs every 30 s and a separate decision for every request.
+- What is left is a scheduling question: **which machines get each customer's key and ready environments, and when**. VOSS answers it with **provisioning**, which runs every 30 s, and a separate **request placement** decision for every invocation.
 
 ---
 
@@ -72,7 +72,7 @@ power-off to attested worker  █████████████ 65 s   (me
 - Volunteers sit on home links. Model: median **100 Mbit/s down and about 30 Mbit/s up**, wide spread, shared by all of a worker's transfers.
 - File systems are 90 to 450 MB and snapshots up to 600 MB. A 600 MB snapshot over a 30 Mbit/s upload takes about **2.7 minutes** (4800 Mbit / 30 Mbit/s).
 - How VOSS copes with slow volunteer links:
-  - the planner **prepares workers ahead of demand**, so transfers happen while nobody waits;
+  - provisioning **prepares workers ahead of demand**, so transfers happen while nobody waits;
   - each request is charged the **transfer time over that worker's own link**, so a slow worker loses to a ready one;
   - workers fetch from **nearby workers before the provider's registry**;
   - snapshots are **made locally** rather than downloaded.
@@ -93,7 +93,7 @@ power-off to attested worker  █████████████ 65 s   (me
 - **Serverless schedulers** (Azure keep-alive, FaasCache, Sparrow, Falcon) assume trusted machines that stay up.
 - **Confidential computing** protects customers from the operator, but on provider servers that do not vanish.
 - **Edge computing** already splits slow placement from fast routing, but it places services, not keys, on machines that disappear.
-- **Heartbeats** (a periodic "I am running" message) show only that a machine can send messages. An owner can keep them coming while discarding work.
+- **Heartbeats** (periodic liveness messages) show only that a machine can send messages. An owner can keep them coming while discarding work.
 
 ---
 
@@ -216,7 +216,7 @@ flowchart LR
 - **Clustered**: workers are grouped by network distance into clusters of about 30. Each cluster's scheduler runs on **one of its own volunteer machines** (the code is in every image, so any worker can take the role). The provider runs no server per cluster. Schedulers are reached through a **publish/subscribe broker with one topic set per cluster**.
 - Both use the same scheduler logic.
 - The clustered design needs a way to reach schedulers behind home routers, and a way to replace them when they fail. The next slides cover both.
-- Compute is not the reason for volunteer-hosted schedulers: greedy planning for 100,000 workers in clusters of 30 needs about one processor core.
+- Compute is not the reason for volunteer-hosted schedulers: greedy provisioning for 100,000 workers in clusters of 30 needs about one processor core.
 
 ---
 
@@ -261,7 +261,7 @@ sequenceDiagram
 
 ---
 
-## Why two loops
+## Why provisioning is separate from request placement
 
 How often the scheduler's inputs change, and how long its decisions last:
 
@@ -275,8 +275,8 @@ How often the scheduler's inputs change, and how long its decisions last:
 | Give a worker a tenant's key | the rest of the session | forecasts of rate and survival |
 
 - A decision that outlasts its inputs' refresh must be made from a **forecast, ahead of time**. A short decision can react to the latest state.
-- Questions like "how many workers hold this key?" are about a **set** of workers. A loop that sees one invocation at a time cannot answer them. Preparing a worker takes seconds to minutes, more than a request can wait.
-- So: a **planner** every 30 s (keys, warm sandboxes, slots reserved per tenant), and **request placement** for every invocation. The 30 s period was not swept: plan actions take up to several seconds, sessions last minutes to hours.
+- Questions like "how many workers hold this key?" are about a **set** of workers. A decision made for one invocation at a time cannot answer them. Preparing a worker takes seconds to minutes, more than a request can wait.
+- So: **provisioning** every 30 s (keys, warm sandboxes, slots reserved per tenant), and **request placement** for every invocation. The 30 s period was not swept: plan actions take up to several seconds, sessions last minutes to hours.
 
 ---
 
@@ -291,18 +291,18 @@ How often the scheduler's inputs change, and how long its decisions last:
 
 ---
 
-## The planner: how many slots to keep ready
+## Provisioning: how many slots to keep ready
 
 - **Used for**: deciding ahead of demand which workers hold each tenant's key, which functions stay warm, and how many slots are reserved.
-- **Sizing.** If calls arrive at random at rate r and each holds a slot for s seconds, the number running at once is Poisson with mean r x s. The planner reserves the **95th percentile** of that, so 95% of the time an arriving call finds a ready slot. Why Poisson: it needs only a rate and a mean run time, both learnable; real arrivals are burstier, so the experiments measure misses directly.
+- **Sizing.** If calls arrive at random at rate r and each holds a slot for s seconds, the number running at once is Poisson with mean r x s. Provisioning reserves the **95th percentile** of that, so 95% of the time an arriving call finds a ready slot. Why Poisson: it needs only a rate and a mean run time, both learnable; real arrivals are burstier, so the experiments measure misses directly.
 - **Cover against loss.** The reserved capacity must still hold if **any f workers vanish** (default a tenth of the cluster), counting each worker by its chance of staying. Removing the f largest contributions is the worst case, so no model of an adversary is needed. Why this form: it is a standard robust-optimisation constraint that becomes linear (Bertsimas and Sim).
 - It then minimises memory, disk, key exposure and key releases, minus start-up time saved by warm sandboxes.
 
 ---
 
-## The planner: greedy, and why not an exact solver
+## Provisioning: greedy, and why not an exact solver
 
-- **Greedy planner (default)**: tenants in order of cold-start loss; add workers one at a time by best ratio of (reliability x trust score) to (memory and exposure cost) until the cover condition holds; then add warm sandboxes by start-up time saved per megabyte. About **8 ms** per run.
+- **Greedy provisioning (default)**: tenants in order of cold-start loss; add workers one at a time by best ratio of (reliability x trust score) to (memory and exposure cost) until the cover condition holds; then add warm sandboxes by start-up time saved per megabyte. About **8 ms** per run.
 - **Exact alternative**: an integer program (HiGHS), about **4 s** per cluster.
 - **Why greedy**: before any experiment we fixed a rule: if the exact program did not lower P99 by at least 5% in some setting, greedy would be the method. It did not (see results).
 - A new plan is computed only if inputs changed beyond a tolerance. Differences become repeatable, rate-limited actions (fetch key, keep snapshot, start sandbox, release), and request placement counts only what workers have confirmed.
@@ -314,7 +314,7 @@ How often the scheduler's inputs change, and how long its decisions last:
 An estimator turns past outcomes into a number a decision needs.
 
 - **Session survival**: a Weibull distribution of session length per class of machine, fitted by maximum likelihood, with still-running sessions counted as censored.
-  - *Used for*: the chance a worker stays through the next 60 s (planner, placement).
+  - *Used for*: the chance a worker stays through the next 60 s (provisioning, placement).
   - *Why*: availability studies find heavy-tailed sessions; Weibull shape below one says a machine up for an hour is less likely to leave in the next minute; two parameters fit from a few dozen sessions.
 - **Dropped work**: a Beta distribution over the chance an accepted invocation never returns, updated by two counters, with a prior so a new worker is not judged on one outcome; a CUSUM change detector resets it when a good worker starts dropping work.
   - *Used for*: miss probability and for suspecting workers.
@@ -389,24 +389,24 @@ An estimator turns past outcomes into a number a decision needs.
 ## Baselines and protocol
 
 - **Same candidates, same cost model, same request placement** for every system; one policy differs.
-- Single-loop baselines: no planner (a key is fetched when an invocation needs it); a 10-minute keep-alive timer; unbounded keep-alive; the **Azure hybrid histogram** policy (learns each sandbox's idle times, pre-warms and keeps alive accordingly). Plus **early keys**: holds each tenant's key ahead on the most reliable workers.
+- Keep-alive baselines: on demand (a key is fetched and a sandbox started only when an invocation needs it, nothing is kept); a 10-minute keep-alive timer; unbounded keep-alive; the **Azure hybrid histogram** policy (learns each sandbox's idle times, pre-warms and keeps alive accordingly). Plus **early keys**: holds each tenant's key ahead on the most reliable workers.
 - **Paired seeds**: the same simulated world for both systems. We report the mean per-seed ratio with a 95% **bootstrap interval** (resample the seeds to see how far the mean could move).
 - Hypotheses and their pass rules were **written down before the runs**. For H12 to H16 a **Holm correction** keeps the chance of any false positive below 5%.
 - 20 seeds (10 for the exact solver and the session-length experiment).
 
 ---
 
-## Result 1: planner against the strongest single loops
+## Result 1: provisioning against the strongest keep-alive baselines
 
 | System (medium churn) | P99 (s) | Warm memory (GB) | Key exposure |
 |---|---|---|---|
-| no planner | 1.673 | 1.4 | 7.9 |
+| on demand | 1.673 | 1.4 | 7.9 |
 | keep-alive, 10 min | 1.534 | 56.6 | 7.2 |
 | keep-alive, unbounded | 1.542 | 75.2 | 7.2 |
 | Azure-style histogram | 1.569 | 38.9 | 7.2 |
-| **greedy planner** | **1.177** | 86.7 | 18.5 |
+| **greedy provisioning** | **1.177** | 86.7 | 18.5 |
 
-- P99 is **21% lower at medium churn and 18% lower at high churn** than the best single loop (ratio 0.793 [0.734, 0.848] and 0.822 [0.759, 0.874]; below 0.95 in 19 and 20 of 20 seeds; H12 supported).
+- P99 is **21% lower at medium churn and 18% lower at high churn** than the best keep-alive baseline (ratio 0.793 [0.734, 0.848] and 0.822 [0.759, 0.874]; below 0.95 in 19 and 20 of 20 seeds; H12 supported).
 - The price: keys on about **2.5 times as many workers** (18.5 against 7.2).
 - Success is above 99.9% everywhere and every system meets a 3 s target. The differences are in the tail between 1.2 and 1.7 s.
 - The histogram policy holds about a third less warm memory than the fixed timer and is no faster.
@@ -415,10 +415,10 @@ An estimator turns past outcomes into a number a decision needs.
 
 ## Result 2: where the gain comes from (decomposition)
 
-- **early keys** asks the greedy planner *how many* workers should hold each tenant's key, then picks *which* workers by reliability only: no cover against losses, no warm-sandbox planning. Same exposure as greedy.
-- Its P99 is 1.243 s: 17% (medium) and 14% (high) below the best single loop. That is about **80% of greedy's gain**.
-- Choosing the workers well and planning warm sandboxes adds the rest: greedy is 0.949 [0.927, 0.970] of early-keys baseline's P99 at medium churn and 0.957 at high churn. Excludes 1, but not our 5% bar (H15: weak).
-- So most of the value is the **set-level decision of how many workers hold each key**, which a per-request loop cannot make. The finer choices of who and what add about a fifth.
+- **early keys** asks greedy provisioning *how many* workers should hold each tenant's key, then picks *which* workers by reliability only: no cover against losses, no provisioning of warm sandboxes. Same exposure as greedy.
+- Its P99 is 1.243 s: 17% (medium) and 14% (high) below the best keep-alive baseline. That is about **80% of greedy's gain**.
+- Choosing the workers well and provisioning warm sandboxes adds the rest: greedy is 0.949 [0.927, 0.970] of early-keys baseline's P99 at medium churn and 0.957 at high churn. Excludes 1, but not our 5% bar (H15: weak).
+- So most of the value is the **set-level decision of how many workers hold each key**, which a per-request decision cannot make. The finer choices of who and what add about a fifth.
 
 ---
 
@@ -426,33 +426,33 @@ An estimator turns past outcomes into a number a decision needs.
 
 - **Not key-release delay**: waiting for a key touches 0.1 to 0.4% of synchronous invocations in every system.
 - **The tail is one episode**: in the seeds with the largest lead, a baseline's tail is one episode of 40 to 120 s in which one tenant's synchronous calls queue about 10 s behind long asynchronous jobs on the 2 to 6 workers holding its key. Greedy has 11 to 20 holders.
-- **Not survival information (H16)**: we varied session length from a quarter to four times the medium mean (E25, 10 seeds). The planner's lead stays between 15% and 25% in all six cells. Hiding survival estimates from the planner changes P99 by less than 3% everywhere. So we cannot attribute the gain to choosing long-lived workers.
-- Plausible, **untested**: the planner looks 60 s ahead while sessions last hours, so survival is close to 1 for most workers.
+- **Not survival information (H16)**: we varied session length from a quarter to four times the medium mean (E25, 10 seeds). Provisioning's lead stays between 15% and 25% in all six cells. Hiding survival estimates from provisioning changes P99 by less than 3% everywhere. So we cannot attribute the gain to choosing long-lived workers.
+- Plausible, **untested**: provisioning looks 60 s ahead while sessions last hours, so survival is close to 1 for most workers.
 
 ---
 
 ## Result 4: keys are released often, not rarely
 
-- A key serves a whole session, so one might expect the planner to amortise each release over many calls. It does not.
-- After warm-up at medium churn: the planner releases keys about **270 times per run**, a keep-alive timer about **6**.
-- One release serves about **30** synchronous invocations under the planner, about **1350** under the timer.
-- The planner buys **spare capacity on many holders** rather than a few durable ones.
-- Open question: a planner that reuses keys longer might keep the gain at lower exposure. Not tested.
+- A key serves a whole session, so one might expect provisioning to amortise each release over many calls. It does not.
+- After warm-up at medium churn: provisioning releases keys about **270 times per run**, a keep-alive timer about **6**.
+- One release serves about **30** synchronous invocations under provisioning, about **1350** under the timer.
+- Provisioning buys **spare capacity on many holders** rather than a few durable ones.
+- Open question: provisioning that reuses keys longer might keep the gain at lower exposure. Not tested.
 
 ---
 
-## Result 5: planner v2 and the exposure budget
+## Result 5: loss-model provisioning and the exposure budget
 
-- **Loss-model planner**: treats each tenant's reserved slots as a loss system (a call that finds all slots busy goes to a worker without the key). Why: the value of a set of holders is then submodular, so greedy has the classic (1 - 1/e) guarantee **per tenant only** (not for the joint plan).
+- **Loss-model provisioning**: treats each tenant's reserved slots as a loss system (a call that finds all slots busy goes to a worker without the key). Why: the value of a set of holders is then submodular, so greedy has the classic (1 - 1/e) guarantee **per tenant only** (not for the joint plan).
 - Outcome vs greedy: **14 to 20% less exposure**, but **+2.5% to +5% P99** and **+9% to +13% warm memory**. Not adopted (H13); reported as the lower-exposure point on the front.
-- **Exposure-budget variant of the loss-model planner**: P99 matches, but it **did not meet its budget** (exposure 17.7 against 14.6 for the loss-model plannereedy at medium churn; H14). A likely cause, unverified: it measures exposure over the planning pool only.
+- **Exposure-budget variant of loss-model provisioning**: P99 matches, but it **did not meet its budget** (exposure 17.7 against 14.6 for loss-model provisioning at medium churn; H14). A likely cause, unverified: it measures exposure over the provisioning pool only.
 - **Exact program**: P99 1.167 against 1.177 s (medium) and 1.232 against 1.209 s (high), about 1.5 times the warm memory, and its 4 s solve time is not charged to the simulated clock, which favours it. Not better, so greedy stays.
 
 ---
 
 ## The placement defect, and its correction
 
-- **Defect (C-46)**: our first request placement estimated the wait for a slot from one cluster-wide mean run time. A queue of long asynchronous jobs looked short, so synchronous calls queued for seconds on the few workers holding a tenant's key instead of moving to another worker. This handicapped every baseline and **made the planner's lead look larger** (earlier results of 54 to 59% must not be quoted).
+- **Defect (C-46)**: our first request placement estimated the wait for a slot from one cluster-wide mean run time. A queue of long asynchronous jobs looked short, so synchronous calls queued for seconds on the few workers holding a tenant's key instead of moving to another worker. This handicapped every baseline and **made provisioning's lead look larger** (earlier results of 54 to 59% must not be quoted).
 - **Correction**: replay each worker's queue from predicted run times, and let a waiting synchronous call take a free slot before queued asynchronous ones.
 - All systems in the main comparison use the corrected placement. VOSS with the old placement is within about 2%.
 - **Still on the original placement**: ablations, failure detection, geographic clusters and scale. Those are about VOSS alone; the baseline comparisons are being rerun (TODO slide).
@@ -464,11 +464,11 @@ An estimator turns past outcomes into a number a decision needs.
 Remove one part at a time (10% of owners dropping work, E19, original placement):
 
 - placement ignoring start-up levels: **+3.3 s** of P99;
-- no planner: **+1.1 s**;
+- no provisioning: **+1.1 s**;
 - no cover against losing f workers: **+0.8 s** (it buys tail latency; success changes by 0.11 points);
 - no duplicates: **+0.3 s** (cheap insurance, not shown to be necessary);
 - no exposure term: +0.02 s, interval includes zero.
-- The components that buy P99 also raise exposure: the planner by 31 units.
+- The components that buy P99 also raise exposure: provisioning by 31 units.
 
 ---
 
@@ -477,7 +477,7 @@ Remove one part at a time (10% of owners dropping work, E19, original placement)
 - **Geographic clusters**: the only part whose removal *improves* P99 (by 0.09 s). They hold 5.1 times the key exposure of a global scheduler (9 clusters in Europe), since each cluster needs its own key holders. At 600 workers the global scheduler was faster by 17% (Europe), 17% (Europe and North America), 5% (world). That experiment ran the global scheduler on a volunteer machine, which favours clusters.
 - **Exact solver**: not measurably better than greedy.
 - **Cost-aware caching** and the **reliability score**: P99 changes by a few percent at most.
-- **Planner v2** and the **exposure budget**: previous slides.
+- **Loss-model provisioning** and the **exposure budget**: previous slides.
 - **Survival-aware worker choice**: no measurable effect.
 
 ---
@@ -487,7 +487,7 @@ Remove one part at a time (10% of owners dropping work, E19, original placement)
 - Reruns with the corrected placement: E10b, E17b, E20ab, E24b (numbers below come from them).
 - Simple baseline against VOSS (homogeneous pool): P99 1.69x VOSS's (95% interval 1.34-2.06), 2.03x on mixed hardware (1.80-2.30); VOSS holds about 1.9x and 1.8x the key exposure.
 - Commercial-style datacenter reference: faster. At 20 invocations/s VOSS's P99 is 0.17 s above the Lambda-like reference and 0.11 s above the Azure-like one (0.37 s and 0.33 s at 40/s). Cost per million invocations: 19.6 USD at 10/s, 9.8 at 20/s, 4.9 at 40/s, against about 12 USD for the references.
-- Feasibility map (3 churn levels x 3 adversary settings, 10 seeds): VOSS feasible in 9 of 9 cells at 2 s, 3 s and 5 s P99 targets (mean P99 1.3-1.7 s); the simple baseline in 0 of 9 (P99 6.4-8.0 s). The gap is not evidence for planning alone: the simple baseline also differs in clusters, routing, placement and hedging.
+- Feasibility map (3 churn levels x 3 adversary settings, 10 seeds): VOSS feasible in 9 of 9 cells at 2 s, 3 s and 5 s P99 targets (mean P99 1.3-1.7 s); the simple baseline in 0 of 9 (P99 6.4-8.0 s). The gap is not evidence for provisioning alone: the simple baseline also differs in clusters, routing, placement and hedging.
 - Calibration sensitivity: VOSS P99 1.00 s with measured costs against 1.36 s with placeholders; simple baseline 4.24 s against 3.67 s.
 
 ---
@@ -495,10 +495,10 @@ Remove one part at a time (10% of owners dropping work, E19, original placement)
 ## Limits
 
 - **Simulation, partly validated.** No multi-machine deployment has checked the simulator.
-- **Assumed workload and churn.** Six tenants, 12 functions, 200 workers; the planner's limits on tenants and functions never apply. Absolute differences are 0.3 to 0.5 s of P99, with every system under 3 s.
+- **Assumed workload and churn.** Six tenants, 12 functions, 200 workers; the limits of provisioning on tenants and functions never apply. Absolute differences are 0.3 to 0.5 s of P99, with every system under 3 s.
 - **Idealised knowledge.** Start-up, trust and network costs and declared worker speeds are taken as exact. Calibration is one laptop with a hard disk.
 - **Network and decision costs.** Broker capacity, reconnection and signing are not modelled; decision time is a placeholder formula.
-- **Statistics.** 20 seeds (10 for the exact solver and the session experiment); the best single loop is chosen on the test seeds, which favours the baselines.
+- **Statistics.** 20 seeds (10 for the exact solver and the session experiment); the best keep-alive baseline is chosen on the test seeds, which favours the baselines.
 - **Scale.** Success stays at 99.8% up to 10,000 workers, 97% at 30,000 and 81% at 100,000, where decision latency has grown to tens of seconds. The limit is the central decision path.
 - **Reliance on attestation.** If attestation fails, adversaries could forge results and read keys, and exposure stops being a proxy for risk.
 
@@ -506,9 +506,9 @@ Remove one part at a time (10% of owners dropping work, E19, original placement)
 
 ## Questions a reviewer will ask (1 of 2)
 
-- **Do you need the slow planner at all?** Yes: 21% / 18% lower P99 than the strongest single loops. But about 80% of that comes from one set-level decision (how many holders per key), not from the finer choices.
+- **Do you need provisioning at all?** Yes: 21% / 18% lower P99 than the strongest keep-alive baselines. But about 80% of that comes from one set-level decision (how many holders per key), not from the finer choices.
 - **If attested machines are honest, why limit exposure?** Honesty is conditional; a leaked key is permanent; it costs about nothing measurable.
-- **Is the greedy planner ad hoc?** It is cheap (8 ms) and the exact program is not better. The loss-model version has a per-tenant guarantee but traded latency and memory for exposure, so it is not the default.
+- **Is greedy provisioning ad hoc?** It is cheap (8 ms) and the exact program is not better. The loss-model version has a per-tenant guarantee but traded latency and memory for exposure, so it is not the default.
 - **Was the baseline fair?** Our own placement defect initially made baselines look worse; it is corrected, and the Azure-style policy is included.
 
 ---
@@ -526,7 +526,7 @@ Remove one part at a time (10% of owners dropping work, E19, original placement)
 ## Takeaways
 
 - Attesting a locked image turns hostile owners into machines that stop or delay. What is left is a **scheduling problem**: which machines get a key and ready environments, when all of it is slow and lost at session end.
-- A slow planner sizing the set of key holders beats the strongest single loops by about 18 to 21% in P99, at about 2.5 times the key exposure.
+- Provisioning that sizes the set of key holders beats the strongest keep-alive baselines by about 18 to 21% in P99, at about 2.5 times the key exposure.
 - Judging workers by returned work keeps success high when owners drop work.
-- Several designed parts did not pay off, and we corrected a placement defect that had flattered the planner.
-- Next: a small real testbed, a many-tenant workload, a planner that churns keys less, and the pending baseline reruns.
+- Several designed parts did not pay off, and we corrected a placement defect that had flattered provisioning.
+- Next: a small real testbed, a many-tenant workload, provisioning that churns keys less, and the pending baseline reruns.

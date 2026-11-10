@@ -1,11 +1,12 @@
 \section{Conclusion}
 \label{sec:conclusion}
 Serving short functions from volunteer machines needs more than keep-alive timers and repeated execution. Attesting a locked
-image turns hostile owners into machines that stop or delay, which churn already causes; what remains is deciding which machines
-are attested, given a tenant's key and kept ready, when all of that is slow to set up, lost at every session end and a leak risk
-on each extra machine. \voss{} makes that a slow planning decision, places each invocation by its own chance of missing its deadline,
-judges workers by returned work, and replaces schedulers through a provider-run coordinator. Against the strongest single-loop
-policies we could build, the planner lowers P99 by about \RfourDecompGreedyMed\% at higher key exposure; most of the gain is the set-level choice of
-how many workers hold each key, and the data do not support attributing it to survival-aware choice of workers. Several designed
-parts did not pay off, and a defect in our own request placement initially made the baselines look worse than they are. The next
-steps are a real multi-machine testbed, a many-tenant workload, and a planner that churns keys less.
+image leaves hostile owners able only to switch machines off or drop and delay their messages, which churn already causes. What
+is left is deciding which workers are attested, given a tenant's key and kept warm, when all of that is slow to set up, lost at
+every session end and a leak risk on each extra worker. \voss{} makes that a periodic provisioning decision over a set of
+workers, places each invocation by its own chance of missing its deadline, judges workers by returned work, and replaces
+schedulers through a provider-run coordinator. Against the strongest keep-alive policies we could build, provisioning lowers P99
+by about \RfourDecompGreedyMed\% at higher key exposure; most of the gain is the set-level choice of how many workers hold each
+key, and the data do not support attributing it to survival-aware choice of workers. A single global scheduler outperformed
+geographic clusters. The next steps are a real multi-machine testbed, a many-tenant workload, and provisioning that keeps keys
+longer.

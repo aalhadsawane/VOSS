@@ -22,3 +22,6 @@ manuscript/*.fls
 manuscript/*.log
 manuscript/*.out
 manuscript/*.pdf
+
+# tectonic / synctex build products
+manuscript/*.synctex.gz

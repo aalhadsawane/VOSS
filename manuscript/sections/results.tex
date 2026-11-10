@@ -3,14 +3,14 @@
 \label{sec:res-plan}
 \label{sec:res-nopay}
 
-\subsection{Is the planner needed?}
-We compare the planner with the strongest single-loop alternatives on 200 workers for 30 minutes, with 20 paired seeds at each
+\subsection{Is provisioning needed?}
+We compare provisioning with the strongest keep-alive baselines on 200 workers for 30 minutes, with 20 paired seeds at each
 of medium and high churn (E04b; 10 seeds for the exact program). All systems use the same placement. Table~\ref{tab:front}
 and Figure~\ref{fig:front} give P99, warm memory and key exposure. Success is above 99.9\% for every system and every system
 meets a 3\,s P99 target, so the differences are in the tail between 1.2 and 1.8\,s.
 
 \begin{table}[t]
-\caption{Planner against single-loop baselines (E04b, mean over seeds): P99 of synchronous latency (s), warm memory (GB) and key exposure, at medium and high churn.}
+\caption{Provisioning against keep-alive baselines (E04b, mean over seeds): P99 of synchronous latency (s), warm memory (GB) and key exposure, at medium and high churn.}
 \label{tab:front}
 \centering\small
 \input{generated/tab_round4_front}
@@ -23,51 +23,51 @@ meets a 3\,s P99 target, so the differences are in the tail between 1.2 and 1.8\
 \label{fig:front}
 \end{figure}
 
-The greedy planner has \RfourDecompGreedyMed\% (medium churn) and \RfourDecompGreedyHigh\% (high churn) lower P99 than the best single loop,
+Greedy provisioning has \RfourDecompGreedyMed\% (medium churn) and \RfourDecompGreedyHigh\% (high churn) lower P99 than the best keep-alive baseline,
 which is a fixed or unbounded keep-alive timer (paired ratio \RfourHtwelveMedRatio{} with 95\% interval [\RfourHtwelveMedLo, \RfourHtwelveMedHi]
 at medium churn and \RfourHtwelveHighRatio{} [\RfourHtwelveHighLo, \RfourHtwelveHighHi] at high churn, below our 0.95 threshold in \RfourHtwelveMedBelow{} and
 \RfourHtwelveHighBelow{} of 20 seeds; H12 supported). The hybrid histogram policy of Azure Functions, which learns each sandbox's idle
-times, holds a third less warm memory than a fixed timer and is no faster. The price of the planner is exposure: it
-holds keys on about 2.5 times as many workers as the single loops (\RfourExpPlanGreedyMed{} against \RfourExpKeepaliveTtlMed{} at medium churn). The
+times, holds a third less warm memory than a fixed timer and is no faster. The price of provisioning is exposure: it
+holds keys on about 2.5 times as many workers as the keep-alive baselines (\RfourExpPlanGreedyMed{} against \RfourExpKeepaliveTtlMed{} at medium churn). The
 exact program is not better than greedy (P99 \RfourPPlanMilpMed\,s against \RfourPPlanGreedyMed\,s at medium churn, \RfourPPlanMilpHigh\,s against \RfourPPlanGreedyHigh\,s at
 high churn) while holding about 1.5 times the warm memory, and its solve time is not charged to the simulated clock
 (Section~\ref{sec:method}), which favours it.
 
-What part of this is planning, and what is merely holding keys? We compared against a baseline that holds each tenant's key
-ahead of demand on the most reliable workers (\emph{early keys}), in the number the greedy planner would use for that tenant but with no robust
-cover and no warm-state planning. It has the same exposure as greedy and P99 \RfourPProvisionedKeysMed\,s,
-which is \RfourDecompPkMed\% below the best single loop at medium churn and \RfourDecompPkHigh\% at high churn: about \RfourDecompShareMed\% of greedy's gain.
-Choosing the workers well and planning warm sandboxes adds the remaining fifth, with greedy at \RfourHfifteenMedRatio{} of
+What part of this is provisioning, and what is merely holding keys? We compared against a baseline that holds each tenant's key
+ahead of demand on the most reliable workers (\emph{early keys}), in the number greedy provisioning would use for that tenant but with no robust
+cover and no provisioning of warm sandboxes. It has the same exposure as greedy and P99 \RfourPProvisionedKeysMed\,s,
+which is \RfourDecompPkMed\% below the best keep-alive baseline at medium churn and \RfourDecompPkHigh\% at high churn: about \RfourDecompShareMed\% of greedy's gain.
+Choosing the workers well and provisioning warm sandboxes adds the remaining fifth, with greedy at \RfourHfifteenMedRatio{} of
 the early-keys baseline's P99 at medium churn (interval [\RfourHfifteenMedLo, \RfourHfifteenMedHi]) and \RfourHfifteenHighRatio{} at high churn, which excludes 1 but not our 5\%
-threshold (H15, weak). Most of the planner's value is therefore the set-level decision of how many workers should hold each key,
-which a per-request loop cannot make, and not the finer choices of who and what.
+threshold (H15, weak). Most of the value of provisioning is therefore the set-level decision of how many workers should hold each key,
+which a per-request decision cannot make, and not the finer choices of who and what.
 
-The loss-model planner lowers exposure by \RfourHthirteenMedExp{} and \RfourHthirteenHighExp{} of greedy's at medium and high churn, but
+Loss-model provisioning lowers exposure by \RfourHthirteenMedExp{} and \RfourHthirteenHighExp{} of greedy's at medium and high churn, but
 holds \RfourHthirteenMedWarm{} and \RfourHthirteenHighWarm{} times the warm memory and is \RfourHthirteenMedRatio{} and \RfourHthirteenHighRatio{} times as slow (H13, not supported
 as a replacement). We report it as the lower-exposure point on the front. The variant that enforces an exposure budget
 matches its latency but did not meet its budget (H14).
 
 \subsection{Where the gain comes from}
 \label{sec:res-session}
-Three checks narrow the mechanism. First, in the seeds where the planner's lead is largest, a baseline's tail is one episode
+Three checks narrow the mechanism. First, in the seeds where provisioning's lead is largest, a baseline's tail is one episode
 of 40--120\,s in which synchronous invocations of one tenant queue for about 10\,s behind long asynchronous jobs on the two to
 six workers that hold its key, while greedy has 11--20 holders. Key-release delay accounts for 0.1--0.4\% of synchronous
-invocations in every system. Second, a key that serves a whole session is amortised over many invocations, but the planner
+invocations in every system. Second, a key that serves a whole session is amortised over many invocations, but provisioning
 does not keep keys long: in the same runs it releases a key \RfourRelPlanGreedyMed{} times after warm-up at medium churn, against \RfourRelKeepaliveTtlMed{}
 for a keep-alive timer, so one release serves about \RfourAmortPlanGreedyMed{} synchronous invocations against about \RfourAmortKeepaliveTtlMed. It buys spare capacity
 on many holders rather than a few durable ones. Third, we varied session length from a quarter of to four times the medium-churn
-mean, with Weibull shape 0.6 and 1.0 (E25, 10 seeds). The planner's lead over the best single loop is between
+mean, with Weibull shape 0.6 and 1.0 (E25, 10 seeds). Provisioning's lead over the best keep-alive baseline is between
 \RfourEtwentyfiveKoneMfourA{} and \RfourEtwentyfiveKoneMoneA{} of P99 in all six cells and varies little with session length: at shape 1.0 it peaks at mean
 length and exceeds the longest sessions' by \RfourEtwentyfiveKoneAdiffFour{} [\RfourEtwentyfiveKoneAdiffFourLo, \RfourEtwentyfiveKoneAdiffFourHi], but the same comparison to the shortest
-sessions is not distinguishable from zero. Hiding survival estimates from the planner changes P99 by less than 3\% in every
-cell, so we cannot attribute the gain to choosing long-lived workers (H16). Plausibly the planner's 60\,s look-ahead is short against sessions of
+sessions is not distinguishable from zero. Hiding survival estimates from provisioning changes P99 by less than 3\% in every
+cell, so we cannot attribute the gain to choosing long-lived workers (H16). Plausibly provisioning's 60\,s look-ahead is short against sessions of
 hours, but we did not test this.
 
 \subsection{Ablations}
 Removing one component of \voss{} at a time (10\% of owners dropping work, E19, original placement) shows that making
-placement ignore start-up levels costs \AblLifecycleP\,s of P99, removing the planner \AblPlanningP\,s, removing the cover against
+placement ignore start-up levels costs \AblLifecycleP\,s of P99, removing provisioning \AblPlanningP\,s, removing the cover against
 losing $f$ workers \AblRobustP\,s and removing duplicates \AblHedgeP\,s. The components that buy P99 also raise exposure, by
-\AblPlanningExp{} units for the planner. Removing the exposure term changes P99 by \AblExposureP\,s (interval up to \AblExposurePHi\,s, which includes zero) and
+\AblPlanningExp{} units for provisioning. Removing the exposure term changes P99 by \AblExposureP\,s (interval up to \AblExposurePHi\,s, which includes zero) and
 raises exposure by \AblExposureExp, so limiting exposure costs no measurable latency. Geographic clustering is the only component whose
 removal improves P99 (by \AblGeoP\,s); in that experiment the global scheduler also ran on a volunteer machine, which favours
 clusters, so the comparison understates the global architecture. It holds \GeoExpRatio{} times the key exposure of a global scheduler with
@@ -95,7 +95,8 @@ moves from \RerunCalSensSimplePNinetyninePlc\,s to \RerunCalSensSimplePNinetynin
 \textbf{Commercial-style references.} Datacenter hosts that are always on, with per-function keep-alive and nearest-region
 routing, are faster (E17b). At 20 invocations per second \voss{}'s P99 is \RerunCommPNinetynineLambdaTwentyDiff\,s above the Lambda-like reference's and
 \RerunCommPNinetynineAzureTwentyDiff\,s above the Azure-like one, and at 40 per second \RerunCommPNinetynineLambdaFortyDiff\,s and \RerunCommPNinetynineAzureFortyDiff\,s; at 10 per second the gap to the Azure-like
-reference is not distinguishable from zero. Median latency is about 0.13\,s higher at every load. Cost per million invocations,
+reference is not distinguishable from zero. Median latency is about 0.13\,s higher at every load. \potrem{cost analysis; removed from the abstract}
+Cost per million invocations,
 counting the control plane and not volunteer credits, falls from \RerunCommCostTen{} USD at 10 invocations per second to \RerunCommCostTwenty{} at 20 and
 \RerunCommCostForty{} at 40, against about \RerunCommCostRefLambda{} USD for the references, so \voss{} is cheaper from about 20 invocations per second upward.
 
@@ -105,7 +106,7 @@ baseline of the previous paragraph. A system is feasible in a cell by the defini
 \voss{} is feasible in \RerunViabPTwoVoss{} of \RerunViabCells{} cells at P99 targets of 2\,s, 3\,s and 5\,s, and in \RerunViabMetVoss{} of \RerunViabCells{} when the
 criterion is the share of deadlines met; its mean P99 per cell lies between \RerunViabPNinetynineLoVoss{} and \RerunViabPNinetynineHiVoss\,s. The simple baseline is feasible in
 \RerunViabPFiveSimple{} cells under every criterion, with P99 between \RerunViabPNinetynineLoSimple{} and \RerunViabPNinetynineHiSimple\,s even in the cells without adversaries
-(Table~\ref{tab:viab}), while its success stays above \RerunViabSuccLoSimple\%. This gap does not show that planning matters: the
+(Table~\ref{tab:viab}), while its success stays above \RerunViabSuccLoSimple\%. This gap does not show that provisioning matters: the
 baseline differs from \voss{} in its clusters, routing, placement and hedging as well as in keep-alive, and the keep-alive
 baselines of the first subsection, which share \voss{}'s placement, all met 3\,s.
 

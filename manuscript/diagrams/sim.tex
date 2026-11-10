@@ -10,7 +10,7 @@
   \node[box, fill=white, minimum width=30mm] (ker) at (124,-16) {\textbf{Kernel}\\[-1pt]\tinyx time-ordered event queue,\\[-2pt]\tinyx callbacks, cancellation};
   \node[box, fill=white, minimum width=30mm] (res) at (124,-33) {\textbf{Resource servers}\\[-1pt]\tinyx network, disk tiers, CPU,\\[-2pt]\tinyx TPM quote, verifier};
   \node[att, minimum width=36mm, minimum height=13mm] (act) at (166,-16) {\textbf{Actors}\\[-1pt]\tinyx workers, scheduler,\\[-2pt]\tinyx routers, orchestrator, KBS};
-  \node[box, fill=white, minimum width=36mm] (pol) at (166,-33) {\textbf{Policies}: pure functions\\[-1pt]\tinyx planner, placer, router, hedger,\\[-2pt]\tinyx estimators (see only views)};
+  \node[box, fill=white, minimum width=36mm] (pol) at (166,-33) {\textbf{Policies}: pure functions\\[-1pt]\tinyx provisioning, placement, router, hedger,\\[-2pt]\tinyx estimators (see only views)};
   \draw[msg] (cfg) -- (gen); \draw[msg] (cal.east) -- ++(6,0) |- ([yshift=-3mm]gen.south west);
   \draw[msg] (gen) -- node[lbl,above]{traces} (eng.west |- gen);
   \draw[<->] (ker) -- (act); \draw[<->] (ker) -- (res); \draw[<->] (act) -- node[lbl,right]{views, decisions} (pol);

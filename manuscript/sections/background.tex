@@ -3,10 +3,22 @@
 
 \textbf{Terms.} A \emph{tenant} is a customer who deploys functions; an \emph{invocation} is one call of a function. The
 \emph{provider} runs the platform, a \emph{volunteer} owns a donated machine, and a \emph{worker} is that machine while it runs
-our software. A \emph{sandbox} is a small virtual machine (a microVM) that runs one function in isolation. It is \emph{warm}
-when it has started and sits idle, ready for a call; a \emph{snapshot} is a saved copy of a started sandbox that restores
-faster than a sandbox boots. Each worker offers a fixed number of \emph{slots}, each running one invocation at a time. A
-tenant's \emph{key} decrypts its code and snapshots; only the tenant controls it. We report the 99th percentile of the
+our software. A \emph{sandbox} is the isolated environment in which one function runs. Because a worker runs code from tenants that do not
+trust each other, on a machine whose owner we do not trust, we implement each sandbox as a virtual machine, which isolates
+more strongly than a container: the function runs on its own guest kernel behind hardware virtualization. We use
+Firecracker \emph{microVMs}, virtual machines that skip emulated legacy devices and boot directly from a kernel and a root
+file system image. A sandbox is \emph{warm} when it has finished starting and sits idle, ready for a call. A \emph{snapshot}
+is the memory and processor state of a running sandbox written to disk; loading it resumes the sandbox where it was saved,
+which takes less time than booting a new one. Each worker offers a fixed number of \emph{slots}. A slot runs one invocation at a time, and every invocation takes
+exactly one slot, whatever the function. A worker with four slots runs at most four invocations simultaneously. Slots limit
+concurrency and are derived from the machine's CPU threads (a donor offers a fixed share of them, Section~\ref{sec:method});
+a slot is not a virtual CPU of the sandbox, and slots do not account for memory: a warm sandbox holds memory but no slot. We
+assume \emph{serial execution}: a sandbox serves one invocation at a time (a concurrency of one), as in AWS Lambda, and a
+second invocation of the same function gets its own sandbox. Some platforms, such as Google Cloud Run functions, let one
+instance serve many invocations at once; we do not model that. A tenant's \emph{key} decrypts the tenant's \emph{code bundle}
+(the function's files, from which a sandbox is booted) and the snapshots made from it. Snapshots need the key too because they
+hold the sandbox's memory, including data the function handled, not only its code; the bundle is still needed to boot a
+sandbox on a worker that holds no snapshot. Only the tenant controls the key. We report the 99th percentile of the
 latency of synchronous invocations, written P99.
 
 \subsection{Where the time goes}
@@ -28,9 +40,11 @@ from nearby workers before the provider's registry, and snapshots are made local
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.8\columnwidth]{figures/fig_cost}
-\caption{Time to reach each state on the calibration laptop (log scale). Blue: sandbox start-up; red: becoming an attested worker; grey: model value. \emph{Warm cache}: file already in memory; \emph{cold}: read from the hard disk.}
+\caption{Time to reach each state on the calibration laptop (log scale). Blue: sandbox start-up; red: becoming an attested worker; grey: model value. \emph{Boot microVM}: Firecracker starts a microVM directly from a kernel and a root file system image, without firmware or a boot loader. \emph{Restore snapshot}: load a saved microVM. \emph{Reboot to kernel}: restart the physical machine through its firmware and boot loader until the operating-system kernel starts. \emph{Power-on to attested worker}: that reboot, then the image's start-up, the TPM quote and the verifier's acceptance. \emph{Warm cache}: file already in memory; \emph{cold}: read from the hard disk.}
 \label{fig:cost}
 \end{figure}
+\critical{redraw as a per-step breakdown of every start process (boot, snapshot restore, power-on to attested worker), including
+the attestation steps, and repeat for each calibrated machine.}
 
 \subsection{Attestation in brief}
 \label{sec:rats}
@@ -46,7 +60,7 @@ A worker's \emph{session} lasts from booting our image until the owner switches 
 follow the time of day~\cite{javadi2013fta}; sessions end with notice or abruptly, sometimes for a whole city. A machine can
 crash, drop a result (an \emph{omission}), or deliver it late (a \emph{timing} failure)~\cite{cristian1991understanding,avizienis2004basic}.
 An owner who cannot forge anything can still drop or delay work selectively while the machine keeps sending its periodic
-``I am running'' messages, which defeats detectors built on such heartbeats, adaptive ones included~\cite{hayashibara2004phi,huang2017gray}.
+liveness messages (\emph{heartbeats}), which defeats detectors built on them, adaptive ones included~\cite{hayashibara2004phi,huang2017gray}.
 
 Invocations name a tenant and a function, are synchronous (the client waits), asynchronous or background, and carry a
 deadline: five times the function's run time on a warm sandbox, plus 50\,ms. Functions are marked idempotent or not; only

@@ -14,12 +14,17 @@ transfers; disk reads, TPM quotes, key releases and the decision time of every s
 Workers come in three classes (nightly, idle-hours, dedicated) with heavy-tailed session lengths and city-wide shocks;
 no public trace of donation sessions exists, so these parameters follow availability studies~\cite{javadi2013fta}, are marked
 \emph{assumed}, and are swept. The workload has six tenants and 12 functions modelled on SeBS~\cite{copik2021sebs}, with
-skewed popularity and bursty, day-and-night arrivals~\cite{shahrad2020wild}; 11 functions are idempotent. A fraction
+skewed popularity and bursty, day-and-night arrivals~\cite{shahrad2020wild}; 11 functions are idempotent. A donor offers a fixed share of its machine: 75\% of its CPU threads, 60\% of its memory and 20\% of each
+disk tier (\emph{assumed}, not measured, and not swept), so a worker offers $\max(1,\lfloor 0.75\times\text{threads}\rfloor)$ slots.
+The share leaves the owner headroom for their own use, which we do not model, and threads count hyperthreads. A fraction
 $\alpha$ of owners drop or delay work in various patterns but, by Property 1, forge nothing.
 
-\textbf{Calibration and checks.} Start-up, snapshot, quote and boot costs come from a consumer laptop (\CalCpu, TPM~2.0, hard
-disk); the time to an attested worker (\CalAttested\,s) is a sum of measured steps run on the laptop's installed system rather than
-one boot of the final locked image. Confidential-VM costs come from the literature~\cite{misono2025cvm,holmes2024severifast,li2023bifrost}.
+\textbf{Calibration and checks.} Start-up, snapshot, quote and boot costs come from one consumer laptop: an \CalCpuFull{} (mainboard \CalBoard, BIOS \CalBios), \CalMemGiB\,GiB of
+memory, one spinning hard disk (fio sequential read \CalDiskRead\,MB/s, write \CalDiskWrite\,MB/s), TPM~2.0 and Linux \CalKernel. The time to an attested worker (\CalAttested\,s) is a sum of measured steps run on the laptop's installed system rather than
+one boot of the final locked image. \critical{extend the calibration from one machine to several kinds of machine that volunteers could
+offer (SSD and NVMe laptops and desktops, different CPU generations, different TPMs), list the hardware of each as above, and
+report how long every step takes on each. Every start-up, boot and attestation cost here comes from the single hard-disk laptop
+described above.} Confidential-VM costs come from the literature~\cite{misono2025cvm,holmes2024severifast,li2023bifrost}.
 A single-machine emulation with real Firecracker microVMs (E01) agrees with the simulator on success (within 0.6 points),
 on the mix of start-up levels and on median latency (within 6--23\%), but only partly on the shape of the latency
 distribution. Network, attestation and failover are not validated against real machines, so we compare designs rather than
@@ -28,13 +33,13 @@ absolute latencies.
 \textbf{Protocol.} Each experiment is frozen before it runs. Systems are paired by seed, and we report the mean per-seed
 difference with a 95\% bootstrap interval~\cite{efron1993bootstrap}; percentiles are computed per run and then averaged.
 Hypotheses and their verdict rules (supported, weak, inconclusive, refuted) were written down before the runs, and for the
-round of planner comparisons (H12--H16) we apply a Holm correction, which keeps the chance of a false positive across the several tests below 5\%. A system is \emph{feasible} in a setting if the lower 95\%
+round of provisioning comparisons (H12--H16) we apply a Holm correction, which keeps the chance of a false positive across the several tests below 5\%. A system is \emph{feasible} in a setting if the lower 95\%
 bound of its success is at least 0.99 and its share of deadlines met, or its P99, meets a target. All systems share
-candidates and cost model and differ in one policy. Single-loop baselines: no planner (a worker gets a key only when an
-invocation needs it); a 10-minute keep-alive timer; unbounded keep-alive; and the hybrid histogram policy of Azure
+candidates and cost model and differ in one policy. Keep-alive baselines, none of which provisions: on demand (a worker gets a key and starts a sandbox only
+when an invocation needs it, and keeps nothing); a 10-minute keep-alive timer; unbounded keep-alive; and the hybrid histogram policy of Azure
 Functions~\cite{shahrad2020wild}, which learns each sandbox's idle times and pre-warms and keeps alive accordingly. An
-early-keys baseline holds each tenant's key ahead of demand on the most reliable workers, as many as the greedy planner
-uses. Planners: greedy, the exact program and the loss-model planner of Section~\ref{sec:sched}. Commercial-style references
+early-keys baseline holds each tenant's key ahead of demand on the most reliable workers, as many as greedy provisioning
+uses. Provisioning algorithms: greedy, the exact program and loss-model provisioning of Section~\ref{sec:sched}. Commercial-style references
 run always-on datacenter hosts with per-function keep-alive.
 
 \textbf{Reproducibility.} All numbers and figures are regenerated from raw logs by committed scripts, and runs are
