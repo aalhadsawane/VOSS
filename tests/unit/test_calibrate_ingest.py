@@ -128,3 +128,19 @@ def test_committed_measured_bundle_is_complete_and_its_hash_is_documented() -> N
     assert {d.tag for d in measured.values()} >= {"measured", "assumed"}
     digest = hash_dir(REPO / "configs" / "calibration" / "measured" / name)
     assert digest in (REPO / "docs" / "validation" / "README.md").read_text()
+
+
+def test_sebs_concurrencies_and_host_meta_fields(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from tools.calibrate.common import Records, Shell, host_meta
+    from tools.calibrate.suites import Ctx, sebs
+
+    monkeypatch.setattr("os.cpu_count", lambda: 20)
+    ctx_default = Ctx(Shell(dry_run=True), Records(tmp_path / "r.jsonl", "sebs"), tmp_path, {})
+    assert sebs.concurrencies(ctx_default) == [1, 2, 4, 8]
+    ctx_scaled = Ctx(Shell(dry_run=True), Records(tmp_path / "r.jsonl", "sebs"), tmp_path, {"max_concurrency": "80"})
+    assert sebs.concurrencies(ctx_scaled) == [1, 2, 4, 8, 20, 40, 80]
+    ctx_exp = Ctx(Shell(dry_run=True), Records(tmp_path / "r.jsonl", "sebs"), tmp_path, {"concurrencies": "1,6,12"})
+    assert sebs.concurrencies(ctx_exp) == [1, 6, 12]
+    meta = host_meta(Shell(dry_run=True))
+    assert {"cores", "threads", "tpm_vendor", "disks"} <= set(meta)
+    assert int(meta["cores"]) >= 1 and int(meta["threads"]) >= 1
