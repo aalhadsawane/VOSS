@@ -1,6 +1,18 @@
 # Validation notes (P9)
 
-Status of the calibration against hardware, as of 2026-10-15. Section references are to `docs/architecture/10-*.md`.
+Status of the calibration against hardware, as of 2026-11-11. Section references are to `docs/architecture/10-*.md`.
+
+## Machines calibrated
+
+| Machine | CPU | RAM | Storage | TPM | Bundle |
+|---|---|---|---|---|---|
+| Stand-in laptop | Intel Core i3-7020U (2c/4t) | 3.9 GB | 1 TB HDD | 2.0 | `laptop-b9212a4528` |
+| Lab node C0 / bare-metal i7 | Intel Core i7-12700 (12c/20t) | 64 GB | 4×1 TB NVMe + 4×2 TB HDD | Intel PTT | `i7_12700_64g-b4f89a4def` (+ `_nvme`, `_hdd`) |
+
+The i7 host is documented in [`i7-12700-64g.md`](i7-12700-64g.md) with its full specification in
+[`calibration/specs/i7-12700-64g/SPEC.md`](../../calibration/specs/i7-12700-64g/SPEC.md); its E01 replication is
+[`E01-i7-12700-64g.md`](E01-i7-12700-64g.md). The runbook for the next machine is
+[`CALIB-HANDOFF.md`](CALIB-HANDOFF.md).
 
 ## What was measured, and on what
 

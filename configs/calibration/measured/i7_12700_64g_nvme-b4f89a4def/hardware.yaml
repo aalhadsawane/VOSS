@@ -1,0 +1,10 @@
+classes:
+  C0:
+    ssd_read_MBps: 6668.638594
+    ssd_write_MBps: 4847.899132
+  E0:
+    ssd_read_MBps: 6668.638594
+    ssd_write_MBps: 4847.899132
+provenance:
+  default: measured
+  note: ingested from raw logs of host i7_12700_64g_nvme-b4f89a4def (rule 13)

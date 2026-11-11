@@ -1,0 +1,83 @@
+{
+  "bios_version": "A.90",
+  "board": "PRO Z790-A WIFI (MS-7E07)",
+  "cores": 12,
+  "cpu_model": "12th Gen Intel(R) Core(TM) i7-12700",
+  "disks": [
+    {
+      "model": "HGST HUS722T2TAL",
+      "name": "sda",
+      "rotational": true,
+      "size_gb": 2000.4
+    },
+    {
+      "model": "HGST HUS722T2TAL",
+      "name": "sdb",
+      "rotational": true,
+      "size_gb": 2000.4
+    },
+    {
+      "model": "HGST HUS722T2TAL",
+      "name": "sdc",
+      "rotational": true,
+      "size_gb": 2000.4
+    },
+    {
+      "model": "HGST HUS722T2TAL",
+      "name": "sdd",
+      "rotational": true,
+      "size_gb": 2000.4
+    },
+    {
+      "model": "Samsung SSD 980 PRO 1TB",
+      "name": "nvme1n1",
+      "rotational": false,
+      "size_gb": 1000.2
+    },
+    {
+      "model": "Samsung SSD 980 PRO 1TB",
+      "name": "nvme3n1",
+      "rotational": false,
+      "size_gb": 1000.2
+    },
+    {
+      "model": "Samsung SSD 980 PRO 1TB",
+      "name": "nvme2n1",
+      "rotational": false,
+      "size_gb": 1000.2
+    },
+    {
+      "model": "Samsung SSD 980 PRO 1TB",
+      "name": "nvme0n1",
+      "rotational": false,
+      "size_gb": 1000.2
+    }
+  ],
+  "dry_run": false,
+  "fio": "fio-3.36",
+  "firecracker": "Firecracker v1.10.1",
+  "harness_version": "0.1.0",
+  "hostname": "HOST",
+  "iommu": true,
+  "kernel": "5.15.0-198-generic",
+  "mem_kb": 65503008,
+  "microcode": "0x3e",
+  "options": {
+    "firecracker": "/home/USER/voss-calib-work/assets/firecracker",
+    "kernel": "/home/USER/voss-calib-work/assets/vmlinux",
+    "rootfs": "/mnt/nvme1/voss-scratch/voss-guest.ext4",
+    "sebs_rootfs": "/mnt/nvme1/voss-scratch/voss-guest.ext4",
+    "ssd_dir": "/mnt/nvme1/voss-scratch/ssd"
+  },
+  "phase": null,
+  "qemu": "QEMU emulator version 6.2.0 (Debian 1:6.2+dfsg-2ubuntu6.31)",
+  "run_id": "20261111T143127",
+  "secure_boot": false,
+  "status": "ok",
+  "suite": "disk",
+  "t_utc": "2026-11-11T14:31:27Z",
+  "threads": 20,
+  "tme": true,
+  "tpm2_tools": "tool=\"tpm2_quote\" version=\"5.2\" tctis=\"libtss2-tctildr\" tcti-default=tcti-device",
+  "tpm_vendor": "INTC"
+}
