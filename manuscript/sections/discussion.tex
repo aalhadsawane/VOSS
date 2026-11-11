@@ -44,8 +44,7 @@ tail of rare functions, and 11 functions are idempotent by our assumption. Absol
 every system of the provisioning comparison under 3\,s.
 \item \textbf{Assumed donor shares and capacity model.} The shares of CPU threads (hyperthreads counted), memory and disk that a
 worker offers (Table~\ref{tab:donated}) are assumed, not measured, and we have not swept them, so absolute capacity depends on
-them. Every invocation uses one vCPU and the same unit of concurrency whatever its memory demand. The owner's own use of the
-machine is not modelled.
+them. Every invocation uses one vCPU and the same unit of concurrency whatever its memory demand.
 \item \textbf{Idealised knowledge.} The scheduler takes start-up, trust and network costs and declared worker speeds as exact,
 and we did not sweep prediction error. Calibration comes from one laptop with a hard disk, and confidential-VM costs from the
 literature.

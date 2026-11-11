@@ -107,6 +107,8 @@ from the page alone.
     (donor envelope) as assumed and unswept.
 26. **State each assumed parameter once, in a table, and do not name other platforms' behaviour without a verified citation.**
 23. **A definition sentence must be readable on its own**; define a term by what it contains and does ("memory and processor state
+27. **A choice that departs from common practice must come with its reason** (volunteer hosts judged by predicted completion time,
+    so no CPU overcommit). Check each reason against the paper's own mechanism and substrate before writing it.
     written to disk; loading it resumes the sandbox"), not by comparison alone ("restores faster than a sandbox boots").
 
 ## CRITICAL items (must be resolved before submission)
@@ -331,4 +333,26 @@ times, X-3 redraw Figure 1).
   (largest function) / 2457.6 MB; other classes 20-62%. Filler is preempted by sync (`scheduler_role.py`); the interference factor is
   1 + 0.1(busy-1)/limit, at most 1.1.
 - **Lesson:** heuristic 26. A parameter value appears once, in a table, not repeated in prose.
+
+### Round 17: serial execution wording, one vCPU, why we do not overcommit CPU
+- **Said:** (a) The second half of the serial-execution definition is misleading; use "each sandbox processes one invocation at a
+  time. Concurrent invocations of the same function execute in separate sandboxes." (b) Fact-check "each invocation uses one
+  vCPU". (c) "Never time-shared or preempted, so no oversubscription" must read as a deliberate choice with a strong motivation,
+  since everyone overcommits; use what is particular to volunteers.
+- **Did:** (a) Done as worded. (b) Verified in the repo: every Firecracker VM in the calibration and emulation is configured with 1
+  vCPU (`tools/calibrate/suites/*.py`, `tools/emu/vms.py:56`) and `work_ref_s` is reference-core seconds measured that way; the
+  simulator has no vCPU field and charges single-core time. So the text now says each sandbox has one vCPU "as in our calibration
+  and emulation", not "each invocation uses one vCPU". (c) New paragraph "We do not overcommit the CPU". Reasons, all from this
+  paper's design and argued, not measured: the scheduler detects dropped or delayed work by a result missing its predicted
+  completion time (`faulttol.tex`), and a whole vCPU keeps that time tight and independent of co-runners, while time-sharing
+  stretches it unobservably and lets a delaying owner hide in the slack; and the scheduler, not the OS, should decide who waits
+  (synchronous before asynchronous, filler yields), which P99 targets of seconds need. No overcommit sweep exists, so no result
+  is claimed.
+- **Removed:** "The owner's own use of the machine is not modelled" (Limitations). The primary trust substrate dedicates the machine
+  while donating (proposal 0002, no concurrent owner use), so the sentence implied a design the paper does not have. This also
+  undercuts the codebase author's account of 0.75 as headroom for the owner: that holds only for the DRTM substrate. The paper
+  does not explain 0.75; if it should, the reason has to come from the author.
+- **Lesson:** heuristic 27. A modelling choice that differs from common practice needs its reason stated in the paper, grounded in
+  the threat model or deployment (here: untrusted hosts judged by predicted completion time), and never borrowed from a doc that
+  describes a different substrate.
 

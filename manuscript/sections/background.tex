@@ -10,8 +10,8 @@ Firecracker~\cite{agache2020firecracker} \emph{microVMs}, virtual machines with 
 kernel and a root file system image. A sandbox is \emph{warm} when it has finished starting and sits idle, ready for a call. A
 \emph{snapshot} is the memory and processor state of a running sandbox written to disk; loading it resumes the sandbox where it
 was saved, which takes less time than booting a new one. A worker $j$ runs at most $c_j$ invocations at a time; we call $c_j$ its
-\emph{concurrency limit}. We assume \emph{serial execution}: a sandbox serves one invocation at a time, and a second invocation
-of the same function gets its own sandbox. A tenant's \emph{key} decrypts the tenant's \emph{code bundle}
+\emph{concurrency limit}. We assume \emph{serial execution}: each sandbox processes one invocation at a time. Concurrent invocations of the same
+function execute in separate sandboxes. A tenant's \emph{key} decrypts the tenant's \emph{code bundle}
 (the function's files, from which a sandbox is booted) and the snapshots made from it. Snapshots need the key too because they
 hold the sandbox's memory, including data the function handled, not only its code; the bundle is still needed to boot a
 sandbox on a worker that holds no snapshot. Only the tenant controls the key. We report the 99th percentile of the
@@ -19,12 +19,22 @@ latency of synchronous invocations, written P99.
 
 \textbf{Capacity model.} CPU bounds the invocations a worker runs, and memory bounds the sandboxes it keeps warm. The
 concurrency limit $c_j$ is the donated CPU share of the worker's hardware threads (Table~\ref{tab:donated}), rounded down, and at
-least one; each invocation uses one vCPU. A running invocation holds one unit of the limit from the moment it starts, through
-key fetch, boot or restore, and execution, until it finishes. Running invocations are never time-shared or preempted (low-priority
-filler work excepted), so they never oversubscribe the CPU; those running together slow one another by a factor of at most 1.1
-(assumed). A running invocation also holds its function's memory. For the shipped worker classes and functions, running
-invocations stay within the memory budget (at most 83\% of it, when every running invocation is the largest function), so
-warm idle sandboxes are the overcommitted resource: they compete for the memory left over.
+least one. Each sandbox has one vCPU, as in our calibration and emulation, and a function's run time is its single-core run time.
+A running invocation holds one unit of the limit from the moment it starts, through key fetch, boot or restore, and execution,
+until it finishes, and holds its function's memory while it runs. For the shipped worker classes and functions, running
+invocations stay within the memory budget (at most 83\% of it, when every running invocation is the largest function), so warm
+idle sandboxes are the overcommitted resource: they compete for the memory left over.
+
+We do not overcommit the CPU. Running invocations are never time-shared, and are never preempted except low-priority filler
+work, so each has a whole vCPU; those running together slow one another by a factor of at most 1.1 (assumed). This is a choice
+made for volunteer machines. The scheduler knows such a machine only by its declared speed, and it detects a worker that drops
+or delays work by a result missing its predicted completion time (Section~\ref{sec:receipts}). With a whole vCPU per
+invocation, run time depends on the function and the machine's speed, not on what else is running, so the predicted time stays
+tight. Time-sharing would stretch it by an amount the scheduler cannot observe, forcing a looser deadline, and an owner who
+delays work on purpose could hide the delay in it. Limiting concurrency also lets the scheduler, rather than the operating
+system, decide who waits: a free unit goes to a waiting synchronous invocation before queued asynchronous ones, and filler work
+yields to synchronous work. Under time-sharing, short synchronous invocations would slow down behind long asynchronous ones,
+which a 99th-percentile target of a few seconds cannot absorb.
 
 \subsection{Where the time goes}
 Before a function runs, the invocation waits for the worker's concurrency limit to admit it, for the worker to obtain the tenant's key if it lacks it, and
