@@ -1,0 +1,5 @@
+# E01 scenario 3 on host i7-12700-64g: 20% omitting owners at 3 inv/s, kept for the record (at this load one warm worker
+# serves everything, so the omitting owners never receive work; see docs/validation/E01.md).
+extends: base.yaml
+scenario:
+  adversary: {regime: adversary_mixed, alpha: 0.2}
