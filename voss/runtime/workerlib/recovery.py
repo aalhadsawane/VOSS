@@ -1,15 +1,13 @@
-"""Worker-side support for progress detection and succession (doc 07 §3-4): probe replies from the attested agent,
-retained outcomes, roll-call reports to a successor, re-pointing running attempts, and standby heartbeats."""
+"""Worker-side support for progress detection (doc 07 §2): the attested agent answers the scheduler's probes about
+attempts it is running or has finished."""
 
 from __future__ import annotations
 
 from collections import deque
-from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from voss.core.ids import Addr, ClusterId, WorkerId
-from voss.core.messages import EpochInstall
-from voss.core.messages_ft import Pong, Probe, Retained, RollCallReport, RunningAttempt
+from voss.core.messages_ft import Pong, Probe
 from voss.core.types import Outcome, WorkerState
 from voss.runtime.actor import ActorContext
 from voss.runtime.workerlib.attempt import Attempt
@@ -22,7 +20,6 @@ class RecoveryMixin:
     ctx: ActorContext
     host: HostLocal
     attempts: dict[tuple[int, int], Attempt]
-    retained: deque[Retained]
     finished_at: dict[tuple[int, int], float]
     finished_order: deque[tuple[int, int]]
     omitted: set[tuple[int, int]]
@@ -36,7 +33,6 @@ class RecoveryMixin:
         def state(self) -> WorkerState: ...
 
     def _init_recovery(self) -> None:
-        self.retained = deque(maxlen=self.ctx.cfg.voss.succession.retain_outcomes)
         self.finished_at, self.finished_order, self.omitted = {}, deque(), set()
 
     def _finished(self, att: Attempt, out: Outcome | None) -> None:
@@ -45,8 +41,6 @@ class RecoveryMixin:
         self.finished_order.append(key)
         while len(self.finished_order) > KEEP_FINISHED:
             self.finished_at.pop(self.finished_order.popleft(), None)
-        if out is not None:
-            self.retained.append(Retained(out, str(att.fn.name), int(att.inv.in_bytes), self.now))
 
     def _probe(self, m: Probe) -> None:
         """The attested agent answers truthfully; an omitting owner drops the reply with the result."""
@@ -60,16 +54,3 @@ class RecoveryMixin:
             self.send(m.scheduler, Pong(m.inv, m.attempt, w, "done", self.finished_at[key]))
         else:
             self.send(m.scheduler, Pong(m.inv, m.attempt, w, "unknown"))
-
-    def _successor(self, m: EpochInstall) -> None:
-        """A new scheduler for our cluster: running attempts report to it; on roll call, tell it what we hold."""
-        running = []
-        for att in self.attempts.values():
-            if att.cluster == int(m.cluster):
-                att.scheduler = m.scheduler
-                running.append(RunningAttempt(replace(att.inv), att.router, att.t_dispatch, att.epoch))
-        if m.roll_call:
-            report = RollCallReport(
-                m.cluster, m.epoch, WorkerId(self.host.worker), self.state(), tuple(running), tuple(self.retained)
-            )
-            self.send(m.scheduler, report)

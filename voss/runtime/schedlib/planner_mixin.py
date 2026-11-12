@@ -13,13 +13,13 @@ from voss.policy.cost.inputs import CostContext
 from voss.policy.plan.diff import PlanAction
 from voss.runtime.actor import ActorContext
 from voss.runtime.schedlib.planning import Planning, PlanRound, sources_for
+from voss.runtime.schedlib.provider_host import ProviderHost
 from voss.runtime.schedlib.viewcache import ViewCache
-from voss.runtime.workerlib.host import HostLocal
 
 
 class PlannerMixin:
     ctx: ActorContext
-    hl: HostLocal
+    hl: ProviderHost
     cost: CostContext
     views: ViewCache
     planning: Planning

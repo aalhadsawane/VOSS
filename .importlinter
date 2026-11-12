@@ -68,4 +68,3 @@ modules =
     voss.runtime.verifier
     voss.runtime.tenant_kbs
     voss.runtime.opdb
-    voss.runtime.fault_driver

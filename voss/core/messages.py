@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from voss.core.ids import Addr, ClusterId, FnId, InvId, TenantId, WorkerId
-from voss.core.types import ClusterCard, Invocation, Outcome, WorkerState
+from voss.core.types import Invocation, Outcome, WorkerState
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,13 +37,6 @@ class Assigned(Message):
     epoch: int
     token: int
     cluster: int = -1
-
-
-@dataclass(frozen=True, slots=True)
-class Withdraw(Message):
-    """Router → scheduler: the invocation spilled over to another cluster; drop it and cancel its copies."""
-
-    inv: InvId
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,15 +123,6 @@ class EpochInstall(Message):
     epoch: int
     scheduler: Addr
     cert_id: str
-    standby: Addr | None = None  # also heartbeat this warm standby (doc 07 §3)
-    roll_call: bool = False  # successor: answer with ROLL_CALL_REPORT
-
-
-@dataclass(frozen=True, slots=True)
-class Stale(Message):
-    worker: WorkerId
-    epoch: int
-    cluster: int = -1
 
 
 @dataclass(frozen=True, slots=True)
@@ -217,31 +201,6 @@ class Assign(Message):
 
 
 @dataclass(frozen=True, slots=True)
-class Summaries(Message):
-    """Orchestrator → routers: per-cluster cards for routing (doc 03 §3)."""
-
-    cards: tuple[ClusterCard, ...]
-
-
-@dataclass(frozen=True, slots=True)
-class RouterStats(Message):
-    """Router → orchestrator: per-cluster completions and SLO misses since the last report (doc 03 §2)."""
-
-    stats: tuple[tuple[int, int, int], ...]
-    home: tuple[tuple[int, str, int], ...] = ()  # (nearest cluster, forecaster key, arrivals): regional demand
-
-
-@dataclass(frozen=True, slots=True)
-class HomeDemand(Message):
-    """Orchestrator → scheduler: arrival rates (1/s) of invocations whose nearest cluster is this one, wherever they
-    were routed (D-32), so a cluster's planner warms trust for its region's demand."""
-
-    cluster: ClusterId
-    epoch: int
-    rates: tuple[tuple[str, float], ...]
-
-
-@dataclass(frozen=True, slots=True)
 class Leave(Message):
     worker: WorkerId
     cert_id: str
@@ -259,9 +218,6 @@ class Appoint(Message):
     epoch: int
     cert_id: str
     members: tuple[WorkerId, ...]
-    checkpoint: object = None  # messages_ft.Checkpoint of the predecessor, if any
-    standby: Addr | None = None
-    succession: bool = False  # a predecessor existed: workers answer a roll call
 
 
 @dataclass(frozen=True, slots=True)
@@ -270,33 +226,6 @@ class Membership(Message):
     epoch: int
     members: tuple[WorkerId, ...]
     moved: tuple[WorkerId, ...] = ()  # left this cluster but alive: their in-flight work still reports here
-
-
-@dataclass(frozen=True, slots=True)
-class Revoke(Message):
-    cluster: ClusterId
-    epoch: int
-
-
-@dataclass(frozen=True, slots=True)
-class KeepaliveSummary(Message):
-    cluster: ClusterId
-    epoch: int
-    worker: WorkerId
-    attested: int
-    load: float
-    free_slots: int = 0
-    overhead_s: float = 0.0
-    trust_warm: tuple[tuple[str, float], ...] = ()
-    warm_fns: tuple[tuple[str, int], ...] = ()
-    diversity: int = 0
-    infeasible: bool = False
-    forecast: float = 0.0  # forecast concurrent demand quantile / slots (doc 03 §2 ``Forecast`` trigger)
-    cold_trust_s: float = 3.0  # measured trust + start-up of trust-cold attempts (D-33)
-    cold_fn_s: float = 0.5  # measured start-up of cold (not warm) attempts
-    backlog_s: float = 0.0  # queued work per slot ahead of a new arrival
-    decide_p90_s: float = 0.0  # placement latency from attested timestamps (decision-latency SLO, doc 07 §2)
-    stuck_workers: int = 0  # distinct workers with own dispatches unaccepted past 2 × T_dispatch
 
 
 # --- tenant keys (worker ⇄ KBS) --------------------------------------------------------------------------------
@@ -370,23 +299,6 @@ class Release(Message):
 
 
 # --- operational DB (orchestrator tier only) -------------------------------------------------------------------
-@dataclass(frozen=True, slots=True)
-class DbCasEpoch(Message):
-    cluster: ClusterId
-    expect: int
-    new: int
-    holder: WorkerId
-    cert_id: str
-    reply_to: Addr
-
-
-@dataclass(frozen=True, slots=True)
-class DbCasResult(Message):
-    cluster: ClusterId
-    epoch: int
-    holder: WorkerId
-    cert_id: str
-    ok: bool
 
 
 @dataclass(frozen=True, slots=True)

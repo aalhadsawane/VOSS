@@ -88,7 +88,10 @@ class AdversaryTrace:
 
 def load_adversary_regime(sc: ScenarioConfig) -> AdversaryRegime:
     name = str(sc.adversary.get("regime", "adversary_none"))
-    return AdversaryRegime.model_validate(merged(load_data_yaml(f"regimes/{name}.yaml"), sc.adversary))
+    base = load_data_yaml(f"regimes/{name}.yaml")
+    if "mix" in sc.adversary:  # a behavior mix is a distribution: an inline mix replaces the regime's, never merges
+        base = {k: v for k, v in base.items() if k != "mix"}
+    return AdversaryRegime.model_validate(merged(base, sc.adversary))
 
 
 def _counts(n_adv: int, mix: dict[str, float]) -> dict[str, int]:

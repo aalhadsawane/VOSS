@@ -11,7 +11,7 @@ from enum import IntEnum
 
 import numpy as np
 
-from voss.core.ids import ClusterId, FnId, InvId, TenantId, WorkerId
+from voss.core.ids import FnId, InvId, TenantId, WorkerId
 
 
 class SloClass(IntEnum):
@@ -117,39 +117,6 @@ class ClusterView:
 
     def index(self) -> dict[WorkerId, int]:
         return {w: i for i, w in enumerate(self.workers)}
-
-
-@dataclass(frozen=True, slots=True)
-class ClusterSummary:
-    """What a scheduler tells the orchestrator tier (doc 05 §3, doc 08 §4 ``KEEPALIVE+SUMMARY``)."""
-
-    cluster: ClusterId
-    as_of: float
-    load: float
-    slo_health: float
-    attested: int
-    free_slots: int
-    trust_warm_capacity: Mapping[TenantId, float] = field(default_factory=dict)
-    robust_slack: float = 0.0
-    diversity: int = 0
-
-
-@dataclass(frozen=True, slots=True)
-class ClusterCard:
-    """What routers know about one cluster (doc 03 §3): pushed by the orchestrator from scheduler summaries."""
-
-    cluster: int
-    lat: float
-    lon: float
-    load: float
-    free_slots: int
-    slo_miss: float
-    overhead_s: float  # measured in-cluster decision + dispatch + slot wait (D-33)
-    trust_warm: Mapping[str, float] = field(default_factory=dict)
-    warm_fns: Mapping[str, int] = field(default_factory=dict)
-    cold_trust_s: float = 3.0  # measured price of a trust-cold start here
-    cold_fn_s: float = 0.5  # measured price of a cold function start here
-    backlog_s: float = 0.0  # queued work per slot when over-full
 
 
 @dataclass(frozen=True, slots=True)

@@ -62,7 +62,6 @@ class ScenarioConfig(Frozen):
     execution: dict[str, Any] = Field(default_factory=dict)
     functions: str = "functions.yaml"
     tenants: str = "tenants.yaml"
-    faults: list[dict[str, Any]] = Field(default_factory=list)  # control-plane faults (doc 07 §5, E15)
 
 
 class InfraConfig(Frozen):
@@ -71,20 +70,17 @@ class InfraConfig(Frozen):
     orchestrator: str = "Frankfurt"
     verifier: str = "Frankfurt"
     registry: str = "Frankfurt"
+    scheduler: str = "Frankfurt"  # provider node of the one scheduler (D-83)
+    scheduler_speed: float = 1.0  # relative CPU speed of that node; replaced by measured timing in V10
     routers: tuple[str, ...] = ("Washington", "Frankfurt", "Singapore")
 
 
 class RouterConfig(Frozen):
-    """Doc 03 §3, doc 07 §2 (dispatch watchdog, spillover)."""
+    """Doc 07 §2 (dispatch watchdog) and the start-up price priors the scheduler uses until it measures them."""
 
-    name: str = "score"
     cold_penalty_s: float = 3.0  # prior price of a trust-cold start until a cluster measured one  # TODO verify
-    exposure_s: float = 0.5  # exposure increment of a trust-cold spill (seconds-equivalent)
-    health_s: float = 5.0  # seconds per unit of router-observed SLO miss rate
     cold_fn_s: float = 0.5  # prior price of a cold function start until measured  # TODO verify
     T_dispatch: float = 1.0
-    T_spill: float = 1.5
-    stats_s: float = 5.0
     max_resends: int = 3
     give_up_s: dict[str, float] = Field(default_factory=lambda: {"sync": 30.0, "async": 300.0, "filler": 900.0})
     receipt_batch_s: float = 1.0
@@ -195,33 +191,6 @@ class KeepaliveHistConfig(Frozen):
     fallback_ttl_s: float = 600.0  # the classic fixed keep-alive (WorkerConfig.warm_ttl_s)
 
 
-class OrchestratorConfig(Frozen):
-    """Doc 03 §2, doc 07 §3."""
-
-    keepalive_timeout_s: float = 5.0
-    check_s: float = 1.0
-    summaries_s: float = 1.0
-
-
-class ClustersConfig(Frozen):
-    """Cluster arrangement (doc 03 §2). ``mode``: ``dynamic`` (triggers on), ``static_kmeans`` (formed once),
-    ``static_regions`` (one cluster per world region), ``none_global`` (a single cluster)."""
-
-    mode: str = "dynamic"
-    target_size: int = 30
-    min_size: int = 10
-    max_size: int = 60
-    d_min: int = 3
-    dwell_s: float = 600.0
-    max_moves: int = 10
-    period_s: float = 30.0
-    bootstrap_s: float = 3.0
-    slo_theta: float = 0.2
-    slo_periods: int = 3
-    imbalance_delta: float = 0.4
-    max_moves_per_h: int = 3
-
-
 class CacheConfig(Frozen):
     """Doc 02 §6."""
 
@@ -245,16 +214,6 @@ class DetectionConfig(Frozen):
     decide_periods: int = 3
 
 
-class SuccessionConfig(Frozen):
-    """Scheduler succession (doc 07 §3, §6)."""
-
-    T_ckpt: float = 30.0
-    lease_s: float = 5.0
-    standbys: int = 1
-    handover_wait_s: float = 1.0
-    retain_outcomes: int = 64
-
-
 class VossConfig(Frozen):
     """The ``voss`` section: scheduler-side choices (doc 05 §6). Grows phase by phase."""
 
@@ -269,11 +228,8 @@ class VossConfig(Frozen):
     scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
     worker: WorkerConfig = Field(default_factory=WorkerConfig)
     keepalive_hist: KeepaliveHistConfig = Field(default_factory=KeepaliveHistConfig)
-    orchestrator: OrchestratorConfig = Field(default_factory=OrchestratorConfig)
-    clusters: ClustersConfig = Field(default_factory=ClustersConfig)
     cache: CacheConfig = Field(default_factory=CacheConfig)
     detection: DetectionConfig = Field(default_factory=DetectionConfig)
-    succession: SuccessionConfig = Field(default_factory=SuccessionConfig)
 
 
 _HASH_OMIT_DEFAULT = (("cost", "wait_model", "ewma"), ("worker", "sync_priority", False))
