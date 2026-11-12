@@ -175,7 +175,7 @@ class Router(Actor):
         """Doc 07 §2 cluster stall: dispatch-watchdog fires for ``stall_n`` distinct invocations of one cluster
         within ``stall_window_s`` → ``STALL`` to the orchestrator (progress evidence, not a heartbeat)."""
         dc = self.ctx.cfg.voss.detection
-        if dc.mode != "progress" or cluster not in self.scheds:
+        if cluster not in self.scheds:
             return
         fires = [(t, i) for t, i in self.fires.get(cluster, []) if self.now - t < dc.stall_window_s and i != inv_id]
         fires.append((self.now, inv_id))
@@ -221,8 +221,8 @@ class Router(Actor):
 
     # --- completion ---------------------------------------------------------------------------------------------
     def _result(self, o: Outcome, r: Receipt) -> None:
-        """Doc 09 §3: verify the receipt against the session certificate (revocation list) and log it; a result of
-        an invocation that already finished (a hedge loser that completed) is logged as ``duplicate``."""
+        """Doc 09 §3: verify the receipt against the session certificate (revocation list) and log it. A result of
+        an invocation that already finished (the slower of two attempts) is logged as ``duplicate``."""
         p = self.pending.get(o.inv)
         ic = inv_ctx(p) if p is not None else self.finished.get(o.inv)
         if ic is None:

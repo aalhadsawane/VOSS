@@ -516,6 +516,10 @@ Rules:
   there at once; first result wins, the other is cancelled. A probe to the first worker runs in parallel and only feeds the
   drop estimate. Non-idempotent functions: no backup; the invocation fails at its deadline (reported separately).
 - If no second holder exists, there is no backup. The budget `K` therefore limits fault tolerance; show this in the results.
+- Retries follow the same rule. Observed in V0 (`tests/integration/test_faults.py`): a v1 retry of a 0.97 s-deadline invocation
+  was placed on a worker with no key and no code and started 30 s later. A retry or backup attempt goes only to a worker whose
+  predicted completion fits the remaining deadline; if none exists, the invocation is reported as missed at once rather than
+  started cold. Restore the assertion "every omitted idempotent invocation meets its deadline when a second holder exists".
 
 ### V7.2 Detectors compared (same timers available to all; G4)
 | Name | Timer | On expiry | Ejection |

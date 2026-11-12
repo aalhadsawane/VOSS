@@ -281,20 +281,18 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, SuccessionMixin, EventsMixin,
                 self.send(rec.router, Reject(inv_id, d.rejected[inv_id]))
             elif inv_id in d.assign:
                 self._dispatch(rec, d.assign[inv_id], False, d.predicted.get((inv_id, d.assign[inv_id])))
-                if inv_id in d.hedges:
-                    self._dispatch(rec, d.hedges[inv_id], True, d.predicted.get((inv_id, d.hedges[inv_id])))
             else:
                 wait = cfg.admission.defer_s if windowed else cfg.scheduler.no_candidate_retry_s
                 self.after(wait, self._decide, [inv_id], windowed)
 
-    def _dispatch(self, rec: Inflight, w: WorkerId, hedge: bool, pred: tuple[float, float] | None) -> None:
+    def _dispatch(self, rec: Inflight, w: WorkerId, backup: bool, pred: tuple[float, float] | None) -> None:
         self.token += 1
         a = rec.next_attempt
         rec.next_attempt += 1
         mu, var = pred or (0.0, 0.0)
         st = self.views.store.states.get(w)
         load = (st.busy + st.queued) / max(1, st.slots) if st else 0.0
-        rec.copies[a] = Copy(a, w, self.now, hedge, mu=mu, sigma=var, load=load)
+        rec.copies[a] = Copy(a, w, self.now, backup, mu=mu, sigma=var, load=load)
         self.views.dispatched(w, self.now)
         self._ka_dispatch(rec.inv.fn, w)
         inv = replace(rec.inv, attempt=a)
@@ -367,7 +365,7 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, SuccessionMixin, EventsMixin,
             t=self.now,
             fn=rec.inv.fn,
             worker=int(c.worker),
-            hedge=c.hedge,
+            backup=c.backup,
             pred_mean=c.mu,
             pred_var=c.sigma,
             actual=o.timings.exec,

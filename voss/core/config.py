@@ -94,10 +94,9 @@ class PlacerConfig(Frozen):
     """Fast-loop placers (doc 03 §5.3): ``sync`` per invocation, ``async`` per window (async and filler)."""
 
     sync: str = "greedy"
-    async_: str = Field(default="flow", alias="async")
+    async_: str = Field(default="greedy", alias="async")
     K: int = 12
     window_s: float = 0.2
-    slots_per_worker: int = 4
 
     model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
 
@@ -120,14 +119,6 @@ class CostConfig(Frozen):
     sigma: dict[str, float] = Field(default_factory=lambda: {"low": 0.1, "medium": 1.0, "high": 3.0})
     lifecycle_aware: bool = True  # False: ablation, placement sees one startup estimate for every candidate
     wait_model: Literal["ewma", "per_worker"] = "ewma"  # slot-wait estimate (D-77): scheduler-wide EWMA or per worker
-
-
-class HedgeConfig(Frozen):
-    """Doc 03 §5.4, doc 07 §6."""
-
-    name: str = "risk_proportional"
-    theta: float = 0.2
-    budget: float = 0.1
 
 
 class AdmissionConfig(Frozen):
@@ -241,9 +232,8 @@ class CacheConfig(Frozen):
 
 
 class DetectionConfig(Frozen):
-    """Progress-based detection (doc 07 §2, §6). ``mode``: ``progress`` or ``heartbeat_only`` (ablation)."""
+    """Progress-based detection (doc 07 §2, §6)."""
 
-    mode: str = "progress"
     watchdog_slack: float = 1.2  # result watchdog at predicted q90 × slack (doc 07 §6: q90 + 20%)
     watchdog_min_s: float = 3.0
     probe_timeout_s: float = 2.0
@@ -307,7 +297,6 @@ class VossConfig(Frozen):
     placer: PlacerConfig = Field(default_factory=PlacerConfig)
     predictor: PredictorConfig = Field(default_factory=PredictorConfig)
     cost: CostConfig = Field(default_factory=CostConfig)
-    hedge: HedgeConfig = Field(default_factory=HedgeConfig)
     admission: AdmissionConfig = Field(default_factory=AdmissionConfig)
     models: ModelsConfig = Field(default_factory=ModelsConfig)
     planner: PlannerConfig = Field(default_factory=PlannerConfig)

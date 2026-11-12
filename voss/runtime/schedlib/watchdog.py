@@ -51,15 +51,12 @@ class WatchdogMixin:
     def _arm(self, rec: Inflight, c: Copy) -> None:
         """Watchdog at ``slack × q90`` of the predicted execution, at least ``watchdog_min_s`` (doc 07 §6)."""
         dc = self.ctx.cfg.voss.detection
-        if dc.mode != "progress":
-            return
         q90 = c.mu + Z90 * math.sqrt(max(c.sigma, 0.0))
         self.after(max(dc.watchdog_min_s, dc.watchdog_slack * q90), self._watch_fire, rec.inv.id, c.attempt, c.probes)
 
     def _arm_dispatch(self, rec: Inflight, c: Copy) -> None:
         """Scheduler-side dispatch watchdog: no ``ACCEPTED`` within 2 × ``T_dispatch`` → the dispatch was lost."""
-        if self.ctx.cfg.voss.detection.mode == "progress":
-            self.after(2 * self.ctx.cfg.voss.router.T_dispatch, self._dispatch_check, rec.inv.id, c.attempt)
+        self.after(2 * self.ctx.cfg.voss.router.T_dispatch, self._dispatch_check, rec.inv.id, c.attempt)
 
     def _dispatch_check(self, inv: InvId, attempt: int) -> None:
         live = self._live(inv, attempt)
@@ -122,7 +119,7 @@ class WatchdogMixin:
             self._suspect(w, "change_point" if cp is not None else reason)
 
     def _suspect(self, w: WorkerId, reason: str) -> None:
-        if w in self.suspects or self.ctx.cfg.voss.detection.mode != "progress":
+        if w in self.suspects:
             return
         self.suspects[w] = self.now + self.ctx.cfg.voss.detection.suspect_s
         self.ctx.rec.log(Table.EVENTS, t=self.now, kind="worker_suspect", worker=w, value=0.0, reason=reason)

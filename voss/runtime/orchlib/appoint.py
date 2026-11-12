@@ -70,12 +70,12 @@ class AppointMixin:
         sc = self.ctx.cfg.voss.succession
         self.send(("sched", m.worker), Lease(m.cluster, m.epoch, self.now + sc.lease_s))
         dc = self.ctx.cfg.voss.detection
-        if dc.mode == "progress" and m.stuck_workers >= dc.stall_n:
+        if m.stuck_workers >= dc.stall_n:
             self._suspect_scheduler(c, "unaccepted")  # its own dispatches vanish: its host drops them
             return
         if m.decide_p90_s >= 0:  # periods without decisions say nothing
             c.slow_periods = c.slow_periods + 1 if m.decide_p90_s > dc.T_decide_max else 0
-        if dc.mode == "progress" and c.slow_periods >= dc.decide_periods:  # consecutive slow keepalive periods
+        if c.slow_periods >= dc.decide_periods:  # consecutive slow keepalive periods
             c.slow_periods = 0
             self._handover(c, "decision_slo")
 

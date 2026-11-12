@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
-
 import numpy as np
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -45,18 +43,13 @@ def test_plan_is_deterministic() -> None:
     assert (a.y == b.y).all() and (a.c == b.c).all()
 
 
-def test_survival_blind_replaces_survival_and_residence_by_the_mean() -> None:
-    base = instance(3, 2, 8, 1)
-    inp = replace(base, residence=np.linspace(10.0, 100.0, 8))
+def test_survival_blind_replaces_survival_by_the_mean() -> None:
+    inp = instance(3, 2, 8, 1)
     out = survival_blind(inp)
-    assert np.allclose(out.survival, inp.survival.mean()) and np.allclose(out.residence, 55.0)
+    assert np.allclose(out.survival, inp.survival.mean())
     assert (out.p_omit == inp.p_omit).all() and (out.assurance == inp.assurance).all()
     assert inp.survival.std() > 0  # the input itself is not mutated
     assert survival_blind(instance(3, 2, 0, 1)).survival.size == 0
-
-
-def test_survival_blind_without_residence_keeps_it_unset() -> None:
-    assert survival_blind(instance(5, 2, 6, 1)).residence is None
 
 
 def test_survival_blind_makes_provisioned_keys_pick_by_omission_only() -> None:

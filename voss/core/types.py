@@ -157,7 +157,6 @@ class Placement:
     """Placer output (doc 05 §3)."""
 
     assign: Mapping[InvId, WorkerId]
-    hedges: Mapping[InvId, WorkerId] = field(default_factory=dict)
     status: str = "ok"
     solve_s: float = 0.0
 

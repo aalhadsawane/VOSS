@@ -218,7 +218,8 @@ class Attempt:
         self.port.finish(self, status)
 
     def cancel(self) -> None:
-        """Abort everything not yet finished (hedge loser, failure). Host loss resets resources separately."""
+        """Abort everything not yet finished (the slower of two attempts, or a failure). Host loss resets resources
+        separately."""
         if self.cancelled:
             return
         self.cancelled = True
