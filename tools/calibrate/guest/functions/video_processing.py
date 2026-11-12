@@ -1,4 +1,7 @@
-"""SeBS 220.video-processing: transcode the first seconds of a video to a GIF with ffmpeg."""
+"""SeBS 220.video-processing: transcode the first seconds of a video to a GIF with ffmpeg.
+
+Size parameter: kB of a test-pattern video at about 4 Mbit/s (one second per 500 units).
+"""
 
 from __future__ import annotations
 

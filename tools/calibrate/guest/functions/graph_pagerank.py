@@ -1,4 +1,7 @@
-"""SeBS 50x.graph-pagerank: python-igraph on a Barabási-Albert graph (10,000 vertices per input unit)."""
+"""SeBS 50x.graph-pagerank: python-igraph on a Barabási-Albert graph (10,000 vertices per input unit).
+
+Size parameter: tens of thousands of vertices (SeBS small = 1, large = 10).
+"""
 
 from __future__ import annotations
 

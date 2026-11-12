@@ -1,4 +1,7 @@
-"""SeBS 311.compression: zip a directory of files."""
+"""SeBS 311.compression: zip a directory of files.
+
+Size parameter: kB of files in the directory (one 100 kB file per 100 units, half compressible).
+"""
 
 from __future__ import annotations
 

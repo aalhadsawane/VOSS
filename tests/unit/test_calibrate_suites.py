@@ -126,16 +126,30 @@ def _ran(out: str) -> list[str]:
 
 
 def test_sebs_leaves_out_guest_sets_over_the_ram_budget(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    opts = {"kernel": "/a/k", "sebs_rootfs": "/a/r", "firecracker": "/a/fc", "functions": "dna-visualisation,graph-bfs"}
-    ctx = _ctx(tmp_path, mem_budget_mb="1100", **opts)
+    opts = {"kernel": "/a/k", "sebs_rootfs": "/a/r", "firecracker": "/a/fc", "functions": "dynamic-html,graph-bfs"}
+    ctx = _ctx(tmp_path, mem_budget_mb="2100", concurrencies="1,2,4,8", **opts)
     sebs.run(ctx)
-    # dna-visualisation: 1024 MB per guest → only 1 guest fits in 1100 MB; graph-bfs: 512 MB → 1 and 2 guests fit
+    # dynamic-html: 512 MB per guest → 1, 2 and 4 guests fit in 2100 MB; graph-bfs: 2048 MB → only 1 guest fits
     assert _ran(capsys.readouterr().out) == [
-        "fn=dna-visualisation concurrency=1",
+        "fn=dynamic-html concurrency=1",
+        "fn=dynamic-html concurrency=2",
+        "fn=dynamic-html concurrency=4",
         "fn=graph-bfs concurrency=1",
-        "fn=graph-bfs concurrency=2",
     ]
-    assert "sebs fn=dna-visualisation concurrency=8" in _skipped(ctx)
+    assert "sebs fn=graph-bfs concurrency=8" in _skipped(ctx)
+
+
+def test_sebs_levels_reach_physical_cores_and_threads(tmp_path: Path) -> None:
+    ctx = _ctx(tmp_path, physical_cores="6")
+    levels = sebs.concurrencies(ctx)
+    assert (levels[:4] == [1, 2, 4, 6] and levels[-1] == (os.cpu_count() or 1)) or levels[-1] == 6
+
+
+def test_sebs_sizes_cover_the_published_classes() -> None:
+    for fn in ("dynamic-html", "graph-bfs", "graph-mst", "graph-pagerank"):
+        classes = {c for _, c in sebs.SIZES[fn]}
+        assert {"small", "large"} <= classes, fn
+    assert all(len(v) >= 3 for v in sebs.SIZES.values())
 
 
 def test_sebs_max_concurrency_option(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

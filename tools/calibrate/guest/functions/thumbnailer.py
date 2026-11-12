@@ -1,4 +1,7 @@
-"""SeBS 210.thumbnailer: decode a JPEG, thumbnail it to 200x200, re-encode (Pillow)."""
+"""SeBS 210.thumbnailer: decode a JPEG, thumbnail it to 200x200, re-encode (Pillow).
+
+Size parameter: approximate kB of the JPEG input (a square random image of that many pixels).
+"""
 
 from __future__ import annotations
 
