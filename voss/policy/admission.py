@@ -1,4 +1,4 @@
-"""Admission and filler gating (doc 03 §5.4).
+"""Admission (doc 03 §5.4).
 
 If no candidate has ``pMiss < 1 − ε`` the invocation is rejected (sync) or deferred (async). Filler work only uses
 slots idle beyond a sync headroom and is preempted by sync work.
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from voss.core.types import ClusterView, Invocation, SloClass
+from voss.core.types import Invocation, SloClass
 
 
 def admit(
@@ -33,10 +33,3 @@ def admit(
     if not overloaded:
         return "admit"
     return "reject" if inv.slo_class == SloClass.SYNC else "defer"
-
-
-def filler_mask(view: ClusterView, headroom: int = 1) -> np.ndarray:
-    """Workers with more than ``headroom`` idle slots (filler may only use those)."""
-    free = view.slots - (view.busy + view.queued + view.inflight)
-    out: np.ndarray = free > headroom
-    return out

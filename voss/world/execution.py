@@ -21,7 +21,7 @@ class ExecParams(BaseModel):
     tail_median: float = Field(default=2.0, ge=1)
     tail_sigma: float = Field(default=0.3, ge=0)
     interference: float = Field(default=0.1, ge=0)
-    timeout_s: dict[str, float] = Field(default_factory=lambda: {"sync": 30.0, "async": 300.0, "filler": 600.0})
+    timeout_s: dict[str, float] = Field(default_factory=lambda: {"sync": 30.0, "async": 300.0})
 
 
 def noise_matrix(gen: np.random.Generator, n: int, attempts: int, p: ExecParams) -> np.ndarray:

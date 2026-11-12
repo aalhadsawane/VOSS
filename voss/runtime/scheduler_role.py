@@ -65,7 +65,6 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, PlannerMixin, Actor):
         self.inflight: dict[InvId, Inflight] = {}
         self.done: set[InvId] = set()
         self.window: list[InvId] = []
-        self.fillers: set[InvId] = set()
         self.busy_until = 0.0
         self.models = SchedModels(cfg, self.priors)
         self.decider = Decider(cfg, self.cost, self.models, self.ctx.cfg.scenario.start_utc_h)
@@ -179,8 +178,6 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, PlannerMixin, Actor):
                 )
             return
         self.inflight[m.inv.id] = Inflight(m.inv, m.router, m.t_sent, t_in=self.now)
-        if m.inv.slo_class == SloClass.FILLER:
-            self.fillers.add(m.inv.id)
         self.models.forecaster.observe(m.inv.tenant, self.now)
         self.models.forecaster.observe(f"fn:{m.inv.fn}", self.now)
         if m.inv.slo_class == SloClass.SYNC:
@@ -267,23 +264,6 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, PlannerMixin, Actor):
         self.send(("agent", w), d)
         self.send(rec.router, Assigned(inv.id, a, w, self.epoch, self.token, int(self.cluster)))
         self._arm_dispatch(rec, rec.copies[a])
-        if inv.slo_class == SloClass.SYNC:
-            self._preempt_filler(w)
-
-    def _preempt_filler(self, w: WorkerId) -> None:
-        """Doc 03 §5.4: filler is preempted by sync work on a full worker."""
-        st = self.views.store.states.get(w)
-        if st is None or st.busy + st.queued + len(self.views.recent.get(w, ())) <= st.slots:
-            return
-        for inv_id in sorted(self.fillers):
-            rec = self.inflight.get(inv_id)
-            if rec is None:
-                self.fillers.discard(inv_id)
-                continue
-            for c in rec.live_on(w):
-                self.send(("agent", w), Cancel(rec.inv.id, c.attempt))
-                self._copy_failed(rec, c, "preempted")
-                return
 
     # --- outcomes ---------------------------------------------------------------------------------------------
     def _outcome(self, o: Outcome) -> None:

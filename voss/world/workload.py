@@ -20,7 +20,7 @@ from voss.world.calibration import function_overrides
 from voss.world.config_merge import merged
 from voss.world.geo import Metros, diurnal, local_hour
 
-SLO_CLASSES: tuple[str, ...] = ("sync", "async", "filler")
+SLO_CLASSES: tuple[str, ...] = ("sync", "async")
 
 
 class _M(BaseModel):
@@ -45,7 +45,7 @@ class FunctionSpec(_M):
     size_exp: float = Field(ge=0)
     out_kb: float = Field(ge=0)
     idempotent: bool
-    slo_class: Literal["sync", "async", "filler"]
+    slo_class: Literal["sync", "async"]
     slo_k: float = Field(gt=0)
 
 
@@ -200,10 +200,8 @@ def _frame(
 ) -> pd.DataFrame:
     if f.slo_class == "sync":
         deadline = f.slo_k * (warm_estimate_s(f, size) + reg.sync_overhead_s)
-    elif f.slo_class == "async":
-        deadline = np.full(len(t), reg.async_deadline_s)
     else:
-        deadline = np.full(len(t), np.inf)
+        deadline = np.full(len(t), reg.async_deadline_s)
     return pd.DataFrame(
         {
             "t": t,

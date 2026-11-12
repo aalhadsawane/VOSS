@@ -81,12 +81,12 @@ class RouterConfig(Frozen):
     cold_fn_s: float = 0.5  # prior price of a cold function start until measured  # TODO verify
     T_dispatch: float = 1.0
     max_resends: int = 3
-    give_up_s: dict[str, float] = Field(default_factory=lambda: {"sync": 30.0, "async": 300.0, "filler": 900.0})
+    give_up_s: dict[str, float] = Field(default_factory=lambda: {"sync": 30.0, "async": 300.0})
     receipt_batch_s: float = 1.0
 
 
 class PlacerConfig(Frozen):
-    """Fast-loop placers (doc 03 §5.3): ``sync`` per invocation, ``async`` per window (async and filler)."""
+    """Request placement (doc 03 §5.3): ``sync`` per invocation, ``async`` per window of asynchronous invocations."""
 
     sync: str = "greedy"
     async_: str = Field(default="greedy", alias="async")
@@ -119,7 +119,6 @@ class CostConfig(Frozen):
 class AdmissionConfig(Frozen):
     enabled: bool = True
     eps: float = 0.05
-    filler_headroom: int = 1
     defer_s: float = 1.0
 
 

@@ -6,7 +6,7 @@ The scheduler role calls this and applies the result after the decision latency 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
@@ -14,8 +14,8 @@ import numpy as np
 from voss.core.config import VossConfig
 from voss.core.ids import InvId, WorkerId
 from voss.core.registry import create
-from voss.core.types import ClusterView, Invocation, SloClass
-from voss.policy.admission import admit, filler_mask
+from voss.core.types import ClusterView, Invocation
+from voss.policy.admission import admit
 from voss.policy.cost.arrays import ArrayCache
 from voss.policy.cost.components import CostMatrix, Waits, build_cost_matrix
 from voss.policy.cost.inputs import CostContext
@@ -66,7 +66,6 @@ class Decider:
         svc = self.models.svc
         waits = self._waits(view, jobs, now, svc)
         cm = build_cost_matrix(invs, view, self.ctx, preds, now, routers, self.cache, svc_s=svc, waits=waits)
-        cm = self._filler(invs, view, cm)
         scores = self.scalarize(cm, invs, self.ctx)
         keep = self._admission(invs, cm, out)
         if not keep:
@@ -102,16 +101,6 @@ class Decider:
         prio = self.cfg.worker.sync_priority
         asyn = worker_waits(view, jobs, now, svc, False, prio)
         return Waits(asyn, worker_waits(view, jobs, now, svc, True, True) if prio else asyn)
-
-    def _filler(self, invs: tuple[Invocation, ...], view: ClusterView, cm: CostMatrix) -> CostMatrix:
-        if not any(i.slo_class == SloClass.FILLER for i in invs):
-            return cm
-        ok = filler_mask(view, self.cfg.admission.filler_headroom)
-        feas = cm.feasible.copy()
-        for i, inv in enumerate(invs):
-            if inv.slo_class == SloClass.FILLER:
-                feas[i] &= ok[cm.candidates[i]]
-        return replace(cm, feasible=feas)
 
     def _admission(self, invs: tuple[Invocation, ...], cm: CostMatrix, out: Decision) -> list[int]:
         keep = []

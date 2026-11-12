@@ -17,7 +17,6 @@ from voss.core.ids import FnId, InvId, TenantId, WorkerId
 class SloClass(IntEnum):
     SYNC = 0
     ASYNC = 1
-    FILLER = 2
 
 
 @dataclass(frozen=True, slots=True)
