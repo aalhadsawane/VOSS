@@ -28,22 +28,16 @@ class SchedModels:
         self.survival: Any = create("survival", cfg.models.survival)
         self.omission: Any = create("omission", cfg.models.omission, h=cfg.models.cusum_h)
         self.forecaster: Any = create("forecaster", "ewma2")
-        self.hetero_aware, self.rep_in_cost = cfg.scheduler.hetero_aware, cfg.reputation.in_cost
-        self.rep: dict[int, float] = {}  # orchestrator-pushed tie-break scores (doc 09)
+        self.hetero_aware = cfg.scheduler.hetero_aware
         self.svc = 1.0
         self.survival_version = 0
         self._static_key: tuple[object, int] | None = None
         self._static_cache: tuple[np.ndarray, ...] = ()
 
     def p_omit(self, workers: np.ndarray) -> np.ndarray:
-        """Omission probability; the ``reputation.in_cost`` ablation also folds reputation in (double counting,
-        doc 09 §1): ``1 − (1 − p)(0.5 + 0.5 r)``."""
+        """Estimated probability that each worker drops an accepted invocation."""
         p: np.ndarray = self.omission.p_omit(workers)
-        if not self.rep_in_cost or not self.rep:
-            return p
-        r = np.array([self.rep.get(int(w), 1.0) for w in workers])
-        out: np.ndarray = 1 - (1 - p) * (0.5 + 0.5 * r)
-        return out
+        return p
 
     def observe(self, obs: ExecObs) -> None:
         self.predictor.update(obs)

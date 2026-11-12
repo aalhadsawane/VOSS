@@ -5,7 +5,7 @@ For every hot tenant ``t`` the planner asks ``greedy`` what it would do on the s
 workers with the highest ``S_j(H)·(1 − p_j)`` (``PlanInput.contrib``), eligible = assurance floor and freshness
 (``PlanInput.allowed``). Equal ``N_t`` means the key-holder count, and so roughly the exposure, matches greedy; what
 differs is *which* workers: reliability only, with no robust coverage, no failure-domain cap, no exposure or memory
-trade-off, no reputation tie-break. Warm sandboxes and snapshots are not planned (``s = w = 0``); the worker keep-alive
+trade-off. Warm sandboxes and snapshots are not planned (``s = w = 0``); the worker keep-alive
 TTL alone keeps sandboxes warm. Capacity ``c_tj`` is greedy's total for ``t`` split evenly over its holders (capped at
 the worker's slots); it only feeds the logged objective, never the placement. Slots are not shared out between tenants,
 so a very reliable worker may hold several tenants' keys.

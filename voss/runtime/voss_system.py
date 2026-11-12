@@ -17,7 +17,6 @@ from voss.core.rng import RngFactory
 from voss.core.types import WorkerStatic
 from voss.metrics.recorder import Recorder
 from voss.metrics.schema import Table
-from voss.runtime.accounting import Accounting
 from voss.runtime.actor import ActorContext, Directory
 from voss.runtime.drivers import TraceDriver, client_handler, invocations, owner_event, session_events
 from voss.runtime.faultdriver import FaultDriver
@@ -103,7 +102,6 @@ class VossSystem:
         valid = {n: (p.assurance_base, p.session.valid_s) for n, p in self.profiles.items()}
         self._attach(Verifier("verifier", self.ctx, valid))
         self._attach(OpDb("orchestrator", self.ctx))
-        self.acct = self._attach(Accounting("orchestrator", self.ctx))
         self.orch = self._attach(Orchestrator("orchestrator", self.ctx, self._region_of))
         self._attach(Registry("registry", self.ctx))
         for t in self.scn.catalog.tenants:
@@ -229,8 +227,7 @@ class VossSystem:
         end = self.kernel.now
         for r in self.routers:
             r.finalize_all()
-        self.kernel.after(2.0, self.acct.settle_now)  # final settlement once the last receipt batches landed
-        self.kernel.run(self.kernel.now + 5.0)
+        self.kernel.run(self.kernel.now + 5.0)  # the last receipt batches land
         for r in self.routers:
             r.flush()  # receipts of results that arrived after the end
         self.kernel.run(self.kernel.now + 1.0)

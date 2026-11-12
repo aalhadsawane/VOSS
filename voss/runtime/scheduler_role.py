@@ -27,7 +27,6 @@ from voss.core.messages import (
     Stale,
     Withdraw,
 )
-from voss.core.messages_acct import ReputationScores
 from voss.core.messages_ft import Handover, Lease, Pong, RollCallReport, Standby
 from voss.core.types import Outcome, SloClass
 from voss.metrics.schema import Table
@@ -43,14 +42,13 @@ from voss.runtime.schedlib.planner_mixin import PlannerMixin
 from voss.runtime.schedlib.planning import Planning
 from voss.runtime.schedlib.prices import Prices
 from voss.runtime.schedlib.report import ReportMixin
-from voss.runtime.schedlib.standing import EventsMixin
 from voss.runtime.schedlib.succession import SuccessionMixin
 from voss.runtime.schedlib.viewcache import ViewCache
 from voss.runtime.schedlib.watchdog import WatchdogMixin
 from voss.runtime.workerlib.host import HostLocal
 
 
-class SchedulerRole(KeepaliveMixin, WatchdogMixin, SuccessionMixin, EventsMixin, ReportMixin, PlannerMixin, Actor):
+class SchedulerRole(KeepaliveMixin, WatchdogMixin, SuccessionMixin, ReportMixin, PlannerMixin, Actor):
     role = "sched"
 
     def __init__(self, host: HostLocal, ctx: ActorContext, cost: CostContext, priors: dict[str, FnPrior]) -> None:
@@ -70,7 +68,6 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, SuccessionMixin, EventsMixin,
         self.streak: dict[WorkerId, int] = {}
         self.unaccepted: deque[tuple[float, WorkerId]] = deque()
         self.decide_lat: deque[float] = deque(maxlen=256)
-        self._init_standing()
         self.lease_until, self.fenced_logged, self.roll_call = 0.0, False, False
         self.standby: Addr | None = None
         self.standby_for: tuple[ClusterId, int] | None = None
@@ -125,8 +122,6 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, SuccessionMixin, EventsMixin,
             self._membership(msg)
         elif isinstance(msg, Revoke) or (isinstance(msg, Stale) and msg.cluster == int(self.cluster)):
             self._deactivate(msg.epoch)
-        elif isinstance(msg, ReputationScores):
-            self._scores(msg)
         elif isinstance(msg, DrainNotice):
             pass  # hint only: the view's drain flag arrives with the next heartbeat (doc 07 §4)
 
@@ -146,7 +141,6 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, SuccessionMixin, EventsMixin,
             self.members = set()  # re-install every member under the new epoch
         self._membership(Membership(m.cluster, m.epoch, m.members))
         self._keepalive()
-        self._start_reports()
         cfg = self.ctx.cfg.voss
         self.after(cfg.scheduler.heartbeat_s, self._check_silent)
         self.after(cfg.models.refit_s, self._refit)

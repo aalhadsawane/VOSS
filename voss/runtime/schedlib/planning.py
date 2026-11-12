@@ -46,7 +46,7 @@ class Planning:
         if pc.name == "histogram_prewarm":
             kw = {"params": HistParams(**cfg.keepalive_hist.model_dump())}
         self.planner: Any = create("planner", pc.name, **kw)
-        self.params = PlanParams(**{"tie_break": cfg.reputation.tie_break, **pc.params})
+        self.params = PlanParams(**pc.params)
         self.prev: Plan | None = None
         self.prices: Prices | None = None  # set by the scheduler: measured card prices (D-33)
         self._last_sig: tuple[object, ...] = ()
@@ -116,7 +116,6 @@ class Planning:
             fn_units=np.array([float(poisson_quantile(fn_rates[f] * self._svc(f), 0.95)) for f in fns]),
             y_prev=self._prev_y(tenants, workers),
             params=self.params,
-            rep=np.array([self.models.rep.get(int(w), 0.0) for w in workers]) if self.models.rep else None,
         )
 
     def _svc(self, fn: str) -> float:

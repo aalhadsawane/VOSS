@@ -25,7 +25,6 @@ from voss.core.messages import (
     SchedulerAddr,
     Summaries,
 )
-from voss.core.messages_acct import ReportEvents, Settled
 from voss.core.messages_ft import PutCheckpoint, Stall
 from voss.metrics.schema import Table
 from voss.policy.orchestrate import ClusterParams, form_clusters, nearest_cluster
@@ -33,12 +32,11 @@ from voss.policy.orchestrate_triggers import NEW_CLUSTER, step
 from voss.runtime.actor import Actor, ActorContext
 from voss.runtime.orchlib.appoint import AppointMixin
 from voss.runtime.orchlib.book import Book, Cluster, MemberRec
-from voss.runtime.orchlib.standing import StandingMixin
 
 RegionOf = Callable[[float, float], int]
 
 
-class Orchestrator(StandingMixin, AppointMixin, Actor):
+class Orchestrator(AppointMixin, Actor):
     role = "orch"
 
     def __init__(self, host: NodeId, ctx: ActorContext, region_of: RegionOf) -> None:
@@ -67,15 +65,13 @@ class Orchestrator(StandingMixin, AppointMixin, Actor):
         self.after(cc.period_s, self._push_home)
         if self.mode == "dynamic":
             self.after(cc.period_s, self._period)
-        self._init_standing()
 
     # --- messages -------------------------------------------------------------------------------------------
     def on_message(self, msg: Message) -> None:
         if isinstance(msg, Join):
             self._join(msg)
         elif isinstance(msg, Leave | RevokeSession):
-            if self._remove(msg.worker, msg.cert_id):
-                self._session_end(msg.worker, abrupt=isinstance(msg, RevokeSession))
+            self._remove(msg.worker, msg.cert_id)
         elif isinstance(msg, DrainNotice):
             self._drain(msg.worker)
         elif isinstance(msg, KeepaliveSummary):
@@ -95,10 +91,6 @@ class Orchestrator(StandingMixin, AppointMixin, Actor):
                     c.home[key] = c.home.get(key, 0) + n
         elif isinstance(msg, DbCasResult):
             self._cas_result(msg)
-        elif isinstance(msg, ReportEvents):
-            self._report_events(msg)
-        elif isinstance(msg, Settled):
-            self._settled(msg)
 
     def _drain(self, w: WorkerId) -> None:
         """A hint (doc 07 §4): deprioritized for appointment; a draining scheduler hands over (planned)."""
@@ -111,9 +103,7 @@ class Orchestrator(StandingMixin, AppointMixin, Actor):
             self._handover(c, "drain")
 
     def _join(self, m: Join) -> None:
-        if self._remove(m.worker, None):
-            self._session_end(m.worker, abrupt=True)  # the previous session ended unannounced
-        self._session_start(m.worker, m.tier)
+        self._remove(m.worker, None)  # a previous session that ended unannounced
         self.book.members[m.worker] = MemberRec(
             m.cert_id, m.expiry, m.assurance, m.speed, m.slots, m.domain, m.lat, m.lon
         )
@@ -230,7 +220,6 @@ class Orchestrator(StandingMixin, AppointMixin, Actor):
     def _dissolve(self, c: Cluster) -> None:
         if c.holder is not None:
             self.send(("sched", c.holder[0]), Revoke(ClusterId(c.cid), c.epoch + 1))
-            self._role_record(c, WorkerId(-1), None, c.epoch + 1)
         del self.book.clusters[c.cid]
         for r in self.ctx.directory.routers:
             self.send(r, SchedulerAddr(ClusterId(c.cid), c.epoch + 1, None))
