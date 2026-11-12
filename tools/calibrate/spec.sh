@@ -22,7 +22,7 @@ mkdir -p "$OUT_DIR"
 PY="$REPO/.venv/bin/python"
 [ -x "$PY" ] || PY="python3"
 
-"$PY" - "$LABEL" "$OUT_DIR" "$@" <<'PYEOF'
+VOSS_REPO="$REPO" "$PY" - "$LABEL" "$OUT_DIR" "$@" <<'PYEOF'
 from __future__ import annotations
 
 import glob
@@ -39,6 +39,15 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+
+sys.path.insert(0, os.environ.get("VOSS_REPO", os.getcwd()))
+from tools.calibrate.spec_md import (  # noqa: E402
+    ranges,
+    render_dimms,
+    render_summary,
+    render_table,
+    render_topology,
+)
 
 label = sys.argv[1]
 out_dir = Path(sys.argv[2])
@@ -110,6 +119,19 @@ for line in lscpu_e.splitlines()[1:]:
         else:
             e_cores.append({"cpu": int(cpu_id), "core": int(core_id), "max_mhz": float(max_mhz), "min_mhz": float(min_mhz)})
 
+hybrid_topology = None
+if p_cores and e_cores:
+    hybrid_topology = {
+        "p_cores": len({e["core"] for e in p_cores}),
+        "p_threads": len(p_cores),
+        "p_cpus": ranges(sorted(e["cpu"] for e in p_cores)),
+        "p_max_mhz": max(e["max_mhz"] for e in p_cores),
+        "e_cores": len({e["core"] for e in e_cores}),
+        "e_threads": len(e_cores),
+        "e_cpus": ranges(sorted(e["cpu"] for e in e_cores)),
+        "e_max_mhz": max(e["max_mhz"] for e in e_cores),
+    }
+
 cpuinfo = read_file("/proc/cpuinfo")
 m_ucode = re.search(r"^microcode\s*:\s*(\S+)", cpuinfo, re.M)
 microcode = m_ucode.group(1) if m_ucode else "unknown"
@@ -137,6 +159,13 @@ for vf in sorted(glob.glob("/sys/devices/system/cpu/vulnerabilities/*")):
 dmesg_tme_iommu = redact_text(sh("dmesg | grep -iE 'tme|total memory encryption|dmar|iommu' | head -n 35"))
 cpuid_leaf7 = sh("cpuid -1 -l 7 -r")
 msr_tme = sh("rdmsr 0x982 2>/dev/null || echo unreadable")
+_ecx = re.search(r"ecx=0x([0-9a-fA-F]+)", cpuid_leaf7)
+tme_cpuid = bool(int(_ecx.group(1), 16) & (1 << 13)) if _ecx else ("tme" in all_flags)
+arch_by_model = {
+    151: "Intel Alder Lake-S (hybrid: Golden Cove P-cores + Gracemont E-cores)",
+    142: "Intel Kaby Lake (Skylake-derived)",
+}
+arch = arch_by_model.get(int(lscpu_map.get("Model", 0) or 0), "unknown microarchitecture")
 
 # 3. Memory
 meminfo = read_file("/proc/meminfo")
@@ -166,6 +195,13 @@ for block in dmi_raw.split("Memory Device\n")[1:]:
         "rank": fields.get("Rank", ""),
         "serial_sha256": h10(fields.get("Serial Number", "")),
     })
+
+populated_dimms = [d for d in dimms if d.get("size") and "No Module" not in d["size"]]
+empty_slots = [d["locator"] for d in dimms if d not in populated_dimms]
+nominal_gb = sum(int(re.match(r"(\d+)", d["size"]).group(1)) for d in populated_dimms if re.match(r"(\d+)", d["size"])) or 0
+mem_type = populated_dimms[0].get("type") or "unknown" if populated_dimms else "unknown"
+mem_speed = populated_dimms[0].get("configured_speed") or populated_dimms[0].get("speed") if populated_dimms else ""
+mem_speed_mts = int(re.match(r"(\d+)", mem_speed).group(1)) if re.match(r"(\d+)", mem_speed or "") else 0
 
 # 4. Storage per device
 block_devs = []
@@ -240,6 +276,7 @@ bootctl_out = redact_text(sh("bootctl status 2>&1 | head -n 25"))
 
 # 6. TPM
 tpm_fixed = sh("tpm2_getcap properties-fixed")
+tpm_manufacturer = "unknown"
 def tpm_prop(key: str) -> str:
     m = re.search(rf"{key}:\s*\n(?:\s+raw:\s*(\S+)\n)?(?:\s+value:\s*\"?([^\n\"]*)\"?)?", tpm_fixed)
     if not m:
@@ -256,6 +293,17 @@ active_banks = []
 for bank in ("sha1", "sha256", "sha384", "sha512", "sm3_256"):
     if re.search(rf"^\s*{bank}:\s*\n\s+0\s*:", pcr_out, re.M):
         active_banks.append(bank)
+tpm_manufacturer = tpm_prop("TPM2_PT_MANUFACTURER")
+tpm_vendor = tpm_prop("TPM2_PT_VENDOR_STRING_1")
+tpm_revision = tpm_prop("TPM2_PT_REVISION")
+tpm_type_text = (
+    "Firmware TPM 2.0 (Intel Platform Trust Technology / PTT)"
+    if tpm_manufacturer.startswith("INTC")
+    else f"Discrete TPM 2.0 ({tpm_manufacturer})"
+)
+_pcr_bank = re.search(r"sha256:\s*\[([^\]]*)\]", pcr_out)
+pcr_count = len([p for p in _pcr_bank.group(1).split(",") if p.strip()]) if _pcr_bank else 24
+tme_bios_enabled = "not enabled by BIOS" not in dmesg_tme_iommu
 tpm_sysfs = {
     "device": "/dev/tpm0, /dev/tpmrm0",
     "description": read_file("/sys/class/tpm/tpm0/device/description") or "TPM 2.0 (Intel PTT)",
@@ -285,9 +333,9 @@ for net in sorted(os.listdir("/sys/class/net")):
     })
 
 # 8. Software, Power, Time sync
-fc_bin = shutil.which("firecracker") or "/home/voss/voss-calib-work/assets/firecracker"
+fc_bin = shutil.which("firecracker") or str(Path.home() / "voss-calib-work/assets/firecracker")
 fc_ver = sh(f"{fc_bin} --version").splitlines()[0] if Path(fc_bin).exists() else "absent"
-fc_guest_ver = read_file("/home/voss/voss-calib-work/assets/versions.txt")
+fc_guest_ver = read_file(str(Path.home() / "voss-calib-work/assets/versions.txt"))
 software = {
     "distro": sh(". /etc/os-release && echo \"$PRETTY_NAME\""),
     "kernel": platform.release(),
@@ -327,23 +375,14 @@ spec_data: dict[str, Any] = {
     },
     "cpu": {
         "model": lscpu_map.get("Model name", ""),
-        "microarchitecture": "Intel Alder Lake-S (Golden Cove P-cores + Gracemont E-cores)",
+        "microarchitecture": arch,
         "family": int(lscpu_map.get("CPU family", 6)),
         "model_id": int(lscpu_map.get("Model", 151)),
         "stepping": int(lscpu_map.get("Stepping", 2)),
         "sockets": int(lscpu_map.get("Socket(s)", 1)),
         "cores_total": int(lscpu_map.get("Core(s) per socket", 12)),
         "threads_total": int(lscpu_map.get("CPU(s)", 20)),
-        "hybrid_topology": {
-            "p_cores": 8,
-            "p_threads": len(p_cores),
-            "p_cpus": "0-15",
-            "p_max_mhz": 4900.0,
-            "e_cores": 4,
-            "e_threads": len(e_cores),
-            "e_cpus": "16-19",
-            "e_max_mhz": 3600.0,
-        },
+        "hybrid_topology": hybrid_topology,
         "base_min_mhz": float(lscpu_map.get("CPU min MHz", 800.0)),
         "max_mhz": float(lscpu_map.get("CPU max MHz", 4900.0)),
         "caches": {
@@ -360,23 +399,23 @@ spec_data: dict[str, Any] = {
         "no_turbo": int(no_turbo or 0),
         "numa": numactl_out,
         "vulnerabilities": vulns,
-        "tme_cpuid_supported": True,
+        "tme_cpuid_supported": tme_cpuid,
         "tme_msr_0x982": msr_tme,
-        "tme_bios_enabled": False,
-        "iommu_dmar_acpi": True,
-        "iommu_kernel_cmdline": "intel_iommu=off (DMAR IRQ remapping active; DMA translation disabled via cmdline)",
+        "tme_bios_enabled": tme_bios_enabled,
+        "iommu_dmar_acpi": "DMAR" in dmesg_tme_iommu,
+        "iommu_kernel_cmdline": "intel_iommu=off" if "intel_iommu=off" in read_file("/proc/cmdline") else "default",
         "dmesg_tme_iommu": dmesg_tme_iommu.splitlines(),
     },
     "memory": {
         "total_kb": mem_total_kb,
         "total_gib": round(mem_total_kb / 2**20, 2),
-        "nominal_gb": 64,
-        "type": "DDR5",
-        "speed_mts": 5200,
-        "channels_populated": 2,
+        "nominal_gb": nominal_gb,
+        "type": mem_type,
+        "speed_mts": mem_speed_mts,
+        "channels_populated": len(populated_dimms),
         "slots_total": len(dimms),
-        "dimms": [d for d in dimms if "GB" in d["size"]],
-        "empty_slots": [d["locator"] for d in dimms if "GB" not in d["size"]],
+        "dimms": populated_dimms,
+        "empty_slots": empty_slots,
         "swap_kb": swap_total_kb,
         "swap_gib": round(swap_total_kb / 2**20, 2),
         "thp_enabled": thp_enabled,
@@ -399,15 +438,15 @@ spec_data: dict[str, Any] = {
         "bootctl": bootctl_out.splitlines(),
     },
     "tpm": {
-        "manufacturer": "INTC (Intel PTT firmware TPM)",
-        "vendor_string": "ADL",
-        "type": "firmware (Intel Platform Trust Technology, integrated on Alder Lake PCH/SoC)",
-        "family": "2.0",
-        "revision": "1.38",
+        "manufacturer": tpm_manufacturer,
+        "vendor_string": tpm_vendor,
+        "type": tpm_type_text,
+        "family": tpm_prop("TPM2_PT_FAMILY_INDICATOR"),
+        "revision": tpm_revision,
         "firmware_version": tpm_fw_decoded,
         "sysfs": tpm_sysfs,
         "active_pcr_banks": active_banks,
-        "pcr_count": 24,
+        "pcr_count": pcr_count,
     },
     "network": nics,
     "software": software,
@@ -417,49 +456,57 @@ spec_data: dict[str, Any] = {
 
 (out_dir / "spec.yaml").write_text(yaml.safe_dump(spec_data, sort_keys=False, width=120))
 
+summary = render_summary(spec_data)
+table = render_table(spec_data)
+topology = render_topology(spec_data["cpu"])
+dimm_layout = render_dimms(spec_data["memory"])
+virt_kind = "bare metal" if virt_state == "none" else "VIRTUALISED (nested virtualisation is a different machine class)"
+turbo_text = "Turbo enabled" if str(no_turbo).strip() == "0" else "Turbo disabled"
+tme_line = (
+    f"CPUID leaf 7 subleaf 0 ECX bit 13 (TME): `{tme_cpuid}`; `MSR 0x982` (`IA32_TME_ACTIVATE`): "
+    f"`{msr_tme}`; kernel dmesg: `{'TME enabled' if tme_bios_enabled else 'x86/tme: not enabled by BIOS'}`"
+)
+iommu_line = (
+    "ACPI DMAR table present; kernel booted with `intel_iommu=off` (`DMAR: IOMMU disabled`, "
+    "`DMAR-IR: Enabled IRQ remapping in x2apic mode`)"
+    if "intel_iommu=off" in read_file("/proc/cmdline")
+    else "ACPI DMAR table present; kernel IOMMU setting is the default"
+)
+
 md = f"""# Hardware & Software Specification: `{label}`
 
 ## 1. Plain-Language Summary & Paper Table
 
-**Host label:** `{label}` (chosen as a short neutral identifier reflecting the 12th-Gen Intel Core i7-12700 CPU and 64 GB DDR5 RAM configuration, distinguishing this bare-metal host from the 128 GB `c0-9132c8a291` configuration).
+**Host label:** `{label}`.
 
-**Summary:** `{label}` is a bare-metal x86-64 desktop/workstation host built on an MSI PRO Z790-A WIFI (MS-7E07) motherboard (AMI UEFI BIOS `A.90`, dated `01/10/2024`, Secure Boot disabled) with a 12th-Gen Intel Core i7-12700 Alder Lake processor (12 physical cores / 20 threads: 8 Golden Cove P-cores with SMT up to 4.9 GHz and 4 Gracemont E-cores up to 3.6 GHz, 25 MiB L3 cache, microcode `0x3e`) and 64 GB of dual-channel DDR5-5200 DRAM (`2 × 32 GB` G.Skill DIMMs). It has an integrated Intel PTT firmware TPM 2.0 (`INTC` / `ADL`, revision 1.38, firmware `600.18.30.2264`, SHA-256 PCR bank active) and supports Intel Total Memory Encryption in silicon (CPUID leaf 7 ECX bit 13 set, disabled in BIOS with `MSR 0x982 = 0x1`). Its storage subsystem comprises eight physical drives across two hardware tiers: four 1 TB Samsung 980 PRO PCIe 4.0 NVMe SSDs (`nvme0n1` hosting the Ubuntu 22.04.5 LTS / Linux `5.15.0-198-generic` root filesystem on ext4/LVM, and `nvme1n1`–`nvme3n1` formatted with XFS) and four 2 TB HGST Ultrastar 7K2000 7200 RPM SATA HDDs (`sda`–`sdd`, formatted with XFS).
+{summary}
 
 ### Specification Table for the Paper
 
 | Component | Specification (`{label}`) |
 |---|---|
-| **CPU** | 12th Gen Intel Core i7-12700 (Alder Lake-S, Golden Cove + Gracemont, microcode `0x3e`) |
-| **Cores / Threads** | 12 cores / 20 threads (8 P-cores / 16 threads @ 0.8–4.9 GHz + 4 E-cores / 4 threads @ 0.8–3.6 GHz; 25 MiB L3) |
-| **RAM** | 64 GB (62.67 GiB usable) DDR5-5200 MT/s dual-channel (`2 × 32 GB` G.Skill `F5-5200J3636D32G`, 2 of 4 slots) |
-| **NVMe SSDs (×4)** | `nvme0n1`–`nvme3n1`: 4 × 1000.2 GB Samsung SSD 980 PRO 1TB (fw `5B2QGXA7`, PCIe NVMe, `nvme0n1` ext4/LVM, `nvme1..3n1` XFS) |
-| **SATA HDDs (×4)** | `sda`–`sdd`: 4 × 2000.4 GB HGST `HUS722T2TALA604` (fw `RAGNWA09`, SATA 7200 RPM, XFS) |
-| **TPM** | Firmware TPM 2.0: Intel PTT (`INTC` / `ADL`, rev 1.38, fw `600.18.30.2264`, active bank `sha256`, 24 PCRs) |
-| **Firmware / Board** | MSI `PRO Z790-A WIFI (MS-7E07)`, AMI UEFI BIOS `A.90` (`01/10/2024`), UEFI boot, Secure Boot disabled |
-| **OS / Kernel** | Ubuntu 22.04.5 LTS, Linux `5.15.0-198-generic` x86_64, Firecracker `v1.10.1` (`{fc_guest_ver}`), QEMU `6.2.0` |
+{table}
 
 ---
 
 ## 2. Virtualisation
 - **Commands:** `systemd-detect-virt`, `ls -l /dev/kvm`, `cat /sys/module/kvm_intel/parameters/nested`
-- **`systemd-detect-virt`:** `{virt_state}` (bare metal)
+- **`systemd-detect-virt`:** `{virt_state}` ({virt_kind})
 - **`/dev/kvm`:** `{kvm_stat}` (accessible: `{kvm_rw}`)
 - **Nested virtualisation:** `{json.dumps(nested)}`
 
 ## 3. CPU
 - **Commands:** `lscpu`, `lscpu -e=CPU,NODE,SOCKET,CORE,CACHE,ONLINE,MAXMHZ,MINMHZ`, `cat /proc/cpuinfo`, `cat /sys/devices/system/cpu/smt/*`, `cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor`, `cat /sys/devices/system/cpu/intel_pstate/no_turbo`, `numactl --hardware`, `grep . /sys/devices/system/cpu/vulnerabilities/*`, `cpuid -1 -l 7 -r`, `rdmsr 0x982`, `dmesg | grep -iE 'tme|total memory encryption|dmar|iommu'`
 - **Model:** `{lscpu_map.get("Model name", "")}` (Family `{lscpu_map.get("CPU family")}`, Model `{lscpu_map.get("Model")}`, Stepping `{lscpu_map.get("Stepping")}`)
-- **Microarchitecture:** Intel Alder Lake-S (hybrid: 8 Golden Cove P-cores + 4 Gracemont E-cores)
-- **Topology:** 1 socket, 12 physical cores, 20 hardware threads
-  - **P-cores:** CPUs `0–15` (cores 0–7, 2 SMT threads/core, min 800 MHz, max 4800–4900 MHz)
-  - **E-cores:** CPUs `16–19` (cores 8–11, 1 thread/core, min 800 MHz, max 3600 MHz)
+- **Microarchitecture:** {arch}
+{topology}
 - **Caches:** L1d `{lscpu_map.get("L1d cache")}`, L1i `{lscpu_map.get("L1i cache")}`, L2 `{lscpu_map.get("L2 cache")}`, L3 `{lscpu_map.get("L3 cache")}`
 - **Microcode:** `{microcode}`
-- **SMT / Governor / Turbo:** `smt/control={smt_control}`, `smt/active={smt_active}`, `governor={governor}`, `intel_pstate/no_turbo={no_turbo}` (Turbo enabled)
+- **SMT / Governor / Turbo:** `smt/control={smt_control}`, `smt/active={smt_active}`, `governor={governor}`, `intel_pstate/no_turbo={no_turbo}` ({turbo_text})
 - **VM & Crypto Flags:** `{json.dumps(relevant_flags)}`
 - **TME / IOMMU:**
-  - CPUID leaf 7 subleaf 0 ECX bit 13 (TME): `True`; `MSR 0x982` (`IA32_TME_ACTIVATE`): `{msr_tme}`; kernel dmesg: `x86/tme: not enabled by BIOS`
-  - IOMMU: ACPI DMAR table present; kernel booted with `intel_iommu=off` (`DMAR: IOMMU disabled`, `DMAR-IR: Enabled IRQ remapping in x2apic mode`)
+  - {tme_line}
+  - IOMMU: {iommu_line}
 - **NUMA (`numactl --hardware`):**
 ```text
 {numactl_out}
@@ -471,8 +518,8 @@ md = f"""# Hardware & Software Specification: `{label}`
 
 ## 4. Memory
 - **Commands:** `cat /proc/meminfo`, `dmidecode -t 17`, `cat /sys/kernel/mm/transparent_hugepage/enabled`, `cat /sys/kernel/mm/transparent_hugepage/defrag`
-- **Total RAM:** `{mem_total_kb}` kB (`{round(mem_total_kb / 2**20, 2)}` GiB usable; 64 GB physical)
-- **DIMM Layout:** 2 × 32 GB DDR5-5200 MT/s (`G Skill Intl F5-5200J3636D32G`, Rank 2, 1.25 V) in `Controller0-DIMMA2` (serial `{dimms[1]["serial_sha256"] if len(dimms) > 1 else "?"}`) and `Controller1-DIMMB2` (serial `{dimms[3]["serial_sha256"] if len(dimms) > 3 else "?"}`); `DIMMA1` and `DIMMB1` empty
+- **Total RAM:** `{mem_total_kb}` kB (`{round(mem_total_kb / 2**20, 2)}` GiB usable; {spec_data['memory']['nominal_gb']} GB physical)
+- **DIMM Layout:** {dimm_layout}
 - **Swap:** `{swap_total_kb}` kB (`{round(swap_total_kb / 2**20, 2)}` GiB)
 - **Transparent Huge Pages (THP):** `enabled: {thp_enabled}`, `defrag: {thp_defrag}`
 
@@ -525,11 +572,11 @@ md += f"""
 
 ## 7. TPM
 - **Commands:** `tpm2_getcap properties-fixed`, `tpm2_pcrread`, `cat /sys/class/tpm/tpm0/tpm_version_major`
-- **Type:** Firmware TPM 2.0 (Intel Platform Trust Technology / PTT)
-- **Manufacturer / Vendor String:** `INTC` / `ADL`
-- **Revision / Firmware:** revision `1.38`, firmware `{tpm_fw_decoded}`
+- **Type:** {tpm_type_text}
+- **Manufacturer / Vendor String:** `{tpm_manufacturer}` / `{tpm_vendor}`
+- **Revision / Firmware:** revision `{tpm_revision}`, firmware `{tpm_fw_decoded}`
 - **Device Nodes:** `/dev/tpm0`, `/dev/tpmrm0` (`tpm_version_major={tpm_sysfs['tpm_version_major']}`)
-- **Active PCR Banks:** `{", ".join(active_banks)}` (24 PCRs)
+- **Active PCR Banks:** `{", ".join(active_banks)}` ({pcr_count} PCRs)
 
 ## 8. Network, Software, Power & Time Sync
 - **Commands:** `lspci`, `cat /sys/class/net/<if>/*`, `uname -a`, `cat /proc/cmdline`, `timedatectl status`, tool `--version` flags
