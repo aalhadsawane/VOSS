@@ -1,5 +1,8 @@
 # 08 · State, Operational DB and Protocols
 
+> **v2 status.** Epoch CAS, scheduler-role records, settlement and cluster messages are v1 and removed. The orchestrator is a membership service (D-83). Rewritten in phase V3 of `docs/REVISION_PLAN.md`. Until then, where this document and the
+> v2 decisions (`docs/DECISIONS.md` D-81 onward) disagree, the decisions win.
+
 ## 1. Rules
 
 1. **The operational DB is private to the orchestrator tier.** Workers and schedulers never touch it; they send

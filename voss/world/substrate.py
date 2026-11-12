@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from voss.core.dist import Const, Dist
 from voss.core.paths import config_path, load_data_yaml
 
-SUBSTRATES: tuple[str, ...] = ("appliance_tpm", "cvm_snp", "coco_pool", "drtm_hv", "none")
+SUBSTRATES: tuple[str, ...] = ("appliance_tpm", "none")
 Artifact = Literal["bundle", "rootfs", "snapshot", "snapshot_touched", "zygote"]
 Endpoint = Literal["verifier", "tenant_kbs", "registry", "orchestrator"]
 DistRef = Dist | str | float

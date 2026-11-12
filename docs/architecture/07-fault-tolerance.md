@@ -1,5 +1,8 @@
 # 07 · Fault Tolerance: Omission-Tolerant Succession and Worker Failure Handling
 
+> **v2 status.** Scheduler succession, leases, checkpoints, standbys, roll calls and scheduler fault injection are v1 and removed (D-83). Worker-side progress detection remains; v2 failure handling is D-86 / V7. Rewritten in phase V7 of `docs/REVISION_PLAN.md`. Until then, where this document and the
+> v2 decisions (`docs/DECISIONS.md` D-81 onward) disagree, the decisions win.
+
 Spec §5.5, §4.6. The threat model (doc 04) reduces malicious hosts to **omission/timing faults**, so one mechanism
 set covers churn, crashes and malice.
 

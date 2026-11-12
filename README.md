@@ -1,45 +1,28 @@
-# VOSS: Volunteer-Oriented Serverless Scheduling
+# VOSS
 
-Research proof-of-concept: scheduling latency-sensitive serverless functions on **untrusted, unreliable,
-geo-distributed volunteer machines**. Attestation turns malicious volunteers into merely unreliable ones; VOSS then
-schedules **trust as a perishable resource** with geo-clustered, two-timescale (robust planner + fast placer)
-scheduling.
+Serverless functions with deadlines of seconds, run on volunteer machines that the provider neither owns nor trusts.
+Each worker boots a measured image and is attested before it receives a function's decryption key. VOSS is the
+architecture and the scheduler that make this work under machine departures and owners who drop or forge work.
 
-The deliverable is a deterministic simulator, the VOSS scheduler, baselines and experiments, calibrated on a real
-consumer node (Intel i7 12th gen, TPM 2.0). No frontend, no real multi-machine deployment, no blockchain.
+The repository holds the scheduler (real policy code), a deterministic discrete-event simulator, baselines, the
+calibration harness for real machines, and the experiments and manuscript.
+
+**Status:** v2 rebuild in progress on branch `revision-v2` (`docs/REVISION_PLAN.md`). v1 is archived at `main` commit
+`b0f2fb24`; its results are not reused.
 
 ## Read in this order
 
 | Doc | What it answers |
 |---|---|
-| [`AGENTS.md`](AGENTS.md) | Rules for coding agents (binding) |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Build phases with exit criteria: **start here to code** |
-| [`docs/architecture/00-overview.md`](docs/architecture/00-overview.md) | Problem, thesis, roles, layers, two-timescale scheduling, invocation flow |
-| [`docs/architecture/01-simulation-core.md`](docs/architecture/01-simulation-core.md) | Kernel, determinism, actors and messages, decision clock, reproducibility |
-| [`docs/architecture/02-environment-model.md`](docs/architecture/02-environment-model.md) | Workers, donation sessions, network, substrate ladders, **worker caches**, adversaries, workload |
-| [`docs/architecture/03-scheduling.md`](docs/architecture/03-scheduling.md) | Orchestrator, router, **slow-loop planner (robust MILP)**, fast-loop placement, prediction |
-| [`docs/architecture/04-trust-and-security.md`](docs/architecture/04-trust-and-security.md) | Threat model, substrates, attestation, key release, identity, exposure, limitations |
-| [`docs/architecture/05-code-structure.md`](docs/architecture/05-code-structure.md) | Package layout, layering, types, interfaces, config, tests, recipes |
-| [`docs/architecture/06-experiments.md`](docs/architecture/06-experiments.md) | RQs, hypotheses, baselines, experiment catalogue, statistics |
-| [`docs/architecture/07-fault-tolerance.md`](docs/architecture/07-fault-tolerance.md) | Progress-based detection, scheduler succession, worker omission handling |
-| [`docs/architecture/08-state-and-protocols.md`](docs/architecture/08-state-and-protocols.md) | Operational DB, message catalogue, worker readiness |
-| [`docs/architecture/09-reputation-and-accounting.md`](docs/architecture/09-reputation-and-accounting.md) | Reliability vs reputation, attested receipts, credits |
-| [`docs/architecture/10-calibration.md`](docs/architecture/10-calibration.md) | Calibration harness on the real node, single-box emulation testbed |
-| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Current design decisions (D-01…D-22) and history |
-| [`docs/TRACEABILITY.md`](docs/TRACEABILITY.md) | Research spec → design → code → phase |
-| [`VOSS_research_spec.md`](VOSS_research_spec.md) | Original research brief (deviations: doc 04 §11) |
-| [`docs/research/`](docs/research/), [`docs/proposals/`](docs/proposals/) | Evidence and design history (accepted) |
-| [`docs/AGENT_PROMPT.md`](docs/AGENT_PROMPT.md) | Paste-ready prompt for a coding session |
+| [`AGENTS.md`](AGENTS.md) | Rules for coding agents, including the v2 guardrails (binding) |
+| [`docs/REVISION_PLAN.md`](docs/REVISION_PLAN.md) | The v2 build plan, phase by phase: **start here to code** |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md) | v2 decisions (D-81 onward); v1 decisions as history |
+| [`docs/PARAMETERS.md`](docs/PARAMETERS.md) | Every configuration constant and data file, with its source |
+| [`docs/handoff/`](docs/handoff/) | Runbook and data contract for calibration on bare-metal machines |
+| [`docs/architecture/`](docs/architecture/) | Design documents; each says which parts are v1 and which phase rewrites them |
+| [`manuscript/WRITING_SPEC.md`](manuscript/WRITING_SPEC.md) | How the paper is written (binding for the manuscript) |
+| [`manuscript/reviews/`](manuscript/reviews/) | The reviews of the v1 paper that motivated v2 |
 
-## Status
+## Checks
 
-Architecture final (2026-10-09). Implemented: P0-P8 (scaffold through breadth: reference clouds, baselines, ablations,
-sweep runner, analysis library, figure registry, scalability mode; pilots in [`docs/pilots/`](docs/pilots/)), P9
-calibration (harness run on a stand-in laptop, measured bundle and validation notes in
-[`docs/validation/`](docs/validation/); the i7 node C0 and E01 are still open) and P10 paper experiments.
-
-## Reproduce the paper
-
-`make paper` runs the 21 frozen experiment specs (10 seeds; hours of CPU, finished runs are reused) and writes all
-tables, figures and the hypothesis scorecard to [`paper/`](paper/README.md); `make paper-analyze` redraws them from
-`runs/` alone. Protocol and deviations: D-63.
+`make check` runs ruff, mypy, import-linter and pytest. `make repro-smoke` checks that a run reproduces its result hash.

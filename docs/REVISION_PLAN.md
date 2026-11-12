@@ -36,7 +36,7 @@ Issue IDs in square brackets (e.g. [D3]) refer to the review files. F-numbers re
    abstract/introduction/background).
 6. **Design versus held-out data.** Design and tuning use the *development split*; reported results come from the *held-out
    split*, run once after the scheduler is frozen (V11, V12). This is what makes result-driven design honest [E4].
-7. **Record decisions** in `docs/DECISIONS.md` in a separate commit (AGENTS.md rule 12). IDs continue from D-81.
+7. **Record decisions** in `docs/DECISIONS.md` in a separate commit (AGENTS.md rule 12). IDs continue from D-81 (D-81 to D-93 were written in V0).
 8. **Log raw** through `metrics.Recorder`; analysis reads logs only (AGENTS.md rule 10).
 9. **Modules < 400 lines, functions < 50 lines** (rule 11). Three modules are already at the limit [F6]; split before adding.
 10. **When unsure, prefer deleting to keeping.** Unused code paths are how v1's confounds stayed hidden [D1, D5].
@@ -263,6 +263,18 @@ calibration harness, emulation tools, import-linter contracts.
 
 After each removal: delete its tests, update `docs/architecture/*.md` (V0.4), run `make check` and a 2-minute smoke run twice
 and compare hashes (determinism).
+
+### V0.3 outcome (done on `v2/V0-clean-slate`)
+Removed: loss-model planners; batch, random, k8s and warm-aware placers; miss-probability hedging; heartbeat-only
+detection; credits, settlement, reputation and the accounting actor; clusters, cluster routing, spillover, scheduler
+appointment from workers, leases, checkpoints, standbys, roll calls and scheduler fault injection (replaced by the
+provider-hosted scheduler, V3.1 done early); peer-to-peer fetching; relayed workers; substrates other than the TPM image
+and the trusted reference; decision-clock replay; the filler class; unused detection settings. Signed receipts stay (the
+audit trail for V7.3). The three over-long modules are now under 400 lines, so V0.6's split is no longer needed.
+Moved to their phases (they need the replacement first): exposure and trust scores (V4), donated-share envelope and
+planner caps (V5), parametric sessions and workload (V9). `system: reference_cloud` has no profiles until V8 rebuilds the
+trusted-host baseline. Observed: under one scheduler only about 20 of 74 attested workers received work in a smoke run;
+V5 must check how provisioning spreads holders.
 
 ### V0.4 Rewrite the architecture docs to the v2 design
 Rewrite `docs/architecture/00-overview.md` to §2 of this plan. For `01` (keep), `02` (capacity, lifecycle), `03` (scheduling),
@@ -516,6 +528,10 @@ Rules:
   there at once; first result wins, the other is cancelled. A probe to the first worker runs in parallel and only feeds the
   drop estimate. Non-idempotent functions: no backup; the invocation fails at its deadline (reported separately).
 - If no second holder exists, there is no backup. The budget `K` therefore limits fault tolerance; show this in the results.
+- Retries follow the same rule. Observed in V0 (`tests/integration/test_faults.py`): a v1 retry of a 0.97 s-deadline invocation
+  was placed on a worker with no key and no code and started 30 s later. A retry or backup attempt goes only to a worker whose
+  predicted completion fits the remaining deadline; if none exists, the invocation is reported as missed at once rather than
+  started cold. Restore the assertion "every omitted idempotent invocation meets its deadline when a second holder exists".
 
 ### V7.2 Detectors compared (same timers available to all; G4)
 | Name | Timer | On expiry | Ejection |
@@ -695,7 +711,7 @@ excludes zero in the stated direction.
 | H3 supported | include the detector claim with numbers; otherwise describe failure handling as design and report the comparison neutrally |
 | H5 | always reported |
 
-**Exit criteria V12:** all specs verified; scorecard generated; claims chosen by the table and recorded as D-92.
+**Exit criteria V12:** all specs verified; scorecard generated; claims chosen by the table and recorded as the next free decision ID.
 
 ---
 

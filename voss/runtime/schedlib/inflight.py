@@ -11,12 +11,12 @@ from voss.policy.cost.wait import JobEst
 
 @dataclass
 class Copy:
-    """One dispatched copy (primary, retry or hedge) of an invocation."""
+    """One dispatched attempt (first, retry or backup) of an invocation."""
 
     attempt: int
     worker: WorkerId
     t_dispatch: float
-    hedge: bool = False
+    backup: bool = False
     accepted: bool = False
     mu: float = 0.0
     sigma: float = 0.0

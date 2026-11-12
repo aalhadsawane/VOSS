@@ -1,9 +1,75 @@
 # Design Decisions
 
-Current decisions are authoritative. History (ADR-001…029, proposals 0001/0002) is summarized at the end.
-Format: **Decision**, why, rejected alternatives.
+The **v2 decisions** below are authoritative. v1 decisions (D-01 to D-80) are kept as history: a v1 decision holds in
+v2 only if a v2 decision re-affirms it. Format: **Decision**, why, rejected alternatives. Review issue IDs (A1, D3, ...)
+refer to `manuscript/reviews/`; plan sections (V0, §2, ...) to `docs/REVISION_PLAN.md`.
 
-## Current decisions
+## v2 decisions
+
+**D-81 Clean slate; v1 archived.** v1 results, experiment specs, analysis, prose and every mechanism v2 does not
+evaluate are deleted (V0). v1 is the `main` commit `b0f2fb24a789d137ecb0f7ce1189adb1df496346` (the environment refused
+to push a tag; record the tag `v1-archive` on that commit when possible). *Why:* v1 results were confounded (placeholder
+calibration F1, clustered mode D1, exposure weight D3, weakened baselines D4-D5); reusing any of it carries the confounds
+over. *Rejected:* keeping v1 specs as frozen references (reviewers would compare against them).
+
+**D-82 Contribution and scope.** An architecture and a scheduler that let serverless functions with deadlines of seconds
+run on volunteer machines the provider neither owns nor trusts, with an evaluation of where it works and what each part
+contributes (plan §2). No cost analysis, no proximity claim, no decentralised control plane. *Why:* author's decision;
+G1. *Rejected:* "faster than datacenters" (A1), cost (A2).
+
+**D-83 One scheduler on provider hardware.** The orchestrator is a membership service that appoints one provider-hosted
+scheduler once (epoch 1); routers forward every invocation to it. Clusters, cluster routing, spillover, volunteer-hosted
+schedulers, appointment, leases, checkpoints, standbys, roll calls and scheduler fault injection are removed.
+*Why:* v1 found volunteer-hosted clusters slower and holding 5x the key holders (B1); the provider already runs the
+control plane (B2-B5); the scheduler was never simulated on provider hardware (F4). *Rejected:* keeping clusters as an
+option (G18). Scale beyond one scheduler: regional shards on provider hardware, stated and not evaluated (V10).
+
+**D-84 Owner classes and sampled audit.** Owners are class S (software-only), P (physical access, no memory encryption)
+or M (memory-encrypted hardware). Property 1 (omission and timing faults only) holds for S and M. For P, integrity is
+bounded by re-running a fraction of idempotent invocations on a worker of a different owner and banning the TPM identity
+on a mismatch; confidentiality is not provided, and a tenant may exclude class P per function. *Why:* C1, D8.
+
+**D-85 Keys.** Per-function data keys wrapped by the tenant's root key (kept in the tenant's key service), rotated every
+`R`; a worker keeps a key until its session ends, the key rotates, or it is ejected. A per-function holder budget `K`
+set by the tenant is enforced for every policy, including by the key service itself. Snapshots are encrypted under the
+function key and version; no copies between workers. Exposure scores, trust scores and sensitivity weights are removed.
+*Why:* C4-C6, D3, D9-D11, B7. *Rejected:* worker-local sealed snapshot keys (a worker could run a revoked function).
+
+**D-86 Scheduler.** Provisioning keeps enough key holders, warm sandboxes and reserved concurrency for each function to
+cover its demand quantile after losing any `f` holders, within `K` and memory; `f` is derived from measured departures.
+Request placement minimises the probability of missing the deadline, ties broken by expected completion. Failure handling:
+per-attempt timeout at the predicted q95 completion, an immediate backup attempt on another holder for idempotent
+functions, per-worker drop estimate with ejection (plan §2, V5, V7). *Why:* B6, B10, B11, C8, C9, F5.
+
+**D-87 Parameter policy.** Every constant is measured, from a trace, from a checked citation, derived, an axis, or swept;
+there is no "assumed" class. `docs/PARAMETERS.md` lists every configuration key and data file, enforced by
+`tests/unit/test_parameters.py`. *Why:* B10, G13; author's instruction not to carry over v1 constants.
+
+**D-88 Metrics.** Primary: share of synchronous invocations answered correctly within their deadline (lost and late are
+misses). Latency percentiles include lost invocations, censored at the deadline. Key holders are reported as concurrent,
+distinct per key version, and releases per hour (V2). *Why:* D6, D9, E9.
+
+**D-89 Traces and splits.** Arrivals from the Azure Functions 2019 trace; host availability from the Failure Trace
+Archive (SETI@home) or, if unobtainable, distributions fitted to it; broadband measurement data for links. Development
+and held-out splits; reported results come from the held-out split, run once after the freeze (V9, V11, V12).
+*Why:* E4-E6.
+
+**D-90 Experiments on GitHub Actions.** Every experiment is a workflow run started by a committed request file, with raw
+logs in releases and summaries in the repository (V6). Calibration and emulation run on bare metal (`docs/handoff/`).
+
+**D-91 Calibration scope.** At least three machines, each with the real image booted end to end; every workload function
+measured on every machine; the data contract in `docs/handoff/CALIBRATION_DATA_CONTRACT.md` defines the outputs. Only
+measured bundles are used for reported results. *Why:* E2, F1-F3.
+
+**D-92 v1 decisions that still hold.** D-01 (custom deterministic simulator), D-04 (no blockchain), D-05 (information
+boundary: `policy` never imports `world`), D-06 (actor model with typed messages), and the reproducibility rules of
+`AGENTS.md` rule 9.
+
+**D-93 An inline adversary behaviour mix replaces the regime's mix.** Found in V0: `scenario.adversary.mix` was
+deep-merged into the regime file's mix, so a test that asked for black-hole owners only got all eight behaviours. A mix is
+a distribution; an inline one replaces the file's.
+
+## v1 decisions (D-01 to D-80)
 
 **D-01 Custom Python discrete-event simulator.** FaaS physics is small; solver wall time must enter simulated time;
 10⁵ workers need light state; there are no TEE-capable simulators. *Rejected:* SimGrid, SimPy.
@@ -94,7 +160,7 @@ bundle hashes and `voss repro`.
 
 **D-22 Parked:** workflows, GPU functions, padding, transparency log, real DRTM, multi-machine deployment.
 
-## History (superseded or merged)
+### v1 history (superseded or merged)
 
 | Old | Became |
 |---|---|
@@ -112,7 +178,7 @@ bundle hashes and `voss repro`.
 | ADR-029 worker readiness | Doc 08 §5 |
 | Proposals 0001, 0002 | Accepted into docs 00–10 |
 
-## Implementation decisions (coding phase)
+### v1 implementation decisions (coding phase)
 
 **D-23 `ACCEPTED` is sent when the worker receives `DISPATCH`** (P2). Doc 00 §6 draws it after `INPUT`; with
 multi-MB payloads on residential downlinks that makes the router's dispatch watchdog (`T_dispatch` = 1 s, doc 07 §2)

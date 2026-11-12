@@ -13,7 +13,6 @@ from voss.core.config import VossConfig
 from voss.core.ids import FnId, TenantId, WorkerId
 from voss.core.registry import create
 from voss.core.types import ClusterView
-from voss.policy.cache_value import source_score
 from voss.policy.cost.inputs import CostContext
 from voss.policy.keepalive_hist import HistParams
 from voss.policy.plan import registry as _planners  # noqa: F401  (registers planners)
@@ -46,7 +45,7 @@ class Planning:
         if pc.name == "histogram_prewarm":
             kw = {"params": HistParams(**cfg.keepalive_hist.model_dump())}
         self.planner: Any = create("planner", pc.name, **kw)
-        self.params = PlanParams(**{"tie_break": cfg.reputation.tie_break, **pc.params})
+        self.params = PlanParams(**pc.params)
         self.prev: Plan | None = None
         self.prices: Prices | None = None  # set by the scheduler: measured card prices (D-33)
         self._last_sig: tuple[object, ...] = ()
@@ -116,67 +115,7 @@ class Planning:
             fn_units=np.array([float(poisson_quantile(fn_rates[f] * self._svc(f), 0.95)) for f in fns]),
             y_prev=self._prev_y(tenants, workers),
             params=self.params,
-            rep=np.array([self.models.rep.get(int(w), 0.0) for w in workers]) if self.models.rep else None,
-            **self._loss_inputs(view, idx, now, horizon, tenants, fns, fn_rates, demand.rate),
         )
-
-    def _loss_inputs(
-        self,
-        view: ClusterView,
-        idx: np.ndarray,
-        now: float,
-        horizon: float,
-        tenants: list[str],
-        fns: list[str],
-        fn_rates: dict[str, float],
-        t_rates: dict[str, float],
-    ) -> dict[str, np.ndarray]:
-        """Estimates for the Erlang planners (planner-v2 §6), all from the scheduler's own view: slot hold time =
-        warm dispatch + execution; boot and restore from the cost card the placer uses; Δ_t = measured price of a
-        trust-cold start (``Prices.cold_trust``, D-33); residence ``E[min(L_j, T)]`` by quadrature of the survival
-        model; measured exposure from the keys workers actually hold (``view.trust``)."""
-        sm = next(iter(self.ctx.startup.values()))
-        info = [self.ctx.fns[f] for f in fns]
-        # TODO verify: 500 MB/s rootfs pull rate (same constant as ``_benefit``)
-        boot = np.array([i.rootfs_mb / 500.0 + sm.boot_s + i.init_s for i in info])
-        hold = np.array([self._svc(f) + sm.dispatch_s for f in fns])
-        by_t = [[i for i, f in enumerate(fns) if self.ctx.fns[f].tenant == t] for t in tenants]
-        t_svc = [
-            self.models.forecaster.service.get(t, float(np.mean(hold[ix])) if ix else 0.1)
-            for t, ix in zip(tenants, by_t, strict=True)
-        ]
-        delta = self.prices.cold_trust if self.prices is not None else self.cfg.router.cold_penalty_s
-        trust = [view.trust[i] for i in idx]
-        return {
-            "fn_rate": np.array([fn_rates[f] for f in fns]),
-            "fn_hold": hold,
-            "fn_boot": boot,
-            "fn_restore": np.full(len(fns), sm.restore_s),
-            "delta_t": np.full(len(tenants), float(delta)),
-            "tenant_load": np.array([t_rates[t] * float(v) for t, v in zip(tenants, t_svc, strict=True)]),
-            "residence": self._residence(view, idx, now, horizon),
-            "measured_exposure": np.array(
-                [
-                    sum(1 - view.assurance[i] for i, tr in zip(idx, trust, strict=True) if TenantId(t) in tr)
-                    for t in tenants
-                ]
-            ),
-        }
-
-    def _residence(self, view: ClusterView, idx: np.ndarray, now: float, horizon: float) -> np.ndarray:
-        """``E[min(L_j, T)] = ∫₀ᵀ S_j(τ) dτ`` with ``T = session_horizons·H``, by trapezoid over 9 points."""
-        k, lam, start, tz, drain = self.models._static(view)
-        t_max = self.params.session_horizons * horizon
-        hour = np.mod(self.start_utc_h + now / 3600 + tz[idx], 24)
-        grid = np.linspace(0.0, t_max, 9)
-        s = np.array(
-            [
-                self.models.survival.p_alive_arr(k[idx], lam[idx], now - start[idx], g, hour, drain[idx], now)
-                for g in grid
-            ]
-        )
-        out: np.ndarray = np.trapezoid(s, grid, axis=0)
-        return out
 
     def _svc(self, fn: str) -> float:
         return float(self.models.forecaster.service.get(f"fn:{fn}", self.ctx.fns[fn].work_ref_s))
@@ -238,8 +177,6 @@ class Planning:
         sig = self._signature(inp)
         if self.prev is not None and sig == self._last_sig:
             plan = replace(self.prev, valid_until=now + inp.horizon_s, status="reused")
-            if hasattr(self.planner, "on_reused"):  # stateful planners (erlang_dpp) advance every round
-                self.planner.on_reused(inp)
         else:
             plan = self.planner.plan(inp)
             self._last_sig = sig
@@ -261,40 +198,3 @@ def stale_releases(view: ClusterView, inp: PlanInput) -> list[PlanAction]:
             if t not in hot:
                 out.append(PlanAction("RELEASE", WorkerId(int(w)), TenantId(t)))
     return out
-
-
-def sources_for(
-    view: ClusterView,
-    fn: str,
-    target: int,
-    k: int,
-    ctx: CostContext,
-    level: tuple[str, ...] = ("L1", "L2", "L3"),
-    tenant: str | None = None,
-) -> tuple[WorkerId, ...]:
-    """Peers holding ``fn`` at ``level`` (same snapshot class and trust-warm for snapshots), fastest expected pull
-    first (doc 02 §6 source choice). Artifacts the registry also serves only use peers that beat the registry: a
-    residential uplink is often slower than the registry, so the nearest peer is not the fastest source."""
-    if not view.static or k <= 0:
-        return ()
-    me = view.static[target]
-    info = ctx.fns.get(fn)
-    if me is None or info is None:
-        return ()
-    nbytes = (info.snapshot_mb if tenant is not None else info.bundle_mb + info.rootfs_mb) * 2**20
-    down = max(me.down_bps, 1.0)
-    reg = float(ctx.geo.rtt(np.array([ctx.registry[0]]), np.array([ctx.registry[1]]), me.lat, me.lon)[0])
-    limit = float("inf") if tenant is not None else reg + nbytes * 8 / down
-    found = []
-    for j, c in enumerate(view.cache):
-        e = c.get(FnId(fn))
-        st = view.static[j]
-        if j == target or e is None or e.level not in level or st is None:
-            continue
-        if tenant is not None and (st.snapshot_class != me.snapshot_class or tenant not in view.trust[j]):
-            continue
-        rtt = float(ctx.geo.rtt(np.array([st.lat]), np.array([st.lon]), me.lat, me.lon)[0])
-        t = source_score(rtt, nbytes, min(st.up_bps, down), int(view.busy[j]), e.tier or "ssd")
-        if t < limit:
-            found.append((t, int(view.workers[j])))
-    return tuple(WorkerId(w) for _, w in sorted(found)[:k])

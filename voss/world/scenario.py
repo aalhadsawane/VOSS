@@ -21,29 +21,6 @@ from voss.world.sessions import SessionTrace, generate_sessions
 from voss.world.workers import GeoParams, WorkerTable, generate_workers
 from voss.world.workload import ArrivalTrace, Catalog, generate_arrivals, load_catalog
 
-CONTROL_FAULT_COLUMNS = ("t", "kind", "target", "duration_s", "factor")
-FAULT_KINDS = ("sched_crash", "sched_blackhole", "sched_slow", "sched_partition")
-
-
-def control_faults(rows: list[dict[str, object]]) -> pd.DataFrame:
-    """Doc 07 §5 control-plane faults (E15): ``{t, kind, target: "cluster:<k>", duration_s, factor}``. Targets name a
-    cluster (k-th by id when the fault fires); the runtime resolves its scheduler then."""
-    out = []
-    for r in rows:
-        kind = str(r["kind"])
-        if kind not in FAULT_KINDS:
-            raise ValueError(f"unknown control fault {kind!r} (one of {FAULT_KINDS})")
-        out.append(
-            {
-                "t": float(r["t"]),  # type: ignore[arg-type]
-                "kind": kind,
-                "target": str(r.get("target", "cluster:0")),
-                "duration_s": float(r.get("duration_s", 60.0)),  # type: ignore[arg-type]
-                "factor": float(r.get("factor", 10.0)),  # type: ignore[arg-type]
-            }
-        )
-    return pd.DataFrame(out, columns=list(CONTROL_FAULT_COLUMNS)).sort_values("t", kind="stable")
-
 
 @dataclass(frozen=True)
 class Scenario:
@@ -57,14 +34,13 @@ class Scenario:
     sessions: SessionTrace
     adversary: AdversaryTrace
     arrivals: ArrivalTrace
-    control_faults: pd.DataFrame
 
     def tables(self) -> dict[str, pd.DataFrame]:
-        return _tables(self.workers, self.sessions, self.adversary, self.arrivals, self.control_faults)
+        return _tables(self.workers, self.sessions, self.adversary, self.arrivals)
 
 
 def _tables(
-    workers: WorkerTable, sessions: SessionTrace, adv: AdversaryTrace, arr: ArrivalTrace, faults: pd.DataFrame
+    workers: WorkerTable, sessions: SessionTrace, adv: AdversaryTrace, arr: ArrivalTrace
 ) -> dict[str, pd.DataFrame]:
     platform = pd.DataFrame({"worker": np.arange(len(workers)), "join_t": sessions.join_t, "leave_t": sessions.leave_t})
     return {
@@ -74,7 +50,6 @@ def _tables(
         "platform": platform,
         "adversary": adv.to_frame(),
         "arrivals": arr.frame,
-        "control_faults": faults,
     }
 
 
@@ -123,14 +98,13 @@ def generate(cfg: RunConfig) -> Scenario:
         sc, workers, metros, horizon, rng, (fake, params.fake_drain_rate_per_h, params.fake_drain_lead_s)
     )
     arrivals = generate_arrivals(sc, catalog, metros, horizon, rng)
-    faults = control_faults(sc.faults)
-    h = _hash(_tables(workers, sessions, adv, arrivals, faults), catalog, horizon)
-    return Scenario(h, horizon, metros, catalog, workers, sessions, adv, arrivals, faults)
+    h = _hash(_tables(workers, sessions, adv, arrivals), catalog, horizon)
+    return Scenario(h, horizon, metros, catalog, workers, sessions, adv, arrivals)
 
 
 def with_world(scn: Scenario, workers: WorkerTable, sessions: SessionTrace, adversary: AdversaryTrace) -> Scenario:
     """The same workload on another worker population (reference clouds, doc 02 §9), rehashed."""
-    h = _hash(_tables(workers, sessions, adversary, scn.arrivals, scn.control_faults), scn.catalog, scn.horizon)
+    h = _hash(_tables(workers, sessions, adversary, scn.arrivals), scn.catalog, scn.horizon)
     return replace(scn, hash=h, workers=workers, sessions=sessions, adversary=adversary)
 
 

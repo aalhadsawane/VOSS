@@ -1,5 +1,8 @@
 # 10 · Calibration Harness and Single-Box Emulation Testbed
 
+> **v2 status.** The runbook and outputs for v2 are `docs/handoff/CALIBRATION_HANDOFF.md` and `CALIBRATION_DATA_CONTRACT.md`; where they differ from this doc, they win. Rewritten in phase V1 of `docs/REVISION_PLAN.md`. Until then, where this document and the
+> v2 decisions (`docs/DECISIONS.md` D-81 onward) disagree, the decisions win.
+
 **Calibration node C0:**
 - Intel Core i7 12th gen (Alder Lake), Intel PTT (firmware TPM 2.0);
 - 128 GB DDR5;

@@ -13,7 +13,7 @@ from typing import Protocol
 
 import numpy as np
 
-from voss.core.ids import Addr, FnId, WorkerId
+from voss.core.ids import Addr, FnId
 from voss.core.kernel import Kernel
 from voss.core.types import Invocation, Timings
 from voss.runtime.workerlib.host import HostLocal
@@ -32,9 +32,7 @@ class AgentPort(Protocol):
     digests: dict[FnId, dict[str, str]]
 
     def request_key(self, tenant: str, cont: Callable[[bool], None]) -> None: ...
-    def fetch(
-        self, fn: FunctionSpec, artifacts: tuple[str, ...], cont: Callable[[], None], sources: tuple[WorkerId, ...] = ()
-    ) -> None: ...
+    def fetch(self, fn: FunctionSpec, artifacts: tuple[str, ...], cont: Callable[[], None]) -> None: ...
     def finish(self, att: Attempt, status: str) -> None: ...
     def touched_frac(self) -> float: ...
     def on_exec_start(self, att: Attempt) -> None: ...
@@ -56,7 +54,6 @@ class Attempt:
     gen: np.random.Generator
     port: AgentPort
     batch_wait: float = 0.0
-    sources: tuple[WorkerId, ...] = ()
     scheduler: Addr = ("sched", -1)
     cluster: int = -1
     input_at: float | None = None
@@ -108,7 +105,7 @@ class Attempt:
             in_bytes=self.inv.in_bytes,
         )
         env.rpc = self._rpc
-        env.fetch = lambda arts, cont: self.port.fetch(self.fn, arts, cont, self.sources)
+        env.fetch = lambda arts, cont: self.port.fetch(self.fn, arts, cont)
         return env
 
     def _rpc(self, op: RpcOp, cont: Callable[[], None]) -> None:
@@ -218,7 +215,8 @@ class Attempt:
         self.port.finish(self, status)
 
     def cancel(self) -> None:
-        """Abort everything not yet finished (hedge loser, failure). Host loss resets resources separately."""
+        """Abort everything not yet finished (the slower of two attempts, or a failure). Host loss resets resources
+        separately."""
         if self.cancelled:
             return
         self.cancelled = True

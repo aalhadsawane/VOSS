@@ -1,6 +1,6 @@
 """Geo network and ``net.send`` (doc 01 §6, doc 02 §3).
 
-``RTT(a, b) = last_mile_a + last_mile_b + km / c_eff × route_factor`` (+ relay penalty), with lognormal jitter on
+``RTT(a, b) = last_mile_a + last_mile_b + km / c_eff × route_factor``, with lognormal jitter on
 the propagation term per message. One-way delay is ``RTT / 2`` plus serialization. Bulk payloads
 (``>= bulk_threshold_bytes``) share the bottleneck worker access link by processor sharing; the core network is
 uncontended. Control messages on one channel are delivered FIFO (a TLS stream). The first message on a channel pays
@@ -35,7 +35,6 @@ class NetworkParams(BaseModel):
     c_eff_km_per_ms: float = 100.0
     route_factor: float = 1.3
     jitter_sigma: float = 0.1
-    relay_extra_ms: float = 20.0
     infra_last_mile_ms: float = 1.0
     infra_bw_mbps: float = 10_000.0
     bulk_threshold_bytes: int = 65_536
@@ -52,7 +51,6 @@ class Host:
     last_mile_s: float
     up_bps: float
     down_bps: float
-    relayed: bool
     link: Link | None
     up: bool = True
     incarnation: int = 0
@@ -94,7 +92,6 @@ class Network:
         last_mile_s: float | None = None,
         up_bps: float | None = None,
         down_bps: float | None = None,
-        relayed: bool = False,
         up: bool = True,
     ) -> None:
         """Register a host; infra hosts omit link parameters and get the uncontended infra profile."""
@@ -103,7 +100,7 @@ class Network:
         up_r, down_r = (bw, bw) if infra else (float(up_bps or bw), float(down_bps or bw))
         lm = self.p.infra_last_mile_ms / 1e3 if last_mile_s is None else last_mile_s
         link = None if infra else Link(self.k, up_r, down_r)
-        self.hosts[host] = Host(lat, lon, lm, up_r, down_r, relayed, link, up)
+        self.hosts[host] = Host(lat, lon, lm, up_r, down_r, link, up)
 
     def attach(self, addr: Addr, handler: Handler) -> None:
         if addr[1] not in self.hosts:
@@ -145,8 +142,7 @@ class Network:
         ha, hb = self.hosts[a], self.hosts[b]
         km = haversine_scalar(ha.lat, ha.lon, hb.lat, hb.lon)
         prop = km / self.p.c_eff_km_per_ms * self.p.route_factor / 1e3
-        relay = self.p.relay_extra_ms / 1e3 * (int(ha.relayed) + int(hb.relayed))
-        rtt = ha.last_mile_s + hb.last_mile_s + prop + relay
+        rtt = ha.last_mile_s + hb.last_mile_s + prop
         self._rtt[key] = rtt
         return rtt
 

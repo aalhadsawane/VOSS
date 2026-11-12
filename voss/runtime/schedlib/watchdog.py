@@ -5,7 +5,6 @@ re-placed, and repeated failures (or an omission change point) make the worker s
 from __future__ import annotations
 
 import math
-from collections import deque
 from typing import TYPE_CHECKING, Any
 
 from voss.core.ids import Addr, ClusterId, InvId, TenantId, WorkerId
@@ -32,8 +31,6 @@ class WatchdogMixin:
     cluster: ClusterId
     suspects: dict[WorkerId, float]
     streak: dict[WorkerId, int]
-    unaccepted: deque[tuple[float, WorkerId]]
-    change_points: list[WorkerId]
 
     if TYPE_CHECKING:
 
@@ -51,29 +48,18 @@ class WatchdogMixin:
     def _arm(self, rec: Inflight, c: Copy) -> None:
         """Watchdog at ``slack × q90`` of the predicted execution, at least ``watchdog_min_s`` (doc 07 §6)."""
         dc = self.ctx.cfg.voss.detection
-        if dc.mode != "progress":
-            return
         q90 = c.mu + Z90 * math.sqrt(max(c.sigma, 0.0))
         self.after(max(dc.watchdog_min_s, dc.watchdog_slack * q90), self._watch_fire, rec.inv.id, c.attempt, c.probes)
 
     def _arm_dispatch(self, rec: Inflight, c: Copy) -> None:
         """Scheduler-side dispatch watchdog: no ``ACCEPTED`` within 2 × ``T_dispatch`` → the dispatch was lost."""
-        if self.ctx.cfg.voss.detection.mode == "progress":
-            self.after(2 * self.ctx.cfg.voss.router.T_dispatch, self._dispatch_check, rec.inv.id, c.attempt)
+        self.after(2 * self.ctx.cfg.voss.router.T_dispatch, self._dispatch_check, rec.inv.id, c.attempt)
 
     def _dispatch_check(self, inv: InvId, attempt: int) -> None:
         live = self._live(inv, attempt)
         if live is None or live[1].accepted:
             return
-        self.unaccepted.append((self.now, live[1].worker))
         self._copy_failed(live[0], live[1], "unaccepted")
-
-    def stuck_workers(self) -> int:
-        """Distinct workers whose dispatches from us vanished recently: our own host may be dropping them."""
-        horizon = self.now - self.ctx.cfg.voss.detection.stall_window_s * 2
-        while self.unaccepted and self.unaccepted[0][0] < horizon:
-            self.unaccepted.popleft()
-        return len({w for _, w in self.unaccepted})
 
     def _live(self, inv: InvId, attempt: int) -> tuple[Inflight, Copy] | None:
         """The copy, if this scheduler may still act on it (a fenced zombie draws no conclusions)."""
@@ -116,13 +102,11 @@ class WatchdogMixin:
         self.ctx.rec.log(Table.EVENTS, t=self.now, kind="watchdog", worker=w, value=0.0, inv=int(inv), reason=reason)
         cp = self.models.omission.update(int(w), True, self.now)
         self.streak[w] = self.streak.get(w, 0) + 1
-        if cp is not None:
-            self.change_points.append(w)  # omission burst: reported to the orchestrator (doc 09 §2)
         if cp is not None or self.streak[w] >= self.ctx.cfg.voss.detection.suspect_streak:
             self._suspect(w, "change_point" if cp is not None else reason)
 
     def _suspect(self, w: WorkerId, reason: str) -> None:
-        if w in self.suspects or self.ctx.cfg.voss.detection.mode != "progress":
+        if w in self.suspects:
             return
         self.suspects[w] = self.now + self.ctx.cfg.voss.detection.suspect_s
         self.ctx.rec.log(Table.EVENTS, t=self.now, kind="worker_suspect", worker=w, value=0.0, reason=reason)

@@ -25,9 +25,8 @@ class Frozen(BaseModel):
 class DecisionClockConfig(Frozen):
     """Doc 01 §7."""
 
-    mode: Literal["measured", "modeled", "replay"] = "modeled"
+    mode: Literal["measured", "modeled"] = "modeled"
     cpu_scale: float = 1.0
-    replay_log: str | None = None
     # modeled cost: seconds = a + b * work, per kind. TODO verify: seeds, refit from E02 measured runs.
     coeffs: dict[str, tuple[float, float]] = Field(
         default_factory=lambda: {
@@ -62,7 +61,6 @@ class ScenarioConfig(Frozen):
     execution: dict[str, Any] = Field(default_factory=dict)
     functions: str = "functions.yaml"
     tenants: str = "tenants.yaml"
-    faults: list[dict[str, Any]] = Field(default_factory=list)  # control-plane faults (doc 07 §5, E15)
 
 
 class InfraConfig(Frozen):
@@ -71,33 +69,29 @@ class InfraConfig(Frozen):
     orchestrator: str = "Frankfurt"
     verifier: str = "Frankfurt"
     registry: str = "Frankfurt"
+    scheduler: str = "Frankfurt"  # provider node of the one scheduler (D-83)
+    scheduler_speed: float = 1.0  # relative CPU speed of that node; replaced by measured timing in V10
     routers: tuple[str, ...] = ("Washington", "Frankfurt", "Singapore")
 
 
 class RouterConfig(Frozen):
-    """Doc 03 §3, doc 07 §2 (dispatch watchdog, spillover)."""
+    """Doc 07 §2 (dispatch watchdog) and the start-up price priors the scheduler uses until it measures them."""
 
-    name: str = "score"
     cold_penalty_s: float = 3.0  # prior price of a trust-cold start until a cluster measured one  # TODO verify
-    exposure_s: float = 0.5  # exposure increment of a trust-cold spill (seconds-equivalent)
-    health_s: float = 5.0  # seconds per unit of router-observed SLO miss rate
     cold_fn_s: float = 0.5  # prior price of a cold function start until measured  # TODO verify
     T_dispatch: float = 1.0
-    T_spill: float = 1.5
-    stats_s: float = 5.0
     max_resends: int = 3
-    give_up_s: dict[str, float] = Field(default_factory=lambda: {"sync": 30.0, "async": 300.0, "filler": 900.0})
+    give_up_s: dict[str, float] = Field(default_factory=lambda: {"sync": 30.0, "async": 300.0})
     receipt_batch_s: float = 1.0
 
 
 class PlacerConfig(Frozen):
-    """Fast-loop placers (doc 03 §5.3): ``sync`` per invocation, ``async`` per window (async and filler)."""
+    """Request placement (doc 03 §5.3): ``sync`` per invocation, ``async`` per window of asynchronous invocations."""
 
     sync: str = "greedy"
-    async_: str = Field(default="flow", alias="async")
+    async_: str = Field(default="greedy", alias="async")
     K: int = 12
     window_s: float = 0.2
-    slots_per_worker: int = 4
 
     model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
 
@@ -122,18 +116,9 @@ class CostConfig(Frozen):
     wait_model: Literal["ewma", "per_worker"] = "ewma"  # slot-wait estimate (D-77): scheduler-wide EWMA or per worker
 
 
-class HedgeConfig(Frozen):
-    """Doc 03 §5.4, doc 07 §6."""
-
-    name: str = "risk_proportional"
-    theta: float = 0.2
-    budget: float = 0.1
-
-
 class AdmissionConfig(Frozen):
     enabled: bool = True
     eps: float = 0.05
-    filler_headroom: int = 1
     defer_s: float = 1.0
 
 
@@ -184,7 +169,6 @@ class WorkerConfig(Frozen):
 
     warm_ttl_s: float = 600.0
     m_base_mb: float = 512.0
-    prebooted_at_start: bool = True
     assurance_tofu_factor: float = 0.9  # f_policy for TOFU firmware (doc 04 §8). tag: assumed
     sync_priority: bool = False  # D-77: a free slot serves waiting synchronous requests before queued async ones
 
@@ -204,99 +188,21 @@ class KeepaliveHistConfig(Frozen):
     fallback_ttl_s: float = 600.0  # the classic fixed keep-alive (WorkerConfig.warm_ttl_s)
 
 
-class OrchestratorConfig(Frozen):
-    """Doc 03 §2, doc 07 §3."""
-
-    keepalive_timeout_s: float = 5.0
-    check_s: float = 1.0
-    summaries_s: float = 1.0
-
-
-class ClustersConfig(Frozen):
-    """Cluster arrangement (doc 03 §2). ``mode``: ``dynamic`` (triggers on), ``static_kmeans`` (formed once),
-    ``static_regions`` (one cluster per world region), ``none_global`` (a single cluster)."""
-
-    mode: str = "dynamic"
-    target_size: int = 30
-    min_size: int = 10
-    max_size: int = 60
-    d_min: int = 3
-    dwell_s: float = 600.0
-    max_moves: int = 10
-    period_s: float = 30.0
-    bootstrap_s: float = 3.0
-    slo_theta: float = 0.2
-    slo_periods: int = 3
-    imbalance_delta: float = 0.4
-    max_moves_per_h: int = 3
-
-
 class CacheConfig(Frozen):
     """Doc 02 §6."""
 
     value: str = "gdsf"
     hdd_tier: bool = True
-    p2p: bool = True
-    max_sources: int = 3
 
 
 class DetectionConfig(Frozen):
-    """Progress-based detection (doc 07 §2, §6). ``mode``: ``progress`` or ``heartbeat_only`` (ablation)."""
+    """Progress-based detection (doc 07 §2, §6)."""
 
-    mode: str = "progress"
     watchdog_slack: float = 1.2  # result watchdog at predicted q90 × slack (doc 07 §6: q90 + 20%)
     watchdog_min_s: float = 3.0
     probe_timeout_s: float = 2.0
-    stall_n: int = 3  # dispatch-watchdog fires per cluster ...
-    stall_window_s: float = 5.0  # ... within this window → STALL
     suspect_streak: int = 2  # watchdog failures in a row → suspected
     suspect_s: float = 600.0  # suspicion lasts this long (then probation)
-    T_decide_max: float = 0.2
-    decide_periods: int = 3
-
-
-class SuccessionConfig(Frozen):
-    """Scheduler succession (doc 07 §3, §6)."""
-
-    T_ckpt: float = 30.0
-    lease_s: float = 5.0
-    standbys: int = 1
-    handover_wait_s: float = 1.0
-    retain_outcomes: int = 64
-
-
-class AccountingConfig(Frozen):
-    """Receipts and credits (doc 09 §3-4). tag: assumed."""
-
-    settle_s: float = 60.0
-    late_factor: float = 0.5  # timeliness multiplier for results past their deadline
-    cache_per_gb_h: float = 0.1  # credit per pinned GB-hour of warm state
-    sched_per_assign: float = 0.01
-    sched_per_h: float = 1.0
-    standby_per_h: float = 0.25
-    report_s: float = 5.0
-
-
-class ReputationConfig(Frozen):
-    """Doc 09 §2. Reputation feeds rewards and planner tie-breaks only, never ``pFail``. Weights tag: assumed."""
-
-    name: str = "beta_decay"
-    half_life_h: float = 168.0
-    prior: tuple[float, float] = (1.0, 2.0)  # pessimistic
-    quantile: float = 0.05  # score = lower credible bound
-    probation_h: float = 24.0
-    explore_floor: float = 0.3  # newcomers' tie-break score floor (exploration quota ε)
-    share_cap: float = 0.05  # no tie-break bonus above this share of settled work (concentration guard)
-    tie_break: float = 0.02
-    push_s: float = 30.0
-    in_cost: bool = False  # ablation (doc 09 §1): reputation also scales pFail (double counting)
-    commit_s: dict[str, float] = Field(default_factory=lambda: {"dedicated": 86400.0, "nightly": 14400.0})
-    breach_w: dict[str, float] = Field(default_factory=lambda: {"dedicated": 3.0, "nightly": 1.0})
-    honor_w: float = 1.0
-    result_w: float = 0.1  # α per reference work unit delivered on time
-    late_w: float = 0.05  # β per reference work unit delivered late (envelope shortfall)
-    change_point_w: float = 2.0
-    suspect_w: float = 1.0
 
 
 class VossConfig(Frozen):
@@ -307,20 +213,14 @@ class VossConfig(Frozen):
     placer: PlacerConfig = Field(default_factory=PlacerConfig)
     predictor: PredictorConfig = Field(default_factory=PredictorConfig)
     cost: CostConfig = Field(default_factory=CostConfig)
-    hedge: HedgeConfig = Field(default_factory=HedgeConfig)
     admission: AdmissionConfig = Field(default_factory=AdmissionConfig)
     models: ModelsConfig = Field(default_factory=ModelsConfig)
     planner: PlannerConfig = Field(default_factory=PlannerConfig)
     scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
     worker: WorkerConfig = Field(default_factory=WorkerConfig)
     keepalive_hist: KeepaliveHistConfig = Field(default_factory=KeepaliveHistConfig)
-    orchestrator: OrchestratorConfig = Field(default_factory=OrchestratorConfig)
-    clusters: ClustersConfig = Field(default_factory=ClustersConfig)
     cache: CacheConfig = Field(default_factory=CacheConfig)
     detection: DetectionConfig = Field(default_factory=DetectionConfig)
-    succession: SuccessionConfig = Field(default_factory=SuccessionConfig)
-    accounting: AccountingConfig = Field(default_factory=AccountingConfig)
-    reputation: ReputationConfig = Field(default_factory=ReputationConfig)
 
 
 _HASH_OMIT_DEFAULT = (("cost", "wait_model", "ewma"), ("worker", "sync_priority", False))

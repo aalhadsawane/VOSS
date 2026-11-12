@@ -15,7 +15,6 @@ from voss.core.messages import (
     Chunk,
     Dispatch,
     EpochInstall,
-    Fetch,
     Heartbeat,
     Input,
     Key,
@@ -29,7 +28,6 @@ from voss.core.messages import (
     Release,
     Result,
     SessionCert,
-    Stale,
     Warm,
 )
 from voss.core.messages_ft import Probe
@@ -103,7 +101,6 @@ class WorkerAgent(RecoveryMixin, PlannedMixin, FetchMixin, SessionMixin, Actor):
         self.op_gen = self.ctx.rng.stream("worker.ops", self.host.worker, self.host.session)
         self.attest_cont: Callable[[], None] | None = None
         self.hb_on = False
-        self.standby: Addr | None = None
         self._init_recovery()
 
     # --- port for attempts ----------------------------------------------------------------------------------
@@ -234,8 +231,6 @@ class WorkerAgent(RecoveryMixin, PlannedMixin, FetchMixin, SessionMixin, Actor):
             self._key(msg)
         elif isinstance(msg, Chunk):
             self._chunk(msg)
-        elif isinstance(msg, Fetch):
-            self._serve(msg)
         elif isinstance(msg, Prepare | PinSnapshot | Warm | Release | KeepWarm):
             self._plan_action(msg)
         elif isinstance(msg, Assign):
@@ -257,9 +252,6 @@ class WorkerAgent(RecoveryMixin, PlannedMixin, FetchMixin, SessionMixin, Actor):
         if not self.host.cert_valid(self.now):
             return
         if not accepts_dispatch(self.cluster, self.epoch, self.sched_cert, m):
-            self.send(
-                m.scheduler, Stale(self.host.worker, self.epoch, -1 if self.cluster is None else int(self.cluster))
-            )
             return
         self.epoch = max(self.epoch, m.epoch)
         key = (int(m.inv.id), m.inv.attempt)
@@ -277,7 +269,6 @@ class WorkerAgent(RecoveryMixin, PlannedMixin, FetchMixin, SessionMixin, Actor):
             self.op_gen,
             self,
             m.batch_wait,
-            m.sources,
             m.scheduler,
             m.cluster,
         )
@@ -341,8 +332,7 @@ class WorkerAgent(RecoveryMixin, PlannedMixin, FetchMixin, SessionMixin, Actor):
             return
         if m.epoch < self.epoch:
             return
-        self.epoch, self.sched, self.sched_cert, self.standby = m.epoch, m.scheduler, m.cert_id, m.standby
-        self._successor(m)
+        self.epoch, self.sched, self.sched_cert = m.epoch, m.scheduler, m.cert_id
         self._heartbeat()
 
     # --- heartbeats ---------------------------------------------------------------------------------------------
@@ -385,8 +375,6 @@ class WorkerAgent(RecoveryMixin, PlannedMixin, FetchMixin, SessionMixin, Actor):
             h.cache.expire_warm(self.now, self.ctx.cfg.voss.worker.warm_ttl_s)
         hb = Heartbeat(self.state())
         self.send(self.sched, hb)
-        if self.standby is not None:
-            self.send(self.standby, hb)
         if not self.hb_on:
             self.hb_on = True
             self.after(self.ctx.cfg.voss.scheduler.heartbeat_s, self._hb_tick)

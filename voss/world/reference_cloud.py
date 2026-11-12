@@ -7,7 +7,6 @@ systems compare paired on the same arrivals. Profiles live in ``configs/referenc
 from __future__ import annotations
 
 import hashlib
-from dataclasses import replace
 
 import numpy as np
 import pandas as pd
@@ -78,7 +77,6 @@ def dc_workers(scn: Scenario, ref: RefProfile, regions: tuple[str, ...]) -> Work
         down_bps=np.full(n, DC_BPS),
         up_bps=np.full(n, DC_BPS),
         last_mile_s=np.full(n, DC_LAST_MILE_S),
-        relayed=np.zeros(n, dtype=bool),
         known_good=np.ones(n, dtype=bool),
         slots=np.full(n, hw.cores),
         speed=np.full(n, hw.speed),
@@ -102,4 +100,4 @@ def reference_scenario(scn: Scenario, ref: RefProfile, regions: tuple[str, ...])
         np.full(n, np.inf),
     )
     adv = AdversaryTrace(np.zeros(n, dtype=np.int64), np.zeros(n), np.ones(n), ((),) * n, scn.adversary.params)
-    return with_world(replace(scn, control_faults=scn.control_faults.iloc[0:0]), workers, sessions, adv)
+    return with_world(scn, workers, sessions, adv)

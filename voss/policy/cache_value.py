@@ -1,10 +1,9 @@
-"""Cache value policies (doc 02 §6, doc 03 §4): what to keep, and where to fetch from.
+"""Cache value policies (doc 02 §6, doc 03 §4): what to keep on a worker's disk.
 
 - ``gdsf``: GreedyDual-Size-Frequency value density ``v = L + hits × start-up saved / size``; ``L`` (the inflation
   value) rises to each evicted entry's value so old popularity ages out. Optional per-artifact forecast hits (from
   plan actions) add to the observed frequency.
 - ``lru``: last use time (baseline).
-- ``source_score``: P2P source choice by RTT, transfer time over the source's uplink headroom, and disk tier.
 """
 
 from __future__ import annotations
@@ -34,9 +33,3 @@ def gdsf_value(state: GdsfState, digest: str, hits: int, size_mb: float, last_us
 @register("cache_value", "lru")
 def lru_value(state: GdsfState, digest: str, hits: int, size_mb: float, last_used: float) -> float:
     return last_used
-
-
-def source_score(rtt_s: float, nbytes: float, uplink_bps: float, busy_uploads: int, tier: str) -> float:
-    """Expected seconds to pull ``nbytes`` from a peer (lower is better)."""
-    headroom = uplink_bps / (1 + busy_uploads)
-    return rtt_s + nbytes * 8 / max(headroom, 1.0) + TIER_PENALTY_S.get(tier, 0.1)

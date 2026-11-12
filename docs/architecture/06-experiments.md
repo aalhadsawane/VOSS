@@ -1,5 +1,8 @@
 # 06 · Experiments, Metrics and Hypotheses
 
+> **v2 status.** Every v1 experiment, hypothesis and baseline listed here is retired; the mapping to v2 experiments is in `docs/REVISION_PLAN.md` §9. Rewritten in phase V8, V11, V12 of `docs/REVISION_PLAN.md`. Until then, where this document and the
+> v2 decisions (`docs/DECISIONS.md` D-81 onward) disagree, the decisions win.
+
 ## 1. Pipeline
 
 ```

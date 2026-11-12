@@ -11,19 +11,15 @@ from voss.core.messages import (
     Cancel,
     Chunk,
     DbAppendReceipts,
-    DbCasEpoch,
-    DbCasResult,
     Dispatch,
     DrainNotice,
     Enqueue,
     EpochInstall,
     Fetch,
     Heartbeat,
-    HomeDemand,
     Input,
     Invoke,
     Join,
-    KeepaliveSummary,
     Key,
     KeyRequest,
     Leave,
@@ -36,26 +32,12 @@ from voss.core.messages import (
     Release,
     Requote,
     Result,
-    Revoke,
     RevokeSession,
-    RouterStats,
     SchedulerAddr,
     SessionCert,
-    Stale,
-    Summaries,
     Warm,
-    Withdraw,
 )
-from voss.core.messages_acct import (
-    DbAccrual,
-    ReportEvents,
-    ReputationScores,
-    RoleRecord,
-    Settled,
-    SettleRead,
-    SettleRows,
-)
-from voss.core.messages_ft import Handover, Lease, Pong, Probe, PutCheckpoint, RollCallReport, Stall, Standby
+from voss.core.messages_ft import Pong, Probe
 from voss.core.messages_ka import KeepWarm
 
 SIZE: dict[type[Message], int] = {
@@ -68,27 +50,19 @@ SIZE: dict[type[Message], int] = {
     Dispatch: 500,
     OutcomeMsg: 300,
     EpochInstall: 200,
-    Stale: 64,
     Cancel: 64,
-    Withdraw: 64,
-    Stall: 64,
     Probe: 64,
     Pong: 64,
-    Lease: 64,
-    Handover: 64,
     Attest: 6144,
     SessionCert: 2048,
     Requote: 4096,
     RevokeSession: 128,
     Join: 512,
     Assign: 64,
-    RouterStats: 256,
     Leave: 128,
     DrainNotice: 128,
     Appoint: 2048,
     Membership: 1024,
-    Revoke: 64,
-    KeepaliveSummary: 512,
     KeyRequest: 2048,
     Key: 1024,
     Fetch: 200,
@@ -97,10 +71,6 @@ SIZE: dict[type[Message], int] = {
     Warm: 120,
     Release: 100,
     KeepWarm: 120,
-    DbCasEpoch: 200,
-    DbCasResult: 200,
-    RoleRecord: 128,
-    SettleRead: 64,
 }
 
 
@@ -117,26 +87,4 @@ def size_of(msg: Message) -> int:
         return 400 + 40 * len(msg.state.cache)
     if isinstance(msg, DbAppendReceipts):
         return 64 + 256 * len(msg.rows)
-    if isinstance(msg, PutCheckpoint):
-        return msg.checkpoint.size
-    if isinstance(msg, RollCallReport):
-        return 400 + 40 * len(msg.state.cache) + 200 * len(msg.running) + 120 * len(msg.outcomes)
-    if isinstance(msg, Standby):
-        return 64 + 8 * len(msg.members)
-    if isinstance(msg, HomeDemand):
-        return 64 + 40 * len(msg.rates)
-    if isinstance(msg, Summaries):
-        return 64 + 200 * len(msg.cards)
-    return _acct_size(msg)
-
-
-def _acct_size(msg: Message) -> int:
-    if isinstance(msg, ReportEvents):
-        return 64 + 16 * len(msg.pinned_mb_s) + 8 * (len(msg.change_points) + len(msg.suspects))
-    if isinstance(msg, DbAccrual | Settled):
-        return 64 + 24 * len(msg.rows)
-    if isinstance(msg, ReputationScores):
-        return 64 + 12 * len(msg.scores)
-    if isinstance(msg, SettleRows):
-        return 64 + 256 * len(msg.receipts) + 64 * len(msg.roles) + 24 * len(msg.accruals)
     return 256

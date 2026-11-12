@@ -50,7 +50,7 @@ class EmuConfig:
     workdir: Path  # snapshots and scratch (the SSD tier under test)
     threads: int = 48
     grace_s: float = 2.0  # a freshly booted VM may wait this long for its consumer before it counts as idle
-    claimed_ttl_s: float = 60.0  # a claimed VM nobody executes on (cancelled hedge) goes back to the idle pool
+    claimed_ttl_s: float = 60.0  # a claimed VM nobody executes on (cancelled backup attempt) goes back to the idle pool
     reconcile_s: float = 0.5
     evict_rootfs: bool = True  # a boot reads its rootfs from disk, like the model's ``disk_read rootfs``
     evict_snapshots: bool = True  # a restore reads its snapshot from disk (the model's ``snapshot_touched`` read)

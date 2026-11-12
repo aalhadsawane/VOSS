@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import numpy as np
-import pandas as pd
 
 from voss.core.config import RunConfig
 from voss.core.decision_clock import DecisionClock
@@ -17,16 +15,15 @@ from voss.core.rng import RngFactory
 from voss.core.types import WorkerStatic
 from voss.metrics.recorder import Recorder
 from voss.metrics.schema import Table
-from voss.runtime.accounting import Accounting
 from voss.runtime.actor import ActorContext, Directory
 from voss.runtime.drivers import TraceDriver, client_handler, invocations, owner_event, session_events
-from voss.runtime.faultdriver import FaultDriver
 from voss.runtime.invariants import check_invariants
 from voss.runtime.opdb import OpDb
 from voss.runtime.orchestrator import Orchestrator
 from voss.runtime.registry import Registry
 from voss.runtime.router import Router
 from voss.runtime.schedlib.context import cost_context, fn_priors
+from voss.runtime.schedlib.provider_host import NODE, ProviderHost
 from voss.runtime.scheduler_role import SchedulerRole
 from voss.runtime.system import RunResult
 from voss.runtime.tenant_kbs import TenantKbs
@@ -35,7 +32,6 @@ from voss.runtime.worker_agent import WorkerAgent
 from voss.runtime.workerlib.faults import Adversary
 from voss.runtime.workerlib.host import HostLocal, make_host
 from voss.world.execution import ExecParams, noise_matrix
-from voss.world.geo import haversine_km
 from voss.world.hardware import HwClass, load_hw_classes
 from voss.world.network import Network, NetworkParams
 from voss.world.scenario import Scenario, generate
@@ -58,12 +54,11 @@ class VossSystem:
         names = sorted(set(scn.workers.substrate_names))
         self.profiles: dict[str, SubstrateProfile] = {n: load_substrate(n, self.bundle) for n in names}
         self.directory = Directory()
-        clock = DecisionClock(cfg.decision_clock, replay_charges(cfg), sink=self._charge)
+        clock = DecisionClock(cfg.decision_clock, sink=self._charge)
         self.ctx = ActorContext(self.kernel, self.net, self.rec, self.rng, clock, cfg, self.directory)
         self.cost = cost_context(cfg, scn.catalog, scn.metros, self.profiles, self.bundle)
         self.priors = fn_priors(scn.catalog)
         self.agents: dict[WorkerId, WorkerAgent] = {}
-        self.scheds: dict[WorkerId, SchedulerRole] = {}
         self.routers: list[Router] = []
         self._infra()
         self._workers()
@@ -81,17 +76,12 @@ class VossSystem:
         self.net.attach(actor.addr, actor.on_message)
         return actor
 
-    def _region_of(self, lat: float, lon: float) -> int:
-        """World region of the nearest metro (``static_regions`` clustering baseline)."""
-        m = self.scn.metros
-        i = int(np.argmin(haversine_km(m.lat, m.lon, lat, lon)))
-        return sorted(set(m.region)).index(m.region[i])
-
     def _infra(self) -> None:
         inf = self.cfg.voss.infra
         self._place("orchestrator", inf.orchestrator)
         self._place("verifier", inf.verifier)
         self._place("registry", inf.registry)
+        self._place(NODE, inf.scheduler)
         for city in inf.routers:
             self._place(f"router:{city}", city)
         self.directory.routers = tuple(("router", f"router:{c}") for c in inf.routers)
@@ -103,8 +93,9 @@ class VossSystem:
         valid = {n: (p.assurance_base, p.session.valid_s) for n, p in self.profiles.items()}
         self._attach(Verifier("verifier", self.ctx, valid))
         self._attach(OpDb("orchestrator", self.ctx))
-        self.acct = self._attach(Accounting("orchestrator", self.ctx))
-        self.orch = self._attach(Orchestrator("orchestrator", self.ctx, self._region_of))
+        sched_host = ProviderHost(speed=inf.scheduler_speed)
+        self.sched = self._attach(SchedulerRole(sched_host, NODE, self.ctx, self.cost, self.priors))
+        self.orch = self._attach(Orchestrator("orchestrator", self.ctx, self.sched.addr, sched_host.cert_id))
         self._attach(Registry("registry", self.ctx))
         for t in self.scn.catalog.tenants:
             self._attach(TenantKbs(f"kbs:{t.id}", self.ctx, TenantId(t.id)))
@@ -128,14 +119,12 @@ class VossSystem:
                 float(wt.last_mile_s[w]),
                 float(wt.up_bps[w]),
                 float(wt.down_bps[w]),
-                bool(wt.relayed[w]),
                 up=False,
             )
             adv = Adversary.of(self.scn.adversary, w, self.rng.stream("adversary.effects", w))
             if adv is not None:  # ground truth for analysis (who is adversarial), never read by the system
                 self.rec.log(Table.EVENTS, t=0.0, kind="adversary", worker=w, value=0.0, reason=adv.name)
             self.agents[wid] = self._attach(WorkerAgent(host, self.ctx, catalog, params, adv))
-            self.scheds[wid] = self._attach(SchedulerRole(host, self.ctx, self.cost, self.priors))
 
     def _host(self, w: WorkerId, hc: HwClass) -> HostLocal:
         wt = self.scn.workers
@@ -183,7 +172,6 @@ class VossSystem:
             self.net.set_host_up(w, True)
         self.agents[w].on_message(ev)
         if ev.kind == "end":
-            self.scheds[w].reset()
             self.net.set_host_up(w, False)
 
     def _sample(self) -> None:
@@ -213,7 +201,6 @@ class VossSystem:
             evictions=sum(h.cache.stats.evictions for h in hosts),
             demotions=sum(h.cache.stats.demotions for h in hosts),
             promotions=sum(h.cache.stats.promotions for h in hosts),
-            p2p_mb=sum(h.extra.get("p2p_bytes", 0.0) for h in hosts) / 2**20,
             key_holders=sum(len(a.keys) for a in live),
             exposure=sum(len(a.keys) * (1 - a.host.assurance) for a in live),
         )
@@ -223,14 +210,11 @@ class VossSystem:
         arr = invocations(self.scn)
         TraceDriver(self.kernel, arr, client_handler(self.net, self.scn, list(self.directory.routers))).start()
         self.kernel.at(0.0, self._sample)
-        faults = FaultDriver(self.kernel, self.net, self.rec, self.orch, self.scheds, self._owner)
-        faults.start(self.scn.control_faults.to_dict("records"))
         self.kernel.run(self.scn.horizon + self.cfg.drain_s)
         end = self.kernel.now
         for r in self.routers:
             r.finalize_all()
-        self.kernel.after(2.0, self.acct.settle_now)  # final settlement once the last receipt batches landed
-        self.kernel.run(self.kernel.now + 5.0)
+        self.kernel.run(self.kernel.now + 5.0)  # the last receipt batches land
         for r in self.routers:
             r.flush()  # receipts of results that arrived after the end
         self.kernel.run(self.kernel.now + 1.0)
@@ -242,15 +226,6 @@ class VossSystem:
         for v in check_invariants(self.rec, self.scn, len(arr), give_up, end, drops):
             self.rec.log(Table.EVENTS, t=self.kernel.now, kind="invariant_violation", worker=-1, value=0.0, detail=v)
         return RunResult(self.rec, self.scn.hash, self.kernel.events_run)
-
-
-def replay_charges(cfg: RunConfig) -> list[tuple[str, float]] | None:
-    """``decision_clock.replay_log``: a previous run directory (or its ``solver.parquet``)."""
-    if cfg.decision_clock.mode != "replay" or cfg.decision_clock.replay_log is None:
-        return None
-    path = Path(cfg.decision_clock.replay_log)
-    df = pd.read_parquet(path / "solver.parquet" if path.is_dir() else path)
-    return list(zip(df.kind.astype(str), df.charged_s.astype(float), strict=True))
 
 
 def _sample(ref: Any, g: np.random.Generator) -> float:
