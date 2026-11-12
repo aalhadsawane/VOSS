@@ -111,6 +111,7 @@ from the page alone.
     so no CPU overcommit). Check each reason against the paper's own mechanism and substrate before writing it.
 28. **Name the familiar pattern before showing where ours differs.** State the usual datacenter arrangement, then why it does not
     apply to volunteers, then our version.
+29. **Re-derive every formula in the prose from the code**, and say for each input whether the scheduler is told it or estimates it.
     written to disk; loading it resumes the sandbox"), not by comparison alone ("restores faster than a sandbox boots").
 
 ## CRITICAL items (must be resolved before submission)
@@ -372,4 +373,22 @@ times, X-3 redraw Figure 1).
   the image hierarchy, not for snapshots; I found no source here for where Lambda stores snapshots, and claim none.
 - **Lesson:** heuristic 28. When a design differs from a pattern every reviewer knows, state the familiar pattern first, then say what
   differs and why, and cite only what the source is verified to say.
+
+### Round 19: where the deadline comes from; how short functions are
+- **Said:** "Five times the function's run time on a warm sandbox, plus 50 ms": how is the run time known beforehand (estimate,
+  history, prediction)? What about a brand-new function? Is five arbitrary or used elsewhere? Cite Lambda's timeouts (default 3 s,
+  maximum 15 min, recently 90 min) as a reality check on how short functions are, here and elsewhere.
+- **Did:** Read `voss/world/workload.py`. Two errors in the old sentence: the formula is `k x (w + 0.05 s)`, i.e. five times
+  (run time plus 50 ms), not five times run time plus 50 ms; and it applies only to synchronous invocations (asynchronous: 60 s,
+  filler: none). The deadline is attached to the invocation (generated from the function profile at the invocation's input size, a
+  stand-in for a tenant that measured its function); the scheduler never derives it and estimates run time itself (Bayesian
+  regression with a prior, `scheduling.tex`), so a first invocation needs no history. k = 5 is assumed: no provider source, no
+  decision record, not swept. The paragraph now says all this. Reality check, verified against the Lambda developer guide on
+  2026-11-12: default 3 s, maximum 900 s; the 90-minute limit (announced September 2026) applies only to asynchronous and event-source
+  invocations on Lambda Managed Instances, so it is not stated as Lambda's general limit. Added `awslambdatimeout` to `refs.bib`,
+  cited in the intro (default 3 s) and in the background. A Lambda timeout is a kill limit, not a latency target; the text says so.
+- **Not verified:** the intro's "most functions execute well under a second" rests on Shahrad et al.; a secondary summary says about
+  half of Azure Functions average under 1 s, and I could not read the paper's execution-time section here. I added no new number from it.
+- **Lesson:** heuristic 29. Check a formula in the paper against the code (here the parenthesis was wrong), and state what the scheduler
+  is told versus what it estimates.
 

@@ -83,8 +83,17 @@ crash, drop a result (an \emph{omission}), or deliver it late (a \emph{timing} f
 An owner who cannot forge anything can still drop or delay work selectively while the machine keeps sending its periodic
 liveness messages (\emph{heartbeats}), which defeats detectors built on them, adaptive ones included~\cite{hayashibara2004phi,huang2017gray}.
 
-Invocations name a tenant and a function, are synchronous (the client waits), asynchronous or background, and carry a
-deadline: five times the function's run time on a warm sandbox, plus 50\,ms. Functions are marked idempotent or not; only
+Invocations name a tenant and a function and are synchronous (the client waits), asynchronous, or low-priority filler work. The
+tenant supplies the deadline, as it sets a timeout today: the scheduler takes it as given and does not derive it. The scheduler
+estimates run time separately, from a prior and the function's past invocations (Section~\ref{sec:estimators}), so a function's
+first invocation needs no history. In our evaluation the deadline of a synchronous invocation is five times the sum of the
+function's reference run time on a warm sandbox, at that invocation's input size, and 50\,ms of overhead; the reference run time
+stands in for a tenant that has measured its function. The multiple of five is our assumption: it is not taken from a provider
+and we did not vary it. Asynchronous invocations have a deadline of 60\,s and filler work none. Serverless functions are short-lived, and so are
+the limits platforms impose: the 12 functions run for 4\,ms to 6\,s on the reference machine, and AWS Lambda's default timeout is 3\,s,
+with a maximum of 15 minutes (90 minutes for asynchronous and event-source invocations on Lambda Managed
+Instances)~\cite{awslambdatimeout}. Such a timeout is a limit after which the platform stops the function, not a latency target.
+Functions are marked idempotent or not; only
 idempotent ones are retried or duplicated. This is the contract developers already follow: AWS Lambda retries failed
 asynchronous invocations and warns of duplicate events~\cite{awslambdaasync,awslambdaretries}, Google's event-driven
 functions run at least once~\cite{gcfretries}, and Azure and Cloudflare deliver events at least once~\cite{azureeventhubsfunctions,cloudflarequeues}.
