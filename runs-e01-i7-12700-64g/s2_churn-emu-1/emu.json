@@ -1,0 +1,42 @@
+{
+  "host": "HOST",
+  "kernel": "5.15.0-198-generic",
+  "cpu": "12th Gen Intel(R) Core(TM) i7-12700",
+  "governor": "powersave",
+  "affinity": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "loadavg_start": [
+    0.58935546875,
+    0.4931640625,
+    0.876953125
+  ],
+  "backend": {
+    "claim_without_vm": 1,
+    "vm_killed": 15
+  },
+  "kernel_events": 38861,
+  "kernel_max_lag_s": 0.031134166498645754,
+  "kernel_mean_lag_s": 7.859933476577814e-05,
+  "loadavg_end": [
+    0.1435546875,
+    0.1943359375,
+    0.51318359375
+  ],
+  "failed": "None"
+}

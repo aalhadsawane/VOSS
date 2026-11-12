@@ -1,0 +1,228 @@
+distributions:
+  appliance_userspace:
+    dist: empirical
+    quantiles:
+    - 8.13
+    - 8.132000000000001
+    - 8.134
+    - 8.136000000000001
+    - 8.138
+    - 8.14
+    - 8.152000000000001
+    - 8.164
+    - 8.176
+    - 8.187999999999999
+    - 8.2
+    - 8.209999999999999
+    - 8.219999999999999
+    - 8.23
+    - 8.24
+    - 8.25
+    - 10.166
+    - 12.082000000000003
+    - 13.998
+    - 15.914000000000001
+    - 17.83
+    source: appliance/appliance_userspace; harness 0.1.0
+    tag: measured
+  dispatch:
+    dist: lognormal
+    median: 0.002
+    sigma: 0.3
+    source: "agent \u2192 warm VM vsock dispatch"
+    tag: assumed
+  drtm_launch:
+    dist: lognormal
+    median: 2.0
+    sigma: 0.3
+    source: DRTM late launch + measurement, no reboot
+    tag: assumed
+  fc_boot:
+    dist: empirical
+    quantiles:
+    - 0.04501627595163882
+    - 0.045438777282834054
+    - 0.045464657433331016
+    - 0.045523676823358984
+    - 0.04558849688619375
+    - 0.04567771311849356
+    - 0.04576139219570905
+    - 0.04580434024101123
+    - 0.04588619382120669
+    - 0.04594494203338399
+    - 0.046007116441614926
+    - 0.04608185943216085
+    - 0.04611645806580782
+    - 0.046178654697723684
+    - 0.0462140123359859
+    - 0.046322109061293304
+    - 0.04642025176435709
+    - 0.04652640472631901
+    - 0.04657630340661854
+    - 0.04679772799136117
+    - 0.04813596303574741
+    source: fc_boot/fc_boot [cache=warm, mem_mb=256, tier=ssd]; harness 0.1.0
+    tag: measured
+  fc_restore:
+    dist: empirical
+    quantiles:
+    - 0.0011747591197490692
+    - 0.0013342273887246847
+    - 0.0013605328043922783
+    - 0.0013809412252157927
+    - 0.0014921497087925673
+    - 0.001510827336460352
+    - 0.0015417044516652823
+    - 0.0015653933864086867
+    - 0.0016087879426777362
+    - 0.0016369907651096582
+    - 0.0016790113877505064
+    - 0.001683213608339429
+    - 0.0017242718487977982
+    - 0.0017476092209108174
+    - 0.0017854876350611448
+    - 0.0018069835496135056
+    - 0.0018406357616186143
+    - 0.0018478459096513689
+    - 0.0018949438584968449
+    - 0.0019564278889447452
+    - 0.002117294119670987
+    source: fc_snapshot/fc_restore_api [cache=warm, mem_mb=512, tier=ssd]; harness 0.1.0; load API; page reads are modeled
+      separately
+    tag: measured
+  fc_snapshot_create:
+    dist: empirical
+    quantiles:
+    - 0.24523350480012596
+    - 0.24650778479408472
+    - 0.2477820647880435
+    - 0.2489580719382502
+    - 0.2501060011330992
+    - 0.2506179326446727
+    - 0.2506210660096258
+    - 0.2507634791894816
+    - 0.25118445199914274
+    - 0.2523506068973802
+    - 0.2594782185042277
+    - 0.2666058301110752
+    - 0.26782011333853006
+    - 0.26829523051856086
+    - 0.2685670472914353
+    - 0.26873721386073157
+    - 0.2699872597120702
+    - 0.27258715466596184
+    - 0.2779850588645786
+    - 0.29317599541973327
+    - 0.30836693197488785
+    source: fc_snapshot/fc_snapshot_create [mem_mb=512, tier=ssd]; harness 0.1.0
+    tag: measured
+  kbs_check_s:
+    dist: lognormal
+    median: 0.002
+    sigma: 0.3
+    source: KBS policy check
+    tag: assumed
+  reboot_to_kernel:
+    dist: empirical
+    quantiles:
+    - 24.266942024230957
+    - 24.342979001998902
+    - 24.419015979766847
+    - 24.49505295753479
+    - 24.571089935302734
+    - 24.64712691307068
+    - 24.68071894645691
+    - 24.71431097984314
+    - 24.74790301322937
+    - 24.7814950466156
+    - 24.81508708000183
+    - 24.86629948616028
+    - 24.917511892318725
+    - 24.968724298477174
+    - 25.01993670463562
+    - 25.071149110794067
+    - 25.194543266296385
+    - 25.317937421798707
+    - 25.441331577301025
+    - 25.564725732803346
+    - 25.688119888305664
+    source: appliance/reboot_to_kernel; harness 0.1.0; firmware + loader + kernel (systemd-analyze)
+    tag: measured
+  snapshot_touched_frac:
+    dist: const
+    source: lazy restore touches a fraction of guest memory (REAP, FaaSnap)
+    tag: literature
+    value: 0.3
+  tme_cpu_factor:
+    dist: const
+    source: TME overhead; TODO verify (P9 tme)
+    tag: assumed
+    value: 1.0
+  tme_mem_factor:
+    dist: const
+    source: TME memory-bound overhead; TODO verify (P9 tme)
+    tag: assumed
+    value: 1.02
+  tpm2_quote:
+    dist: empirical
+    quantiles:
+    - 0.19201442296616733
+    - 0.1931534356321208
+    - 0.19331341544166208
+    - 0.1933789392001927
+    - 0.1934562166687101
+    - 0.19352318649180233
+    - 0.1936947225825861
+    - 0.19377066609449684
+    - 0.19384770677424967
+    - 0.19390107140643523
+    - 0.19394741859287024
+    - 0.19404509968589992
+    - 0.19413963784463703
+    - 0.19421801243443043
+    - 0.19433602697681635
+    - 0.19441885710693896
+    - 0.19450726890936493
+    - 0.19469354939647018
+    - 0.1948347162688151
+    - 0.1949747910955921
+    - 0.20391092589125037
+    source: tpm/tpm2_quote; harness 0.1.0; one tpm2_quote process (includes tool start-up, see probe baseline)
+    tag: measured
+  verify_s:
+    dist: empirical
+    quantiles:
+    - 0.006355115910992026
+    - 0.006413732818327844
+    - 0.006472066533751786
+    - 0.006496336811687797
+    - 0.006520869489759207
+    - 0.006526708661112934
+    - 0.006540251290425658
+    - 0.00657592173665762
+    - 0.006595241278409958
+    - 0.006616222020238638
+    - 0.006625054404139519
+    - 0.006644064944703132
+    - 0.006658195704221726
+    - 0.006667735846713185
+    - 0.006670290674082935
+    - 0.006684336345642805
+    - 0.006702326750382781
+    - 0.0067340440233238045
+    - 0.006766025628894568
+    - 0.006849601026624442
+    - 0.007037393050268292
+    source: attest_local/attest_verify; harness 0.1.0; checkquote + Ed25519 certificate signature; no Keylime policy evaluation
+    tag: measured
+  verify_s_per_MB:
+    dist: const
+    source: disk/sha256_MBps; harness 0.1.0; single-core SHA-256
+    tag: measured
+    value: 0.00046548068348784
+harness_version: 0.1.0
+host: i7_12700_64g_full-b4f89a4def
+measured: true
+provenance:
+  default: measured
+  note: entries tagged literature/assumed were not measured

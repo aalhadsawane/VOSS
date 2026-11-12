@@ -128,3 +128,28 @@ def test_committed_measured_bundle_is_complete_and_its_hash_is_documented() -> N
     assert {d.tag for d in measured.values()} >= {"measured", "assumed"}
     digest = hash_dir(REPO / "configs" / "calibration" / "measured" / name)
     assert digest in (REPO / "docs" / "validation" / "README.md").read_text()
+
+
+def test_sebs_concurrencies_and_host_meta_fields(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from tools.calibrate.common import Records, Shell, host_meta
+    from tools.calibrate.suites import Ctx, sebs
+
+    monkeypatch.setattr("os.cpu_count", lambda: 20)
+    ctx_default = Ctx(Shell(dry_run=True), Records(tmp_path / "r.jsonl", "sebs"), tmp_path, {})
+    assert sebs.concurrencies(ctx_default) == [1, 2, 4, 8]
+    ctx_scaled = Ctx(Shell(dry_run=True), Records(tmp_path / "r.jsonl", "sebs"), tmp_path, {"max_concurrency": "80"})
+    assert sebs.concurrencies(ctx_scaled) == [1, 2, 4, 8, 20, 40, 80]
+    ctx_exp = Ctx(Shell(dry_run=True), Records(tmp_path / "r.jsonl", "sebs"), tmp_path, {"concurrencies": "1,6,12"})
+    assert sebs.concurrencies(ctx_exp) == [1, 6, 12]
+    meta = host_meta(Shell(dry_run=True))
+    assert {"cores", "threads", "tpm_vendor", "disks"} <= set(meta)
+    assert int(meta["cores"]) >= 1 and int(meta["threads"]) >= 1
+
+
+def test_ingest_label_versions_a_bundle_without_copying_raw(raw: Path) -> None:
+    """A suite added later (the appliance run) re-ingests the same raw logs under a new bundle name."""
+    name, files = ingest.build(raw, "c0-test", PLACEHOLDER, label="c0-test-v2")
+    assert name == "c0-test-v2"
+    assert files["distributions.yaml"]["host"] == "c0-test-v2"
+    assert files["meta.yaml"]["bundle"] == "c0-test-v2" and files["meta.yaml"]["raw_host"] == "c0-test"
+    assert all(k.startswith("c0-test/") for k in files["meta.yaml"]["raw_files"])  # raw paths stay real

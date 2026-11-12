@@ -9,6 +9,7 @@ function, input sizes and repetitions, and the guest prints ``VOSS_INIT`` / ``VO
 from __future__ import annotations
 
 import concurrent.futures as cf
+import os
 
 from tools.calibrate.fc import FcAssets, FcVm, boot_args
 from tools.calibrate.suites import Ctx, Suite
@@ -29,6 +30,17 @@ SIZES: dict[str, tuple[int, ...]] = {
 }
 MEM_MB = {"video-processing": 1024, "image-recognition": 2048, "dna-visualisation": 1024}
 CONCURRENCY = (1, 2, 4, 8)
+
+
+def concurrencies(ctx: Ctx) -> list[int]:
+    """Concurrency levels: explicit ``concurrencies``, or ``1..8`` plus 1x/2x/4x threads up to ``max_concurrency``."""
+    raw = ctx.opt("concurrencies")
+    if raw:
+        return [int(x) for x in raw.split(",") if x]
+    top = int(ctx.opt("max_concurrency", str(max(CONCURRENCY))))
+    hw = os.cpu_count() or 8
+    candidates = {*CONCURRENCY} if top <= max(CONCURRENCY) else {*CONCURRENCY, hw, 2 * hw, 4 * hw, top}
+    return [c for c in sorted(candidates) if 1 <= c <= top]
 
 
 def parse(lines: list[str], kind: str) -> list[tuple[str, int, int, float]]:
@@ -59,9 +71,9 @@ def run(ctx: Ctx) -> None:
     a = assets(ctx, "sebs_rootfs")
     fns = [f for f in ctx.opt("functions", ",".join(SIZES)).split(",") if f]
     reps = ctx.reps(30)
-    top = int(ctx.opt("max_concurrency", str(max(CONCURRENCY))))
+    levels = concurrencies(ctx)
     for fn in fns:
-        for n in (c for c in CONCURRENCY if c <= top):
+        for n in levels:
             need = n * MEM_MB.get(fn, 512)
             if need > ctx.mem_budget_mb():
                 ctx.skip(f"sebs fn={fn} concurrency={n}", need, "guests together over the RAM budget")

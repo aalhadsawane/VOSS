@@ -1,0 +1,6 @@
+# E01 scenario 3 on host i7-12700-64g: 20% omitting owners at 100 inv/s, so progress-based detection, retries and
+# hedging run (the 3 inv/s variant s3_omit is kept for the record).
+extends: base.yaml
+scenario:
+  adversary: {regime: adversary_mixed, alpha: 0.2}
+  load: {regime: load_default, rate: 100}

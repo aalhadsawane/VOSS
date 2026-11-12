@@ -534,3 +534,19 @@ for survival dependence. By the decision rule of `docs/PLAN-ROUND4.md` §2b the 
 (D-78) stay off by default, because changing defaults changes every frozen result hash; instead the experiments that compare against baselines and are used in the paper are rerun with the two options on
 (E10b, E17b, E20ab, E24b). VOSS-centred frozen experiments keep the original placement, which changes VOSS results by about 2% (E04b `plan_greedy_oldwait`); the paper states this as a limit.
 
+
+**D-80 Slots are a concurrency limit derived from an assumed donated CPU share; the memory-blind admission is guarded by an invariant, not by a memory check** (slots review, doc 02 §4, doc 03 terminology, doc 06 §8.1).
+A worker's `slots` is `max(1, floor(cpu_frac × cores))` with `cores` the hardware threads of its class and `cpu_frac = 0.75`
+(`EnvelopeParams`, tag: assumed; it came with the first world commit and has no derivation, no measurement and no calibration; the same
+envelope holds `mem_frac` 0.6 and 0.2 of each disk tier). The reason for an envelope at all is that the owner keeps using the machine, and
+that hardware threads overstate parallel capacity; the value itself is a choice. The unit is the planner's: `q_t = Q_0.95(λ_t s_t)` is the
+number of simultaneously running invocations of tenant *t* (M/G/∞), so the plan reserves concurrency. The paper calls it the concurrency limit.
+CPU bounds running invocations (one slot each, whatever the function, held through key fetch, boot or restore and execution); memory bounds warm
+sandboxes. Running memory is not checked at admission; instead `world.scenario.check_memory_invariant` refuses a scenario in which
+`slots × max function mem_mb` exceeds a worker's donated memory (worst case in the shipped classes: 83% of the budget on C3 at 0.75; the
+emulated worker E0 would violate it at `cpu_frac` 1.0). The guard adds no logged data, so no result hash changes. Known simplifications, all
+Parked in `docs/ROADMAP.md`: memory admission, per-function vCPU, hyperthreads counted at full-core speed, run-to-completion execution without CPU
+overcommit (a static interference factor of at most +10% stands in for contention), static run times. Not changed: the default `cpu_frac`
+stays 0.75 because a new default would invalidate every frozen hash, leave the owner no CPU, break the E01 emulation (E0: 3 cores → 2 slots) and
+look like tuning after the fact. Instead H17 (donated share 0.5, 1.0) and H18 (CPU overcommit with static time-sharing, ρ = 2, 4) are
+pre-registered in doc 06 §8.1 before any run, with the result reported whichever way it falls.

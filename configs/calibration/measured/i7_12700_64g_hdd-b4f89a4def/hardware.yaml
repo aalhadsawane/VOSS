@@ -1,0 +1,10 @@
+classes:
+  C0:
+    hdd_read_MBps: 132.36888
+    hdd_write_MBps: 134.179291
+  E0:
+    hdd_read_MBps: 132.36888
+    hdd_write_MBps: 134.179291
+provenance:
+  default: measured
+  note: ingested from raw logs of host i7_12700_64g_hdd-b4f89a4def (rule 13)

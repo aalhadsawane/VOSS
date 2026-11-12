@@ -88,6 +88,26 @@ def _hash(tables: dict[str, pd.DataFrame], catalog: Catalog, horizon: float) -> 
     return hash_columns(cols)
 
 
+def check_memory_invariant(workers: WorkerTable, catalog: Catalog) -> None:
+    """Doc 02 §4: running invocations never exceed a worker's memory budget, so admission needs no memory check.
+
+    Every attempt holds one concurrency slot, and ``Slots`` admits up to ``slots`` of them. The worst case is that all
+    run the largest function: ``slots × max mem_mb`` must fit in ``mem_mb`` (the donated memory share). Warm sandboxes
+    are evicted for running memory (``cache.park_warm``), so the invariant keeps running memory from ever going negative
+    in the free-memory computation.
+    """
+    big = max(f.mem_mb for f in catalog.functions)
+    need = workers.slots * big
+    bad = np.flatnonzero(need > workers.mem_mb)
+    if len(bad):
+        j = int(bad[0])
+        raise ValueError(
+            f"memory invariant violated on {len(bad)} workers (first: worker {j}, hardware "
+            f"{workers.hw_names[int(workers.hw[j])]}): {int(workers.slots[j])} slots x {big:g} MB = {need[j]:g} MB "
+            f"> {workers.mem_mb[j]:g} MB donated memory; lower envelope.cpu_frac or raise envelope.mem_frac (doc 02 §4)"
+        )
+
+
 def generate(cfg: RunConfig) -> Scenario:
     """Doc 01 §4. Order: workers → adversaries → sessions (fake drains) → arrivals; each uses its own streams."""
     sc, rng, horizon = cfg.scenario, RngFactory(cfg.seed), cfg.horizon_s
@@ -95,6 +115,7 @@ def generate(cfg: RunConfig) -> Scenario:
     metros = load_metros(gp.metros).restrict(gp.regions)
     catalog = load_catalog(sc, cfg.calibration)
     workers = generate_workers(sc, metros, load_hw_classes(sorted(sc.hw_mix), cfg.calibration), rng)
+    check_memory_invariant(workers, catalog)
     adv = generate_adversaries(sc, workers, horizon, rng)
     params = load_adversary_regime(sc).params
     fake = np.flatnonzero(adv.behavior == BEHAVIORS.index("fake_signals"))

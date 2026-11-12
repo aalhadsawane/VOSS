@@ -1,0 +1,88 @@
+bundle: i7_12700_64g_full-b4f89a4def
+host:
+  bios_version: A.90
+  board: PRO Z790-A WIFI (MS-7E07)
+  cores: 12
+  cpu_model: 12th Gen Intel(R) Core(TM) i7-12700
+  disks:
+  - model: HGST HUS722T2TAL
+    name: sda
+    rotational: true
+    size_gb: 2000.4
+  - model: HGST HUS722T2TAL
+    name: sdb
+    rotational: true
+    size_gb: 2000.4
+  - model: HGST HUS722T2TAL
+    name: sdc
+    rotational: true
+    size_gb: 2000.4
+  - model: HGST HUS722T2TAL
+    name: sdd
+    rotational: true
+    size_gb: 2000.4
+  - model: Samsung SSD 980 PRO 1TB
+    name: nvme1n1
+    rotational: false
+    size_gb: 1000.2
+  - model: Samsung SSD 980 PRO 1TB
+    name: nvme3n1
+    rotational: false
+    size_gb: 1000.2
+  - model: Samsung SSD 980 PRO 1TB
+    name: nvme2n1
+    rotational: false
+    size_gb: 1000.2
+  - model: Samsung SSD 980 PRO 1TB
+    name: nvme0n1
+    rotational: false
+    size_gb: 1000.2
+  dry_run: false
+  fio: fio-3.36
+  firecracker: Firecracker v1.10.1
+  harness_version: 0.1.0
+  hostname: HOST
+  iommu: false
+  kernel: 5.15.0-198-generic
+  mem_kb: 65503008
+  microcode: '0x3e'
+  options:
+    firecracker: /home/USER/voss-calib-work/assets/firecracker
+    hdd_dir: /mnt/hdd1/voss-scratch/hdd
+    kernel: /home/USER/voss-calib-work/assets/vmlinux
+    rootfs: /mnt/nvme1/voss-scratch/voss-guest.ext4
+    sebs_rootfs: /mnt/nvme1/voss-scratch/voss-guest.ext4
+    ssd_dir: /mnt/nvme1/voss-scratch/ssd
+  phase: null
+  qemu: QEMU emulator version 6.2.0 (Debian 1:6.2+dfsg-2ubuntu6.31)
+  run_id: 20261111T082703
+  secure_boot: false
+  status: ok
+  suite: tpm
+  t_utc: '2026-11-11T08:27:03Z'
+  threads: 20
+  tme: false
+  tpm2_tools: tool="tpm2_quote" version="5.2" tctis="libtss2-tctildr" tcti-default=tcti-device
+  tpm_vendor: INTC
+missing:
+- dispatch
+- drtm_launch
+- kbs_check_s
+- snapshot_touched_frac
+- tme_cpu_factor
+- tme_mem_factor
+provenance:
+  default: measured
+  note: ingested from raw logs of host i7_12700_64g_full-b4f89a4def (rule 13)
+raw_files:
+  i7_12700_64g-b4f89a4def/appliance/20261112T122328/records.jsonl: cc1d6fb9f99b071b5d38fc4144a017168b3257ef538ca7b0274aeb993b0ba321
+  i7_12700_64g-b4f89a4def/attest_local/20261111T082752/records.jsonl: c64842138d3c4e02849cd02d1818ffddf954a38a1ba337f5d3165c97c329dc42
+  i7_12700_64g-b4f89a4def/caps/20261111T080818/records.jsonl: e5a12e3285481d5cd2426c22b52e3bd75a569686d25a6f36c6a7b919fbc2acf3
+  i7_12700_64g-b4f89a4def/disk/20261111T080818/records.jsonl: ce63a844c4bb75a99608059fa62ae52af07509451ebab8fed1ecece6a990488f
+  i7_12700_64g-b4f89a4def/fc_boot/20261111T083001/records.jsonl: 2b0ddc42ee0bf8c2cb2713952146ccca8f904c714181b47e6075373c32f75f3c
+  i7_12700_64g-b4f89a4def/fc_snapshot/20261111T083501/records.jsonl: 8b74cd9ab92a9a4968b45281a9236a86f0400bea64bca0ef484d71e7209eacca
+  i7_12700_64g-b4f89a4def/qemu_vm/20261111T082811/records.jsonl: a913c11e3707e338bfb4d3e14e0c3511169b7280cd763e8208271cf559de8bf1
+  i7_12700_64g-b4f89a4def/sebs/20261111T084029/records.jsonl: 27b57530a237aab6a91bbc30367a2e0b6e59c7fe77837f04499ac75a2b4ef70a
+  i7_12700_64g-b4f89a4def/tls/20261111T082810/records.jsonl: 6188d222bc4169cccc4cb0d6953af19ff5738505cabf33f8c7e745af8ec66f47
+  i7_12700_64g-b4f89a4def/tpm/20261111T082703/records.jsonl: 44012fc81608d24f3fc5c74b0188688560fefccf5835e15f72049768d06d834b
+raw_host: i7_12700_64g-b4f89a4def
