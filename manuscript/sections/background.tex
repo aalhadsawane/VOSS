@@ -1,7 +1,9 @@
 \section{Background and Problem}
 \label{sec:background}
 
-\textbf{Terms.} A \emph{tenant} is a customer who deploys functions; an \emph{invocation} is one call of a function. The
+\textbf{Terms.} A \emph{tenant} is a customer who deploys functions; an \emph{invocation} is one call of a function. An invocation is \emph{synchronous} when the client waits for
+the result, \emph{asynchronous} when the result is delivered later, and \emph{filler} when it is background work with no deadline
+that runs only on otherwise idle capacity and yields to every other invocation. The
 \emph{provider} runs the platform, a \emph{volunteer} owns a donated machine, and a \emph{worker} is that machine while it runs
 our software. A \emph{sandbox} is the isolated environment in which one function runs. Because a worker runs code from tenants that do not
 trust each other, on a machine whose owner we do not trust, we implement each sandbox as a virtual machine, which isolates
@@ -83,20 +85,25 @@ crash, drop a result (an \emph{omission}), or deliver it late (a \emph{timing} f
 An owner who cannot forge anything can still drop or delay work selectively while the machine keeps sending its periodic
 liveness messages (\emph{heartbeats}), which defeats detectors built on them, adaptive ones included~\cite{hayashibara2004phi,huang2017gray}.
 
-Invocations name a tenant and a function and are synchronous (the client waits), asynchronous, or low-priority filler work. The
-tenant supplies the deadline, as it sets a timeout today: the scheduler takes it as given and does not derive it. The scheduler
-estimates run time separately, from a prior and the function's past invocations (Section~\ref{sec:estimators}), so a function's
-first invocation needs no history. In our evaluation the deadline of a synchronous invocation is five times the sum of the
-function's reference run time on a warm sandbox, at that invocation's input size, and 50\,ms of overhead; the reference run time
-stands in for a tenant that has measured its function. The multiple of five is our assumption: it is not taken from a provider
-and we did not vary it. Asynchronous invocations have a deadline of 60\,s and filler work none. Serverless functions are short-lived, and so are
-the limits platforms impose: the 12 functions run for 4\,ms to 6\,s on the reference machine, and AWS Lambda's default timeout is 3\,s,
-with a maximum of 15 minutes (90 minutes for asynchronous and event-source invocations on Lambda Managed
-Instances)~\cite{awslambdatimeout}. Such a timeout is a limit after which the platform stops the function, not a latency target.
-Functions are marked idempotent or not; only
-idempotent ones are retried or duplicated. This is the contract developers already follow: AWS Lambda retries failed
-asynchronous invocations and warns of duplicate events~\cite{awslambdaasync,awslambdaretries}, Google's event-driven
-functions run at least once~\cite{gcfretries}, and Azure and Cloudflare deliver events at least once~\cite{azureeventhubsfunctions,cloudflarequeues}.
+A failure matters through the deadline of the invocation it hits. Each synchronous invocation carries a deadline set by the
+tenant, and a crash, a dropped result and a late result all miss it. Our evaluation sets the deadline as a tenant would after
+measuring its function: five times the sum of the function's run time on a warm sandbox, at that invocation's input size, and
+50\,ms of request overhead. The scheduler is given the deadline and does not derive it; it estimates run time itself from a
+prior and the function's past invocations (Section~\ref{sec:estimators}), so a function's first invocation needs no history.
+With this multiple, execution uses at most a fifth of the deadline, and at least four fifths remain for the network, queueing and
+start-up. The 12 functions run for 4\,ms to 6\,s on the reference machine, and the seven synchronous ones have deadlines of 0.27
+to 2.75\,s at their reference input size. A warm sandbox meets them easily, but a boot from a hard disk, \CalFcBootColdS\,s on the
+calibration laptop, exceeds the deadline of four of the seven on its own. Such short deadlines match what developers use:
+AWS Lambda's default timeout is 3\,s, above every synchronous deadline here, and its maximum is 15 minutes (90 minutes for
+asynchronous and event-source invocations on Lambda Managed Instances)~\cite{awslambdatimeout}. A timeout stops the function
+and a deadline is a latency target, but both show that functions are expected to finish in seconds. Asynchronous invocations
+have a deadline of 60\,s and filler work has none.
+
+At these deadlines a failure must be found and worked around within seconds. The scheduler may retry an invocation or run it on
+two workers, which is safe only for idempotent functions, so functions are marked idempotent or not, and only idempotent ones are
+retried or duplicated. Developers already follow this contract: AWS Lambda retries failed asynchronous invocations and warns of
+duplicate events~\cite{awslambdaasync,awslambdaretries}, Google's event-driven functions run at least once~\cite{gcfretries}, and
+Azure and Cloudflare deliver events at least once~\cite{azureeventhubsfunctions,cloudflarequeues}.
 The scheduler decides which workers receive which tenant's key, which functions they keep warm, and which worker runs each
 invocation. The goals are that an owner learns no tenant secret and forges no result; that P99 stays within target despite
 churn; that a worker that drops work, or a scheduler that stalls, is bypassed within seconds without trusting its own

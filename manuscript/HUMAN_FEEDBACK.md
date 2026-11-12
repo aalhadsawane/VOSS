@@ -113,6 +113,8 @@ from the page alone.
     apply to volunteers, then our version.
 29. **Re-derive every formula in the prose from the code**, and say for each input whether the scheduler is told it or estimates it.
     written to disk; loading it resumes the sandbox"), not by comparison alone ("restores faster than a sandbox boots").
+30. **Each sentence must follow from the section's question** (here: how volunteer machines fail). Say why an outside fact matters
+    before citing it, justify an assumed parameter with numbers from the paper, and keep method caveats in Limitations.
 
 ## CRITICAL items (must be resolved before submission)
 
@@ -391,4 +393,18 @@ times, X-3 redraw Figure 1).
   half of Azure Functions average under 1 s, and I could not read the paper's execution-time section here. I added no new number from it.
 - **Lesson:** heuristic 29. Check a formula in the paper against the code (here the parenthesis was wrong), and state what the scheduler
   is told versus what it estimates.
+
+### Round 20: Section 2.3 read as a fact dump
+- **Said:** (a) "Filler work" is undefined. (b) "Five is our assumption and we did not vary it" sounds like a reply to a reviewer, not
+  final text; justify five with typical numbers. (c) The section is about how volunteer machines fail, yet it turns to datacenter
+  business promises without saying why they matter. (d) Every statement is a fact dump, not a story.
+- **Did:** Rewrote the second half of 2.3 as one chain: a failure matters through the deadline of the invocation it hits; what the
+  deadline is and who sets it; why five (execution takes at most a fifth, leaving four fifths for network, queueing and start-up;
+  the seven synchronous deadlines are 0.27--2.75 s, and a hard-disk boot of 1.45 s alone exceeds four of them, so a prepared
+  environment is needed); Lambda's 3 s default timeout as the evidence that short deadlines match practice (every synchronous
+  deadline is below it); therefore failures must be handled within seconds; therefore retry and duplication, which need idempotent
+  functions, a contract developers already follow. Synchronous, asynchronous and filler are now defined in Terms, where
+  invocations are introduced. "Not varied" moved from the body to the Limitations item on assumed workload.
+- **Lesson:** heuristic 30. Every sentence in a section must follow from the section's question; say why before citing an outside
+  fact. Caveats about our own method belong in Limitations, written as a statement, not as an answer to a question.
 
