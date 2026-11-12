@@ -35,7 +35,7 @@ Hard disk & 0.2 & assumed \\
 \end{table}
 
 \textbf{Calibration and checks.} Start-up, snapshot, quote and boot costs come from one consumer laptop: an \CalCpuFull{} (mainboard \CalBoard, BIOS \CalBios), \CalMemGiB\,GiB of
-memory, one spinning hard disk (fio sequential read \CalDiskRead\,MB/s, write \CalDiskWrite\,MB/s), TPM~2.0 and Linux \CalKernel. The time to an attested worker (\CalAttested\,s) is a sum of measured steps run on the laptop's installed system rather than
+memory, one spinning hard disk (fio sequential read \CalDiskRead\,MB/s, write \CalDiskWrite\,MB/s), TPM~2.0 and Linux \CalKernel. The calibration also ran six of the functions at several input sizes, 60 to 180 runs each, on the laptop and on the second host below. The fitted exponents of run time against input size are 0 to 0.97, and the laptop takes 2.6 to 5.7 times as long as the second host for the same function. The time to an attested worker (\CalAttested\,s) is a sum of measured steps run on the laptop's installed system rather than
 one boot of the final locked image. The TPM quote is the largest measured trust cost, and it is not portable across
 firmware: a second bare-metal host (Intel i7-12700, firmware TPM, NVMe) quotes in 0.19\,s against the laptop's 0.51\,s,
 so every host must measure it. Memory encryption is not part of the base claim: consumer firmware ships with TME disabled
