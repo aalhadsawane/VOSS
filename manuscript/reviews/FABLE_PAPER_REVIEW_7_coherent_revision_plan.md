@@ -4,6 +4,8 @@ Files 1-6 list 110 separate problems. Fixing them one by one would produce contr
 This file gives one design, one methodology and one paper structure under which all of them are resolved together.
 Issue IDs (A, B, C, E, S, W from files 1-4; D, X from files 5-6) are cited throughout.
 
+**Executable version of this plan, checked against the code:** `docs/REVISION_PLAN.md`. Where the two differ (snapshot keys, decision timing), that file explains why and wins.
+
 ---
 
 ## 1. What the paper should be
