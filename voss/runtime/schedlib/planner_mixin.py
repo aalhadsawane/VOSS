@@ -12,7 +12,7 @@ from voss.metrics.schema import Table
 from voss.policy.cost.inputs import CostContext
 from voss.policy.plan.diff import PlanAction
 from voss.runtime.actor import ActorContext
-from voss.runtime.schedlib.planning import Planning, PlanRound, sources_for
+from voss.runtime.schedlib.planning import Planning, PlanRound
 from voss.runtime.schedlib.provider_host import ProviderHost
 from voss.runtime.schedlib.viewcache import ViewCache
 
@@ -78,28 +78,12 @@ class PlannerMixin:
                 self._send_action(a, view, idx[a.worker])
 
     def _send_action(self, a: PlanAction, view: Any, j: int) -> None:
-        dst, k = ("agent", int(a.worker)), self.ctx.cfg.voss.cache.max_sources
+        dst = ("agent", int(a.worker))
         if a.kind == "PREPARE":
-            src = sources_for(view, a.fns[0], j, k, self.cost) if a.fns else ()
-            self.send(dst, Prepare(TenantId(a.tenant), a.fns, self.epoch, src))
+            self.send(dst, Prepare(TenantId(a.tenant), a.fns, self.epoch))
         elif a.kind == "PIN_SNAPSHOT":
-            src = sources_for(view, a.fns[0], j, k, self.cost, ("L2", "L3"), str(a.tenant))
-            self.send(dst, PinSnapshot(FnId(a.fns[0]), self.epoch, src))
+            self.send(dst, PinSnapshot(FnId(a.fns[0]), self.epoch))
         elif a.kind == "WARM":
             self.send(dst, Warm(FnId(a.fns[0]), a.n, self.epoch))
         else:
             self.send(dst, Release(TenantId(a.tenant), self.epoch))
-
-    def dispatch_sources(self, fn: str, w: WorkerId) -> tuple[WorkerId, ...]:
-        """P2P source hints for a dispatch whose target lacks the artifacts (doc 08 §4 ``DISPATCH``)."""
-        if not self.ctx.cfg.voss.cache.p2p:
-            return ()
-        view = self.views.view(self.eligible(), self.now)
-        idx = view.index()
-        j = idx.get(w)
-        if j is None:
-            return ()
-        e = view.cache[j].get(FnId(fn))
-        if e is not None:
-            return ()
-        return sources_for(view, fn, j, self.ctx.cfg.voss.cache.max_sources, self.cost)

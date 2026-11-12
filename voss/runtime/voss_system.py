@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import numpy as np
-import pandas as pd
 
 from voss.core.config import RunConfig
 from voss.core.decision_clock import DecisionClock
@@ -56,7 +54,7 @@ class VossSystem:
         names = sorted(set(scn.workers.substrate_names))
         self.profiles: dict[str, SubstrateProfile] = {n: load_substrate(n, self.bundle) for n in names}
         self.directory = Directory()
-        clock = DecisionClock(cfg.decision_clock, replay_charges(cfg), sink=self._charge)
+        clock = DecisionClock(cfg.decision_clock, sink=self._charge)
         self.ctx = ActorContext(self.kernel, self.net, self.rec, self.rng, clock, cfg, self.directory)
         self.cost = cost_context(cfg, scn.catalog, scn.metros, self.profiles, self.bundle)
         self.priors = fn_priors(scn.catalog)
@@ -121,7 +119,6 @@ class VossSystem:
                 float(wt.last_mile_s[w]),
                 float(wt.up_bps[w]),
                 float(wt.down_bps[w]),
-                bool(wt.relayed[w]),
                 up=False,
             )
             adv = Adversary.of(self.scn.adversary, w, self.rng.stream("adversary.effects", w))
@@ -204,7 +201,6 @@ class VossSystem:
             evictions=sum(h.cache.stats.evictions for h in hosts),
             demotions=sum(h.cache.stats.demotions for h in hosts),
             promotions=sum(h.cache.stats.promotions for h in hosts),
-            p2p_mb=sum(h.extra.get("p2p_bytes", 0.0) for h in hosts) / 2**20,
             key_holders=sum(len(a.keys) for a in live),
             exposure=sum(len(a.keys) * (1 - a.host.assurance) for a in live),
         )
@@ -230,15 +226,6 @@ class VossSystem:
         for v in check_invariants(self.rec, self.scn, len(arr), give_up, end, drops):
             self.rec.log(Table.EVENTS, t=self.kernel.now, kind="invariant_violation", worker=-1, value=0.0, detail=v)
         return RunResult(self.rec, self.scn.hash, self.kernel.events_run)
-
-
-def replay_charges(cfg: RunConfig) -> list[tuple[str, float]] | None:
-    """``decision_clock.replay_log``: a previous run directory (or its ``solver.parquet``)."""
-    if cfg.decision_clock.mode != "replay" or cfg.decision_clock.replay_log is None:
-        return None
-    path = Path(cfg.decision_clock.replay_log)
-    df = pd.read_parquet(path / "solver.parquet" if path.is_dir() else path)
-    return list(zip(df.kind.astype(str), df.charged_s.astype(float), strict=True))
 
 
 def _sample(ref: Any, g: np.random.Generator) -> float:

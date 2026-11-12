@@ -103,7 +103,6 @@ class Dispatch(Message):
     t_dispatch: float
     scheduler: Addr
     batch_wait: float = 0.0
-    sources: tuple[WorkerId, ...] = ()
     cluster: int = 0
 
 
@@ -269,16 +268,14 @@ class Prepare(Message):
     tenant: TenantId
     fns: tuple[FnId, ...]
     epoch: int
-    sources: tuple[WorkerId, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
 class PinSnapshot(Message):
-    """Create (if trust-warm) or fetch from a same-class trust-warm peer, then pin a function snapshot."""
+    """Create a function snapshot (the worker must hold the key) and pin it."""
 
     fn: FnId
     epoch: int
-    sources: tuple[WorkerId, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

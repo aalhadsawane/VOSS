@@ -252,7 +252,6 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, PlannerMixin, Actor):
         self.views.dispatched(w, self.now)
         self._ka_dispatch(rec.inv.fn, w)
         inv = replace(rec.inv, attempt=a)
-        src = self.dispatch_sources(inv.fn, w)
         d = Dispatch(
             inv,
             self.epoch,
@@ -263,7 +262,6 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, PlannerMixin, Actor):
             self.now,
             self.addr,
             rec.batch_wait,
-            src,
             int(self.cluster),
         )
         self.send(("agent", w), d)

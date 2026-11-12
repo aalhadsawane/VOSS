@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 from voss.core.ids import FnId, TenantId, WorkerId
-from voss.policy.cache_value import GdsfState, gdsf_value, lru_value, source_score
+from voss.policy.cache_value import GdsfState, gdsf_value, lru_value
 from voss.policy.plan.diff import diff, rate_limit
 from voss.policy.plan.types import Plan
 from voss.world.cache import WorkerCache
@@ -58,9 +58,3 @@ def test_warm_pins_survive_ttl_and_pressure() -> None:
     c.park_warm("g", 128, now=1)
     assert not c.park_warm("h", 128, now=2) or c.warm_count("f") == 1  # f is never the victim
     assert c.warm_count("f") == 1
-
-
-def test_source_score_orders_peers() -> None:
-    near_fast = source_score(0.01, 50e6, 100e6, 0, "ssd")
-    far_busy = source_score(0.1, 50e6, 100e6, 3, "hdd")
-    assert near_fast < far_busy

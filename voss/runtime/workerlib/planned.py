@@ -79,7 +79,7 @@ class PlannedMixin(KeepWarmMixin):
             if not fns:
                 one()
             for f in fns:
-                self.fetch(f, ("bundle", "rootfs"), one, m.sources)
+                self.fetch(f, ("bundle", "rootfs"), one)
 
         self.request_key(m.tenant, keyed)
 
@@ -90,8 +90,6 @@ class PlannedMixin(KeepWarmMixin):
         h, d = self.host, self.digests[m.fn]["snapshot"]
         if h.cache.tier_of(d) is not None:
             h.cache.pin(d)
-        elif m.sources and self.ctx.cfg.voss.cache.p2p:
-            self.fetch(fn, ("snapshot",), lambda: h.cache.pin(d), m.sources)
         elif fn.tenant in self.keys:
             self._build(fn, then=lambda: self._snapshot_done(fn, d))
 

@@ -77,7 +77,6 @@ def dc_workers(scn: Scenario, ref: RefProfile, regions: tuple[str, ...]) -> Work
         down_bps=np.full(n, DC_BPS),
         up_bps=np.full(n, DC_BPS),
         last_mile_s=np.full(n, DC_LAST_MILE_S),
-        relayed=np.zeros(n, dtype=bool),
         known_good=np.ones(n, dtype=bool),
         slots=np.full(n, hw.cores),
         speed=np.full(n, hw.speed),

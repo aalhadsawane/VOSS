@@ -39,7 +39,6 @@ class LinkParams(BaseModel):
     up_ratio_sigma: float = 0.6
     last_mile_ms_median: float = 10.0
     last_mile_sigma: float = 0.5
-    relayed_frac: float = Field(default=0.15, ge=0, le=1)
 
 
 class EnvelopeParams(BaseModel):
@@ -68,7 +67,6 @@ class WorkerTable:
     down_bps: np.ndarray
     up_bps: np.ndarray
     last_mile_s: np.ndarray
-    relayed: np.ndarray
     known_good: np.ndarray
     slots: np.ndarray
     speed: np.ndarray
@@ -109,7 +107,6 @@ def _links(gen: np.random.Generator, lp: LinkParams, n: int) -> dict[str, np.nda
         "down_bps": down,
         "up_bps": down * ratio,
         "last_mile_s": gen.lognormal(np.log(lp.last_mile_ms_median), lp.last_mile_sigma, n) / 1e3,
-        "relayed": gen.random(n) < lp.relayed_frac,
     }
 
 

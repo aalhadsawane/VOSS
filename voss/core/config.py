@@ -25,9 +25,8 @@ class Frozen(BaseModel):
 class DecisionClockConfig(Frozen):
     """Doc 01 §7."""
 
-    mode: Literal["measured", "modeled", "replay"] = "modeled"
+    mode: Literal["measured", "modeled"] = "modeled"
     cpu_scale: float = 1.0
-    replay_log: str | None = None
     # modeled cost: seconds = a + b * work, per kind. TODO verify: seeds, refit from E02 measured runs.
     coeffs: dict[str, tuple[float, float]] = Field(
         default_factory=lambda: {
@@ -196,8 +195,6 @@ class CacheConfig(Frozen):
 
     value: str = "gdsf"
     hdd_tier: bool = True
-    p2p: bool = True
-    max_sources: int = 3
 
 
 class DetectionConfig(Frozen):

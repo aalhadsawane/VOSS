@@ -15,7 +15,6 @@ from voss.core.messages import (
     Chunk,
     Dispatch,
     EpochInstall,
-    Fetch,
     Heartbeat,
     Input,
     Key,
@@ -232,8 +231,6 @@ class WorkerAgent(RecoveryMixin, PlannedMixin, FetchMixin, SessionMixin, Actor):
             self._key(msg)
         elif isinstance(msg, Chunk):
             self._chunk(msg)
-        elif isinstance(msg, Fetch):
-            self._serve(msg)
         elif isinstance(msg, Prepare | PinSnapshot | Warm | Release | KeepWarm):
             self._plan_action(msg)
         elif isinstance(msg, Assign):
@@ -272,7 +269,6 @@ class WorkerAgent(RecoveryMixin, PlannedMixin, FetchMixin, SessionMixin, Actor):
             self.op_gen,
             self,
             m.batch_wait,
-            m.sources,
             m.scheduler,
             m.cluster,
         )

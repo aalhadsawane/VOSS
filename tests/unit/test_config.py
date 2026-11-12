@@ -49,7 +49,3 @@ def test_decision_clock_modes(tmp_path: Path) -> None:
     measured = DecisionClock(DecisionClockConfig(mode="measured", cpu_scale=2.0), sink=lambda *a: seen.append(a))
     assert measured.charge("plan", wall_s=0.5) == pytest.approx(1.0)
     assert seen == [("plan", 0.0, 0.5, 1.0)]
-    replay = DecisionClock(DecisionClockConfig(mode="replay"), replay=measured.log)
-    assert replay.charge("plan") == pytest.approx(1.0)
-    with pytest.raises(RuntimeError):
-        replay.charge("plan")
