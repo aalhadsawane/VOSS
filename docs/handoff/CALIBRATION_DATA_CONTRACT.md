@@ -35,8 +35,9 @@ A bundle that fails this contract is not used for any reported result (plan guar
 | `tpm2_unseal` | unseal of the cache-partition key under the PCR policy | boot step | 50 |
 | `verify_quote` | verifier checks quote, certificate chain and event log; signs a session certificate | verifier time per session | 50 |
 | `tls_handshake` | TLS 1.3 mutual handshake CPU time on this machine | every new connection to a worker | 1,000 |
-| `key_release` | worker side of a key release: request, receive, unwrap with the session key | key fetch delay | 200 |
-| `decrypt_per_MB` | AES-GCM decryption throughput of a bundle | start-up from an encrypted bundle | 20 |
+| `key_request` | worker side of a key request over loopback TLS: new connection, 256-byte request, 256-byte reply (`keys` suite) | key fetch delay (with `key_unwrap`; ingest writes `key_release` = sum) | 200 |
+| `key_unwrap` | one RSA-2048 private-key operation, unwrapping the function key (`openssl speed`) | key fetch delay | 1 run |
+| `decrypt_per_MB` | seconds per MB of AES-256-GCM decryption on 1 MB blocks (`openssl speed`, `keys` suite) | start-up from an encrypted bundle | 1 run |
 | `hash_per_MB` | SHA-256 throughput | integrity check of fetched files | 20 |
 
 ## 3. Boot of the real image (reboots; approval needed)

@@ -97,7 +97,9 @@ def test_appliance_arm_needs_allow_reboot_even_inside_the_suite(tmp_path: Path) 
     assert ctx.sh.log == []
 
 
-@pytest.mark.parametrize("suite", ["caps", "disk", "fc_boot", "fc_snapshot", "qemu_vm", "sebs", "tpm", "attest_local"])
+@pytest.mark.parametrize(
+    "suite", ["caps", "disk", "fc_boot", "fc_snapshot", "qemu_vm", "sebs", "tpm", "attest_local", "keys"]
+)
 def test_dry_run_of_every_safe_suite(suite: str, tmp_path: Path) -> None:
     opts = ["kernel=/a/vmlinux", "rootfs=/a/r.ext4", "sebs_rootfs=/a/s.ext4", "ssd_dir=" + str(tmp_path / "ssd")]
     argv = ["--suite", suite, "--dry-run", "--quick", "--out", str(tmp_path)]
@@ -432,3 +434,13 @@ def test_appliance_collect_reads_every_v2_boot_step(tmp_path: Path) -> None:
     assert rows["boot_first_tls"] == pytest.approx(0.02) and rows["boot_total"] == pytest.approx(8.5 + 10.32)
     assert rows["image_mem"] == pytest.approx(412.5) and "boot_at_cache_unsealed" not in rows
     assert rows["reboot_to_kernel"] == pytest.approx(8.5 + 1.5)
+
+
+def test_keys_parsers_read_openssl_speed_output() -> None:
+    from tools.calibrate.suites import keys
+
+    aes = "type        1048576 bytes\nAES-256-GCM   14192846.87k\n"
+    assert keys.speed_aes_mbps(aes) == pytest.approx(14192.84687)
+    rsa = "                  sign    verify    sign/s verify/s\nrsa 2048 bits 0.000343s 0.000017s   2917.0  58743.3\n"
+    assert keys.speed_rsa_private_s(rsa) == pytest.approx(0.000343)
+    assert keys.speed_aes_mbps("nothing") is None and keys.speed_rsa_private_s("") is None

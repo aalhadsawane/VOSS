@@ -87,7 +87,7 @@ A="--set firecracker=$HOME/voss-calib/assets/firecracker --set kernel=$HOME/voss
 uv run python -m tools.calibrate.run --suite all --sudo $A --set ssd_dir=<scratch> [--set hdd_dir=<scratch>] --quick
 uv run python -m tools.calibrate.run --suite all --sudo $A --set ssd_dir=<scratch> [--set hdd_dir=<scratch>]
 ```
-Suites in `all`: `disk`, `tpm`, `attest_local`, `tls`, `fc_boot`, `fc_snapshot`, `sebs`. (`qemu_vm` is no longer needed.)
+Suites in `all`: `caps`, `disk`, `tpm`, `attest_local`, `tls`, `keys`, `fc_boot`, `fc_snapshot`, `sebs`. (`qemu_vm` is no longer run.)
 
 **Function measurements.**
 - Every function in `tools/calibrate/guest/functions/` is measured at every input size the `sebs` suite lists (SeBS's
