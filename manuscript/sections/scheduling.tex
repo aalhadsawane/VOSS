@@ -132,8 +132,8 @@ and two parameters can be fitted from a few dozen sessions. \emph{Dropped work} 
 accepted invocation never returns, updated by two counters, with a prior so that a new worker is not judged on one outcome;
 a CUSUM change detector~\cite{page1954cusum} resets it when a worker that behaved starts dropping work.
 \emph{Run time} is a Bayesian linear regression of log run time on log input size per function with a small correction per
-worker, because run time grows roughly as a power of input size, a prior lets it work from a handful of samples, and Gaussian
-processes or regression trees would need more data and time than a millisecond decision allows. \emph{Request rate} is the larger
+worker. This is a power law in input size, the form the workload generator uses and that we fit to the calibration
+measurements. A prior lets it work from a handful of samples, and Gaussian processes or regression trees would need more data and time than a millisecond decision allows. \emph{Request rate} is the larger
 of two moving averages (1 and 15 minutes), erring towards preparing too much, which costs memory rather than a cold start.
 
 \subsection{Clusters and routing}

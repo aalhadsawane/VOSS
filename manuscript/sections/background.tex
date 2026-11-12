@@ -85,15 +85,20 @@ crash, drop a result (an \emph{omission}), or deliver it late (a \emph{timing} f
 An owner who cannot forge anything can still drop or delay work selectively while the machine keeps sending its periodic
 liveness messages (\emph{heartbeats}), which defeats detectors built on them, adaptive ones included~\cite{hayashibara2004phi,huang2017gray}.
 
-A failure matters through the deadline of the invocation it hits. Each synchronous invocation carries a deadline set by the
-tenant, and a crash, a dropped result and a late result all miss it. Our evaluation sets the deadline as a tenant would after
-measuring its function: five times the sum of the function's run time on a warm sandbox, at that invocation's input size, and
-50\,ms of request overhead. The scheduler is given the deadline and does not derive it; it estimates run time itself from a
-prior and the function's past invocations (Section~\ref{sec:estimators}), so a function's first invocation needs no history.
-With this multiple, execution uses at most a fifth of the deadline, and at least four fifths remain for the network, queueing and
-start-up. The 12 functions run for 4\,ms to 6\,s on the reference machine, and the seven synchronous ones have deadlines of 0.27
-to 2.75\,s at their reference input size. A warm sandbox meets them easily, but a boot from a hard disk, \CalFcBootColdS\,s on the
-calibration laptop, exceeds the deadline of four of the seven on its own. Such short deadlines match what developers use:
+A failure matters through the latency objective of the invocation it hits. Each synchronous invocation has a deadline, and a
+crash, a dropped result and a late result all miss it. The deadline is five times the sum of the function's warm run time, for
+that invocation's input, and 50\,ms of request overhead, so it bounds the slowdown against an ideal warm start. We compute it
+from the function's profile, by the same rule for every system we compare, and we do not model who sets it in a deployment
+(Section~\ref{sec:threats}). The scheduler receives the deadline with the invocation. It estimates run time itself, from a prior
+and the function's past invocations (Section~\ref{sec:estimators}), so nobody supplies a run time for a new function. Run time
+depends on input size as a power law with a per-function exponent: the workload uses exponents of 0 to 0.9 (assumed), and fits
+to our calibration measurements of six functions give 0 to 0.97.
+
+With a multiple of five, execution uses at most a fifth of the deadline, and at least four fifths remain for the network,
+queueing and start-up. The workload's 12 functions have reference run times of 4\,ms to 6\,s (seed values modelled on SeBS
+ranges~\cite{copik2021sebs}, not measured on our hardware), so the seven synchronous ones have deadlines of 0.27 to 2.75\,s at
+their reference input size, and none is below 0.25\,s, the overhead term. A warm sandbox meets them easily, but a boot from a
+hard disk, \CalFcBootColdS\,s on the calibration laptop, exceeds the deadline of four of the seven on its own. Such short deadlines match what developers use:
 AWS Lambda's default timeout is 3\,s, above every synchronous deadline here, and its maximum is 15 minutes (90 minutes for
 asynchronous and event-source invocations on Lambda Managed Instances)~\cite{awslambdatimeout}. A timeout stops the function
 and a deadline is a latency target, but both show that functions are expected to finish in seconds. Asynchronous invocations

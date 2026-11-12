@@ -40,7 +40,7 @@ comparison and the baseline experiments; the experiments about VOSS alone (ablat
 scale) ran with the original placement, which changes VOSS's own P99 by about 2\%.
 \item \textbf{Assumed workload and churn.} No public trace of donation sessions exists. The workload has six tenants and 12
 functions on 200 workers, so the limits of provisioning on tenants and functions never apply, provisioning is not stressed by a long
-tail of rare functions, 11 functions are idempotent by our assumption, and the deadline of a synchronous invocation is five times its warm run time plus overhead, a multiple we did not vary. Absolute differences are 0.3--0.5\,s of P99, with
+tail of rare functions, 11 functions are idempotent by our assumption, and the deadline of a synchronous invocation is computed from the function's profile as five times its warm run time plus overhead, a multiple we did not vary. Providers expose a timeout, not a per-invocation latency objective, so a deployment would need the objective configured per function by the tenant or learned by the platform. Absolute differences are 0.3--0.5\,s of P99, with
 every system of the provisioning comparison under 3\,s.
 \item \textbf{Assumed donor shares and capacity model.} The shares of CPU threads (hyperthreads counted), memory and disk that a
 worker offers (Table~\ref{tab:donated}) are assumed, not measured, and we have not swept them, so absolute capacity depends on
