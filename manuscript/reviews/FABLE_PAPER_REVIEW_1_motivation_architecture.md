@@ -3,8 +3,7 @@
 Target: ACM TOIT. Verdict on the current draft: **reject**. Format per item: quote, problem, fix.
 Severity: **F** fatal (rejection on its own), **M** major, **m** minor. Files: `sections/*.tex`.
 
-Other files: [2 security](FABLE_PAPER_REVIEW_2_security_trust.md), [3 evaluation](FABLE_PAPER_REVIEW_3_evaluation.md),
-[4 writing](FABLE_PAPER_REVIEW_4_writing_structure.md).
+Other files: [2 security](FABLE_PAPER_REVIEW_2_security_trust.md), [3 evaluation](FABLE_PAPER_REVIEW_3_evaluation.md), [4 writing](FABLE_PAPER_REVIEW_4_writing_structure.md), [5 deeper technical, code-checked](FABLE_PAPER_REVIEW_5_deeper_technical.md), [6 deeper writing](FABLE_PAPER_REVIEW_6_deeper_writing.md), [7 coherent revision plan](FABLE_PAPER_REVIEW_7_coherent_revision_plan.md). Read 7 before fixing anything.
 
 ## A. Motivation
 
