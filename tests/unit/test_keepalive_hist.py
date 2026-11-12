@@ -127,7 +127,7 @@ def test_pick_holder_prefers_original_then_most_free() -> None:
 
 def test_keepalive_inf_is_config_only() -> None:
     over = ["voss.planner.name=keepalive_ttl", "voss.worker.warm_ttl_s=1000000000.0"]
-    cfg = load_config(REPO / "configs/pilot.yaml", over)
+    cfg = load_config(REPO / "configs/smoke.yaml", over)
     assert cfg.voss.planner.name == "keepalive_ttl" and cfg.voss.worker.warm_ttl_s >= 1e9
 
 

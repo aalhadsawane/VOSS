@@ -107,16 +107,6 @@ def test_remote_commands_quote_and_gate(tmp_path: Path, capsys: pytest.CaptureFi
     assert rc == 0 and out.count("$ ") == 5 and "rsync" in out  # mkdir, 2 pushes, run, pull
 
 
-def test_ecs1_measured_table(raw: Path, tmp_path: Path) -> None:
-    from experiments import ecs1_measured
-
-    out = tmp_path / "ecs1.md"
-    ecs1_measured.main(["--raw", str(raw), "--out", str(out)])
-    text = out.read_text()
-    assert "| TPM quote | — | 200 |" in text
-    assert "mem_mb=256, tier=ssd, cache=warm" in text and "| Appliance reboot → kernel | not measured | 0 |" in text
-
-
 def test_committed_measured_bundle_is_complete_and_its_hash_is_documented() -> None:
     """The laptop bundle (P9 exit): same entries as the placeholder, tagged, and the hash in the validation notes."""
     from voss.metrics.manifest import hash_dir

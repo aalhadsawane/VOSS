@@ -1,12 +1,1 @@
-\section{Conclusion}
-\label{sec:conclusion}
-Serving short functions from volunteer machines needs more than keep-alive timers and repeated execution. Attesting a locked
-image leaves hostile owners able only to switch machines off or drop and delay their messages, which churn already causes. What
-is left is deciding which workers are attested, given a tenant's key and kept warm, when all of that is slow to set up, lost at
-every session end and a leak risk on each extra worker. \voss{} makes that a periodic provisioning decision over a set of
-workers, places each invocation by its own chance of missing its deadline, judges workers by returned work, and replaces
-schedulers through a provider-run coordinator. Against the strongest keep-alive policies we could build, provisioning lowers P99
-by about \RfourDecompGreedyMed\% at higher key exposure; most of the gain is the set-level choice of how many workers hold each
-key, and the data do not support attributing it to survival-aware choice of workers. A single global scheduler outperformed
-geographic clusters. The next steps are a real multi-machine testbed, a many-tenant workload, and provisioning that keeps keys
-longer.
+% v2: rewritten in plan phase V14 following manuscript/WRITING_SPEC.md. v1 text is in git history (main b0f2fb2).

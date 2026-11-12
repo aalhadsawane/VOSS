@@ -1,6 +1,6 @@
 """Experiment runner (doc 06 §1): a base config × a grid of overrides × seeds, one run per point, idempotent.
 
-``python -m experiments.runner configs/experiments/E03.yaml`` runs every point not already present under
+``python -m experiments.runner configs/experiments/<NAME>.yaml`` runs every point not already present under
 ``runs/<experiment>/<config_hash>/`` and prints the run directories. ``experiments.sweep`` adds failure capture
 and a run index on top (``make sweep EXP=...``).
 """
@@ -18,17 +18,10 @@ import yaml
 from voss.cli import cmd_run
 from voss.core.config import RunConfig, apply_overrides, load_yaml_tree
 
-ABLATIONS = Path(__file__).resolve().parents[1] / "configs" / "ablations.yaml"
-
 
 def systems(spec: dict[str, Any]) -> dict[str, list[str]]:
-    """``systems`` plus the switches named by ``ablations`` (``all`` or a list) from ``configs/ablations.yaml``."""
-    out: dict[str, list[str]] = dict(spec.get("systems", {"": []}))
-    names = spec.get("ablations")
-    if names:
-        table: dict[str, list[str]] = yaml.safe_load(ABLATIONS.read_text())
-        out |= {n: list(table[n]) for n in (sorted(table) if names == "all" else names)}
-    return out
+    """Compared systems: label -> overrides (every system is listed explicitly in the spec)."""
+    return dict(spec.get("systems", {"": []}))
 
 
 def points(spec: dict[str, Any]) -> list[list[str]]:
