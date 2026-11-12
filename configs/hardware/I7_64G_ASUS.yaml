@@ -1,0 +1,16 @@
+# Bare-metal calibration host `i7-12700-64g-asus` (doc 10, X-1): Intel i7-12700, 62.45 GiB DDR5, two 1 TB
+# Samsung 980 PRO NVMe SSDs in one LVM/ext4 filesystem, no local HDD, Intel PTT firmware TPM 2.0 (firmware
+# 600.18.30.2307). Disk speeds are this host's fio medians from bundle `i7_12700_64g_asus-584bb563fe`.
+provenance: {default: measured, note: "fio medians of bundle i7_12700_64g_asus-584bb563fe (rule 13)"}
+name: I7_64G_ASUS
+speed: 1.0                  # reference core: work_ref_s in the same bundle is measured on this machine
+cores: 20                   # 8 P-cores (16 threads) + 4 E-cores (4 threads)
+mem_gb: 64
+ssd_gb: 1000                # one Samsung 980 PRO 1TB (both NVMe drives share one LVM volume)
+hdd_gb: 0                   # no local HDD on this host
+ssd_read_MBps: 6505.7       # measured, fio seq read 1M qd8
+ssd_write_MBps: 2407.3      # measured, fio seq write 1M qd8
+hdd_read_MBps: 0.0          # not applicable: no local HDD
+hdd_write_MBps: 0.0
+cpu_model: intel-adl
+tpm: ptt

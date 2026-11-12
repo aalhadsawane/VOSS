@@ -1,0 +1,188 @@
+distributions:
+  appliance_userspace:
+    dist: lognormal
+    median: 4.0
+    sigma: 0.2
+    source: systemd minimal userspace + dm-verity; TODO verify (P9 appliance)
+    tag: assumed
+  dispatch:
+    dist: lognormal
+    median: 0.002
+    sigma: 0.3
+    source: "agent \u2192 warm VM vsock dispatch"
+    tag: assumed
+  drtm_launch:
+    dist: lognormal
+    median: 2.0
+    sigma: 0.3
+    source: DRTM late launch + measurement, no reboot
+    tag: assumed
+  fc_boot:
+    dist: empirical
+    quantiles:
+    - 0.045791978016495705
+    - 0.04594053261680529
+    - 0.04617304822895676
+    - 0.04829448767704889
+    - 0.05097612519748509
+    - 0.0573836779803969
+    - 0.0581794390687719
+    - 0.05927871756721288
+    - 0.05991206583566964
+    - 0.06046660641441122
+    - 0.06092310941312462
+    - 0.06138699450530112
+    - 0.062066502543166285
+    - 0.06324625771958381
+    - 0.06436796677298844
+    - 0.06537287397077307
+    - 0.0663014080375433
+    - 0.06977159017696977
+    - 0.0712799875997007
+    - 0.07538043272215875
+    - 0.08096060785464942
+    source: fc_boot/fc_boot [cache=warm, mem_mb=256, tier=ssd]; harness 0.1.0
+    tag: measured
+  fc_restore:
+    dist: empirical
+    quantiles:
+    - 0.0012172439601272345
+    - 0.0016639166278764606
+    - 0.0017708780709654094
+    - 0.001852844934910536
+    - 0.0019634350668638945
+    - 0.0022649538004770875
+    - 0.003546323045156897
+    - 0.0039540733210742494
+    - 0.005327144404873252
+    - 0.0055319620063528415
+    - 0.00558932451531291
+    - 0.0056618174421601
+    - 0.005760157480835915
+    - 0.0058306087506935006
+    - 0.005931544303894043
+    - 0.006001207162626088
+    - 0.006039286870509386
+    - 0.006065329117700457
+    - 0.006110713630914688
+    - 0.006242232536897064
+    - 0.00637355400249362
+    source: fc_snapshot/fc_restore_api [cache=warm, mem_mb=512, tier=ssd]; harness 0.1.0; load API; page reads are modeled
+      separately
+    tag: measured
+  fc_snapshot_create:
+    dist: empirical
+    quantiles:
+    - 0.3659815990831703
+    - 0.41054681000532584
+    - 0.4551120209274814
+    - 0.4780085791600868
+    - 0.4947140937671065
+    - 0.5685400999500416
+    - 0.688062499393709
+    - 0.7706389842671342
+    - 0.7793236400000751
+    - 0.7875709964893758
+    - 0.7923199590295553
+    - 0.7970689215697349
+    - 0.8107584608718753
+    - 0.8255655722692609
+    - 0.8707226918544622
+    - 0.931054815533571
+    - 0.9651929317973554
+    - 0.9665885387919844
+    - 0.972054596315138
+    - 0.9917672306881287
+    - 1.0114798650611192
+    source: fc_snapshot/fc_snapshot_create [mem_mb=512, tier=ssd]; harness 0.1.0
+    tag: measured
+  kbs_check_s:
+    dist: lognormal
+    median: 0.002
+    sigma: 0.3
+    source: KBS policy check
+    tag: assumed
+  reboot_to_kernel:
+    dist: lognormal
+    median: 15.0
+    sigma: 0.2
+    source: consumer UEFI POST + shim + UKI; TODO verify (P9 appliance)
+    tag: assumed
+  snapshot_touched_frac:
+    dist: const
+    source: lazy restore touches a fraction of guest memory (REAP, FaaSnap)
+    tag: literature
+    value: 0.3
+  tme_cpu_factor:
+    dist: const
+    source: TME overhead; TODO verify (P9 tme)
+    tag: assumed
+    value: 1.0
+  tme_mem_factor:
+    dist: const
+    source: TME memory-bound overhead; TODO verify (P9 tme)
+    tag: assumed
+    value: 1.02
+  tpm2_quote:
+    dist: empirical
+    quantiles:
+    - 0.2036021021194756
+    - 0.20612410325556993
+    - 0.20756859481334686
+    - 0.20839735124027356
+    - 0.20934803592972456
+    - 0.2100439440109767
+    - 0.21060533567797393
+    - 0.21119125908007846
+    - 0.21197075215168298
+    - 0.2127642116160132
+    - 0.2137838579947129
+    - 0.21436354580800981
+    - 0.21527475337497892
+    - 0.21664256589720027
+    - 0.21736231518443674
+    - 0.21851356950355694
+    - 0.2198339337017387
+    - 0.22060869699344038
+    - 0.22167890705168247
+    - 0.22303341038059443
+    - 0.23803612310439348
+    source: tpm/tpm2_quote; harness 0.1.0; one tpm2_quote process (includes tool start-up, see probe baseline)
+    tag: measured
+  verify_s:
+    dist: empirical
+    quantiles:
+    - 0.006505071884021163
+    - 0.006670754053629935
+    - 0.006755277677439153
+    - 0.006801282311789692
+    - 0.006834413902834058
+    - 0.00708319095429033
+    - 0.00926451517734677
+    - 0.010887088160961868
+    - 0.013059131754562261
+    - 0.014711537410039454
+    - 0.014946483541280031
+    - 0.015248106140643359
+    - 0.01547082425095141
+    - 0.015907718788366765
+    - 0.016198472399264575
+    - 0.016881015326362103
+    - 0.018264825874939564
+    - 0.022106615221127893
+    - 0.02470535603351891
+    - 0.02734114797785879
+    - 0.03299156483262777
+    source: attest_local/attest_verify; harness 0.1.0; checkquote + Ed25519 certificate signature; no Keylime policy evaluation
+    tag: measured
+  verify_s_per_MB:
+    dist: const
+    source: disk/sha256_MBps; harness 0.1.0; single-core SHA-256
+    tag: measured
+    value: 0.0004608864146575798
+harness_version: 0.1.0
+host: i7_12700_64g_asus-584bb563fe
+measured: true
+provenance:
+  default: measured
+  note: entries tagged literature/assumed were not measured

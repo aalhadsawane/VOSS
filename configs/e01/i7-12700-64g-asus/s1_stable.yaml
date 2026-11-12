@@ -1,0 +1,2 @@
+# E01 scenario 1 on host i7-12700-64g-asus: stable hosts, no adversaries, steady load.
+extends: base.yaml

@@ -1,0 +1,49 @@
+date_utc: 2026-11-12T14:26:45Z
+kernel: Linux 5.15.0-198-generic #208-Ubuntu SMP Fri Sep 4 10:22:38 UTC 2026 x86_64 GNU/Linux
+os: Ubuntu 22.04.5 LTS
+python: Python 3.10.12
+cpu_governor: powersave
+on_battery: no (desktop, no battery)
+mem_total_mb: 63946
+mem_available_mb: 42788
+work_disk_tier: nvme (only local tier; no HDD)
+sudo_used: yes (disk dm-crypt/dm-verity)
+--- lscpu
+CPU(s):                                  20
+Model name:                              12th Gen Intel(R) Core(TM) i7-12700
+Thread(s) per core:                      2
+Core(s) per socket:                      12
+Socket(s):                               1
+CPU max MHz:                             4900.0000
+CPU min MHz:                             800.0000
+Virtualization:                          VT-x
+L2 cache:                                12 MiB (9 instances)
+L3 cache:                                25 MiB (1 instance)
+--- free -m
+               total        used        free      shared  buff/cache   available
+Mem:           63946       20366       30819           4       12761       42787
+Swap:           8191        6680        1511
+--- lsblk
+NAME                      ROTA   SIZE TYPE MODEL
+loop0                        0  20.2M loop 
+loop1                        0 543.6M loop 
+loop2                        0  63.8M loop 
+loop3                        0    74M loop 
+loop4                        0  66.8M loop 
+loop5                        0 543.3M loop 
+loop6                        0 116.6M loop 
+loop7                        0  44.7M loop 
+loop8                        0     2M loop 
+loop9                        0  32.5M loop 
+loop10                       0   2.1M loop 
+loop11                       0   9.5M loop 
+nvme0n1                      0 931.5G disk Samsung SSD 980 PRO 1TB
+├─nvme0n1p1                  0     1G part 
+├─nvme0n1p2                  0     2G part 
+└─nvme0n1p3                  0 928.5G part 
+  └─ubuntu--vg-ubuntu--lv    0   1.8T lvm  
+nvme1n1                      0 931.5G disk Samsung SSD 980 PRO 1TB
+└─ubuntu--vg-ubuntu--lv      0   1.8T lvm  
+--- df
+Filesystem                         Size  Used Avail Use% Mounted on
+/dev/mapper/ubuntu--vg-ubuntu--lv  1.8T  997G  759G  57% /

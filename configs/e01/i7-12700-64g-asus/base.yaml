@@ -1,0 +1,15 @@
+# E01 on the bare-metal ASUS host `i7-12700-64g-asus` (docs/validation/E01-i7-12700-64g-asus.md). Same
+# scenarios as the earlier i7 run, with this machine's own measured bundle and a worker class cut from it.
+#
+# Worker count: 12 slices. One slice is 3 cores / 4 GB (class E2), so 12 slices model 36 cores and 48 GB of the
+# host's 20 hardware threads and 62.45 GiB. 16 slices (the lab-node count) would claim 64 GB of model capacity on a
+# 62 GB machine and leave no room for the page cache that snapshots live in; 12 also keeps at most 24 concurrent
+# microVMs (2 slots per slice) on the 16 P-core threads, the same oversubscription the earlier runs used.
+#
+# YAML `extends` deep-merges dicts, so `hw_mix` below still keeps the repository defaults (C0..C3). Force this host's
+# mix on the command line: --set 'scenario.hw_mix={"E2": 1.0}'.
+extends: ../base.yaml
+calibration: configs/calibration/measured/i7_12700_64g_asus-584bb563fe
+scenario:
+  workers: 12
+  hw_mix: {E2: 1.0}
