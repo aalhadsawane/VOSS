@@ -1,0 +1,49 @@
+functions:
+  compression:
+    init_s: 0.003333
+    interference:
+      1: 1.0
+      8: 1.0397926110313442
+    n: 90
+    size_exp: 0.9765545222191074
+    tag: measured
+    work_ref_s: 0.0053995
+  dynamic-html:
+    init_s: 0.034279
+    interference:
+      1: 1.0
+      8: 1.0637242937955882
+    n: 90
+    size_exp: 0.7906049261774207
+    tag: measured
+    work_ref_s: 2.4000000000000004e-05
+  graph-pagerank:
+    init_s: 0.030068
+    interference:
+      1: 1.0
+      8: 1.1513499763799557
+    n: 30
+    size_exp: 0.0
+    tag: measured
+    work_ref_s: 0.013759500000000003
+  thumbnailer:
+    init_s: 0.063929
+    interference:
+      1: 1.0
+      8: 1.0376320064862568
+    n: 90
+    size_exp: 0.6821544631842614
+    tag: measured
+    work_ref_s: 0.003603
+  uploader:
+    init_s: 0.001132
+    interference:
+      1: 1.0
+      8: 1.2068075482243812
+    n: 90
+    size_exp: 0.36893863438340707
+    tag: measured
+    work_ref_s: 1.1000000000000006e-05
+provenance:
+  default: measured
+  note: ingested from raw logs of host i7_12700_64g_hdd-b4f89a4def (rule 13)

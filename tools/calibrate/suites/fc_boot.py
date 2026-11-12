@@ -42,18 +42,26 @@ def rootfs_on(ctx: Ctx, a: FcAssets, tier: str, d: Path) -> str:
     return str(dst)
 
 
-def boot_once(ctx: Ctx, a: FcAssets, rootfs: str, mem: int, rep: int) -> tuple[float, float]:
-    """(spawn → API socket seconds, InstanceStart → ``VOSS_MARK init`` seconds)."""
+def boot_once(ctx: Ctx, a: FcAssets, rootfs: str, mem: int, rep: int) -> dict[str, float]:
+    """Per-phase boot durations (X-2): spawn, configure, start_api, boot (InstanceStart → init), init_to_done."""
     vm = FcVm(a, ctx.out / "fc", f"boot-{mem}-{rep}")
     t0 = time.monotonic()
     try:
         vm.spawn()
-        spawn_s = time.monotonic() - t0
+        t_spawn = time.monotonic()
         vm.configure(mem, 1, boot_args("boot"), rootfs)
+        t_cfg = time.monotonic()
         t_start = vm.start()
+        t_start_done = time.monotonic()
         t_init = vm.wait("MARK", "init", timeout=30.0)
-        vm.wait("MARK", "done", timeout=30.0)
-        return spawn_s, t_init - t_start
+        t_done = vm.wait("MARK", "done", timeout=30.0)
+        return {
+            "fc_spawn": t_spawn - t0,
+            "fc_configure": t_cfg - t_spawn,
+            "fc_start_api": t_start_done - t_start,
+            "fc_boot": t_init - t_start,
+            "fc_init_to_done": t_done - t_init,
+        }
     finally:
         vm.kill()
 
@@ -79,7 +87,7 @@ def run(ctx: Ctx) -> None:
                     if ctx.sh.dry_run:
                         print(f"DRY firecracker boot mem={mem} tier={tier} cache={cache}")
                         break
-                    spawn_s, boot_s = boot_once(ctx, a, rootfs, mem, rep)
+                    phases = boot_once(ctx, a, rootfs, mem, rep)
                     cfg: dict[str, Any] = {
                         "mem_mb": mem,
                         "tier": tier,
@@ -87,8 +95,8 @@ def run(ctx: Ctx) -> None:
                         "jailer": bool(a.jailer),
                         "cache_scope": cache_scope(),
                     }
-                    ctx.rec.add("fc_spawn", spawn_s, rep=rep, **cfg)
-                    ctx.rec.add("fc_boot", boot_s, rep=rep, **cfg)
+                    for probe, secs in phases.items():
+                        ctx.rec.add(probe, secs, rep=rep, **cfg)
 
 
 SUITE = Suite("fc_boot", run, "Firecracker cold boot to init by memory, rootfs tier, page cache")

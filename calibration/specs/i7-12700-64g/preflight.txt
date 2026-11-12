@@ -1,0 +1,98 @@
+
+== Machine
+host: HOST   date: 2026-11-11T07:42:24Z
+os:   Ubuntu 22.04.5 LTS   kernel: 5.15.0-198-generic   arch: x86_64
+  CPU(s):                                  20
+  Model name:                              12th Gen Intel(R) Core(TM) i7-12700
+  Thread(s) per core:                      2
+  Core(s) per socket:                      12
+  Socket(s):                               1
+  CPU max MHz:                             4900.0000
+  CPU min MHz:                             800.0000
+  L3 cache:                                25 MiB (1 instance)
+  RAM: 62 GB total, 42 GB available   swap: 8 GB
+  [WARN] RAM < 64 GB: plan fewer workers or smaller VMs
+  [ok]   20 hardware threads
+
+== Virtualisation (Firecracker needs KVM)
+  [ok]   CPU virtualisation flag present
+  crw-rw----+ 1 root kvm 10, 232 Nov 11 11:39 /dev/kvm
+  [ok]   /dev/kvm usable by this user
+  nested (/sys/module/kvm_intel/parameters/nested): Y
+  virt: none
+
+== Storage
+  NAME      SIZE ROTA TYPE MODEL
+  loop0       4K    0 loop 
+  loop1    63.8M    0 loop 
+  loop3    66.8M    0 loop 
+  loop4     972K    0 loop 
+  loop6   531.5M    0 loop 
+  loop7      74M    0 loop 
+  loop8     616M    0 loop 
+  loop9    91.7M    0 loop 
+  loop11    402M    0 loop 
+  loop12   44.7M    0 loop 
+  loop13  283.4M    0 loop 
+  loop14  116.6M    0 loop 
+  sda       1.8T    1 disk HGST HUS722T2TAL
+  sdb       1.8T    1 disk HGST HUS722T2TAL
+  sdc       1.8T    1 disk HGST HUS722T2TAL
+  sdd       1.8T    1 disk HGST HUS722T2TAL
+  nvme1n1 931.5G    0 disk Samsung SSD 980 PRO 1TB
+  nvme3n1 931.5G    0 disk Samsung SSD 980 PRO 1TB
+  nvme2n1 931.5G    0 disk Samsung SSD 980 PRO 1TB
+  nvme0n1 931.5G    0 disk Samsung SSD 980 PRO 1TB
+  Filesystem                         Size  Used Avail Use% Mounted on
+  /dev/mapper/ubuntu--vg-ubuntu--lv  914G  706G  170G  81% /
+  /dev/mapper/ubuntu--vg-ubuntu--lv  914G  706G  170G  81% /
+  /dev/mapper/ubuntu--vg-ubuntu--lv  914G  706G  170G  81% /
+  [ok]   170 GB free in $HOME
+
+== Privileges and tools
+  [WARN] sudo needs a password (netns, tc and mounts need root)
+  [ok]   ip: /usr/sbin/ip
+  [ok]   tc: /usr/sbin/tc
+  [ok]   nft: /usr/sbin/nft
+  [ok]   iptables: /usr/sbin/iptables
+  [ok]   jq: /usr/bin/jq
+  [ok]   curl: /usr/bin/curl
+  [ok]   git: /usr/bin/git
+  [ok]   make: /usr/bin/make
+  [ok]   python3: /usr/bin/python3
+  [ok]   uv: /home/USER/.local/bin/uv
+  [ok]   firecracker: /home/USER/.local/bin/firecracker
+  [ok]   jailer: /home/USER/.local/bin/jailer
+  [ok]   qemu-system-x86_64: /usr/bin/qemu-system-x86_64
+  [ok]   tpm2_getcap: /usr/bin/tpm2_getcap
+  [ok]   tpm2_quote: /usr/bin/tpm2_quote
+  Python 3.10.12
+  [ok]   ip netns works
+  [ok]   tc available
+  [ok]   sch_netem module available
+  cgroup fs: cgroup2fs
+  open files limit: 1048576
+
+== TPM (optional: real quotes)
+  /dev/tpm0
+  /dev/tpmrm0
+  /dev/tpmrm0
+  [ok]   TPM resource manager present
+
+== Load now (is the machine idle? E01 timings need a quiet box)
+   13:12:24 up 20 days, 17:38,  1 user,  load average: 0.40, 0.59, 0.74
+      PID %CPU %MEM COMMAND
+     1574  4.2 26.4 cockroach
+  2483424  1.4  0.3 netdata
+  2484266  1.4  0.0 apps.plugin
+  1074268  0.6  0.3 opencode
+     1946  0.5  0.0 telegraf
+  logged in: USER     pts/29       2026-11-11 11:47 (tmux(1074183).%0)
+
+== Outbound network (curl, not ping)
+  https://pypi.org -> 200
+  https://github.com -> 200
+  https://files.pythonhosted.org -> 404
+  https://github.com/firecracker-microvm/firecracker/releases -> 200
+
+done (nothing was modified)

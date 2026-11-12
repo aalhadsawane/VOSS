@@ -21,7 +21,11 @@ $\alpha$ of owners drop or delay work in various patterns but, by Property 1, fo
 
 \textbf{Calibration and checks.} Start-up, snapshot, quote and boot costs come from one consumer laptop: an \CalCpuFull{} (mainboard \CalBoard, BIOS \CalBios), \CalMemGiB\,GiB of
 memory, one spinning hard disk (fio sequential read \CalDiskRead\,MB/s, write \CalDiskWrite\,MB/s), TPM~2.0 and Linux \CalKernel. The time to an attested worker (\CalAttested\,s) is a sum of measured steps run on the laptop's installed system rather than
-one boot of the final locked image. \critical{extend the calibration from one machine to several kinds of machine that volunteers could
+one boot of the final locked image. The TPM quote is the largest measured trust cost, and it is not portable across
+firmware: a second bare-metal host (Intel i7-12700, firmware TPM, NVMe) quotes in 0.19\,s against the laptop's 0.51\,s,
+so every host must measure it. Memory encryption is not part of the base claim: consumer firmware ships with TME disabled
+or absent, so volunteer nodes cannot be expected to provide it (Section~\ref{sec:threat}).
+\critical{extend the calibration from one machine to several kinds of machine that volunteers could
 offer (SSD and NVMe laptops and desktops, different CPU generations, different TPMs), list the hardware of each as above, and
 report how long every step takes on each. Every start-up, boot and attestation cost here comes from the single hard-disk laptop
 described above.} Confidential-VM costs come from the literature~\cite{misono2025cvm,holmes2024severifast,li2023bifrost}.

@@ -111,6 +111,42 @@ def _cpu_model() -> str:
     return m.group(1).strip() if m else platform.processor()
 
 
+def _cores() -> int:
+    pairs = set(re.findall(r"physical id\s*:\s*(\d+).*?core id\s*:\s*(\d+)", read_text("/proc/cpuinfo"), re.S))
+    return len(pairs) or (os.cpu_count() or 1)
+
+
+def _tpm_vendor(sh: Shell) -> str:
+    if not shutil.which("tpm2_getcap"):
+        return ""
+    try:
+        out = sh.run(["tpm2_getcap", "properties-fixed"], check=False, timeout=10).out
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    m = re.search(r"TPM2_PT_MANUFACTURER:\s*\n(?:\s+raw:.*\n)?\s+value:\s*\"?([A-Za-z0-9 ]+)\"?", out)
+    return m.group(1).strip() if m else ""
+
+
+def _disks(sh: Shell) -> list[dict[str, Any]]:
+    if not shutil.which("lsblk"):
+        return []
+    try:
+        out = sh.run(["lsblk", "-J", "-b", "-o", "NAME,ROTA,SIZE,TYPE,MODEL"], check=False, timeout=10).out
+        raw = json.loads(out or '{"blockdevices": []}').get("blockdevices", [])
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        return []
+    return [
+        {
+            "name": d.get("name"),
+            "rotational": d.get("rota") in (True, "1", 1),
+            "size_gb": round(int(d.get("size") or 0) / 1e9, 1),
+            "model": (d.get("model") or "").strip(),
+        }
+        for d in raw
+        if d.get("type") == "disk"
+    ]
+
+
 def _dmesg(sh: Shell) -> str:
     if not shutil.which("dmesg"):
         return ""
@@ -130,10 +166,14 @@ def host_meta(sh: Shell) -> dict[str, Any]:
         "hostname": platform.node(),
         "kernel": platform.release(),
         "cpu_model": _cpu_model(),
+        "cores": _cores(),
+        "threads": os.cpu_count() or 1,
         "microcode": _microcode(),
         "bios_version": read_text("/sys/class/dmi/id/bios_version") or "unknown",
         "board": read_text("/sys/class/dmi/id/board_name") or "unknown",
         "mem_kb": _mem_kb(),
+        "tpm_vendor": _tpm_vendor(quiet),
+        "disks": _disks(quiet),
         "firecracker": _version(quiet, ["firecracker", "--version"]),
         "qemu": _version(quiet, ["qemu-system-x86_64", "--version"]),
         "tpm2_tools": _version(quiet, ["tpm2_quote", "--version"]),

@@ -1,0 +1,16 @@
+# Bare-metal calibration host `i7-12700-64g` (doc 10, X-1): Intel i7-12700, 64 GB DDR5-5200, four 1 TB Samsung
+# 980 PRO NVMe SSDs and four 2 TB HGST SATA HDDs, Intel PTT firmware TPM 2.0. Disk speeds and function profiles are
+# measured on this host (bundle `i7_12700_64g-b4f89a4def`); the numbers below are that host's own fio medians.
+provenance: {default: measured, note: "fio medians of bundle i7_12700_64g-b4f89a4def (rule 13)"}
+name: I7_64G
+speed: 1.0                  # reference core: work_ref_s in the same bundle is measured on this machine
+cores: 20                   # 8 P-cores (16 threads) + 4 E-cores (4 threads)
+mem_gb: 64
+ssd_gb: 1000                # one Samsung 980 PRO 1TB
+hdd_gb: 2000                # one HGST HUS722T2TAL 2 TB
+ssd_read_MBps: 6590.9       # measured, fio seq read 1M qd8
+ssd_write_MBps: 4876.9      # measured, fio seq write 1M qd8
+hdd_read_MBps: 132.5        # measured, fio seq read 1M qd8
+hdd_write_MBps: 134.4       # measured, fio seq write 1M qd8
+cpu_model: intel-adl
+tpm: ptt

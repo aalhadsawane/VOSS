@@ -50,6 +50,12 @@ Without a feature, its probes are skipped and the profile falls back to literatu
 | `tme` (manual) | TME on vs off: STREAM bandwidth, SeBS runtimes | Run the suite, toggle in BIOS, run again (`--phase on/off`) | 2 phases | Substrate slowdown factors |
 | `appliance` (manual, `--allow-reboot`) | Reboot-to-attested: firmware → loader → UKI → dm-verity userspace → agent → quote → verifier OK | Build the appliance image (mkosi, UKI, dm-verity) on the HDD as a separate boot entry. A one-shot service logs `systemd-analyze` + attestation timestamps and reboots back to the normal OS; repeat N times | 20 boots | Session establishment cost, the core `appliance_tpm` parameter |
 
+**What is expected of a volunteer machine.** TME is optional and usually unavailable: consumer firmware ships with it
+disabled or absent (the i7 host supports it in CPUID and has it off in BIOS), so `tme_*` factors stay at 1.0 unless an
+owner volunteers a machine with it enabled, and the two manual phases are a nice-to-have, not a gate. The **TPM quote is
+the cost that matters** for attestation and it is not portable across firmware: 0.51 s on the laptop's TPM versus 0.19 s on
+the i7's Intel PTT, so every host measures it and the bundle never borrows it from another machine.
+
 ### 3.1 Appliance image (also the reference design of doc 04 §4)
 
 - **Build:** `mkosi` producing a UKI and a dm-verity root; contents are a minimal kernel, Firecracker + jailer, the

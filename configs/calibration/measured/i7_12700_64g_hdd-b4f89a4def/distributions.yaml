@@ -1,0 +1,148 @@
+distributions:
+  appliance_userspace:
+    dist: lognormal
+    median: 4.0
+    sigma: 0.2
+    source: systemd minimal userspace + dm-verity; TODO verify (P9 appliance)
+    tag: assumed
+  dispatch:
+    dist: lognormal
+    median: 0.002
+    sigma: 0.3
+    source: "agent \u2192 warm VM vsock dispatch"
+    tag: assumed
+  drtm_launch:
+    dist: lognormal
+    median: 2.0
+    sigma: 0.3
+    source: DRTM late launch + measurement, no reboot
+    tag: assumed
+  fc_boot:
+    dist: empirical
+    quantiles:
+    - 0.044870511861518025
+    - 0.04523738364223391
+    - 0.04545414200983942
+    - 0.04555003012064844
+    - 0.04560857531614602
+    - 0.04568630090216175
+    - 0.04572589916642755
+    - 0.04578148578293621
+    - 0.04587264130823314
+    - 0.04593887897208333
+    - 0.045979722985066473
+    - 0.04602708065649495
+    - 0.04606849509291351
+    - 0.04609799612080678
+    - 0.04615526171401143
+    - 0.046236236579716206
+    - 0.04629274448379874
+    - 0.04634766861563548
+    - 0.04642976864706725
+    - 0.046772306645289065
+    - 0.04738357104361057
+    source: fc_boot/fc_boot [cache=warm, mem_mb=256, tier=hdd]; harness 0.1.0
+    tag: measured
+  fc_restore:
+    dist: empirical
+    quantiles:
+    - 0.0011459528468549252
+    - 0.0011892005451954902
+    - 0.001224766089580953
+    - 0.0012478366843424737
+    - 0.0012743194121867419
+    - 0.0013211181503720582
+    - 0.0013641631929203867
+    - 0.0014487692737020553
+    - 0.0014658648055046798
+    - 0.0015188577235676348
+    - 0.0015209161210805178
+    - 0.001543173473328352
+    - 0.0015582159627228977
+    - 0.0015682332101278006
+    - 0.0016061092261224986
+    - 0.0016902863280847669
+    - 0.0017362531274557115
+    - 0.0017769433557987217
+    - 0.0018352076644077898
+    - 0.0019087728345766667
+    - 0.002026275033131242
+    source: fc_snapshot/fc_restore_api [cache=warm, mem_mb=512, tier=hdd]; harness 0.1.0; load API; page reads are modeled
+      separately
+    tag: measured
+  fc_snapshot_create:
+    dist: empirical
+    quantiles:
+    - 4.164568626089022
+    - 4.164873508177697
+    - 4.165178390266374
+    - 4.167766626994125
+    - 4.171007250761614
+    - 4.172542777960189
+    - 4.172714227903635
+    - 4.172860151948408
+    - 4.172955024195835
+    - 4.173041770979762
+    - 4.173063514055684
+    - 4.173085257131606
+    - 4.1795184165705
+    - 4.186753003054764
+    - 4.192966258549132
+    - 4.19866884854855
+    - 4.211121272668242
+    - 4.232010989438277
+    - 4.251517175231129
+    - 4.266181002603844
+    - 4.280844829976559
+    source: fc_snapshot/fc_snapshot_create [mem_mb=512, tier=hdd]; harness 0.1.0
+    tag: measured
+  kbs_check_s:
+    dist: lognormal
+    median: 0.002
+    sigma: 0.3
+    source: KBS policy check
+    tag: assumed
+  reboot_to_kernel:
+    dist: lognormal
+    median: 15.0
+    sigma: 0.2
+    source: consumer UEFI POST + shim + UKI; TODO verify (P9 appliance)
+    tag: assumed
+  snapshot_touched_frac:
+    dist: const
+    source: lazy restore touches a fraction of guest memory (REAP, FaaSnap)
+    tag: literature
+    value: 0.3
+  tme_cpu_factor:
+    dist: const
+    source: TME overhead; TODO verify (P9 tme)
+    tag: assumed
+    value: 1.0
+  tme_mem_factor:
+    dist: const
+    source: TME memory-bound overhead; TODO verify (P9 tme)
+    tag: assumed
+    value: 1.02
+  tpm2_quote:
+    dist: lognormal
+    median: 0.25
+    sigma: 0.2
+    source: fTPM/PTT quote latency reports; TODO verify (P9 tpm)
+    tag: literature
+  verify_s:
+    dist: lognormal
+    median: 0.01
+    sigma: 0.3
+    source: Keylime verifier policy check; TODO verify (P9 attest_local)
+    tag: assumed
+  verify_s_per_MB:
+    dist: const
+    source: disk/sha256_MBps; harness 0.1.0; single-core SHA-256
+    tag: measured
+    value: 0.0004683762545028003
+harness_version: 0.1.0
+host: i7_12700_64g_hdd-b4f89a4def
+measured: true
+provenance:
+  default: measured
+  note: entries tagged literature/assumed were not measured

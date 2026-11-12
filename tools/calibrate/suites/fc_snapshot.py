@@ -5,6 +5,7 @@ the page faults of the first request. Feeds the L2 → L3 rung and snapshot size
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Any
 
@@ -16,7 +17,7 @@ from tools.calibrate.suites.fc_boot import assets
 MEM_MB = (128, 512, 2048)
 
 
-def create(ctx: Ctx, a: FcAssets, d: Path, mem: int) -> tuple[Path, Path, float]:
+def create(ctx: Ctx, a: FcAssets, d: Path, mem: int) -> tuple[Path, Path, float, float]:
     """Boot a guest that echoes its console, pause it and write a full snapshot to ``d``."""
     vm = FcVm(a, ctx.out / "fc", f"snapc-{mem}")
     state, memf = d / f"voss-snap-{mem}.state", d / f"voss-snap-{mem}.mem"
@@ -25,22 +26,31 @@ def create(ctx: Ctx, a: FcAssets, d: Path, mem: int) -> tuple[Path, Path, float]
         vm.configure(mem, 1, boot_args("serve"))
         vm.start()
         vm.wait("MARK", "ready", timeout=30.0)
+        t_p0 = time.monotonic()
         vm.pause()
+        pause_s = time.monotonic() - t_p0
         secs = vm.snapshot(state, memf)
     finally:
         vm.kill()
-    return state, memf, secs
+    return state, memf, pause_s, secs
 
 
-def restore(ctx: Ctx, a: FcAssets, state: Path, memf: Path, tag: str) -> tuple[float, float]:
-    """(``/snapshot/load`` API seconds, load start → echo of a console probe)."""
+def restore(ctx: Ctx, a: FcAssets, state: Path, memf: Path, tag: str) -> dict[str, float]:
+    """Per-phase restore durations (X-2): spawn, load API, resume to ack, and load start to ack."""
     vm = FcVm(a, ctx.out / "fc", f"snapr-{tag}")
+    t_sp0 = time.monotonic()
     try:
         vm.spawn()
+        spawn_s = time.monotonic() - t_sp0
         t0, api_s = vm.load(state, memf)
         vm.send("ping")
         t_ack = vm.wait("ACK", "ping", timeout=30.0)
-        return api_s, t_ack - t0
+        return {
+            "fc_restore_spawn": spawn_s,
+            "fc_restore_api": api_s,
+            "fc_restore_ack": t_ack - (t0 + api_s),
+            "fc_restore": t_ack - t0,
+        }
     finally:
         vm.kill()
 
@@ -63,18 +73,19 @@ def run(ctx: Ctx) -> None:
                 print(f"DRY firecracker snapshot create/restore mem={mem} tier={tier} caches={caches}")
                 continue
             for rep in range(ctx.reps(10)):  # a distribution, not one sample: the simulator draws from it
-                state, memf, secs = create(ctx, a, d, mem)
+                state, memf, pause_s, secs = create(ctx, a, d, mem)
                 size_mb = memf.stat().st_size / 2**20
+                ctx.rec.add("fc_pause", pause_s, rep=rep, mem_mb=mem, tier=tier, size_mb=size_mb)
                 ctx.rec.add("fc_snapshot_create", secs, rep=rep, mem_mb=mem, tier=tier, size_mb=size_mb)
             ctx.rec.add("fc_snapshot_mb", size_mb, unit="MB", mem_mb=mem, tier=tier)
             for cache in caches:
                 for rep in range(ctx.reps(50)):
                     if cache == "cold":
                         drop_caches(ctx.sh, [state, memf, a.kernel, a.firecracker])
-                    api_s, ack_s = restore(ctx, a, state, memf, f"{mem}-{tier}-{cache}-{rep}")
+                    phases = restore(ctx, a, state, memf, f"{mem}-{tier}-{cache}-{rep}")
                     cfg: dict[str, Any] = {"mem_mb": mem, "tier": tier, "cache": cache, "cache_scope": cache_scope()}
-                    ctx.rec.add("fc_restore_api", api_s, rep=rep, **cfg)
-                    ctx.rec.add("fc_restore", ack_s, rep=rep, **cfg)
+                    for probe, val in phases.items():
+                        ctx.rec.add(probe, val, rep=rep, **cfg)
             state.unlink(missing_ok=True)
             memf.unlink(missing_ok=True)
 
