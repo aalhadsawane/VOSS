@@ -57,7 +57,7 @@ def _device_names(devices: list[dict[str, Any]]) -> str:
     numbers: list[int] = []
     for name in names:
         end = len(name) - len(suffix) if suffix else len(name)
-        middle = name[len(prefix):end]
+        middle = name[len(prefix) : end]
         if not middle.isdigit():
             return ", ".join(f"`{n}`" for n in names)
         numbers.append(int(middle))
@@ -192,13 +192,8 @@ def render_summary(spec: dict[str, Any]) -> str:
     )
 
 
-def render_table(spec: dict[str, Any]) -> str:
-    """The specification table used in the paper (one row per storage class)."""
-    cpu = spec.get("cpu", {})
-    memory = spec.get("memory", {})
-    tpm = spec.get("tpm", {})
-    firmware = spec.get("firmware", {})
-    software = spec.get("software", {})
+def _core_rows(cpu: dict[str, Any], memory: dict[str, Any]) -> list[str]:
+    """CPU, core/thread and RAM rows."""
     hybrid = cpu.get("hybrid_topology") or {}
     if hybrid:
         core_text = (
@@ -210,7 +205,7 @@ def render_table(spec: dict[str, Any]) -> str:
         )
     else:
         core_text = f"{cpu.get('cores_total')} cores / {cpu.get('threads_total')} threads"
-    rows = [
+    return [
         f"| **CPU** | {cpu.get('model')} ({cpu.get('microarchitecture')}, microcode `{cpu.get('microcode')}`) |",
         f"| **Cores / Threads** | {core_text} |",
         (
@@ -220,33 +215,50 @@ def render_table(spec: dict[str, Any]) -> str:
             f"{len(memory.get('dimms', []))} of {memory.get('slots_total')} slots) |"
         ),
     ]
+
+
+def _storage_rows(spec: dict[str, Any]) -> list[str]:
+    """One row per storage class present on the machine."""
+    rows = []
     for name, devs in _storage_groups(spec.get("storage", {}).get("devices", [])):
         firmwares = sorted({str(d.get("firmware", "")) for d in devs if d.get("firmware")})
         rows.append(
             f"| **{name} (×{len(devs)})** | {_device_names(devs)}: {_size_phrase(devs)} "
             f"{_model(devs)} (fw `{' / '.join(firmwares) or 'unknown'}`, {name}) |"
         )
-    rows.extend(
-        [
-            (
-                f"| **TPM** | {_tpm_name(tpm)}: "
-                f"(`{tpm.get('manufacturer')}` / `{tpm.get('vendor_string')}`, rev `{tpm.get('revision')}`, "
-                f"fw `{tpm.get('firmware_version')}`, active bank `{', '.join(tpm.get('active_pcr_banks', []))}`, "
-                f"{tpm.get('pcr_count')} PCRs) |"
-            ),
-            (
-                f"| **Firmware / Board** | {firmware.get('board_vendor')} `{firmware.get('board_model')}` "
-                f"({firmware.get('board_version')}), {firmware.get('bios_vendor')} {firmware.get('boot_mode')} "
-                f"BIOS `{firmware.get('bios_version')}` (`{firmware.get('bios_date')}`), Secure Boot "
-                f"{'disabled' if 'disabled' in str(firmware.get('secure_boot', '')).lower() else 'enabled'} |"
-            ),
-            (
-                f"| **OS / Kernel** | {software.get('distro')}, Linux `{software.get('kernel')}` x86_64, "
-                f"Firecracker `{software.get('firecracker')}`"
-                f"{_guest_assets(software)}, QEMU `{_version(software.get('qemu'))}` |"
-            ),
-        ]
-    )
+    return rows
+
+
+def _system_rows(tpm: dict[str, Any], firmware: dict[str, Any], software: dict[str, Any]) -> list[str]:
+    """TPM, firmware/board and OS rows."""
+    secure = "disabled" if "disabled" in str(firmware.get("secure_boot", "")).lower() else "enabled"
+    return [
+        (
+            f"| **TPM** | {_tpm_name(tpm)}: "
+            f"(`{tpm.get('manufacturer')}` / `{tpm.get('vendor_string')}`, rev `{tpm.get('revision')}`, "
+            f"fw `{tpm.get('firmware_version')}`, active bank `{', '.join(tpm.get('active_pcr_banks', []))}`, "
+            f"{tpm.get('pcr_count')} PCRs) |"
+        ),
+        (
+            f"| **Firmware / Board** | {firmware.get('board_vendor')} `{firmware.get('board_model')}` "
+            f"({firmware.get('board_version')}), {firmware.get('bios_vendor')} {firmware.get('boot_mode')} "
+            f"BIOS `{firmware.get('bios_version')}` (`{firmware.get('bios_date')}`), Secure Boot {secure} |"
+        ),
+        (
+            f"| **OS / Kernel** | {software.get('distro')}, Linux `{software.get('kernel')}` x86_64, "
+            f"Firecracker `{software.get('firecracker')}`"
+            f"{_guest_assets(software)}, QEMU `{_version(software.get('qemu'))}` |"
+        ),
+    ]
+
+
+def render_table(spec: dict[str, Any]) -> str:
+    """The specification table used in the paper (one row per storage class)."""
+    rows = [
+        *_core_rows(spec.get("cpu", {}), spec.get("memory", {})),
+        *_storage_rows(spec),
+        *_system_rows(spec.get("tpm", {}), spec.get("firmware", {}), spec.get("software", {})),
+    ]
     return "\n".join(rows)
 
 
@@ -272,10 +284,7 @@ def render_topology(cpu: dict[str, Any]) -> str:
 
 def render_dimms(memory: dict[str, Any]) -> str:
     """DIMM layout line: populated slots first, then the empty ones."""
-    populated = [
-        d for d in memory.get("dimms", [])
-        if d.get("size") and "No Module" not in str(d.get("size"))
-    ]
+    populated = [d for d in memory.get("dimms", []) if d.get("size") and "No Module" not in str(d.get("size"))]
     empty = list(memory.get("empty_slots", []))
     if not populated:
         return "unknown"
