@@ -400,3 +400,35 @@ def test_firecracker_socket_path_stays_short_in_deep_directories(tmp_path: Path)
     with contextlib.suppress(RuntimeError):  # /bin/true exits at once: only the chosen socket path matters here
         vm.spawn()
     assert len(vm.sock.encode()) < 100
+
+
+def test_appliance_collect_reads_every_v2_boot_step(tmp_path: Path) -> None:
+    log = "\n".join(
+        [
+            "VOSS_T agent_start 9.0",
+            "VOSS_U LoaderTimeInitUSec 7000000",
+            "VOSS_U LoaderTimeExecUSec 8500000",
+            "VOSS_T initrd_done 2.0",
+            "VOSS_T verity_ready 1.5",
+            "VOSS_T cache_unsealed none",
+            "VOSS_T services_ready 8.0",
+            "VOSS_T quote_start 9.5",
+            "VOSS_T quote_done 10.0",
+            "VOSS_T verifier_ok 10.04",
+            "VOSS_T cert_installed 10.1",
+            "VOSS_T tls_start 10.3",
+            "VOSS_T first_tls 10.32",
+            "VOSS_V image_mem_mb 412.5",
+            "VOSS_V image_cache_bytes 8589934592",
+            "Startup finished in 1.5s (kernel) + 7.0s (userspace) = 8.5s",
+        ]
+    )
+    (tmp_path / "appliance-0000.log").write_text(log)
+    ctx = _ctx(tmp_path)
+    assert appliance.collect(ctx, tmp_path) == 1
+    rows = {json.loads(x)["probe"]: json.loads(x)["value"] for x in ctx.rec.path.read_text().splitlines()}
+    assert rows["boot_firmware"] == pytest.approx(7.0) and rows["boot_loader"] == pytest.approx(1.5)
+    assert rows["boot_quote"] == pytest.approx(0.5) and rows["boot_verify"] == pytest.approx(0.04)
+    assert rows["boot_first_tls"] == pytest.approx(0.02) and rows["boot_total"] == pytest.approx(8.5 + 10.32)
+    assert rows["image_mem"] == pytest.approx(412.5) and "boot_at_cache_unsealed" not in rows
+    assert rows["reboot_to_kernel"] == pytest.approx(8.5 + 1.5)
