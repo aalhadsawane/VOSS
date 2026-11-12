@@ -28,6 +28,23 @@ This document is the generic runbook distilled from that session; follow it, sub
    process). They define the machine specification and per-step breakdown wanted.
 5. The worked example for i7-12700-64g listed above.
 
+## 0a. First decide whether this host is worth a full run
+Calibration is ~2-3 hours of suites plus ~2.5 hours of E01 and it dirties the machine. Do not repeat a machine we already
+cover: read the "Machines calibrated" and coverage table in docs/validation/README.md and the specs in
+calibration/specs/*/SPEC.md, then compare this host on the dimensions that move a cost:
+
+| Dimension | Already covered | Worth a run if this host changes it |
+|---|---|---|
+| TPM implementation | firmware TPM (Intel PTT, 0.19 s quote); one laptop TPM (0.51 s) | **Yes**: discrete TPM, AMD fTPM, another vendor/firmware generation (quote latency is the key attestation cost and is not portable) |
+| Storage class | HDD only (laptop); NVMe + HDD (i7) | **Yes**: SATA SSD, NVMe-only system, different filesystem/encryption layer |
+| CPU family | 7th-gen mobile Intel, 12th-gen desktop Intel | **Yes**: AMD Zen, pre-Skylake, a newer generation, a low-power SKU |
+| Memory | 3.9 GB, 64 GB | **Yes** if it changes the feasible concurrency levels (e.g. 8 GB) |
+| Firmware/board | two UEFI boards, Secure Boot off | **Yes** for Secure Boot on, legacy boot, a different vendor firmware |
+| Everything else identical | — | **No**: same CPU model + board + BIOS + RAM as an existing bundle means the fingerprint collides and the numbers only add noise. Say so and stop instead of running. |
+
+Record the comparison (host vs the table) in the session and in the report, and ask the human before skipping: they may
+want a repeat measurement even for a duplicate. Never label two identical machines as two data points.
+
 ## 1. Safety and data rules
 - Do not format, partition, or write to a raw block device. Benchmarks use files in a scratch directory per storage
   device. Before deleting anything, list it and confirm it is yours (scratch you created). Free space first (df).

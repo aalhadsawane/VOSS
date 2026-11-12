@@ -9,6 +9,21 @@ Status of the calibration against hardware, as of 2026-11-11. Section references
 | Stand-in laptop | Intel Core i3-7020U (2c/4t) | 3.9 GB | 1 TB HDD | 2.0 | `laptop-b9212a4528` |
 | Lab node C0 / bare-metal i7 | Intel Core i7-12700 (12c/20t) | 64 GB | 4×1 TB NVMe + 4×2 TB HDD | Intel PTT | `i7_12700_64g-b4f89a4def` (+ `_nvme`, `_hdd`) |
 
+Coverage, for deciding whether a new host is worth a full run (a row with nothing new adds noise, not evidence):
+
+| Dimension | Covered | Still missing |
+|---|---|---|
+| TPM | Intel PTT firmware TPM (0.19 s quote), one laptop TPM (0.51 s) | discrete TPM, AMD fTPM, other firmware generations |
+| Storage | HDD only; NVMe + HDD | SATA SSD, NVMe-only system |
+| CPU | 7th-gen mobile Intel; 12th-gen desktop Intel | AMD (Zen), pre-Skylake, newer than 12th gen |
+| Memory | 3.9 GB; 64 GB | low-memory (≤8 GB) or very large machines |
+| Firmware | two UEFI boards, Secure Boot off | Secure Boot on, legacy boot |
+| TME | off on both (not expected on volunteer hardware) | one host with TME enabled would quantify its slowdown |
+
+The TPM quote is the attestation cost that matters and is not portable across firmware, so a host with a *different TPM*
+is worth calibrating even if its CPU and disks are similar. Two hosts whose CPU model, board, BIOS and RAM are identical
+produce the same `fingerprint`; do not present them as two data points.
+
 The i7 host is documented in [`i7-12700-64g.md`](i7-12700-64g.md) with its full specification in
 [`calibration/specs/i7-12700-64g/SPEC.md`](../../calibration/specs/i7-12700-64g/SPEC.md); its E01 replication is
 [`E01-i7-12700-64g.md`](E01-i7-12700-64g.md). The runbook for the next machine is

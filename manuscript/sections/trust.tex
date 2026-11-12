@@ -12,7 +12,10 @@ services, to keep running and keep correct records (Table~\ref{tab:threat}). We 
 physical attacks such as voltage glitching of firmware TPMs~\cite{jacob2023faultpm}, against flaws in our image, against
 side channels and traffic analysis, or against failure of the provider's services. An owner who can read the memory of a
 running machine, by a cold-boot attack or by probing the memory bus, is also outside the claim below unless the machine
-encrypts its memory.
+encrypts its memory. Memory encryption (Intel TME, AMD Memory Guard) would close that gap, but consumer firmware ships
+with it disabled or absent --- both machines we calibrated report TME off --- and older machines do not offer it at all,
+so a volunteer pool cannot be expected to provide it. We therefore treat memory encryption as an optional property of a
+trust technology, not as part of the base claim, and report which machines have it.
 
 \begin{table}[t]
 \caption{Adversaries, what stops them, and what they can still do.}
