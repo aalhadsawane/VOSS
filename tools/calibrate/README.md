@@ -23,7 +23,7 @@ python -m tools.calibrate.ingest --raw calibration/raw   →   configs/calibrati
 
 ## One-time setup on C0
 
-1. Packages: `python3 (≥ 3.10) rsync fio tpm2-tools openssl cryptsetup qemu-system-x86 gcc docker.io e2fsprogs`
+1. Packages: `python3 (≥ 3.10) rsync fio tpm2-tools openssl cryptsetup gcc docker.io e2fsprogs`
    (and `mkosi` for the appliance).
 2. Assets: `tools/calibrate/guest/fetch_assets.sh ~/voss-assets` (pinned Firecracker + jailer + CI kernel) and
    `tools/calibrate/guest/build_rootfs.sh ~/voss-assets [--with-ml]` (guest ext4 with the SeBS-equivalent functions).
@@ -38,7 +38,7 @@ A="--set firecracker=$HOME/voss-assets/firecracker --set kernel=$HOME/voss-asset
 D="--set ssd_dir=/mnt/nvme/voss --set hdd_dir=/mnt/hdd/voss"
 python -m tools.calibrate.remote $H --suite caps                        # what the node can do
 python -m tools.calibrate.remote $H --suite all --sudo $A $D --quick     # smoke (10% reps)
-python -m tools.calibrate.remote $H --suite all --sudo $A $D             # full: disk, tpm, attest_local, tls, fc_*, qemu_vm, sebs
+python -m tools.calibrate.remote $H --suite all --sudo $A $D             # full: disk, tpm, attest_local, tls, keys, fc_*, sebs
 python -m tools.calibrate.ingest --raw calibration/raw                   # → configs/calibration/measured/<fp>/
 python -m experiments.ecs1_measured --raw calibration/raw                # E-CS1 measured table
 ```
@@ -55,13 +55,13 @@ Manual suites, only with approval: `--suite tme --phase on|off` (twice, around a
 | `disk` | fio seq/rand read/write per tier, dm-crypt and dm-verity, SHA-256 | hardware C0, `verify_s_per_MB` |
 | `fc_boot` | spawn → API, `InstanceStart` → guest init by memory, tier, page cache | `fc_boot` |
 | `fc_snapshot` | snapshot create, restore (load API and to first response) by memory, tier, page cache | `fc_snapshot_create`, `fc_restore` |
-| `qemu_vm` | microvm and q35 boot to init | E-CS1 |
-| `sebs` | SeBS-equivalent functions: init, exec vs size, 1-8 concurrent guests | function profiles |
+| `sebs` | SeBS-equivalent functions: init, exec at every input size (SeBS classes and larger), co-run up to cores and threads, RSS, snapshot size | function profiles |
 | `tpm` | `tpm2_quote`, AK creation, `tpm2_checkquote`, PCR-policy unseal | `tpm2_quote` |
 | `attest_local` | quote → checkquote → certificate signature | `verify_s` |
 | `tls` | TLS 1.3 handshake and per-message overhead | channel costs |
+| `keys` | key request over loopback TLS, RSA-2048 unwrap, AES-256-GCM decryption per MB | `key_release`, `decrypt_per_MB` |
 | `tme` (manual) | STREAM-style triad and a SeBS subset, TME on vs off | `tme_*_factor` |
-| `appliance` (manual) | reboot → UKI → dm-verity userspace → agent → quote → verified | `reboot_to_kernel`, `appliance_userspace` |
+| `appliance` (manual) | per-step boot of the image: firmware, loader, initrd, verity, cache unseal, agent, quote, verify, first mutual TLS; idle memory | `boot_*`, `image_mem_mb` |
 
 `mapping.yaml` says which probe becomes which bundle entry. Entries without data keep the placeholder value and tag.
 Kata (`kata` in doc 10) and the Node.js function variants are not covered yet.
@@ -71,3 +71,6 @@ Kata (`kata` in doc 10) and the Node.js function variants are not covered yet.
 `--dry-run` prints every command. `tpm` and `attest_local` run against a software TPM:
 `swtpm socket --tpm2 --server type=tcp,port=2321 --ctrl type=tcp,port=2322 --flags not-need-init,startup-clear`
 and `--set tcti=swtpm:port=2321`. `disk` and `tls` run anywhere with `fio`/`openssl`.
+
+After ingest, `python -m tools.calibrate.check_bundle <bundle> --spec calibration/specs/<host>` checks the bundle against
+`docs/handoff/CALIBRATION_DATA_CONTRACT.md`.

@@ -335,6 +335,18 @@ Read `docs/handoff/CALIBRATION_DATA_CONTRACT.md` first; it defines the outputs. 
    published value (as a warning the session must explain). Unit-test it with a good and a bad fixture.
 9. **Ingest.** `tools/calibrate/ingest.py` writes the fields of the contract (per-step distributions, not only totals).
 
+**V1 outcome (branch `v2/V1-calibration-harness`).**
+- Step 1: `sebs.SIZES` lists every function's input sizes with the SeBS class each matches; co-run levels 1, 2, 4, …,
+  physical cores and threads; `fn_rss` and `snap_size` per function.
+- Step 2: already true in v1 (`fnrunner` times only `handler`; `make_input` runs before the timer). No change.
+- Step 3: the JavaScript variants stay in `configs/functions.yaml` until the catalogue is rebuilt in V9; the harness
+  measures only functions with a guest implementation.
+- Steps 5-7: `appliance` probe stamps every boot step and idle memory; image gains a TPM-sealed cache partition (not yet
+  built or booted); new `keys` suite (key request, unwrap, AES-GCM decryption); `qemu_vm` suite deleted.
+- Steps 8-9: `tools/calibrate/check_bundle.py` (tests in `tests/unit/test_check_bundle.py`); ingest writes
+  `exec_by_size`, `rss_mb`, `snapshot_mb` per function and `key_release`, `decrypt_per_MB`, `boot_*`, `image_mem_mb`.
+- `check_bundle.PUBLISHED` (SeBS reference times) is empty: fill it only from a checked source (class L).
+
 **Exit criteria V1:** `python -m tools.calibrate.run --dry-run --suite all` lists every probe; fixtures pass
 `check_bundle.py`; handoff documents reviewed against the final probe names; **[ASK]** the author to start the bare-metal
 session(s) with `docs/handoff/CALIBRATION_HANDOFF.md`.

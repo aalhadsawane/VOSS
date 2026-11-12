@@ -76,12 +76,11 @@ def registry() -> dict[str, Suite]:
         fc_boot,
         fc_snapshot,
         keys,
-        qemu_vm,
         sebs,
         tls,
         tme,
         tpm,
     )
 
-    mods = (caps, disk, fc_boot, fc_snapshot, qemu_vm, sebs, tpm, attest_local, tls, keys, tme, appliance)
+    mods = (caps, disk, fc_boot, fc_snapshot, sebs, tpm, attest_local, tls, keys, tme, appliance)
     return {m.SUITE.name: m.SUITE for m in mods}

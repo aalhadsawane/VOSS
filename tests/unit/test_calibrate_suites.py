@@ -97,9 +97,7 @@ def test_appliance_arm_needs_allow_reboot_even_inside_the_suite(tmp_path: Path) 
     assert ctx.sh.log == []
 
 
-@pytest.mark.parametrize(
-    "suite", ["caps", "disk", "fc_boot", "fc_snapshot", "qemu_vm", "sebs", "tpm", "attest_local", "keys"]
-)
+@pytest.mark.parametrize("suite", ["caps", "disk", "fc_boot", "fc_snapshot", "sebs", "tpm", "attest_local", "keys"])
 def test_dry_run_of_every_safe_suite(suite: str, tmp_path: Path) -> None:
     opts = ["kernel=/a/vmlinux", "rootfs=/a/r.ext4", "sebs_rootfs=/a/s.ext4", "ssd_dir=" + str(tmp_path / "ssd")]
     argv = ["--suite", suite, "--dry-run", "--quick", "--out", str(tmp_path)]
