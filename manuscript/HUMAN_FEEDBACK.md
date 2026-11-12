@@ -118,6 +118,8 @@ from the page alone.
 31. **Trace the origin of every input in the model** (who produces the deadline, the run time, the size) before describing it; if the
     code uses a ground-truth quantity, call it a modelling choice and list the consequence in Limitations. Distinguish seed values
     from measured ones wherever a number is quoted.
+32. **Plain statement first, mechanism second; evidence where the design element is introduced.** Cite external work for general facts
+    and link our own measurements for specific ones.
 
 ## CRITICAL items (must be resolved before submission)
 
@@ -429,4 +431,21 @@ times, X-3 redraw Figure 1).
   profiles is the author's decision.
 - **Lesson:** heuristic 31. Never describe who or what produces an input (deadline, run time) from intuition: trace it in the code, and when
   the code uses an oracle, say so as a modelling choice and list it in Limitations.
+
+### Round 22: direct opener, machine heterogeneity, citing input-size dependence, filler
+- **Said:** (a) "A failure matters through the latency objective of the invocation it hits" is odd and technical; be direct. (b) Volunteers
+  are heterogeneous, so a function can be long on one node and short on another; section 2.3 must say so. (c) Cite that run time depends on
+  input size in real workloads, and link to the calibration measurements later in the paper. (d) Filler work is not defined anywhere.
+- **Did:** (a) Opens "A failure makes an invocation miss its deadline: a crash, a dropped result and a late result all do." (b) New paragraph:
+  run time depends on the machine and on the input. Evidence: the same six functions took 2.6--5.7 times longer on the calibration laptop than
+  on the i7 host (from the two measured bundles; computed from `work_ref_s`), and the simulated classes run at 0.5--1.0 of the reference
+  speed (assumed). (c) Cited Bhasi et al., Cypress (SoCC 2022, pp. 257--272): its premise is that execution times of serverless applications
+  depend on input size. I verified the bibliographic details and that premise from the abstract and search excerpts, but could not read the
+  paper's text, so check the exact wording before submission. SeBS does not support the claim (it varies input size to study invocation
+  overhead). Method section now reports the measured exponents (0--0.97, 60--180 runs per function) and the 2.6--5.7 ratio; the background links
+  to it (`sec:calib`). These two ranges are typed into the prose, not macros (generated files are not editable here). (d) Filler was defined
+  in Terms but inside one long sentence; Terms now give it its own sentence, "Filler work is a third kind: ...".
+- **Lesson:** heuristic 32. Start with the plain statement, then the mechanism. If a model feature (run time depends on machine and input) is
+  the reason for a design element (per-worker estimator), give the evidence for it where the element is introduced, with a citation and a link
+  to our own measurements.
 
