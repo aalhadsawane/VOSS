@@ -1,5 +1,8 @@
 # 01 · Simulation Core
 
+> **v2 status.** Kernel, determinism, actors and messages remain valid. Decision-clock `replay` mode is removed (V0); coefficients become measured in V10. Rewritten in phase V6, V10 of `docs/REVISION_PLAN.md`. Until then, where this document and the
+> v2 decisions (`docs/DECISIONS.md` D-81 onward) disagree, the decisions win.
+
 ## 1. Method: measure locally, simulate globally (D-11)
 
 - **Engine:** a custom Python discrete-event kernel. No simulator models TEEs or attestation, and FaaS physics

@@ -1,5 +1,8 @@
 # 04 · Trust and Security
 
+> **v2 status.** Trust scores, exposure, sensitivity weights and substrates other than the TPM image are v1. v2 trust model: owner classes S/P/M, per-function keys, holder budget, sampled audit (D-84, D-85). Rewritten in phase V3, V4, V7 of `docs/REVISION_PLAN.md`. Until then, where this document and the
+> v2 decisions (`docs/DECISIONS.md` D-81 onward) disagree, the decisions win.
+
 Accepted from proposals 0001/0002 (kept in `docs/proposals/` as the design history). Evidence:
 `docs/research/confidential-computing-sota.md`.
 

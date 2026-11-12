@@ -1,5 +1,8 @@
 # 02 · Environment Model (the "world", contribution C1)
 
+> **v2 status.** Donation tiers, parametric sessions and workload, donated-resource envelope, P2P transfers and relayed workers are v1. Sessions and arrivals become trace-driven (V9); capacity becomes physical cores with measured co-run slowdown (V5.5). Rewritten in phase V5, V9 of `docs/REVISION_PLAN.md`. Until then, where this document and the
+> v2 decisions (`docs/DECISIONS.md` D-81 onward) disagree, the decisions win.
+
 Everything here is ground truth, invisible to policies except through `observe`. Parameters live in
 `configs/` as data. Each value is tagged `measured | literature | assumed` with a source (doc 10 produces the measured
 ones). Every model has one default and one knob.

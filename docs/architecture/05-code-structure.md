@@ -1,5 +1,8 @@
 # 05 · Code Structure
 
+> **v2 status.** Module names may refer to deleted modules (clusters, accounting, reputation, routing policies, fault driver). The layering rules remain binding. Rewritten in phase V0 onward, as modules change of `docs/REVISION_PLAN.md`. Until then, where this document and the
+> v2 decisions (`docs/DECISIONS.md` D-81 onward) disagree, the decisions win.
+
 **Stack:** Python ≥ 3.11 with `uv`.
 
 | Need | Library |

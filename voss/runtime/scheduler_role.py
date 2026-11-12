@@ -60,7 +60,6 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, PlannerMixin, Actor):
         self.views = ViewCache(cfg.scheduler.view_refresh_s)
         self.suspects: dict[WorkerId, float] = {}
         self.streak: dict[WorkerId, int] = {}
-        self.unaccepted: deque[tuple[float, WorkerId]] = deque()
         self.decide_lat: deque[float] = deque(maxlen=256)
         self.inflight: dict[InvId, Inflight] = {}
         self.done: set[InvId] = set()

@@ -5,7 +5,6 @@ re-placed, and repeated failures (or an omission change point) make the worker s
 from __future__ import annotations
 
 import math
-from collections import deque
 from typing import TYPE_CHECKING, Any
 
 from voss.core.ids import Addr, ClusterId, InvId, TenantId, WorkerId
@@ -32,7 +31,6 @@ class WatchdogMixin:
     cluster: ClusterId
     suspects: dict[WorkerId, float]
     streak: dict[WorkerId, int]
-    unaccepted: deque[tuple[float, WorkerId]]
 
     if TYPE_CHECKING:
 
@@ -61,15 +59,7 @@ class WatchdogMixin:
         live = self._live(inv, attempt)
         if live is None or live[1].accepted:
             return
-        self.unaccepted.append((self.now, live[1].worker))
         self._copy_failed(live[0], live[1], "unaccepted")
-
-    def stuck_workers(self) -> int:
-        """Distinct workers whose dispatches from us vanished recently: our own host may be dropping them."""
-        horizon = self.now - self.ctx.cfg.voss.detection.stall_window_s * 2
-        while self.unaccepted and self.unaccepted[0][0] < horizon:
-            self.unaccepted.popleft()
-        return len({w for _, w in self.unaccepted})
 
     def _live(self, inv: InvId, attempt: int) -> tuple[Inflight, Copy] | None:
         """The copy, if this scheduler may still act on it (a fenced zombie draws no conclusions)."""

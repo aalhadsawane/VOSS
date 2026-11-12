@@ -169,7 +169,6 @@ class WorkerConfig(Frozen):
 
     warm_ttl_s: float = 600.0
     m_base_mb: float = 512.0
-    prebooted_at_start: bool = True
     assurance_tofu_factor: float = 0.9  # f_policy for TOFU firmware (doc 04 §8). tag: assumed
     sync_priority: bool = False  # D-77: a free slot serves waiting synchronous requests before queued async ones
 
@@ -202,12 +201,8 @@ class DetectionConfig(Frozen):
     watchdog_slack: float = 1.2  # result watchdog at predicted q90 × slack (doc 07 §6: q90 + 20%)
     watchdog_min_s: float = 3.0
     probe_timeout_s: float = 2.0
-    stall_n: int = 3  # dispatch-watchdog fires per cluster ...
-    stall_window_s: float = 5.0  # ... within this window → STALL
     suspect_streak: int = 2  # watchdog failures in a row → suspected
     suspect_s: float = 600.0  # suspicion lasts this long (then probation)
-    T_decide_max: float = 0.2
-    decide_periods: int = 3
 
 
 class VossConfig(Frozen):

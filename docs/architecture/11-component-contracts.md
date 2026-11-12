@@ -1,5 +1,8 @@
 # 11 · Component Contracts: inputs, outputs, decisions, constraints
 
+> **v2 status.** Router cluster choice, cluster cards, orchestrator arrangement and the v1 cost weights are retired; contracts are rewritten as each phase lands. Rewritten in phase V3-V7 of `docs/REVISION_PLAN.md`. Until then, where this document and the
+> v2 decisions (`docs/DECISIONS.md` D-81 onward) disagree, the decisions win.
+
 For every mechanism: what goes in, what it decides, what it is constrained by, what comes out, and how often. "O/H/F/C/P"
 denote the kinds of input defined in doc 03 §9 (observed, learned from history, forecast, calibrated, policy). Defaults
 are those of `core/config.py`.

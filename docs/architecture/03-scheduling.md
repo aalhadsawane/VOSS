@@ -1,5 +1,8 @@
 # 03 · Scheduling (contribution C2: two-timescale, trust-aware)
 
+> **v2 status.** Clusters, cluster routing, the orchestrator's arrangement triggers, hedging, Erlang planners, exposure weights and reputation tie-breaks are v1 and removed. v2: one provider-hosted scheduler (D-83), provisioning and request placement per D-86. Rewritten in phase V5 of `docs/REVISION_PLAN.md`. Until then, where this document and the
+> v2 decisions (`docs/DECISIONS.md` D-81 onward) disagree, the decisions win.
+
 > **Terminology.** "Slot" in this document and in the code is a unit of *concurrency*: one invocation running at a time
 > on one worker (doc 02 §4). The paper calls it the worker's concurrency limit and the planner's per-tenant
 > reservation "reserved concurrency". `q_t = Q_0.95(λ_t s_t)` below is the number of simultaneously running
