@@ -1,0 +1,4 @@
+# E01 scenario 2 on host i7-12700-64g-asus: short sessions, so warm VMs, keys and attested sessions are rebuilt.
+extends: base.yaml
+scenario:
+  regime: churn_e01

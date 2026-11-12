@@ -1,0 +1,16 @@
+# E01 emulated worker for host `i7-12700-64g-asus` (doc 10 §4): one donor slice of that machine, three cores giving
+# two slots at the default 75% envelope, sized as E0/E1 are for the other hosts. Disk speeds are the host's measured
+# fio medians from bundle `i7_12700_64g_asus-584bb563fe`; the host runs 12 such slices (48 GB of its 62.45 GiB).
+provenance: {default: measured, note: "slice of hardware class I7_64G_ASUS; disk speeds measured (rule 13)"}
+name: E2
+speed: 1.0
+cores: 3
+mem_gb: 4
+ssd_gb: 10
+hdd_gb: 0
+ssd_read_MBps: 6505.7
+ssd_write_MBps: 2407.3
+hdd_read_MBps: 0.0
+hdd_write_MBps: 0.0
+cpu_model: intel-adl
+tpm: ptt

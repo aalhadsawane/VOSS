@@ -1,0 +1,4 @@
+# E01 scenario 4 on host i7-12700-64g-asus: stable hosts, 100 inv/s, so work spreads over most workers.
+extends: base.yaml
+scenario:
+  load: {regime: load_default, rate: 100}

@@ -1,0 +1,10 @@
+classes:
+  C0:
+    ssd_read_MBps: 6505.686465
+    ssd_write_MBps: 2407.307977
+  E0:
+    ssd_read_MBps: 6505.686465
+    ssd_write_MBps: 2407.307977
+provenance:
+  default: measured
+  note: ingested from raw logs of host i7_12700_64g_asus-584bb563fe (rule 13)
