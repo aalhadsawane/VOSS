@@ -2,7 +2,7 @@
 \label{sec:intro}
 
 Serverless platforms run small pieces of customer code, called \emph{functions}, each time a request arrives. Most functions
-execute for well under a second~\cite{shahrad2020wild}. Before a function can execute, the platform must prepare an isolated
+execute for well under a second~\cite{shahrad2020wild}, and AWS Lambda's default timeout is 3 seconds~\cite{awslambdatimeout}. Before a function can execute, the platform must prepare an isolated
 environment for it: start a sandbox (a virtual machine or container that isolates the function), fetch the function's code, load its language runtime and libraries, and run its
 initialisation code. This start-up delay, the \emph{cold start}, often exceeds the function's own execution time. Providers avoid
 it by starting environments ahead of demand and by keeping each environment alive for a while after a request in case another

@@ -1,31 +1,54 @@
 \section{Background and Problem}
 \label{sec:background}
 
-\textbf{Terms.} A \emph{tenant} is a customer who deploys functions; an \emph{invocation} is one call of a function. The
+\textbf{Terms.} A \emph{tenant} is a customer who deploys functions; an \emph{invocation} is one call of a function. An invocation is \emph{synchronous} when the client waits for
+the result, \emph{asynchronous} when the result is delivered later, and \emph{filler} when it is background work with no deadline
+that runs only on otherwise idle capacity and yields to every other invocation. The
 \emph{provider} runs the platform, a \emph{volunteer} owns a donated machine, and a \emph{worker} is that machine while it runs
 our software. A \emph{sandbox} is the isolated environment in which one function runs. Because a worker runs code from tenants that do not
 trust each other, on a machine whose owner we do not trust, we implement each sandbox as a virtual machine, which isolates
 more strongly than a container: the function runs on its own guest kernel behind hardware virtualization. We use
-Firecracker \emph{microVMs}, virtual machines that skip emulated legacy devices and boot directly from a kernel and a root
-file system image. A sandbox is \emph{warm} when it has finished starting and sits idle, ready for a call. A \emph{snapshot}
-is the memory and processor state of a running sandbox written to disk; loading it resumes the sandbox where it was saved,
-which takes less time than booting a new one. Each worker offers a fixed number of \emph{slots}. A slot runs one invocation at a time, and every invocation takes
-exactly one slot, whatever the function. A worker with four slots runs at most four invocations simultaneously. Slots limit
-concurrency and are derived from the machine's CPU threads (a donor offers a fixed share of them, Section~\ref{sec:method});
-a slot is not a virtual CPU of the sandbox, and slots do not account for memory: a warm sandbox holds memory but no slot. We
-assume \emph{serial execution}: a sandbox serves one invocation at a time (a concurrency of one), as in AWS Lambda, and a
-second invocation of the same function gets its own sandbox. Some platforms, such as Google Cloud Run functions, let one
-instance serve many invocations at once; we do not model that. A tenant's \emph{key} decrypts the tenant's \emph{code bundle}
+Firecracker~\cite{agache2020firecracker} \emph{microVMs}, virtual machines with a minimal device model that boot directly from a
+kernel and a root file system image. A sandbox is \emph{warm} when it has finished starting and sits idle, ready for a call. A
+\emph{snapshot} is the memory and processor state of a running sandbox written to disk; loading it resumes the sandbox where it
+was saved, which takes less time than booting a new one. A worker $j$ runs at most $c_j$ invocations at a time; we call $c_j$ its
+\emph{concurrency limit}. We assume \emph{serial execution}: each sandbox processes one invocation at a time. Concurrent invocations of the same
+function execute in separate sandboxes. A tenant's \emph{key} decrypts the tenant's \emph{code bundle}
 (the function's files, from which a sandbox is booted) and the snapshots made from it. Snapshots need the key too because they
 hold the sandbox's memory, including data the function handled, not only its code; the bundle is still needed to boot a
 sandbox on a worker that holds no snapshot. Only the tenant controls the key. We report the 99th percentile of the
 latency of synchronous invocations, written P99.
 
+\textbf{Capacity model.} CPU bounds the invocations a worker runs, and memory bounds the sandboxes it keeps warm. The
+concurrency limit $c_j$ is the donated CPU share of the worker's hardware threads (Table~\ref{tab:donated}), rounded down, and at
+least one. Each sandbox has one vCPU, as in our calibration and emulation, and a function's run time is its single-core run time.
+A running invocation holds one unit of the limit from the moment it starts, through key fetch, boot or restore, and execution,
+until it finishes, and holds its function's memory while it runs. For the shipped worker classes and functions, running
+invocations stay within the memory budget (at most 83\% of it, when every running invocation is the largest function), so warm
+idle sandboxes are the overcommitted resource: they compete for the memory left over.
+
+We do not overcommit the CPU. Running invocations are never time-shared, and are never preempted except low-priority filler
+work, so each has a whole vCPU; those running together slow one another by a factor of at most 1.1 (assumed). This is a choice
+made for volunteer machines. The scheduler knows such a machine only by its declared speed, and it detects a worker that drops
+or delays work by a result missing its predicted completion time (Section~\ref{sec:receipts}). With a whole vCPU per
+invocation, run time depends on the function and the machine's speed, not on what else is running, so the predicted time stays
+tight. Time-sharing would stretch it by an amount the scheduler cannot observe, forcing a looser deadline, and an owner who
+delays work on purpose could hide the delay in it. Limiting concurrency also lets the scheduler, rather than the operating
+system, decide who waits: a free unit goes to a waiting synchronous invocation before queued asynchronous ones, and filler work
+yields to synchronous work. Under time-sharing, short synchronous invocations would slow down behind long asynchronous ones,
+which a 99th-percentile target of a few seconds cannot absorb.
+
 \subsection{Where the time goes}
-Before a function runs, the invocation waits for a slot, for the worker to obtain the tenant's key if it lacks it, and
+Before a function runs, the invocation waits for the worker's concurrency limit to admit it, for the worker to obtain the tenant's key if it lacks it, and
 for a sandbox to start. For functions of tens to hundreds of milliseconds, starting the sandbox dominates unless one is
 already warm, which is why platforms keep sandboxes alive or restore snapshots~\cite{shahrad2020wild,fuerst2021faascache,ao2022faasnap,cadden2020seuss}.
-A function is at one of four levels on a worker: nothing cached (fetch the code, then boot); code on disk (boot); a snapshot
+Datacenter platforms hold a function's image in a storage hierarchy, such as an object store, a cache shared by an availability
+zone, and the host's own cache~\cite{brooker2023ondemand}, and a start-up pays for the tier it hits. Our setting has no shared
+tier between the provider and the volunteer machines, and the provider's registry holds only each function's encrypted code and
+root file system image. A snapshot is not kept there: it contains the decrypted memory of a running sandbox, so only a worker
+that holds the tenant's key creates it, and it can be restored only on a machine with the same CPU model, kernel and virtual
+machine monitor. It stays on that worker's disk, and a worker of the same kind that also holds the key may copy it from a peer.
+Start-up levels are therefore states of one worker: nothing cached (fetch the code, then boot); code on disk (boot); a snapshot
 on disk (restore); or a warm sandbox (hand the request over).
 
 Volunteer machines add a cost that datacenters do not have: before running tenant code, a machine must prove which software
@@ -35,7 +58,7 @@ memory and \CalFcBootColdS\,s from a hard disk; going from power-off to an attes
 thousands of times more than reuse, so it must be prepared before requests arrive. The network adds to this: volunteers sit
 on home links with less upload than download, and file systems of 90--450\,MB and snapshots of up to 600\,MB take tens of
 seconds to minutes to move. The scheduler charges each candidate worker the transfer time over its own link, workers fetch
-from nearby workers before the provider's registry, and snapshots are made locally rather than downloaded.
+from nearby workers before the provider's registry, and a snapshot is made on the worker or copied from a nearby peer, never from the registry.
 
 \begin{figure}[t]
 \centering
@@ -62,11 +85,25 @@ crash, drop a result (an \emph{omission}), or deliver it late (a \emph{timing} f
 An owner who cannot forge anything can still drop or delay work selectively while the machine keeps sending its periodic
 liveness messages (\emph{heartbeats}), which defeats detectors built on them, adaptive ones included~\cite{hayashibara2004phi,huang2017gray}.
 
-Invocations name a tenant and a function, are synchronous (the client waits), asynchronous or background, and carry a
-deadline: five times the function's run time on a warm sandbox, plus 50\,ms. Functions are marked idempotent or not; only
-idempotent ones are retried or duplicated. This is the contract developers already follow: AWS Lambda retries failed
-asynchronous invocations and warns of duplicate events~\cite{awslambdaasync,awslambdaretries}, Google's event-driven
-functions run at least once~\cite{gcfretries}, and Azure and Cloudflare deliver events at least once~\cite{azureeventhubsfunctions,cloudflarequeues}.
+A failure matters through the deadline of the invocation it hits. Each synchronous invocation carries a deadline set by the
+tenant, and a crash, a dropped result and a late result all miss it. Our evaluation sets the deadline as a tenant would after
+measuring its function: five times the sum of the function's run time on a warm sandbox, at that invocation's input size, and
+50\,ms of request overhead. The scheduler is given the deadline and does not derive it; it estimates run time itself from a
+prior and the function's past invocations (Section~\ref{sec:estimators}), so a function's first invocation needs no history.
+With this multiple, execution uses at most a fifth of the deadline, and at least four fifths remain for the network, queueing and
+start-up. The 12 functions run for 4\,ms to 6\,s on the reference machine, and the seven synchronous ones have deadlines of 0.27
+to 2.75\,s at their reference input size. A warm sandbox meets them easily, but a boot from a hard disk, \CalFcBootColdS\,s on the
+calibration laptop, exceeds the deadline of four of the seven on its own. Such short deadlines match what developers use:
+AWS Lambda's default timeout is 3\,s, above every synchronous deadline here, and its maximum is 15 minutes (90 minutes for
+asynchronous and event-source invocations on Lambda Managed Instances)~\cite{awslambdatimeout}. A timeout stops the function
+and a deadline is a latency target, but both show that functions are expected to finish in seconds. Asynchronous invocations
+have a deadline of 60\,s and filler work has none.
+
+At these deadlines a failure must be found and worked around within seconds. The scheduler may retry an invocation or run it on
+two workers, which is safe only for idempotent functions, so functions are marked idempotent or not, and only idempotent ones are
+retried or duplicated. Developers already follow this contract: AWS Lambda retries failed asynchronous invocations and warns of
+duplicate events~\cite{awslambdaasync,awslambdaretries}, Google's event-driven functions run at least once~\cite{gcfretries}, and
+Azure and Cloudflare deliver events at least once~\cite{azureeventhubsfunctions,cloudflarequeues}.
 The scheduler decides which workers receive which tenant's key, which functions they keep warm, and which worker runs each
 invocation. The goals are that an owner learns no tenant secret and forges no result; that P99 stays within target despite
 churn; that a worker that drops work, or a scheduler that stalls, is bypassed within seconds without trusting its own

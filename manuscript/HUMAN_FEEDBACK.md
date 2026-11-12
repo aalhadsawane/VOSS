@@ -58,7 +58,7 @@ from the page alone.
    weakness and is not a contribution.
 4. **Do not assume the reader knows the system's structure.** Introduce the two deployments (global scheduler, clustered
    schedulers) before saying anything that depends on them (such as failed schedulers being replaced).
-5. **Use the paper's own later vocabulary** (workers, tenants, invocations, slots, warm, request placement, provisioning) and
+5. **Use the paper's own later vocabulary** (workers, tenants, invocations, concurrency limit, warm, request placement, provisioning) and
    check how the body actually describes a thing before describing it in the front matter.
 6. **Claims must match the results.** Check `results.tex` before characterising a finding. Stress what the results show
    (e.g. global beat clustered; exact was not better than greedy), not what the design effort emphasised. Keep length in
@@ -105,8 +105,16 @@ from the page alone.
     vocabulary) applies only to terms that are general or already defined in the intro; check every intro term against that.
 25. **Define model quantities from the code, not from a doc or a guess.** For slots, read `voss/world` first; state assumed shares
     (donor envelope) as assumed and unswept.
+26. **State each assumed parameter once, in a table, and do not name other platforms' behaviour without a verified citation.**
 23. **A definition sentence must be readable on its own**; define a term by what it contains and does ("memory and processor state
+27. **A choice that departs from common practice must come with its reason** (volunteer hosts judged by predicted completion time,
+    so no CPU overcommit). Check each reason against the paper's own mechanism and substrate before writing it.
+28. **Name the familiar pattern before showing where ours differs.** State the usual datacenter arrangement, then why it does not
+    apply to volunteers, then our version.
+29. **Re-derive every formula in the prose from the code**, and say for each input whether the scheduler is told it or estimates it.
     written to disk; loading it resumes the sandbox"), not by comparison alone ("restores faster than a sandbox boots").
+30. **Each sentence must follow from the section's question** (here: how volunteer machines fail). Say why an outside fact matters
+    before citing it, justify an assumed parameter with numbers from the paper, and keep method caveats in Limitations.
 
 ## CRITICAL items (must be resolved before submission)
 
@@ -313,4 +321,90 @@ times, X-3 redraw Figure 1).
   `cpu_frac` sweep and no measurement of peak `running_mb / mem_mb`; ROADMAP Parked items (memory admission, per-function vCPU).
 - **Lesson:** heuristic 25. Never define a model quantity from one doc or from the user's word alone; confirm with the code, and
   record what is assumed versus measured.
+
+### Round 16: "slot" replaced by "concurrency limit"; capacity model
+- **Said:** Replace "slot" with "concurrency limit" (and "reserved concurrency" for the per-tenant reservation); define once "A worker
+  runs at most c_j invocations at a time"; add a short Capacity model paragraph (CPU bounds running invocations, memory bounds warm
+  sandboxes, one vCPU per invocation, worst case 83% of the memory budget, slot held through key fetch/boot/execution, no
+  time-sharing or preemption of running work so warm sandboxes are the overcommitted resource); state 0.75 once, in a table, next
+  to the memory/SSD/HDD shares; no new defence; keep code identifier `slots` out of prose; no claimed equivalence with Lambda,
+  OpenWhisk or Firecracker without a verified citation; do not call the planner's lead independent of the capacity model before
+  H17/H18 are run.
+- **Did:** No "slot" remains in the sections. `background.tex`: new Terms definition of $c_j$; new "Capacity model" paragraph; the
+  Lambda and Cloud Run comparisons are removed (no verified citation); Firecracker now cited (`agache2020firecracker`, already in
+  `design.tex`). `method.tex`: new Table `tab:donated` (CPU 0.75, memory 0.6, SSD 0.2, hard disk 0.2, all assumed); the earlier
+  prose repeat of 75% is gone. `scheduling.tex`: reserved concurrency, $c_{tj}\le c_j$. `discussion.tex`: the limit item shortened; the
+  unmeasured over-commit sentence is dropped because the 83% worst case replaces it. Checked: 83% = E0, 2 limit x 1024 MB
+  (largest function) / 2457.6 MB; other classes 20-62%. Filler is preempted by sync (`scheduler_role.py`); the interference factor is
+  1 + 0.1(busy-1)/limit, at most 1.1.
+- **Lesson:** heuristic 26. A parameter value appears once, in a table, not repeated in prose.
+
+### Round 17: serial execution wording, one vCPU, why we do not overcommit CPU
+- **Said:** (a) The second half of the serial-execution definition is misleading; use "each sandbox processes one invocation at a
+  time. Concurrent invocations of the same function execute in separate sandboxes." (b) Fact-check "each invocation uses one
+  vCPU". (c) "Never time-shared or preempted, so no oversubscription" must read as a deliberate choice with a strong motivation,
+  since everyone overcommits; use what is particular to volunteers.
+- **Did:** (a) Done as worded. (b) Verified in the repo: every Firecracker VM in the calibration and emulation is configured with 1
+  vCPU (`tools/calibrate/suites/*.py`, `tools/emu/vms.py:56`) and `work_ref_s` is reference-core seconds measured that way; the
+  simulator has no vCPU field and charges single-core time. So the text now says each sandbox has one vCPU "as in our calibration
+  and emulation", not "each invocation uses one vCPU". (c) New paragraph "We do not overcommit the CPU". Reasons, all from this
+  paper's design and argued, not measured: the scheduler detects dropped or delayed work by a result missing its predicted
+  completion time (`faulttol.tex`), and a whole vCPU keeps that time tight and independent of co-runners, while time-sharing
+  stretches it unobservably and lets a delaying owner hide in the slack; and the scheduler, not the OS, should decide who waits
+  (synchronous before asynchronous, filler yields), which P99 targets of seconds need. No overcommit sweep exists, so no result
+  is claimed.
+- **Removed:** "The owner's own use of the machine is not modelled" (Limitations). The primary trust substrate dedicates the machine
+  while donating (proposal 0002, no concurrent owner use), so the sentence implied a design the paper does not have. This also
+  undercuts the codebase author's account of 0.75 as headroom for the owner: that holds only for the DRTM substrate. The paper
+  does not explain 0.75; if it should, the reason has to come from the author.
+- **Lesson:** heuristic 27. A modelling choice that differs from common practice needs its reason stated in the paper, grounded in
+  the threat model or deployment (here: untrusted hosts judged by predicted completion time), and never borrowed from a doc that
+  describes a different substrate.
+
+### Round 18: the four start-up levels read as obvious to a serverless reviewer
+- **Said:** Writing "nothing cached / code on disk / snapshot on disk / warm" as plain fact invites the objection that snapshots sit
+  at several tiers in typical serverless setups (remote blob storage, availability-zone distributed cache, local disk). Ours differs.
+- **Did:** `background.tex` now first names the datacenter hierarchy (object store, zone-shared cache, host cache), then says why ours
+  has none and what it has instead, then gives the four levels as states of one worker. Facts from the code and docs: the registry
+  holds only encrypted bundle and root file system image; snapshots are created on a worker holding the tenant's key (they hold
+  decrypted memory), restore only within a snapshot class (CPU model, kernel, VMM version), live on the worker's disk, and can be copied
+  from a peer of the same class that holds the key, never from the registry (`fetching.py`, `planning.py`, doc 02 §6). Also fixed
+  "snapshots are made locally rather than downloaded" (peer copies exist). **Citation check:** I verified the tiered cache (worker
+  memory and disk, availability-zone cache, S3) for Lambda *container image chunks* in Brooker's blog on the paper and added
+  `brooker2023ondemand` (ATC 2023, pp. 315--328, authors from dblp). I could not read the paper PDF text, so the text cites it only for
+  the image hierarchy, not for snapshots; I found no source here for where Lambda stores snapshots, and claim none.
+- **Lesson:** heuristic 28. When a design differs from a pattern every reviewer knows, state the familiar pattern first, then say what
+  differs and why, and cite only what the source is verified to say.
+
+### Round 19: where the deadline comes from; how short functions are
+- **Said:** "Five times the function's run time on a warm sandbox, plus 50 ms": how is the run time known beforehand (estimate,
+  history, prediction)? What about a brand-new function? Is five arbitrary or used elsewhere? Cite Lambda's timeouts (default 3 s,
+  maximum 15 min, recently 90 min) as a reality check on how short functions are, here and elsewhere.
+- **Did:** Read `voss/world/workload.py`. Two errors in the old sentence: the formula is `k x (w + 0.05 s)`, i.e. five times
+  (run time plus 50 ms), not five times run time plus 50 ms; and it applies only to synchronous invocations (asynchronous: 60 s,
+  filler: none). The deadline is attached to the invocation (generated from the function profile at the invocation's input size, a
+  stand-in for a tenant that measured its function); the scheduler never derives it and estimates run time itself (Bayesian
+  regression with a prior, `scheduling.tex`), so a first invocation needs no history. k = 5 is assumed: no provider source, no
+  decision record, not swept. The paragraph now says all this. Reality check, verified against the Lambda developer guide on
+  2026-11-12: default 3 s, maximum 900 s; the 90-minute limit (announced September 2026) applies only to asynchronous and event-source
+  invocations on Lambda Managed Instances, so it is not stated as Lambda's general limit. Added `awslambdatimeout` to `refs.bib`,
+  cited in the intro (default 3 s) and in the background. A Lambda timeout is a kill limit, not a latency target; the text says so.
+- **Not verified:** the intro's "most functions execute well under a second" rests on Shahrad et al.; a secondary summary says about
+  half of Azure Functions average under 1 s, and I could not read the paper's execution-time section here. I added no new number from it.
+- **Lesson:** heuristic 29. Check a formula in the paper against the code (here the parenthesis was wrong), and state what the scheduler
+  is told versus what it estimates.
+
+### Round 20: Section 2.3 read as a fact dump
+- **Said:** (a) "Filler work" is undefined. (b) "Five is our assumption and we did not vary it" sounds like a reply to a reviewer, not
+  final text; justify five with typical numbers. (c) The section is about how volunteer machines fail, yet it turns to datacenter
+  business promises without saying why they matter. (d) Every statement is a fact dump, not a story.
+- **Did:** Rewrote the second half of 2.3 as one chain: a failure matters through the deadline of the invocation it hits; what the
+  deadline is and who sets it; why five (execution takes at most a fifth, leaving four fifths for network, queueing and start-up;
+  the seven synchronous deadlines are 0.27--2.75 s, and a hard-disk boot of 1.45 s alone exceeds four of them, so a prepared
+  environment is needed); Lambda's 3 s default timeout as the evidence that short deadlines match practice (every synchronous
+  deadline is below it); therefore failures must be handled within seconds; therefore retry and duplication, which need idempotent
+  functions, a contract developers already follow. Synchronous, asynchronous and filler are now defined in Terms, where
+  invocations are introduced. "Not varied" moved from the body to the Limitations item on assumed workload.
+- **Lesson:** heuristic 30. Every sentence in a section must follow from the section's question; say why before citing an outside
+  fact. Caveats about our own method belong in Limitations, written as a statement, not as an answer to a question.
 

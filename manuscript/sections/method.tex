@@ -14,10 +14,25 @@ transfers; disk reads, TPM quotes, key releases and the decision time of every s
 Workers come in three classes (nightly, idle-hours, dedicated) with heavy-tailed session lengths and city-wide shocks;
 no public trace of donation sessions exists, so these parameters follow availability studies~\cite{javadi2013fta}, are marked
 \emph{assumed}, and are swept. The workload has six tenants and 12 functions modelled on SeBS~\cite{copik2021sebs}, with
-skewed popularity and bursty, day-and-night arrivals~\cite{shahrad2020wild}; 11 functions are idempotent. A donor offers a fixed share of its machine: 75\% of its CPU threads, 60\% of its memory and 20\% of each
-disk tier (\emph{assumed}, not measured, and not swept), so a worker offers $\max(1,\lfloor 0.75\times\text{threads}\rfloor)$ slots.
-The share leaves the owner headroom for their own use, which we do not model, and threads count hyperthreads. A fraction
+skewed popularity and bursty, day-and-night arrivals~\cite{shahrad2020wild}; 11 functions are idempotent. Each worker offers a fixed share of its machine (Table~\ref{tab:donated}). A fraction
 $\alpha$ of owners drop or delay work in various patterns but, by Property 1, forge nothing.
+
+\begin{table}[t]
+\caption{Share of a donor's machine that its worker offers to the platform. The concurrency limit is the CPU share times the
+hardware threads, rounded down, and at least one.}
+\label{tab:donated}
+\centering\small
+\begin{tabular}{@{}lrl@{}}
+\toprule
+Donated resource & Share & Basis \\
+\midrule
+CPU threads & 0.75 & assumed \\
+Memory & 0.6 & assumed \\
+SSD & 0.2 & assumed \\
+Hard disk & 0.2 & assumed \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \textbf{Calibration and checks.} Start-up, snapshot, quote and boot costs come from one consumer laptop: an \CalCpuFull{} (mainboard \CalBoard, BIOS \CalBios), \CalMemGiB\,GiB of
 memory, one spinning hard disk (fio sequential read \CalDiskRead\,MB/s, write \CalDiskWrite\,MB/s), TPM~2.0 and Linux \CalKernel. The time to an attested worker (\CalAttested\,s) is a sum of measured steps run on the laptop's installed system rather than

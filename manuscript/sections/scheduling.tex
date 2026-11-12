@@ -24,7 +24,7 @@ keeping a sandbox warm lasts minutes, and giving a worker a tenant's key lasts t
 \toprule
 Input or decision & Changes or lasts & Learned from \\
 \midrule
-Busy slots, cached state on each worker & milliseconds & worker reports every 2\,s \\
+Running invocations, cached state on each worker & milliseconds & worker reports every 2\,s \\
 Request rate per tenant and function & about a minute & request counts \\
 Session length, chance a worker drops work & hours & past sessions and outcomes \\
 \midrule
@@ -40,8 +40,8 @@ react to the latest state. Two more facts separate them. Questions such as ``how
 ``is demand still covered if any $f$ workers disappear?'' are about a whole set of workers, and a decision about one
 invocation at a time cannot answer them. And preparing a worker takes seconds to minutes (Figure~\ref{fig:cost}), more than
 an invocation can wait. So the scheduler has two parts. \emph{Provisioning} runs every 30\,s, and earlier if demand or
-membership changes sharply: it decides which workers hold which tenant's key, which functions each keeps warm, and how many
-slots are reserved for each tenant. \emph{Request placement} runs for every invocation and picks a worker, usually from those
+membership changes sharply: it decides which workers hold which tenant's key, which functions each keeps warm, and how much
+concurrency is reserved for each tenant (its \emph{reserved concurrency}). \emph{Request placement} runs for every invocation and picks a worker, usually from those
 provisioning prepared. We did not sweep the 30\,s period: plan actions take from a few hundred milliseconds to several seconds,
 so the period must be longer, and sessions last minutes to hours, so it must be much shorter.
 
@@ -65,10 +65,10 @@ invocations need; an invocation is rejected only if every candidate is almost su
 
 Provisioning cannot minimise misses directly: the invocations it plans for do not exist yet, and misses depend on later
 placement choices, which depend on the plan. It instead keeps enough capacity ready and minimises what that capacity costs.
-If a tenant's invocations arrive at random at rate $\lambda_t$ and each occupies a slot for $s_t$ seconds on average, the
-number running at once is Poisson with mean $\lambda_ts_t$. Provisioning reserves $q_t$ slots, the 95th percentile of that
-number, so that in 95\% of moments an arriving invocation finds a ready slot, and it requires that this survives the loss of
-any $f$ workers (by default a tenth of the cluster). With $c_{tj}$ the slots of worker $j$ reserved for tenant $t$ and $e_j$
+If a tenant's invocations arrive at random at rate $\lambda_t$ and each runs for $s_t$ seconds on average, the
+number running at once is Poisson with mean $\lambda_ts_t$. Provisioning reserves $q_t$ units of concurrency, the 95th percentile of that
+number, so that in 95\% of moments an arriving invocation finds reserved concurrency free, and it requires that this survives the loss of
+any $f$ workers (by default a tenth of the cluster). With $c_{tj}\le c_j$ the concurrency of worker $j$ reserved for tenant $t$ and $e_j$
 the estimated chance that $j$ stays and does not drop work over the next 60\,s,
 \begin{equation}
 \sum_j e_j\,c_{tj} \;-\; \bigl(\text{sum of the } f \text{ largest } c_{tj}\bigr) \;\ge\; q_t .
@@ -77,7 +77,7 @@ the estimated chance that $j$ stays and does not drop work over the next 60\,s,
 Removing the largest $f$ contributions is the worst case, so no model of an adversary is needed; Bertsimas and Sim show how
 to write this as linear constraints~\cite{bertsimas2004price}. Subject to this, provisioning minimises the memory and disk the
 plan uses, key exposure, and the number of new key releases, minus the start-up time that warm sandboxes save. Real arrivals
-are burstier than Poisson, so during bursts fewer than 95\% of invocations find a ready slot; the experiments measure the
+are burstier than Poisson, so during bursts fewer than 95\% of invocations find reserved concurrency free; the experiments measure the
 resulting misses directly.
 
 \subsection{Provisioning algorithms}
@@ -91,12 +91,12 @@ takes about 4\,s per cluster. Before any experiment we fixed a rule: if the exac
 setting, greedy would be the method. The data could not show this, and the exact program was not measurably better
 (Section~\ref{sec:res-plan}).
 
-We also derived a provisioning algorithm with more structure. Treat each tenant's reserved slots as a loss system: an invocation that finds
-every slot busy goes to a worker without the key. The chance of finding all busy depends only on the mean run time and falls
-by less with each added slot (the Erlang loss formula is convex in the number of slots~\cite{messerli1972}), so the value of a
+We also derived a provisioning algorithm with more structure. Treat each tenant's reserved concurrency as a loss system: an invocation that finds
+all of it in use goes to a worker without the key. The chance of finding all busy depends only on the mean run time and falls
+by less with each added unit of reserved concurrency (the Erlang loss formula is convex in that number~\cite{messerli1972}), so the value of a
 set of key holders is a monotone submodular function and greedy selection has the classic $(1-1/e)$ guarantee for each
 tenant~\cite{nemhauser1978,harshaw2019}, while warm sandboxes can be allocated by marginal gain. The guarantee holds per
-tenant only; slots shared across tenants, the domain caps and memory limits remove it for the joint plan. We evaluate it as
+tenant only; concurrency shared across tenants, the domain caps and memory limits remove it for the joint plan. We evaluate it as
 loss-model provisioning, and it trades latency for exposure rather than replacing greedy (Section~\ref{sec:res-plan}).
 
 A new plan is computed only if its inputs changed beyond a tolerance. The difference to the previous plan becomes actions that
@@ -104,19 +104,19 @@ are safe to repeat and rate-limited: fetch the key and decrypt the bundle, keep 
 Workers confirm completed actions in their reports, and placement counts only what they have confirmed.
 
 \subsection{Request placement and what the scheduler knows}
-Every number the scheduler uses is reported by a worker (busy slots, cached state, keys held, certificate expiry, trust
+Every number the scheduler uses is reported by a worker (running invocations, cached state, keys held, certificate expiry, trust
 score), learned from past outcomes, forecast from learned numbers, or fixed before the run (start-up and trust costs from
 the calibration, network delays from distance, declared speeds, weights). It never sees when a session will really end, how
 long an invocation will really run, or future arrivals. Placement considers 12 candidates, the workers that hold the tenant's
 key and other attested workers that would first need a key release, and excludes workers that are leaving, about to
-expire, below the tenant's trust floor or short of memory. For each it adds five predicted delays: waiting for a slot, getting
+expire, below the tenant's trust floor or short of memory. For each it adds five predicted delays: waiting for the concurrency limit, getting
 the key, starting the function at its current level, moving data over the worker's own link, and running.
 
-The wait for a slot needs care. Slots on a worker are shared by synchronous and asynchronous invocations, and one worker's
-slots can be filled by long asynchronous jobs. Estimating the wait from one cluster-wide mean run time would make a queue of
+The wait for the concurrency limit needs care. A worker's limit is shared by synchronous and asynchronous invocations, and long
+asynchronous jobs can use all of it. Estimating the wait from one cluster-wide mean run time would make a queue of
 long jobs look short, so synchronous invocations would queue for seconds on the few workers holding a tenant's key rather than
 move to another worker. The scheduler therefore replays each worker's queue from the predicted run times of the jobs
-it dispatched there, and a free slot goes to a waiting synchronous invocation before queued asynchronous ones (no
+it dispatched there, and freed capacity goes to a waiting synchronous invocation before queued asynchronous ones (no
 preemption). Every system in our main comparison uses this placement.
 
 If the best candidate's miss probability exceeds 0.2, the function is idempotent and fewer than 10\% of placements have been
