@@ -795,3 +795,38 @@ redraw diagrams (`arch` without broker and clusters; `attest`; one for provision
 | VOSS does not beat pre-released keys | V12.4 row 3: the claim changes, the paper does not stall |
 | Held-out result fails the target | **[ASK]**; never tune on held-out data |
 | A constant has no source | it is class S: sweep it on the development split and report sensitivity |
+
+---
+
+## 9. Every v1 experiment and what replaces it
+
+No v1 experiment is kept or rerun. Each is either replaced by a v2 experiment with a new design, or dropped because the
+mechanism it studied is not in v2. "Calibration" (v1's E01 emulation and the calibration suites) becomes the bare-metal work in
+`docs/handoff/`.
+
+| v1 | Studied | v2 | Why |
+|---|---|---|---|
+| E01 | single-box emulation vs simulator | V13 Part E (multi-worker emulation) | one worker could not validate placement, churn or holders |
+| calibration suites, E-CS1 | start-up and attestation costs; substrate comparison | bare-metal sessions (handoff Parts A-D); substrate comparison dropped | v1 used the placeholder bundle (F1); other substrates are out of scope |
+| E02 | solver time vs planning-pool size | V10 decision timing (bench on Actions) + R08 scale | v1 charged an invented formula |
+| E03 | predictors × cost scalarisations | dropped; estimator choice is a development-split decision (V11) | scalarisation weights no longer exist |
+| E04, E04b | provisioning vs keep-alive | D01 (development) → R01 main, R02 mechanism | clustered mode, exposure weight, placeholder costs, 30-min runs (D1-D4) |
+| E05, E06, E07 | geographic clusters, cluster arrangement, cluster routing | dropped | one provider-hosted scheduler (D-83) |
+| E08 | robustness to owners who drop work | D02 → R04 | heartbeat baseline had no timeouts (D5) |
+| E09 | cache value policy, P2P, disk tier | dropped; greedy-dual keep-alive becomes a baseline (V8) | P2P removed; v1 result null |
+| E10, E10b | simple baseline | dropped; replaced by published baselines (V8) | v1 baseline was misconfigured (E11) |
+| E12, E13 | reputation, accounting | dropped | mechanisms removed |
+| E14, E25 | churn regimes, session length | traced sessions (V9.2) + R03 operating region + R07 (notice fraction) | parametric churn was assumed |
+| E15 | scheduler faults and failover | dropped | provider scheduler trusted for availability |
+| E16 | miss-probability hedging | R06 ablation (backup attempts) | hedging removed; backup attempts replace it |
+| E17, E17b | Lambda-like and Azure-like references | R09 trusted always-on hosts | vendor names on in-house models (E8) |
+| E18 | scale to 10^5 workers | R08 (up to the measured single-scheduler limit) | decision time was invented (D13) |
+| E19 | ablation | R06 | ran on the defective placement (E3) |
+| E20a/ab/b/c | viability maps | R03 operating region (all cells reported) | grids were selectively reported (D7) |
+| E23 | latency vs exposure Pareto | R01 (deadlines met vs holder budget `K`) | exposure score removed |
+| E24, E24b | calibration sensitivity | R07 (machine-mix sensitivity over measured bundles) | placeholder bundle no longer exists |
+| — | new | R05 forging owners and audit | owner class P (D8) |
+| — | new | D03 → R03 pool size × load | operating region |
+| — | new | V5.2 optimality check of greedy vs exact (test + appendix table) | replaces E04's MILP-as-system |
+
+Total v2 experiments: 3 development (D01-D03), 9 held-out (R01-R09), 1 emulation (V13), plus the calibration runs per machine.
