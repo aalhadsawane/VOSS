@@ -164,11 +164,14 @@ def functions(df: pd.DataFrame, ref_kb: dict[str, float]) -> dict[str, dict[str,
     return out
 
 
-def build(raw: Path, host: str | None, placeholder: Path, tier: str | None = None) -> tuple[str, dict[str, Any]]:
+def build(
+    raw: Path, host: str | None, placeholder: Path, tier: str | None = None, label: str | None = None
+) -> tuple[str, dict[str, Any]]:
     df, meta, digests = load_raw(raw, host)
     if df.empty:
         raise SystemExit(f"no usable records under {raw}")
     fp = host or str(df.host.iloc[0])
+    name = label or fp  # a versioned bundle may reuse the same raw logs under a new name (e.g. after the appliance run)
     mapping = yaml.safe_load((HERE / "mapping.yaml").read_text())
     if tier:  # a machine without an SSD (the stand-in laptop): its only tier plays the SSD role of the mapping
         for spec in mapping["distributions"].values():
@@ -183,7 +186,7 @@ def build(raw: Path, host: str | None, placeholder: Path, tier: str | None = Non
     files = {
         "distributions.yaml": {
             "provenance": {"default": "measured", "note": "entries tagged literature/assumed were not measured"},
-            "host": fp,
+            "host": name,
             "harness_version": meta.get("harness_version"),
             "measured": True,
             "distributions": merged,
@@ -193,22 +196,25 @@ def build(raw: Path, host: str | None, placeholder: Path, tier: str | None = Non
         "functions.yaml": {"functions": functions(df, ref_kb)},
         "meta.yaml": {
             "host": meta,
+            "bundle": name,
+            "raw_host": fp,
             "raw_files": digests,
             "missing": missing,
         },
     }
-    return fp, files
+    return name, files
 
 
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--raw", type=Path, required=True, help="directory with <fingerprint>/<suite>/<run>/ trees")
     p.add_argument("--host", default=None, help="fingerprint to ingest (default: the first found)")
+    p.add_argument("--label", default=None, help="bundle name to write instead (a version of the same raw logs)")
     p.add_argument("--out", type=Path, default=Path("configs/calibration/measured"))
     p.add_argument("--tier", default=None, help="disk tier standing in for 'ssd' in mapping.yaml (e.g. hdd)")
     p.add_argument("--placeholder", type=Path, default=Path("configs/calibration/placeholder/c0"))
     a = p.parse_args(argv)
-    fp, files = build(a.raw, a.host, a.placeholder, a.tier)
+    fp, files = build(a.raw, a.host, a.placeholder, a.tier, a.label)
     out = a.out / fp
     out.mkdir(parents=True, exist_ok=True)
     prov = {"default": "measured", "note": f"ingested from raw logs of host {fp} (rule 13)"}

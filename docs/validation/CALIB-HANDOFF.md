@@ -117,6 +117,9 @@ check the output rather than trusting it).
 10. Ingest:
    uv run python -m tools.calibrate.ingest --raw calibration/raw --host <fingerprint>
    uv run python -m tools.calibrate.ingest --raw calibration/raw --host <fingerprint>_hdd --tier hdd
+   If a suite arrives **after** runs that already cite a bundle (the appliance suite always does, because it is armed
+   last), do not re-ingest in place: `--label <fingerprint>_full` writes a second bundle from the same raw logs and leaves
+   the committed run hashes meaningful. Say which bundle each report uses.
    Copy the scrubbed raw into the repository: `uv run python -m tools.calibrate.report pack <raw> /tmp/raw.tar.gz`,
    extract, verify no hostname/user strings remain (`grep -rIl <hostname> <dir>`), then copy under `calibration/raw/`.
    Add `calibration/raw/env-<host_label>.txt` (the voss-calib.sh `write_env` format).
@@ -171,4 +174,7 @@ that behaved differently, results far from the simulator). Do not claim a result
   80-guest level was skipped and recorded. Do not lower the budget to force it; report the skip.
 - `tools/calibrate/report pack` scrubs user/host names in text files; verify with grep before `git add`.
 - The appliance reboot loop is safe (bounded, restores the default target) but it terminates an agent running on that
-  host. Pack, commit and push first; collect in a fresh session.
+  host. Pack, commit and push first; collect in a fresh session. On the i7 host, `systemd-analyze` ran before bootup
+  finished ("Bootup is not yet finished"), so the firmware/loader/kernel split was missing and the totals had to be
+  reconstructed from wall-clock stamps; the session-boot totals are still valid, but a future harness change should retry
+  `systemd-analyze` after `bootup` completes.

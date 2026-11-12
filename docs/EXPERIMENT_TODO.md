@@ -53,7 +53,9 @@ Status values: TODO, IN PROGRESS, DONE.
 - **Status:** IN PROGRESS. The harness now records the sub-steps of a microVM boot (`fc_spawn`, `fc_configure`,
   `fc_start_api`, `fc_boot`, `fc_init_to_done`), of a snapshot create (`fc_pause`, `fc_snapshot_create`) and of a restore
   (`fc_restore_spawn`, `fc_restore_api`, `fc_restore_ack`, `fc_restore`); the i7 host's per-step table is in
-  `docs/validation/i7-12700-64g.md`. The session boot's sub-steps still need the `appliance` logs. The bundle still
+  `docs/validation/i7-12700-64g.md`. Its session boot is measured too (5 boots: firmware+loader 24.8 s, kernel→agent
+  8.2 s, agent→quote 6.2 s, verifier 0.02 s, power-on→attested 40.5 s), but `systemd-analyze` raced bootup on this
+  machine, so the firmware/loader/kernel split is missing and the kernel time sits inside "kernel→agent". The bundle
   stores the totals (per-step values are in the raw logs); step (c) below is not done.
 - **Why:** Figure 1 shows one bar per state, with no steps inside "reboot to kernel" or "power-on to attested worker", and no
   bar for attestation itself, although the text says the 65 s runs from power-on to an attested worker. A reader cannot see

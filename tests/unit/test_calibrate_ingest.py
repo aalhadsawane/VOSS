@@ -144,3 +144,12 @@ def test_sebs_concurrencies_and_host_meta_fields(tmp_path: Path, monkeypatch: py
     meta = host_meta(Shell(dry_run=True))
     assert {"cores", "threads", "tpm_vendor", "disks"} <= set(meta)
     assert int(meta["cores"]) >= 1 and int(meta["threads"]) >= 1
+
+
+def test_ingest_label_versions_a_bundle_without_copying_raw(raw: Path) -> None:
+    """A suite added later (the appliance run) re-ingests the same raw logs under a new bundle name."""
+    name, files = ingest.build(raw, "c0-test", PLACEHOLDER, label="c0-test-v2")
+    assert name == "c0-test-v2"
+    assert files["distributions.yaml"]["host"] == "c0-test-v2"
+    assert files["meta.yaml"]["bundle"] == "c0-test-v2" and files["meta.yaml"]["raw_host"] == "c0-test"
+    assert all(k.startswith("c0-test/") for k in files["meta.yaml"]["raw_files"])  # raw paths stay real

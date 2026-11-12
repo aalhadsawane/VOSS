@@ -7,7 +7,7 @@ Status of the calibration against hardware, as of 2026-11-11. Section references
 | Machine | CPU | RAM | Storage | TPM | Bundle |
 |---|---|---|---|---|---|
 | Stand-in laptop | Intel Core i3-7020U (2c/4t) | 3.9 GB | 1 TB HDD | 2.0 | `laptop-b9212a4528` |
-| Lab node C0 / bare-metal i7 | Intel Core i7-12700 (12c/20t) | 64 GB | 4×1 TB NVMe + 4×2 TB HDD | Intel PTT | `i7_12700_64g-b4f89a4def` (+ `_nvme`, `_hdd`) |
+| Lab node C0 / bare-metal i7 | Intel Core i7-12700 (12c/20t) | 64 GB | 4×1 TB NVMe + 4×2 TB HDD | Intel PTT | `i7_12700_64g-b4f89a4def` (+ `_nvme`, `_hdd`), `_full` with the session boot |
 
 Coverage, for deciding whether a new host is worth a full run (a row with nothing new adds noise, not evidence):
 
