@@ -40,7 +40,13 @@ which a 99th-percentile target of a few seconds cannot absorb.
 Before a function runs, the invocation waits for the worker's concurrency limit to admit it, for the worker to obtain the tenant's key if it lacks it, and
 for a sandbox to start. For functions of tens to hundreds of milliseconds, starting the sandbox dominates unless one is
 already warm, which is why platforms keep sandboxes alive or restore snapshots~\cite{shahrad2020wild,fuerst2021faascache,ao2022faasnap,cadden2020seuss}.
-A function is at one of four levels on a worker: nothing cached (fetch the code, then boot); code on disk (boot); a snapshot
+Datacenter platforms hold a function's image in a storage hierarchy, such as an object store, a cache shared by an availability
+zone, and the host's own cache~\cite{brooker2023ondemand}, and a start-up pays for the tier it hits. Our setting has no shared
+tier between the provider and the volunteer machines, and the provider's registry holds only each function's encrypted code and
+root file system image. A snapshot is not kept there: it contains the decrypted memory of a running sandbox, so only a worker
+that holds the tenant's key creates it, and it can be restored only on a machine with the same CPU model, kernel and virtual
+machine monitor. It stays on that worker's disk, and a worker of the same kind that also holds the key may copy it from a peer.
+Start-up levels are therefore states of one worker: nothing cached (fetch the code, then boot); code on disk (boot); a snapshot
 on disk (restore); or a warm sandbox (hand the request over).
 
 Volunteer machines add a cost that datacenters do not have: before running tenant code, a machine must prove which software
@@ -50,7 +56,7 @@ memory and \CalFcBootColdS\,s from a hard disk; going from power-off to an attes
 thousands of times more than reuse, so it must be prepared before requests arrive. The network adds to this: volunteers sit
 on home links with less upload than download, and file systems of 90--450\,MB and snapshots of up to 600\,MB take tens of
 seconds to minutes to move. The scheduler charges each candidate worker the transfer time over its own link, workers fetch
-from nearby workers before the provider's registry, and snapshots are made locally rather than downloaded.
+from nearby workers before the provider's registry, and a snapshot is made on the worker or copied from a nearby peer, never from the registry.
 
 \begin{figure}[t]
 \centering

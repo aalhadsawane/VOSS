@@ -109,6 +109,8 @@ from the page alone.
 23. **A definition sentence must be readable on its own**; define a term by what it contains and does ("memory and processor state
 27. **A choice that departs from common practice must come with its reason** (volunteer hosts judged by predicted completion time,
     so no CPU overcommit). Check each reason against the paper's own mechanism and substrate before writing it.
+28. **Name the familiar pattern before showing where ours differs.** State the usual datacenter arrangement, then why it does not
+    apply to volunteers, then our version.
     written to disk; loading it resumes the sandbox"), not by comparison alone ("restores faster than a sandbox boots").
 
 ## CRITICAL items (must be resolved before submission)
@@ -355,4 +357,19 @@ times, X-3 redraw Figure 1).
 - **Lesson:** heuristic 27. A modelling choice that differs from common practice needs its reason stated in the paper, grounded in
   the threat model or deployment (here: untrusted hosts judged by predicted completion time), and never borrowed from a doc that
   describes a different substrate.
+
+### Round 18: the four start-up levels read as obvious to a serverless reviewer
+- **Said:** Writing "nothing cached / code on disk / snapshot on disk / warm" as plain fact invites the objection that snapshots sit
+  at several tiers in typical serverless setups (remote blob storage, availability-zone distributed cache, local disk). Ours differs.
+- **Did:** `background.tex` now first names the datacenter hierarchy (object store, zone-shared cache, host cache), then says why ours
+  has none and what it has instead, then gives the four levels as states of one worker. Facts from the code and docs: the registry
+  holds only encrypted bundle and root file system image; snapshots are created on a worker holding the tenant's key (they hold
+  decrypted memory), restore only within a snapshot class (CPU model, kernel, VMM version), live on the worker's disk, and can be copied
+  from a peer of the same class that holds the key, never from the registry (`fetching.py`, `planning.py`, doc 02 §6). Also fixed
+  "snapshots are made locally rather than downloaded" (peer copies exist). **Citation check:** I verified the tiered cache (worker
+  memory and disk, availability-zone cache, S3) for Lambda *container image chunks* in Brooker's blog on the paper and added
+  `brooker2023ondemand` (ATC 2023, pp. 315--328, authors from dblp). I could not read the paper PDF text, so the text cites it only for
+  the image hierarchy, not for snapshots; I found no source here for where Lambda stores snapshots, and claim none.
+- **Lesson:** heuristic 28. When a design differs from a pattern every reviewer knows, state the familiar pattern first, then say what
+  differs and why, and cite only what the source is verified to say.
 
