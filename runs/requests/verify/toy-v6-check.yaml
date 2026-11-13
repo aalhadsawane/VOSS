@@ -1,0 +1,4 @@
+spec: TOY
+hashes: results/TOY-43381745173/hashes.csv
+frac: 0.34
+note: "V6 exit check: re-run a sample of the toy runs on a fresh runner"
