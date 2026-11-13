@@ -190,6 +190,9 @@ for the file as a whole.
 | `configs/substrates/appliance_tpm.yaml` | pending V4 | substrate profile; ref_* become the trusted-host baseline in V8 |
 | `configs/substrates/none.yaml` | pending V4 | substrate profile; ref_* become the trusted-host baseline in V8 |
 | `configs/baselines.yaml` | D | systems compared: source, overrides, deviations (V8) |
+| `configs/traces/azure2019/provenance.yaml` | T | Azure Functions 2019 sample, release data-azure2019-*: functions and per-minute arrivals per split (V9.1) |
+| `configs/traces/ookla-fixed-2024q1/provenance.yaml` | T | Ookla fixed-broadband links per metro, release data-ookla-fixed-2024q1-* (V9.3) |
+| `configs/traces/wonderproxy-2020-07/provenance.yaml` | T | WonderProxy all-pairs pings: fitted route factor 1.654 (V9.3) |
 | `configs/substrates/trusted_hosts.yaml` | M | appliance_tpm ladder without attestation or key release (V8) |
 | `configs/references/trusted_hosts.yaml` | A | trusted always-on hosts: 40 per router metro (V8) |
 | `configs/tenants.yaml` | pending V9 | assumed tenants; replaced by trace owners |
