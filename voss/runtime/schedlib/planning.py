@@ -106,6 +106,7 @@ class Planning:
             sigma=np.array([self.ctx.tenants[t].sigma for t in tenants]),
             a_min=np.array([self.ctx.tenants[t].assurance_floor for t in tenants]),
             f=np.array([self.ctx.tenants[t].f if self.ctx.tenants[t].f is not None else f_default for t in tenants]),
+            max_holders=np.array([self.ctx.tenants[t].max_holders or 0 for t in tenants], dtype=np.int64),
             cold_penalty=np.full(len(tenants), pc.cold_penalty),
             fns=tuple(FnId(f) for f in fns),
             fn_tenant=np.array([tenants.index(self.ctx.fns[f].tenant) for f in fns], dtype=np.int64),

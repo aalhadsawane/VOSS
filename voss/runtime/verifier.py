@@ -54,5 +54,6 @@ class Verifier(Actor):
         self.revoked.add(cert)
         w = self.owner[cert]
         self.ctx.rec.log(Table.EVENTS, t=self.now, kind="cert_expired", worker=w, cert=cert, value=0.0)
-        for dst in (self.ctx.directory.orchestrator, *self.ctx.directory.routers):
+        kbs = sorted(set(self.ctx.directory.kbs.values()))  # key services free the worker's places in holder budgets
+        for dst in (self.ctx.directory.orchestrator, *self.ctx.directory.routers, *kbs):
             self.send(dst, RevokeSession(w, cert))

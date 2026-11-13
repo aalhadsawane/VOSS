@@ -135,6 +135,29 @@ def receipts_match_ground_truth(rec: Recorder, end: float, result_drops: int) ->
     return out
 
 
+def holders_within_budget(rec: Recorder, budgets: dict[str, int | None]) -> list[str]:
+    """D-85: at no time do more workers hold a function key than its budget ``K`` (from release and drop events)."""
+    ev = _events(rec, "key_release")
+    if ev.empty:
+        return []
+    drops = _events(rec, "key_dropped")
+    out = []
+    for key, k in sorted(budgets.items()):
+        if k is None:
+            continue
+        rel = ev[ev.tenant == key]
+        dr = drops[drops.tenant == key] if not drops.empty else drops
+        steps = sorted([(float(t), 1, int(w)) for t, w in zip(rel.t, rel.worker, strict=True)])
+        steps += sorted([(float(t), -1, int(w)) for t, w in zip(dr.t, dr.worker, strict=True)]) if len(dr) else []
+        held: set[int] = set()
+        for t, sign, w in sorted(steps, key=lambda x: (x[0], x[1])):  # drops before releases at the same instant
+            held.add(w) if sign > 0 else held.discard(w)
+            if len(held) > k:
+                out.append(f"key {key}: {len(held)} holders > budget {k} at t={t:.3f}")
+                break
+    return out
+
+
 def check_invariants(
     rec: Recorder,
     scn: Scenario,
@@ -142,8 +165,10 @@ def check_invariants(
     give_up: dict[int, float] | None = None,
     end: float = 0.0,
     result_drops: int = 0,
+    budgets: dict[str, int | None] | None = None,
 ) -> list[str]:
     return [
+        *(holders_within_budget(rec, budgets) if budgets else []),
         *(no_lost(rec, give_up, end) if give_up else []),
         *(receipts_match_ground_truth(rec, end, result_drops) if end > 0 else []),
         *attested_execution(rec, scn),

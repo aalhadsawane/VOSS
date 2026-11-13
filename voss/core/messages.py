@@ -242,6 +242,16 @@ class Key(Message):
     tenant: TenantId
     cert_id: str
     ok: bool
+    reason: str = ""  # on a refusal: "cert" (invalid or expired certificate) or "budget" (holder budget reached)
+
+
+@dataclass(frozen=True, slots=True)
+class KeyDrop(Message):
+    """Worker → tenant key service: this worker no longer holds the key (frees a place in the holder budget)."""
+
+    tenant: TenantId
+    worker: WorkerId
+    cert_id: str
 
 
 # --- artifacts (worker ⇄ registry / peers) ---------------------------------------------------------------------

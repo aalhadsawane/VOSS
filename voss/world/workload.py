@@ -47,6 +47,7 @@ class FunctionSpec(_M):
     idempotent: bool
     slo_class: Literal["sync", "async"]
     slo_k: float = Field(gt=0)
+    owner: str = ""  # the tenant that owns the function; ``tenant`` is the function's key domain (D-85)
 
 
 class TenantSpec(_M):
@@ -57,6 +58,8 @@ class TenantSpec(_M):
     kbs_city: str
     assurance_floor: float = Field(ge=0, le=1)
     f: int | None = None
+    max_holders: int | None = Field(default=None, ge=1)  # holder budget K per function key (D-85); None = unbounded
+    owner: str = ""  # for a key domain: the tenant it belongs to
 
 
 class FlashCrowd(_M):
@@ -113,7 +116,24 @@ def load_catalog(sc: ScenarioConfig, calibration: str | None = None) -> Catalog:
     for f in fns:
         if f.tenant not in known:
             raise ValueError(f"function {f.name}: unknown tenant {f.tenant}")
-    return Catalog(fns, ten)
+    return key_domains(Catalog(fns, ten))
+
+
+def key_domain(tenant: str, fn: str) -> str:
+    return f"{tenant}/{fn}"
+
+
+def key_domains(cat: Catalog) -> Catalog:
+    """Per-function keys (D-85): every function becomes its own key domain ``<tenant>/<function>``, which takes the
+    tenant's place everywhere keys are handled (requests, holders, provisioning). The domain inherits its tenant's
+    settings; ``owner`` keeps the tenant for reporting and for the tenant's key service."""
+    by_id = {t.id: t for t in cat.tenants}
+    doms = tuple(
+        by_id[f.tenant].model_copy(update={"id": key_domain(f.tenant, f.name), "owner": f.tenant})
+        for f in cat.functions
+    )
+    fns = tuple(f.model_copy(update={"tenant": key_domain(f.tenant, f.name), "owner": f.tenant}) for f in cat.functions)
+    return Catalog(fns, doms)
 
 
 def load_load_regime(sc: ScenarioConfig) -> LoadRegime:

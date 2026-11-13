@@ -7,7 +7,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from voss.core.ids import Addr, FnId, TenantId, WorkerId
-from voss.core.messages import PinSnapshot, Prepare, Release, Warm
+from voss.core.messages import KeyDrop, PinSnapshot, Prepare, Release, Warm
 from voss.core.messages_ka import KeepWarm
 from voss.metrics.schema import Table
 from voss.runtime.actor import ActorContext
@@ -170,6 +170,9 @@ class PlannedMixin(KeepWarmMixin):
         busy = any(a.inv.tenant == tenant for a in getattr(self, "attempts", {}).values())
         if session == self.host.session and tenant not in self.prepared and not busy:
             self.keys.discard(tenant)
+            kbs = self.ctx.directory.kbs.get(TenantId(tenant))
+            if kbs is not None:
+                self.send(kbs, KeyDrop(TenantId(tenant), WorkerId(self.host.worker), self.host.cert_id))
             self.ctx.rec.log(
                 Table.EVENTS,
                 t=self.now,

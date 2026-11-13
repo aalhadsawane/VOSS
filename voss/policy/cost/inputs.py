@@ -44,6 +44,7 @@ class TenantInfo:
     kbs_lon: float
     assurance_floor: float
     f: int | None = None
+    max_holders: int | None = None  # holder budget K of this key (D-85)
 
 
 @dataclass(frozen=True)

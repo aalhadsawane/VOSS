@@ -20,6 +20,7 @@ from voss.core.types import ClusterView, Invocation, SloClass
 from voss.policy.cost.arrays import ArrayCache
 from voss.policy.cost.completion import Completion, moment_match, p_miss
 from voss.policy.cost.inputs import CostContext
+from voss.policy.keys.budget import may_add_holder
 from voss.policy.place.candidates import eligible
 
 NAMES = ("wait", "trust", "startup", "net", "exec", "exec_var", "pFail", "exposure", "tts")
@@ -82,6 +83,8 @@ def static_parts(
     f, t = ctx.fns[inv.fn], ctx.tenants[inv.tenant]
     ok = eligible(view, inv, now, margin_s) & (view.assurance >= t.assurance_floor)
     holder = cache.holder(view, inv.tenant)
+    if not may_add_holder(int(holder.sum()), t.max_holders):  # budget reached: only holders are candidates (D-85)
+        ok &= holder
     trust = np.where(holder | (a.trust_fixed == 0), 0.0, cache.rtt(ctx, t.kbs_lat, t.kbs_lon) + a.trust_fixed)
     fetch, rest = cache.startup(view, ctx, inv.fn)
     if not ctx.lifecycle_aware:  # ablation: one startup estimate for every candidate (warmth is invisible)

@@ -61,6 +61,7 @@ class PlanInput:
     fn_units: np.ndarray  # [F] warm VMs worth keeping cluster-wide (demand bound)
     y_prev: np.ndarray  # [T, J] previous trust-warm sets
     params: PlanParams = field(default_factory=PlanParams)
+    max_holders: np.ndarray | None = None  # [T] holder budget K per key, 0 = none (D-85); None = no budgets
 
     @property
     def fn_snaps(self) -> np.ndarray:

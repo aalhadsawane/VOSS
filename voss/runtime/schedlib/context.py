@@ -68,8 +68,9 @@ def cost_context(
     ten = {}
     for t in catalog.tenants:
         i = metros.index(t.kbs_city)
+        k = t.max_holders if cfg.voss.keys.max_holders is None else cfg.voss.keys.max_holders
         ten[t.id] = TenantInfo(
-            sig.get(t.sensitivity, 1.0), float(metros.lat[i]), float(metros.lon[i]), t.assurance_floor, t.f
+            sig.get(t.sensitivity, 1.0), float(metros.lat[i]), float(metros.lon[i]), t.assurance_floor, t.f, k
         )
     reg = metros.index(cfg.voss.infra.registry)
     routers = {
