@@ -44,7 +44,7 @@ env_snapshot() {  # what can make timings differ between nodes
     echo "boost=$(cat /sys/devices/system/cpu/cpufreq/boost 2>/dev/null || echo n/a)"
     echo "on_mains=$(cat /sys/class/power_supply/A*/online 2>/dev/null | head -1 || echo n/a)"
     echo "loadavg=$(cut -d' ' -f1-3 /proc/loadavg) nproc=$(nproc)"
-    echo "thermal_msgs=$(dmesg 2>/dev/null | grep -ci 'throttl' || echo n/a)"
+    echo "thermal_msgs=$(dmesg 2>/dev/null | grep -ci 'throttl' || true)"
   } > "$OUT/env-$1.txt"
   cat "$OUT/env-$1.txt"
 }
