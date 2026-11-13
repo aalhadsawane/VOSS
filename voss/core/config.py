@@ -209,9 +209,11 @@ class KeysConfig(Frozen):
 class DetectionConfig(Frozen):
     """Progress-based detection (doc 07 §2, §6)."""
 
-    watchdog_slack: float = 1.2  # result watchdog at predicted q90 × slack (doc 07 §6: q90 + 20%)
-    watchdog_min_s: float = 3.0
-    probe_timeout_s: float = 2.0
+    detector: str = "voss"  # fixed | consecutive | voss (policy.detect, plan V7.2)
+    quantile: float = 0.95  # the voss timer: this quantile of the attempt's predicted completion (plan V7.1)
+    probe_timeout_s: float = 2.0  # an unanswered probe is evidence for the drop estimate; it does not end the attempt
+    consecutive_streak: int = 5  # consecutive: failures in a row that eject (L: Envoy consecutive_5xx)
+    consecutive_eject_s: float = 30.0  # consecutive: ejection time (L: Envoy base_ejection_time)
     suspect_streak: int = 2  # watchdog failures in a row → suspected
     suspect_s: float = 600.0  # suspicion lasts this long (then probation)
 

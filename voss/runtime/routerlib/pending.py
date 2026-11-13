@@ -43,6 +43,7 @@ def row(p: Pending, region: str, status: str, o: Outcome | None, now: float) -> 
         "router": region,
         "cluster": -1 if p.cluster is None else p.cluster,
         "slo_class": int(inv.slo_class),
+        "idempotent": inv.idempotent,  # non-idempotent misses are reported separately (plan V7.1)
         "t_arrive": inv.t_arrive,
         "t_done": now,
         "e2e": now - inv.t_arrive,

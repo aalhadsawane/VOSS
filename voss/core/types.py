@@ -34,6 +34,7 @@ class Invocation:
     attempt: int = 0
     idempotent: bool = True
     excluded: frozenset[WorkerId] = frozenset()
+    holders_only: bool = False  # a backup attempt: only workers holding the function's key (plan V7.1)
 
 
 @dataclass(frozen=True, slots=True)

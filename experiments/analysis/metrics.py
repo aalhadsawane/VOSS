@@ -1,8 +1,9 @@
 """Metrics of one run (docs/REVISION_PLAN.md V2, D-88). Every function takes logged tables as pandas frames.
 
 Invocation classes follow the router's terminal row: ``ok`` within the deadline is *met*; ``ok`` after it is *late*;
-``timeout`` and ``unfinished`` are *lost*; ``rejected`` is *rejected*. Only synchronous invocations (``slo_class`` 0)
-that arrive after the warm-up count, unless a function says otherwise.
+``timeout``, ``unfinished`` and ``abandoned`` (no worker fits a retry, plan V7.1) are *lost*; ``rejected`` is
+*rejected*. Only synchronous invocations (``slo_class`` 0) that arrive after the warm-up count, unless a function says
+otherwise.
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ import numpy as np
 import pandas as pd
 
 SYNC = 0
-LOST = ("timeout", "unfinished")
+LOST = ("timeout", "unfinished", "abandoned")
 
 
 def sync_after(inv: pd.DataFrame, warmup_s: float) -> pd.DataFrame:

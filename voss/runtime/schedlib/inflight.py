@@ -22,6 +22,7 @@ class Copy:
     sigma: float = 0.0
     load: float = 0.0
     probes: int = 0  # result-watchdog generation (doc 07 §4)
+    q_done: float = 0.0  # predicted completion quantile from dispatch (the voss timer, plan V7.1)
 
 
 @dataclass
@@ -36,6 +37,11 @@ class Inflight:
     t_window: float | None = None
     batch_wait: float = 0.0
     t_in: float = 0.0  # when this scheduler received the ENQUEUE (its own clock)
+    want_backup: bool = False  # the next decision places a backup attempt (plan V7.1)
+
+    @property
+    def t_deadline(self) -> float:
+        return self.inv.t_arrive + self.inv.deadline
 
     def live_on(self, w: WorkerId) -> list[Copy]:
         return [c for c in self.copies.values() if c.worker == w]

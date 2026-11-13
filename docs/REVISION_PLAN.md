@@ -587,6 +587,20 @@ branch is still pushed and the job prints a warning.
 - Dropping adversary (classes S and P): strategies drop-all, drop-fraction, drop-after-delay, delay. Faults last until the
   session ends; detection times are reported with "not detected" as a value.
 
+**Outcome (V7a: V7.1-V7.2).** `voss/policy/detect.py` holds the three detector profiles (`voss.detection.detector`).
+The voss timer is the attempt's predicted q95 completion from its decision, with no floor. On expiry, voss starts one
+backup on a key holder outside every live attempt's failure domain (`Invocation.holders_only`) and probes the first
+worker; an unanswered probe is only evidence. Retries and backups go only to a worker whose predicted mean completion
+fits the remaining deadline; otherwise the scheduler sends `Reject(no_fit)` and the router records `abandoned`, a lost
+outcome. When attempts are used up, or a non-idempotent invocation fails, the scheduler sends `Reject(gave_up)` and the
+router records `abandoned`. At its deadline an invocation leaves the scheduler's in-flight table after its watchdog
+and probe have resolved. Attempts and invocations log `idempotent`; the invariant `non_idempotent_once` checks that a
+non-idempotent invocation never gets a backup and is retried only after a pre-execution failure. On the smoke pool with
+25% black-hole owners (240 s, 16/s): voss ejects only black-hole workers, omissions drop from 236 to 52 once the drop
+estimate sees silent attempts, and every omitted invocation whose backup ran on an honest holder returned a result (88%
+within the deadline). Short-deadline functions (0.27 s) cannot be rescued: the q95 timer already exceeds the deadline.
+The paper must show this limit next to the budget `K`.
+
 **Exit criteria V7:** integration tests: a dropped idempotent invocation meets its deadline through a backup; each detector's
 timers; a forging worker is banned; non-idempotent invocations are never duplicated (invariant).
 
