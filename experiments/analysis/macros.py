@@ -1,5 +1,6 @@
 """LaTeX macros for every number in the paper (docs/REVISION_PLAN.md V2, WRITING_SPEC.md §2): the manuscript never
-contains a typed result. ``write({"DeadlineMetVoss": 0.951, ...}, path)`` emits ``\\newcommand{\\VDeadlineMetVoss}{0.95}``.
+contains a typed result. ``write({"DeadlineMetVoss": 0.951, ...}, path)`` emits
+``\\newcommand{\\VDeadlineMetVoss}{0.95}``.
 """
 
 from __future__ import annotations
