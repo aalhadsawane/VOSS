@@ -83,3 +83,21 @@ def confirmed(plan: Plan, trust: dict[int, frozenset[str]]) -> np.ndarray:
         for i, t in enumerate(plan.tenants):
             out[i, j] = plan.y[i, j] and t in ts
     return out
+
+
+def hold_until_needed(
+    actions: list[PlanAction], holders: dict[str, set[int]], plan: Plan, budgets: dict[str, int]
+) -> list[PlanAction]:
+    """Keys are kept until the session ends (D-85, plan V4.3): drop every ``RELEASE`` except those the holder budget
+    needs, i.e. when a key's current holders plus the plan's new holders exceed ``K``; then release only holders the
+    plan no longer wants, lowest worker id first, and no more than the excess."""
+    planned = {str(t): {int(plan.workers[j]) for j in np.flatnonzero(plan.y[i])} for i, t in enumerate(plan.tenants)}
+    keep: set[tuple[str, int]] = set()
+    for t, cur in sorted(holders.items()):
+        k = budgets.get(t, 0)
+        if not k:
+            continue
+        excess = len(cur | planned.get(t, set())) - k
+        for w in sorted(cur - planned.get(t, set()))[: max(0, excess)]:
+            keep.add((t, w))
+    return [a for a in actions if a.kind != "RELEASE" or (str(a.tenant), int(a.worker)) in keep]

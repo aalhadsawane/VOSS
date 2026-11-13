@@ -70,3 +70,25 @@ def test_holder_invariant_detects_a_violation() -> None:
     assert holders_within_budget(rec, {"a/f": 2}) == []
     rec.log(Table.EVENTS, t=3.0, kind="key_release", worker=4, tenant="a/f", value=0.0)
     assert holders_within_budget(rec, {"a/f": 2}) == ["key a/f: 3 holders > budget 2 at t=3.000"]
+
+
+def test_keys_are_kept_unless_the_budget_needs_the_place() -> None:
+    from voss.core.ids import FnId, TenantId, WorkerId
+    from voss.policy.plan.diff import PlanAction, hold_until_needed
+    from voss.policy.plan.types import Plan
+
+    plan = Plan(
+        (TenantId("a/f"),),
+        (FnId("f"),),
+        (WorkerId(1), WorkerId(2), WorkerId(3)),
+        np.array([[False, True, True]]),
+        np.zeros((1, 3), bool),
+        np.zeros((1, 3), int),
+        np.zeros((1, 3)),
+        0.0,
+    )
+    rel = [PlanAction("RELEASE", WorkerId(1), TenantId("a/f")), PlanAction("RELEASE", WorkerId(4), TenantId("a/f"))]
+    holders = {"a/f": {1, 4}}
+    assert hold_until_needed(rel, holders, plan, {"a/f": 0}) == []  # no budget: never release
+    assert hold_until_needed(rel, holders, plan, {"a/f": 4}) == []  # {1, 2, 3, 4} fits K = 4
+    assert hold_until_needed(rel, holders, plan, {"a/f": 3}) == rel[:1]  # one too many: release worker 1 only
