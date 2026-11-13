@@ -19,6 +19,7 @@ from voss.core.messages import (
     Input,
     Key,
     KeyRequest,
+    KeyRotate,
     Message,
     OutcomeMsg,
     OwnerEvent,
@@ -135,6 +136,7 @@ class WorkerAgent(RecoveryMixin, PlannedMixin, FetchMixin, SessionMixin, Actor):
             tenant=att.inv.tenant,
             needs_key=bool(h.profile.trust),
             has_key=att.inv.tenant in self.keys,
+            key_at=att.key_at,  # the key is used to decrypt the bundle or snapshot when it is obtained
         )
 
     def request_key(self, tenant: str, cont: Callable[[bool], None]) -> None:
@@ -229,6 +231,8 @@ class WorkerAgent(RecoveryMixin, PlannedMixin, FetchMixin, SessionMixin, Actor):
             self._input(msg)
         elif isinstance(msg, Key):
             self._key(msg)
+        elif isinstance(msg, KeyRotate):
+            self._rotate(msg)
         elif isinstance(msg, Chunk):
             self._chunk(msg)
         elif isinstance(msg, Prepare | PinSnapshot | Warm | Release | KeepWarm):

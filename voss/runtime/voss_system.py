@@ -85,9 +85,10 @@ class VossSystem:
         for city in inf.routers:
             self._place(f"router:{city}", city)
         self.directory.routers = tuple(("router", f"router:{c}") for c in inf.routers)
+        for owner, city in sorted({(t.owner or t.id, t.kbs_city) for t in self.scn.catalog.tenants}):
+            self._place(f"kbs:{owner}", city)  # one key service per tenant, serving its functions' keys (D-85)
         for t in self.scn.catalog.tenants:
-            self._place(f"kbs:{t.id}", t.kbs_city)
-            self.directory.kbs[TenantId(t.id)] = ("kbs", f"kbs:{t.id}")
+            self.directory.kbs[TenantId(t.id)] = ("kbs", f"kbs:{t.owner or t.id}")
         for i, name in enumerate(self.scn.metros.name):
             self._place(f"client:{i}", name)
         valid = {n: (p.assurance_base, p.session.valid_s) for n, p in self.profiles.items()}
@@ -97,8 +98,13 @@ class VossSystem:
         self.sched = self._attach(SchedulerRole(sched_host, NODE, self.ctx, self.cost, self.priors))
         self.orch = self._attach(Orchestrator("orchestrator", self.ctx, self.sched.addr, sched_host.cert_id))
         self._attach(Registry("registry", self.ctx))
+        k_all = self.cfg.voss.keys.max_holders
+        budgets: dict[str, dict[TenantId, int | None]] = {}
         for t in self.scn.catalog.tenants:
-            self._attach(TenantKbs(f"kbs:{t.id}", self.ctx, TenantId(t.id)))
+            k = t.max_holders if k_all is None else k_all
+            budgets.setdefault(t.owner or t.id, {})[TenantId(t.id)] = k
+        for owner, b in sorted(budgets.items()):
+            self._attach(TenantKbs(f"kbs:{owner}", self.ctx, b))
         origins = np.stack([self.scn.metros.lat, self.scn.metros.lon], axis=1)
         self.routers = [self._attach(Router(f"router:{c}", self.ctx, c, origins)) for c in inf.routers]
 
@@ -226,7 +232,9 @@ class VossSystem:
         give_up = {i: self.cfg.voss.router.give_up_s[c] for i, c in enumerate(SLO_CLASSES)}
         res = self.net.stats.get("Result")
         drops = res.drops + res.in_flight if res is not None else 0  # lost, or still uploading at the end
-        for v in check_invariants(self.rec, self.scn, len(arr), give_up, end, drops):
+        k_all = self.cfg.voss.keys.max_holders
+        budgets = {t.id: (t.max_holders if k_all is None else k_all) for t in self.scn.catalog.tenants}
+        for v in check_invariants(self.rec, self.scn, len(arr), give_up, end, drops, budgets):
             self.rec.log(Table.EVENTS, t=self.kernel.now, kind="invariant_violation", worker=-1, value=0.0, detail=v)
         return RunResult(self.rec, self.scn.hash, self.kernel.events_run)
 

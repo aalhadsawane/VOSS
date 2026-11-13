@@ -242,6 +242,25 @@ class Key(Message):
     tenant: TenantId
     cert_id: str
     ok: bool
+    reason: str = ""  # on a refusal: "cert" (invalid or expired certificate) or "budget" (holder budget reached)
+
+
+@dataclass(frozen=True, slots=True)
+class KeyRotate(Message):
+    """Tenant key service → holders: the function key has a new version; the old one is no longer released and
+    snapshots written under it cannot be restored (D-85)."""
+
+    tenant: TenantId
+    version: int
+
+
+@dataclass(frozen=True, slots=True)
+class KeyDrop(Message):
+    """Worker → tenant key service: this worker no longer holds the key (frees a place in the holder budget)."""
+
+    tenant: TenantId
+    worker: WorkerId
+    cert_id: str
 
 
 # --- artifacts (worker ⇄ registry / peers) ---------------------------------------------------------------------

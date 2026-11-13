@@ -11,8 +11,8 @@ from collections.abc import Callable
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
-from voss.core.ids import Addr
-from voss.core.messages import Attest, DrainNotice, Join, Leave, OwnerEvent, Requote, SessionCert
+from voss.core.ids import Addr, TenantId, WorkerId
+from voss.core.messages import Attest, DrainNotice, Join, KeyDrop, Leave, OwnerEvent, Requote, SessionCert
 from voss.core.rng import RngFactory
 from voss.metrics.schema import Table
 from voss.runtime.actor import ActorContext
@@ -153,6 +153,11 @@ class SessionMixin:
             for r in att.runs:
                 r.abort()
         for tenant in sorted(self.keys):  # keys live in RAM only: the session's end drops them (D-88 holder metrics)
+            kbs = self.ctx.directory.kbs.get(TenantId(tenant))
+            if (
+                graceful and kbs is not None
+            ):  # an owner who switches off without notice frees nothing (cert expiry does)
+                self.send(kbs, KeyDrop(TenantId(tenant), WorkerId(h.worker), h.cert_id))
             self.ctx.rec.log(
                 Table.EVENTS,
                 t=self.now,

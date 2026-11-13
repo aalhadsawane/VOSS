@@ -76,6 +76,24 @@ must not remove answers to questions reviewers ask, and every comparison must us
 *Rejected:* restoring the clustered volunteer-hosted design (confounds partitioning with untrusted hosting, needs
 succession, and saves no provider infrastructure).
 
+**D-95 Per-function keys as key domains; budget enforced by the tenant's key service.** Every function is its own key
+domain `<tenant>/<function>`; one key service per tenant serves its domains and refuses a release beyond `K`. A place
+frees on the worker's drop notice, on session revocation by the verifier, or at certificate expiry. *Consequence:* a
+machine that disappears without notice keeps its places until its session certificate expires, so the re-attestation
+period bounds how long the budget is held by departed machines; R07 reports this effect. *Rejected:* a new plan
+dimension per function (larger change for the same behaviour); trusting the scheduler to enforce `K` (the tenant must
+not depend on the provider for its own budget).
+
+**D-96 Provisioning is heterogeneity- and reliability-aware stochastic submodular maximisation (plan §11).** Holders
+are chosen per function to maximise the expected rate of invocations served within their deadline, with each worker's
+contribution weighted by its predicted speed for that function (function × machine-class × worker run-time model with
+calibration priors), its probability of meeting the deadline, and its probability of staying and not dropping work;
+failure domains add correlated losses. Proposition 1 (monotone submodular) gives greedy (1 − 1/e) per function under the
+holder budget; Proposition 2 gives 1/3 across functions sharing workers. *Why:* the author's direction that
+heterogeneity and unreliability be first-class; our measurements show per-function machine ratios of 2.4-5.7x and 1.5%
+repeatability. *Replaces:* the §10 choice between a cover rule and a loss-model rule; the cover rule becomes the robust
+baseline.
+
 
 ## v1 decisions (D-01 to D-80)
 

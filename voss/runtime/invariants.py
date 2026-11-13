@@ -49,8 +49,10 @@ def keys_released(rec: Recorder) -> list[str]:
             hist.setdefault((int(w), str(c) if sign > 0 else "*", str(ten)), []).append((float(t), sign))
     out = []
     for r in ex[ex.needs_key == True].itertuples():  # noqa: E712
-        rel = [t for t, _ in hist.get((int(r.worker), r.cert, r.tenant), []) if t <= r.t]
-        drop = [t for t, _ in hist.get((int(r.worker), "*", r.tenant), []) if t <= r.t]
+        used = getattr(r, "key_at", r.t)  # the key is used when the attempt obtains it, not when execution starts
+        used = r.t if pd.isna(used) else used  # no time recorded
+        rel = [t for t, _ in hist.get((int(r.worker), r.cert, r.tenant), []) if t <= used]
+        drop = [t for t, _ in hist.get((int(r.worker), "*", r.tenant), []) if t <= used]
         if not rel or (drop and max(drop) > max(rel)):
             out.append(f"key used without release: worker {r.worker} tenant {r.tenant} inv {r.inv}")
     return out
@@ -135,6 +137,29 @@ def receipts_match_ground_truth(rec: Recorder, end: float, result_drops: int) ->
     return out
 
 
+def holders_within_budget(rec: Recorder, budgets: dict[str, int | None]) -> list[str]:
+    """D-85: at no time do more workers hold a function key than its budget ``K`` (from release and drop events)."""
+    ev = _events(rec, "key_release")
+    if ev.empty:
+        return []
+    drops = _events(rec, "key_dropped")
+    out = []
+    for key, k in sorted(budgets.items()):
+        if k is None:
+            continue
+        rel = ev[ev.tenant == key]
+        dr = drops[drops.tenant == key] if not drops.empty else drops
+        steps = sorted([(float(t), 1, int(w)) for t, w in zip(rel.t, rel.worker, strict=True)])
+        steps += sorted([(float(t), -1, int(w)) for t, w in zip(dr.t, dr.worker, strict=True)]) if len(dr) else []
+        held: set[int] = set()
+        for t, sign, w in sorted(steps, key=lambda x: (x[0], x[1])):  # drops before releases at the same instant
+            held.add(w) if sign > 0 else held.discard(w)
+            if len(held) > k:
+                out.append(f"key {key}: {len(held)} holders > budget {k} at t={t:.3f}")
+                break
+    return out
+
+
 def check_invariants(
     rec: Recorder,
     scn: Scenario,
@@ -142,8 +167,10 @@ def check_invariants(
     give_up: dict[int, float] | None = None,
     end: float = 0.0,
     result_drops: int = 0,
+    budgets: dict[str, int | None] | None = None,
 ) -> list[str]:
     return [
+        *(holders_within_budget(rec, budgets) if budgets else []),
         *(no_lost(rec, give_up, end) if give_up else []),
         *(receipts_match_ground_truth(rec, end, result_drops) if end > 0 else []),
         *attested_execution(rec, scn),

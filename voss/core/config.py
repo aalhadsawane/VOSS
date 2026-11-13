@@ -195,6 +195,14 @@ class CacheConfig(Frozen):
     hdd_tier: bool = True
 
 
+class KeysConfig(Frozen):
+    """Function keys (D-85). ``max_holders``: holder budget K for every function, overriding the tenants' own values
+    (an experiment axis); None keeps each tenant's ``max_holders``."""
+
+    max_holders: int | None = Field(default=None, ge=1)
+    rotate_s: float | None = Field(default=None, gt=0)  # key rotation period R (axis); None = never rotate
+
+
 class DetectionConfig(Frozen):
     """Progress-based detection (doc 07 §2, §6)."""
 
@@ -221,6 +229,7 @@ class VossConfig(Frozen):
     keepalive_hist: KeepaliveHistConfig = Field(default_factory=KeepaliveHistConfig)
     cache: CacheConfig = Field(default_factory=CacheConfig)
     detection: DetectionConfig = Field(default_factory=DetectionConfig)
+    keys: KeysConfig = Field(default_factory=KeysConfig)
 
 
 _HASH_OMIT_DEFAULT = (("cost", "wait_model", "ewma"), ("worker", "sync_priority", False))

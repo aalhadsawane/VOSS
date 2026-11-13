@@ -66,6 +66,7 @@ class Attempt:
     dur: dict[str, float] = field(default_factory=dict)
     runs: list[OpRun] = field(default_factory=list)
     ready_t: float | None = None
+    key_at: float = float("nan")  # when the function key was in hand (rotation invariant, D-85)
     rest_done: bool = False
     warm: bool = False
     exec_t0: float | None = None
@@ -77,6 +78,7 @@ class Attempt:
         lad = h.profile.ladder
         self.level, self.tier = cache_level(h.cache, self.fn, lad, h.snapshot_class, self._digests())
         self.trust_cold = bool(h.profile.trust) and self.inv.tenant not in self.port.keys
+        self.key_at = float("nan") if self.trust_cold else self.port.kernel.now  # when the key was in hand
         self.slot = h.slots.acquire(lambda _tok: self._ready("slot", 0.0), int(self.inv.slo_class))
         self._run(h.profile.trust if self.trust_cold else (), lambda d: self._ready("trust", d))
         prep, _ = split_path(lad, self.level)
@@ -111,7 +113,11 @@ class Attempt:
     def _rpc(self, op: RpcOp, cont: Callable[[], None]) -> None:
         if op.to != "tenant_kbs":
             raise RuntimeError(f"an attempt cannot rpc to {op.to}")
-        self.port.request_key(self.inv.tenant, lambda ok: cont() if ok else self.fail("key_denied"))
+        self.port.request_key(self.inv.tenant, lambda ok: self._keyed(cont) if ok else self.fail("key_denied"))
+
+    def _keyed(self, cont: Callable[[], None]) -> None:
+        self.key_at = self.port.kernel.now
+        cont()
 
     def _run(self, ops: tuple[Op, ...], done: Callable[[float], None]) -> None:
         if not ops:

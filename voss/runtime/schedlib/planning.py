@@ -17,7 +17,7 @@ from voss.policy.cost.inputs import CostContext
 from voss.policy.keepalive_hist import HistParams
 from voss.policy.plan import registry as _planners  # noqa: F401  (registers planners)
 from voss.policy.plan.ablate import survival_blind
-from voss.policy.plan.diff import PlanAction, diff, rate_limit
+from voss.policy.plan.diff import PlanAction, diff, hold_until_needed, rate_limit
 from voss.policy.plan.types import Plan, PlanInput, PlanParams
 from voss.policy.predict.arrivals import poisson_quantile
 from voss.runtime.schedlib.models import SchedModels
@@ -106,6 +106,7 @@ class Planning:
             sigma=np.array([self.ctx.tenants[t].sigma for t in tenants]),
             a_min=np.array([self.ctx.tenants[t].assurance_floor for t in tenants]),
             f=np.array([self.ctx.tenants[t].f if self.ctx.tenants[t].f is not None else f_default for t in tenants]),
+            max_holders=np.array([self.ctx.tenants[t].max_holders or 0 for t in tenants], dtype=np.int64),
             cold_penalty=np.full(len(tenants), pc.cold_penalty),
             fns=tuple(FnId(f) for f in fns),
             fn_tenant=np.array([tenants.index(self.ctx.fns[f].tenant) for f in fns], dtype=np.int64),
@@ -113,7 +114,7 @@ class Planning:
             fn_size=np.array([self.ctx.fns[f].snapshot_mb for f in fns]),
             fn_benefit=np.array([self._benefit(f, fn_rates[f], horizon, demand.q) for f in fns]),
             fn_units=np.array([float(poisson_quantile(fn_rates[f] * self._svc(f), 0.95)) for f in fns]),
-            y_prev=self._prev_y(tenants, workers),
+            y_prev=self._prev_y(tenants, workers, view),
             params=self.params,
         )
 
@@ -128,17 +129,16 @@ class Planning:
         units = max(1.0, float(poisson_quantile(rate * self._svc(fn), 0.95)))
         return rate * horizon * saved / units
 
-    def _prev_y(self, tenants: list[str], workers: np.ndarray) -> np.ndarray:
-        out = np.zeros((len(tenants), len(workers)), dtype=bool)
-        if self.prev is None:
-            return out
-        ti = {str(t): i for i, t in enumerate(self.prev.tenants)}
-        wi = {int(w): j for j, w in enumerate(self.prev.workers)}
-        for a, t in enumerate(tenants):
-            for b, w in enumerate(workers):
-                if t in ti and int(w) in wi:
-                    out[a, b] = self.prev.y[ti[t], wi[int(w)]]
-        return out
+    def _prev_y(self, tenants: list[str], workers: np.ndarray, view: ClusterView) -> np.ndarray:
+        """``[T, J]`` workers that hold each key now (reported keys): kept first when a budget binds (D-85)."""
+        idx = view.index()
+        return np.array(
+            [[TenantId(t) in view.trust[idx[WorkerId(int(w))]] for w in workers] for t in tenants], dtype=bool
+        ).reshape(len(tenants), len(workers))
+
+    def _budgets(self, inp: PlanInput) -> dict[str, int]:
+        k = inp.max_holders if inp.max_holders is not None else np.zeros(len(inp.tenants), dtype=np.int64)
+        return {str(t): int(v) for t, v in zip(inp.tenants, k, strict=True)}
 
     def confirmed(self, view: ClusterView, inp: PlanInput) -> Plan:
         """What workers have confirmed (doc 03 §4.4): trust-warm pins from heartbeats, snapshots the previous plan
@@ -183,10 +183,20 @@ class Planning:
         fn_tenant = {f: self.ctx.fns[f].tenant for f in self.ctx.fns}
         benefit = {str(f): float(b) for f, b in zip(inp.fns, inp.fn_benefit, strict=True)}
         acts = diff(self.confirmed(view, inp), plan, fn_tenant, benefit)
-        acts = rate_limit(acts + stale_releases(view, inp), self.cfg.planner.max_parallel_prepares)
+        acts = hold_until_needed(acts + stale_releases(view, inp), holders_of(view), plan, self._budgets(inp))
+        acts = rate_limit(acts, self.cfg.planner.max_parallel_prepares)
         self.prev = plan
         t, f, j = inp.shape
         return PlanRound(plan, acts, 0 if plan.status == "reused" else (4 * t + 2 * f) * j)
+
+
+def holders_of(view: ClusterView) -> dict[str, set[int]]:
+    """Workers that report holding each key."""
+    out: dict[str, set[int]] = {}
+    for j, w in enumerate(view.workers):
+        for t in view.trust[j]:
+            out.setdefault(str(t), set()).add(int(w))
+    return out
 
 
 def stale_releases(view: ClusterView, inp: PlanInput) -> list[PlanAction]:

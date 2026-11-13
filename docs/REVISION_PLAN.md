@@ -441,6 +441,16 @@ shapes exist. Audit metrics come with V7.3.
 5. **Snapshots** are encrypted under the function key and version. (Review 5 D10's idea of a worker-local sealed key is
    rejected: a worker that can restore without the key can run the function after revocation.)
 
+**V4 outcome (branch `v2/V4-keys`).** V4.1: the catalogue makes every function its own key domain
+`<tenant>/<function>` (`workload.key_domains`), so the planner, placement, trust sets and key messages are per function
+unchanged. V4.2: key rotation every `voss.keys.rotate_s`; holders keep their place, drop the old version, delete
+snapshots written under it, and fetch the new version on next use (`key_rotate`, `key_dropped reason=rotate`,
+`key_release value=version`). V4.3: `hold_until_needed` keeps keys unless the budget needs the place. Budget:
+`voss/policy/keys/budget.py`, applied in plan `finish()`, in placement candidates and in the tenant key service; invariant
+`holders_within_budget`. Not done here: peer copies were already removed in V0 (V4.4); snapshots are encrypted under the
+key version by construction of the rotation rule (V4.5). Test suite runtime grew from about 3.5 to 9 minutes (twice the
+keys); revisit with V10's decision timing.
+
 **Exit criteria V4:** property test: random policies never exceed `K`; integration: rotation forces re-fetch; metrics show
 distinct holders per version.
 
@@ -936,3 +946,147 @@ Scheduling structure: one scheduler vs regional provider shards (R10).
   (budget `K` per region, and `K/C` per region), on the R01 central cell. Implementation: workers assigned to the
   nearest region; routers send to the region's scheduler; no failover between regions.
 - **V11** Development chooses between Algorithm 1 and 1b by deadline-met at equal `K` (D01), recorded as a decision.
+
+---
+
+## 11. Provisioning with heterogeneous, unreliable workers: the core contribution (amendment)
+
+The author asked that machine heterogeneity and unreliability be first-class in provisioning, mathematically
+grounded, and the visible core of the paper. This section replaces the two-candidate design of §10 (cover rule vs
+loss-model rule) with one algorithm that contains both ideas, and turns the cover rule into a baseline.
+
+### 11.1 What existing systems assume (the gap)
+
+| System | Machine speed | Machine reliability | Deadline | Key holders |
+|---|---|---|---|---|
+| kube-scheduler (filter + score) | binary filter (resources fit, image present); scores on free resources and image locality | none | none | none |
+| Knative KPA | none: desired pods = concurrency / target | none | none | none |
+| Azure hybrid histogram, FaaSCache | none (when to keep, not where) | none | none | none |
+| Heterogeneity-aware datacenter schedulers (Paragon, Quasar; Gavel for accelerators) | measured or inferred per application × machine type | none (machines stay) | QoS targets | none |
+| VOSS | predicted run-time distribution per function × machine class × worker | per-worker survival and drop probability, correlated by failure domain | probability of meeting it | budgeted per function |
+
+(Citations to verify before use: Delimitrou and Kozyrakis, Paragon ASPLOS 2013, Quasar ASPLOS 2014; Narayanan et al.,
+Gavel OSDI 2020; Knative and Kubernetes documentation.)
+
+### 11.2 Evidence from our own measurements (computed from `calibration/raw/`, regenerate in V12)
+
+- Run times repeat on one machine: across 30 repetitions per function and input size on the i7, the median coefficient of
+  variation is 1.5% (maximum 12%, for functions that run for microseconds). Prior runs therefore predict later runs on the
+  same machine. Literature to cite for the same property at platform scale (verify): Shahrad et al. ATC 2020 (per-function
+  execution-time distributions in the Azure trace); Eismann et al., "Sizeless", Middleware 2021 (predicting function
+  performance from monitoring data); Joosen et al., SoCC 2023 (Huawei serverless traces); Venkataraman et al., Ernest,
+  NSDI 2016 (performance prediction from prior runs).
+- One speed factor per machine is not enough: the laptop is 2.4x slower than the i7 for thumbnailer and 5.7x slower for
+  uploader at the same input size. A model with one machine speed mispredicts some function by more than 2x.
+
+### 11.3 Run-time model (estimator; replaces `blr` in V5)
+
+For function `f`, input size `x`, worker `j` of machine class `m(j)`:
+
+    log T_fj(x) = α_f + β_f · log(x / x_f) + γ_{f,m(j)} + δ_j + ε,      ε ~ N(0, σ_f²)
+
+- `α_f, β_f`: the function's run time at its reference size and its size exponent.
+- `γ_{f,m}`: function × machine-class effect. **Prior mean from calibration**: log of the measured run-time ratio of `f`
+  on class `m` to the reference class (bundles hold it for every calibrated class and measured function); prior variance
+  `τ_γ²` from the spread of these ratios across functions.
+- `δ_j`: worker effect, shared by all functions on that worker (thermal state, background load, firmware), prior `N(0, τ_δ²)`.
+- Conjugate Gaussian updates in information form with forgetting (as the current `blr`); predictive distribution of
+  `log T` is Gaussian, so `T` is log-normal; conformal scaling of the spread stays.
+
+What the scheduler predicts in each case (this answers "how is a run on one worker estimated on another"):
+
+| Case | Uses | Uncertainty |
+|---|---|---|
+| f has run on j | all terms, posterior | smallest |
+| f has run on other workers of class m(j), never on j | α, β, γ_{f,m} posterior; δ_j from j's runs of other functions | adds τ_δ² if j is new |
+| f has never run on class m(j) | γ_{f,m} = calibration prior (measured ratio) | adds τ_γ² |
+| f is new (no run anywhere) | α_f, β_f from the population of functions with the same trigger type (from the trace), γ from the class mean | widest; first invocations go to holders with slack (deadline probability below) |
+
+Experiment E-est (new, V12, cheap): leave-one-out prediction error and interval coverage for the four cases, on
+calibration data from every machine and on simulated runs; reported in the methodology section.
+
+### 11.4 Deadline probability (replaces binary feasibility)
+
+For invocation class (f, input-size distribution) on worker j at its current start-up state:
+
+    π_fj = P( W_j + U_fj + N_j + T_fj ≤ d_f )
+
+`W_j` queue wait (replayed queue), `U_fj` start-up at the state the plan will leave j in (warm, snapshot, code on disk,
+nothing), `N_j` transfer over j's link, `T_fj` the log-normal run time. Computed with the log-normal for `T` and the other
+terms at their predicted values (stated approximation); request placement uses the same quantity per invocation.
+
+### 11.5 Reliability model
+
+`r_j(H) = S_j(H | age_j) · (1 − p_j)`: probability that j stays for the provisioning horizon `H` given how long its session
+has lasted (Weibull per machine class with censoring; shape below one means older sessions last longer) and does not drop
+accepted work (Beta posterior with change detection). Failure domains (city, ISP) carry a shock rate `ρ_d` estimated from
+how often several workers of one domain left together.
+
+### 11.6 Objective and guarantees
+
+A holder `j` of function `f` with `u_fj` reserved concurrency units contributes **deadline-feasible capacity in reference
+servers** `w_fj = u_fj · (E[T_f*] / E[T_fj]) · π_fj`. For a holder set `S` and a failure scenario `ω` (which workers and
+domains survive the horizon):
+
+    X_f(S, ω) = Σ_{j ∈ S, j survives in ω} w_fj
+    R_f(S, ω) = λ_f · [1 − B(X_f(S, ω), a_f)],   a_f = λ_f · E[T_f*]
+
+`B(c, a)` is the Erlang loss function extended to real `c`; `1 − B` is increasing and concave in `c` (Jagers and van Doorn
+1986 for the continuous extension; Messerli 1972 for integers). `R_f` is the rate of invocations of `f` served within
+their deadline in that scenario. Provisioning maximises the expected rate `F_f(S) = E_ω[R_f(S, ω)]`, with scenarios drawn
+from the reliability model (independent survival per worker, shared shocks per domain).
+
+- **Proposition 1.** For fixed reservations, `F_f` is monotone submodular in `S`: in each scenario `R_f` is a concave
+  increasing function of a sum of non-negative weights (concave of modular), and a non-negative mixture of submodular
+  functions is submodular.
+- **Corollary 1.** Greedy selection of holders under the budget `|S| ≤ K_f` reaches at least `(1 − 1/e)` of the best
+  expected rate (Nemhauser, Wolsey and Fisher 1978). With `M` sampled scenarios the bound holds for the sample average;
+  the sample-average optimum converges to the true one as `M` grows (Kleywegt, Shapiro and Homem-de-Mello 2002).
+- **Proposition 2.** Across functions sharing workers, with one reserved unit per (function, worker) pair, the constraints
+  are two partition matroids (at most `K_f` holders per function; at most `c_j` units per worker), and greedy over
+  (function, worker) pairs reaches at least 1/3 of the optimum (Fisher, Nemhauser and Wolsey 1978). Further units on chosen
+  holders are added by a second greedy pass (one partition matroid: at least 1/2 for that pass). No bound is claimed for
+  warm-sandbox placement, which is a knapsack on memory (greedy by gain per MB).
+- **Robust variant (baseline).** Replacing the expectation by the worst case over deletions of `f` holders gives the v1
+  cover rule and robust submodular maximisation (Orlin, Schulz and Udwani, IPCO 2016). R06 compares expected and robust.
+- The guarantees hold for the model objective. Whether the model ranks holder sets well is an empirical question that the
+  evaluation answers (simulator and emulation); the paper says so.
+- Cost: lazy greedy (Minoux 1978), `O(K · |J| · M)` evaluations per function; V10 measures it.
+- Scope of Proposition 1: "fixed reservations" includes the other functions' reservations on each worker, because they
+  set `W_j`; the per-function bound holds with those fixed. Every citation in this section (Jagers and van Doorn 1986,
+  Messerli 1972, Nemhauser et al. 1978, Fisher et al. 1978, Kleywegt et al. 2002, Orlin et al. 2016, Minoux 1978) is
+  checked against the source before it goes into the paper (AGENTS.md rule 13).
+
+### 11.7 Ablations that show each part matters (R06)
+
+| Variant | Removes | Stands for |
+|---|---|---|
+| homogeneous | `E[T_fj]` and `π_fj` replaced by pool means | Knative/Kubernetes view of machines |
+| one speed factor | `γ_{f,m}` | a single benchmark score per machine |
+| binary feasibility | `π_fj` replaced by 1 if the predicted time meets the deadline, else 0 | kube-scheduler filter |
+| reliability-blind | `r_j = 1`, no shocks | datacenter assumption |
+| independent failures | no domain shocks | |
+| robust (worst case) | expectation replaced by deletion of `f` holders | v1 cover rule |
+
+### 11.8 Plan changes
+
+- **V5** builds this algorithm as VOSS's provisioning (`policy/plan/hetero.py`, reusing the Erlang code restored from
+  b0f2fb24: `erlang_math.py` continuous Erlang-B and gains); the cover rule becomes the robust baseline; §10's
+  "Algorithm 1 vs 1b" choice is replaced by the ablations of 11.7. Property tests: Proposition 1 (diminishing returns on
+  random instances), greedy ≥ (1 − 1/e) of brute force on small instances, budget respected.
+- **V5.4** replaces `blr` with the model of 11.3 (adds `γ_{f,m}` with calibration priors and the population prior for new
+  functions); unit tests for each case of the table.
+- **V12** adds E-est (11.3) and the ablations of 11.7 to R06.
+- **V14** follows 11.9.
+
+### 11.9 How the manuscript presents it (add to WRITING_SPEC.md §3, design section)
+
+1. One paragraph with the two measurements of 11.2 (repeatability; per-function machine ratios), to show that machines
+   differ per function and that history predicts.
+2. The run-time model and the four cases, in a table.
+3. The deadline probability and the reliability model, one paragraph each.
+4. The objective, Proposition 1 with a three-line proof, Corollary 1, Proposition 2; Algorithm 1 (lazy greedy over sampled
+   scenarios).
+5. A comparison table like 11.1 in related work, and the ablation figure in results.
+Claims are worded to the model ("greedy reaches (1 − 1/e) of the best expected on-time rate under the model"), never to
+measured outcomes.

@@ -111,6 +111,8 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.detection.probe_timeout_s` | `2.0` | pending V7 | no longer gates the retry; S for evidence |
 | `voss.detection.suspect_streak` | `2` | S | consecutive failures before a worker is marked as failed |
 | `voss.detection.suspect_s` | `600.0` | S | how long a worker stays marked |
+| `voss.keys.max_holders` | `None` | A | holder budget K per function key (D-85); axis {2, 4, 8, 16, unbounded} in R01 |
+| `voss.keys.rotate_s` | `None` | A | key rotation period R (D-85); axis {none, 1 h, 24 h} in R07 |
 | `drain_s` | `30.0` | S | simulated time after the horizon for in-flight work |
 | `decision_clock.mode` | `'modeled'` | A | modeled for simulation, measured for emulation |
 | `decision_clock.cpu_scale` | `1.0` | S | emulation only |

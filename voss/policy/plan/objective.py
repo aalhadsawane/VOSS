@@ -6,6 +6,7 @@ from __future__ import annotations
 import numpy as np
 
 from voss.core.detmath import dot
+from voss.policy.keys.budget import truncate
 from voss.policy.plan.types import Plan, PlanInput
 
 
@@ -46,6 +47,11 @@ def objective(t: dict[str, float]) -> float:
 def finish(
     inp: PlanInput, y: np.ndarray, s: np.ndarray, w: np.ndarray, c: np.ndarray, planner: str, status: str = "ok"
 ) -> Plan:
+    if inp.max_holders is not None:  # the holder budget binds every provisioning policy (D-85, G2)
+        y = truncate(y, c, inp.y_prev, inp.max_holders)
+        c = c * y
+        keep = y[inp.fn_tenant] if len(inp.fn_tenant) else np.zeros_like(w, dtype=bool)
+        s, w = s & keep, w * keep
     tm = terms(inp, y, s, w, c)
     return Plan(
         inp.tenants,
