@@ -1052,6 +1052,10 @@ from the reliability model (independent survival per worker, shared shocks per d
 - The guarantees hold for the model objective. Whether the model ranks holder sets well is an empirical question that the
   evaluation answers (simulator and emulation); the paper says so.
 - Cost: lazy greedy (Minoux 1978), `O(K · |J| · M)` evaluations per function; V10 measures it.
+- Scope of Proposition 1: "fixed reservations" includes the other functions' reservations on each worker, because they
+  set `W_j`; the per-function bound holds with those fixed. Every citation in this section (Jagers and van Doorn 1986,
+  Messerli 1972, Nemhauser et al. 1978, Fisher et al. 1978, Kleywegt et al. 2002, Orlin et al. 2016, Minoux 1978) is
+  checked against the source before it goes into the paper (AGENTS.md rule 13).
 
 ### 11.7 Ablations that show each part matters (R06)
 
