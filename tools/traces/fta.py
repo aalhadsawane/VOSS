@@ -33,6 +33,14 @@ from tools.traces.common import download, write_provenance
 
 DOMAINS = ("fta.scem.westernsydney.edu.au", "fta.scem.uws.edu.au", "fta.inria.fr")
 URL = "https://web.archive.org/web/20250311173327id_/http://fta.scem.westernsydney.edu.au/data/seti09/seti09_tab.tgz"
+# Internet Archive snapshots of the same file, tried in order until one is complete (gzip integrity). The 2025 snapshot
+# stopped at 1 GiB on every attempt from a GitHub runner; the 2015/2017 snapshots are earlier, smaller copies.
+SNAPSHOTS = (
+    "https://web.archive.org/web/20170215193011id_/http://fta.scem.uws.edu.au/data/seti09/seti09_tab.tgz",
+    "https://web.archive.org/web/20150325220201id_/http://fta.scem.uws.edu.au/data/seti09/seti09_tab.tgz",
+    "https://web.archive.org/web/20240305174607id_/http://fta.scem.westernsydney.edu.au/data/seti09/seti09_tab.tgz",
+    URL,
+)
 SOURCE = {
     "name": "SETI@home host availability 2009, Failure Trace Archive (Javadi, Kondo, Vincent, Anderson)",
     "url": URL,
@@ -73,6 +81,23 @@ def discover() -> list[list[str]]:
         print(f"{d}: {len(data)} archived URLs, {len(hits)} mention SETI")
         rows += hits
     return rows
+
+
+def fetch_complete(urls: tuple[str, ...], work: Path) -> tuple[Path, str]:
+    """The first snapshot that downloads completely and passes ``gzip -t``; prints why each other one was rejected."""
+    for k, url in enumerate(urls):
+        dst = work / f"seti09_tab.{k}.tgz"
+        try:
+            download(url, dst, attempts=3)
+        except RuntimeError as e:
+            print(f"snapshot {k}: {e}")
+            continue
+        ok = subprocess.run(["gzip", "-t", str(dst)], capture_output=True, check=False).returncode == 0
+        print(f"snapshot {k}: {dst.stat().st_size} bytes, gzip {'ok' if ok else 'TRUNCATED'} ({url})")
+        if ok:
+            return dst, url
+        dst.unlink()
+    raise SystemExit("no complete snapshot of seti09_tab.tgz")
 
 
 def _event_member(tar: tarfile.TarFile) -> tarfile.TarInfo:
@@ -138,7 +163,7 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="tools.traces.fta")
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--discover", action="store_true")
-    p.add_argument("--url", default=URL)
+    p.add_argument("--url", default=None, help="one snapshot to use (default: try SNAPSHOTS in order)")
     p.add_argument("--work", type=Path, default=Path("data/raw/fta"))
     p.add_argument("--avail-type", type=int, default=1)
     p.add_argument("--hosts", type=int, default=20000)
@@ -149,7 +174,7 @@ def main(argv: list[str] | None = None) -> int:
         for ts, url, status, length in sorted(discover(), key=lambda r: (r[1], r[0])):
             print(f"{status} {length:>12} https://web.archive.org/web/{ts}id_/{url}")
         return 0
-    archive = download(a.url, a.work / "seti09_tab.tgz")
+    archive, used = fetch_complete((a.url,) if a.url else SNAPSHOTS, a.work)
     out = sessions(read_events(archive), a.avail_type, a.hosts, a.heldout_day, a.seed)
     a.out.mkdir(parents=True, exist_ok=True)
     for split, df in out.items():
@@ -162,7 +187,7 @@ def main(argv: list[str] | None = None) -> int:
         "seed": a.seed,
         "splits": "dev = even host ids, week 1; heldout = odd host ids, week at heldout_day",
     }
-    write_provenance(a.out, {**SOURCE, "url": a.url}, [archive], params)
+    write_provenance(a.out, {**SOURCE, "url": used}, [archive], params)
     return 0
 
 
