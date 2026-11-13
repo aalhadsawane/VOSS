@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, fields
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -11,6 +12,7 @@ import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field
 
 from voss.core.config import ScenarioConfig
+from voss.core.paths import REPO_ROOT
 from voss.core.rng import RngFactory
 from voss.world.geo import Metros, jitter_location
 from voss.world.hardware import HwClass
@@ -39,6 +41,11 @@ class LinkParams(BaseModel):
     up_ratio_sigma: float = 0.6
     last_mile_ms_median: float = 10.0
     last_mile_sigma: float = 0.5
+    # measured links (plan V9.3): data/traces/<trace>/links.parquet from tools/traces/ookla.py; empty = the
+    # lognormal seeds above. A worker draws one (download, upload, latency) triple of its metro;
+    # last mile = latency / 2.
+    trace: str = ""
+    trace_root: str = "data/traces"
 
 
 class EnvelopeParams(BaseModel):
@@ -112,7 +119,22 @@ def _pick(gen: np.random.Generator, mix: dict[str, float], names: tuple[str, ...
     return gen.choice(len(names), size=n, p=p / p.sum())
 
 
-def _links(gen: np.random.Generator, lp: LinkParams, n: int) -> dict[str, np.ndarray]:
+def _traced_links(gen: np.random.Generator, lp: LinkParams, cities: list[str]) -> dict[str, np.ndarray]:
+    d = Path(lp.trace_root) / lp.trace / "links.parquet"
+    tab = pd.read_parquet(d if d.is_absolute() else REPO_ROOT / d)
+    rows = {c: g.reset_index(drop=True) for c, g in tab.groupby("city", sort=True)}
+    down, up, last = np.empty(len(cities)), np.empty(len(cities)), np.empty(len(cities))
+    for i, c in enumerate(cities):
+        if c not in rows:
+            raise ValueError(f"{d}: no measured links for metro {c}")
+        r = rows[c].iloc[int(gen.integers(len(rows[c])))]
+        down[i], up[i], last[i] = r.down_kbps * 1e3, r.up_kbps * 1e3, r.lat_ms / 2e3
+    return {"down_bps": down, "up_bps": up, "last_mile_s": last}
+
+
+def _links(gen: np.random.Generator, lp: LinkParams, n: int, cities: list[str] | None = None) -> dict[str, np.ndarray]:
+    if lp.trace and cities is not None:
+        return _traced_links(gen, lp, cities)
     down = gen.lognormal(np.log(lp.down_mbps_median), lp.down_sigma, n) * 1e6
     ratio = np.minimum(gen.lognormal(np.log(lp.up_ratio_median), lp.up_ratio_sigma, n), 1.0)
     return {
@@ -172,6 +194,11 @@ def generate_workers(
         identity=identity,
         hw_names=hw_names,
         substrate_names=substrate_names,
-        **_links(rng.stream("workers.link"), LinkParams.model_validate(sc.network.get("link", {})), n),
+        **_links(
+            rng.stream("workers.link"),
+            LinkParams.model_validate(sc.network.get("link", {})),
+            n,
+            [str(metros.name[i]) for i in city],
+        ),
         **_envelope([hw_classes[hw_names[i]] for i in hw], EnvelopeParams.model_validate(sc.envelope)),
     )

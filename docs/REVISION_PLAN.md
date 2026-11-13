@@ -731,6 +731,13 @@ verify jobs the files with hashes checked. Smoke: dev split, `rate_mult` 5, 600 
 owners, 7.2 invocations/s, no invariant violation. The archive of V9.2 refuses this sandbox and `web.archive.org` is
 blocked here; `tools/traces/fta.py --discover` lists archived SETI@home files from an Actions runner.
 
+**Outcome (V9.3, home links).** `tools/traces/ookla.py` derives `links.parquet` from Ookla Open Data fixed-broadband
+tiles, Q1 2024 (CC BY-NC-SA 4.0, checked; attribution in the provenance): per metro, 500 (download, upload, latency)
+triples drawn from tiles within 30 km, weighted by tests. All 105 metros have tiles (the fewest: 77). Workers draw
+their metro's triple (`scenario.network.link.trace`); last mile = half the Speedtest round trip. Median download over
+a 300-worker pool: 189 Mbps (seed: 99), median last mile 4 ms (seed: 10). Open: the wide-area `route_factor` 1.3 in
+`world/network.py` has no cited source; replace it with a public inter-city latency dataset before results.
+
 **Exit criteria V9:** derived files published with provenance; `docs/PARAMETERS.md` rows for every T value; a traced smoke run completes.
 
 ---
