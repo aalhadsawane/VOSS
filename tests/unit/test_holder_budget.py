@@ -8,6 +8,7 @@ import numpy as np
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from voss.core.config import load_config
+from voss.core.rng import stream
 from voss.metrics.schema import Table
 from voss.policy.keys.budget import may_add_holder, truncate
 from voss.runtime.system import run_system
@@ -33,7 +34,7 @@ def test_truncate_keeps_existing_holders_then_most_reserved() -> None:
 @settings(max_examples=50, deadline=None)
 @given(st.integers(1, 5), st.integers(1, 6), st.integers(0, 2**31 - 1))
 def test_truncate_never_exceeds_the_budget(k: int, n_t: int, seed: int) -> None:
-    g = np.random.default_rng(seed)
+    g = stream(seed, "test.truncate")
     y = g.random((n_t, 12)) < 0.6
     out = truncate(y, g.random((n_t, 12)), g.random((n_t, 12)) < 0.3, np.full(n_t, k))
     assert (out.sum(axis=1) <= k).all() and not (out & ~y).any()
