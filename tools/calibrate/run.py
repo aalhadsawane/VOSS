@@ -17,7 +17,7 @@ from pathlib import Path
 from tools.calibrate.common import Records, Shell, SuiteSkipped, fingerprint, host_meta
 from tools.calibrate.suites import Ctx, Suite, registry
 
-SAFE_DEFAULT = ("caps", "disk", "tpm", "attest_local", "tls", "fc_boot", "fc_snapshot", "qemu_vm", "sebs")
+SAFE_DEFAULT = ("caps", "disk", "tpm", "attest_local", "tls", "keys", "fc_boot", "fc_snapshot", "sebs")
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:

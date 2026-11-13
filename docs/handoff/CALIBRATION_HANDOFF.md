@@ -24,7 +24,7 @@ run that checks the simulator (Part E). The exact fields and acceptance checks a
    - `tools/calibrate/README.md`, `tools/calibrate/laptop/README.md`, `docs/architecture/10-calibration.md`;
    - `docs/validation/i7-12700-64g.md` (a worked example from an earlier session; its numbers are **not** reused, its method is).
 3. Check that the harness changes of plan phase V1 are merged on `revision-v2`:
-   `uv run python -m tools.calibrate.run --dry-run --suite all` must list the probes `guest_entropy_wait`, `image_mem`,
+   `uv run python -m tools.calibrate.run --dry-run --suite all` must list the probes `image_mem`,
    `fn_rss`, `snap_size` and the per-step boot probes. If it does not, stop and tell the human: the builder session has not
    finished V1.
 4. Ask the human, and write the answers at the top of your report:
@@ -87,16 +87,16 @@ A="--set firecracker=$HOME/voss-calib/assets/firecracker --set kernel=$HOME/voss
 uv run python -m tools.calibrate.run --suite all --sudo $A --set ssd_dir=<scratch> [--set hdd_dir=<scratch>] --quick
 uv run python -m tools.calibrate.run --suite all --sudo $A --set ssd_dir=<scratch> [--set hdd_dir=<scratch>]
 ```
-Suites in `all`: `disk`, `tpm`, `attest_local`, `tls`, `fc_boot`, `fc_snapshot`, `sebs`. (`qemu_vm` is no longer needed.)
+Suites in `all`: `caps`, `disk`, `tpm`, `attest_local`, `tls`, `keys`, `fc_boot`, `fc_snapshot`, `sebs`. (`qemu_vm` is no longer run.)
 
-**Function measurements need special care (the old ones were wrong, plan F2).**
-- Before the full `sebs` run, check `guest_entropy_wait` in the smoke output: it must be under 50 ms for every guest. If it is
-  not, the guest is blocking for randomness; fix the entropy device before continuing (plan V1 step 1) and tell the human.
-- Every function in `tools/calibrate/guest/functions/` must be measured: handler time at each input size, initialisation time,
-  resident memory, snapshot size, and co-run slowdown at 1, 2, …, physical cores, and at the thread count.
-- After the run, compare each function's run time at its reference input with the published SeBS value
-  (`check_bundle.py` prints the ratio). For any function more than 10x away, find out why (read the guest function, time the
-  handler by hand inside one guest) and write the explanation in the report. Do not accept an unexplained value.
+**Function measurements.**
+- Every function in `tools/calibrate/guest/functions/` is measured at every input size the `sebs` suite lists (SeBS's
+  test, small and large classes and two larger sizes; plan V1 step 1): handler time, initialisation time, resident
+  memory, snapshot size, and co-run slowdown at 1, 2, …, physical cores, and at the thread count.
+- After the run, `check_bundle.py` prints each function's handler time per input size next to the published SeBS value
+  where one exists. For any ratio above 10x either way, find out why (read the guest function, time the handler by hand
+  inside one guest) and write the explanation in the report. Do not accept an unexplained value.
+- Compare numbers with exact formatting (`%.3g`); a value such as `2.5e-05` must never be read as `2.5`.
 - Record the CPU governor and whether turbo was on; run the co-run levels twice and report both.
 
 ## 5. Part C: boot the real image (reboots; needs approval each session)

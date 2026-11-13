@@ -1,4 +1,7 @@
-"""SeBS 504.dna-visualisation: squiggle transform of a DNA sequence."""
+"""SeBS 504.dna-visualisation: squiggle transform of a DNA sequence.
+
+Size parameter: kB of DNA sequence (1,024 bases per unit).
+"""
 
 from __future__ import annotations
 

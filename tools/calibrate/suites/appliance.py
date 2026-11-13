@@ -49,6 +49,47 @@ def events(log: str) -> dict[str, float]:
     return {e: float(t) for e, t in re.findall(r"^VOSS_T (\w+) ([0-9.]+)$", log, re.M)}
 
 
+def efi_us(log: str) -> dict[str, float]:
+    """``VOSS_U <LoaderTime...USec> <microseconds>`` lines (systemd-boot's EFI variables); ``none`` is dropped."""
+    return {e: float(t) / 1e6 for e, t in re.findall(r"^VOSS_U (\w+) ([0-9]+)$", log, re.M)}
+
+
+def sizes(log: str) -> dict[str, float]:
+    """``VOSS_V <name> <value>`` lines (idle memory, cache partition size); ``none`` is dropped."""
+    return {e: float(v) for e, v in re.findall(r"^VOSS_V (\w+) ([0-9.]+)$", log, re.M)}
+
+
+# (probe, start stamp, end stamp): durations between stamps that occur in this order in every boot
+SEQUENCE = (
+    ("boot_quote", "quote_start", "quote_done"),
+    ("boot_verify", "quote_done", "verifier_ok"),
+    ("boot_first_tls", "tls_start", "first_tls"),
+)
+STAMPS = ("initrd_done", "verity_ready", "cache_unsealed", "services_ready", "agent_start", "verifier_ok", "first_tls")
+
+
+def steps(ctx: Ctx, i: int, ev: dict[str, float], efi: dict[str, float], vals: dict[str, float]) -> None:
+    """Contract §3 records of one image-mode boot: firmware and loader from the EFI variables, each stamp as seconds
+    since kernel start (``boot_at_*``), ordered durations, the total, idle memory and cache size."""
+    fw, ldr = efi.get("LoaderTimeInitUSec"), efi.get("LoaderTimeExecUSec")
+    if fw is not None:
+        ctx.rec.add("boot_firmware", fw, rep=i)
+    if fw is not None and ldr is not None:
+        ctx.rec.add("boot_loader", ldr - fw, rep=i)
+    for name in STAMPS:
+        if name in ev:
+            ctx.rec.add(f"boot_at_{name}", ev[name], rep=i)
+    for probe, a, b in SEQUENCE:
+        if a in ev and b in ev:
+            ctx.rec.add(probe, ev[b] - ev[a], rep=i)
+    if ldr is not None and "first_tls" in ev:
+        ctx.rec.add("boot_total", ldr + ev["first_tls"], rep=i)
+    if "image_mem_mb" in vals:
+        ctx.rec.add("image_mem", vals["image_mem_mb"], unit="MB", rep=i)
+    if "image_cache_bytes" in vals:
+        ctx.rec.add("image_cache_bytes", vals["image_cache_bytes"], unit="B", rep=i)
+
+
 def wall(log: str) -> dict[str, float]:
     """``VOSS_E <name> <epoch seconds>`` evidence lines of the host-mode probe (D-60); ``none`` values are dropped."""
     return {e: float(t) for e, t in re.findall(r"^VOSS_E (\w+) (-?[0-9.]+)$", log, re.M)}
@@ -60,12 +101,18 @@ def collect(ctx: Ctx, log_dir: Path) -> int:
     for i, f in enumerate(sorted([*log_dir.glob("probe-*.log"), *log_dir.glob("appliance-*.log")])):
         text = f.read_text(errors="replace")
         parts, ev, ws = startup(text), events(text), wall(text)
+        efi = efi_us(text)
+        if "agent_start" in ev:  # v2 image probe: per-step stamps
+            ev.setdefault("agent_ready", ev["agent_start"])
+            steps(ctx, i, ev, efi, sizes(text))
         if "verifier_ok" not in ev and "agent_ready" not in ev:
             ctx.rec.add("boot_incomplete", 1.0, unit="bool", rep=i, file=f.name)
             continue
         kernel = parts.get("kernel", 0.0)
         extra: dict[str, Any] = dict(sorted(parts.items()))
-        if "firmware" in parts:  # image mode: the firmware/loader times come from systemd-analyze
+        if "LoaderTimeExecUSec" in efi:  # v2 image mode: firmware and loader from the boot loader's EFI variables
+            ctx.rec.add("reboot_to_kernel", efi["LoaderTimeExecUSec"] + kernel, rep=i, method="efi", **extra)
+        elif "firmware" in parts:  # image mode: the firmware/loader times come from systemd-analyze
             ctx.rec.add("reboot_to_kernel", parts["firmware"] + parts.get("loader", 0.0) + kernel, rep=i, **extra)
         elif {"arm", "btime", "prev_end"} <= ws.keys():  # host mode: wall clock, GRUB gives systemd no firmware time
             fw = ws["btime"] - ws["prev_end"]

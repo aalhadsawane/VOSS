@@ -1,4 +1,7 @@
-"""SeBS 110.dynamic-html: render an HTML page with random numbers (Jinja2)."""
+"""SeBS 110.dynamic-html: render an HTML page with random numbers (Jinja2).
+
+Size parameter: hundreds of random numbers rendered (SeBS small = 10, large = 1,000).
+"""
 
 from __future__ import annotations
 

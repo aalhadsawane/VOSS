@@ -97,7 +97,7 @@ def test_appliance_arm_needs_allow_reboot_even_inside_the_suite(tmp_path: Path) 
     assert ctx.sh.log == []
 
 
-@pytest.mark.parametrize("suite", ["caps", "disk", "fc_boot", "fc_snapshot", "qemu_vm", "sebs", "tpm", "attest_local"])
+@pytest.mark.parametrize("suite", ["caps", "disk", "fc_boot", "fc_snapshot", "sebs", "tpm", "attest_local", "keys"])
 def test_dry_run_of_every_safe_suite(suite: str, tmp_path: Path) -> None:
     opts = ["kernel=/a/vmlinux", "rootfs=/a/r.ext4", "sebs_rootfs=/a/s.ext4", "ssd_dir=" + str(tmp_path / "ssd")]
     argv = ["--suite", suite, "--dry-run", "--quick", "--out", str(tmp_path)]
@@ -126,16 +126,30 @@ def _ran(out: str) -> list[str]:
 
 
 def test_sebs_leaves_out_guest_sets_over_the_ram_budget(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    opts = {"kernel": "/a/k", "sebs_rootfs": "/a/r", "firecracker": "/a/fc", "functions": "dna-visualisation,graph-bfs"}
-    ctx = _ctx(tmp_path, mem_budget_mb="1100", **opts)
+    opts = {"kernel": "/a/k", "sebs_rootfs": "/a/r", "firecracker": "/a/fc", "functions": "dynamic-html,graph-bfs"}
+    ctx = _ctx(tmp_path, mem_budget_mb="2100", concurrencies="1,2,4,8", **opts)
     sebs.run(ctx)
-    # dna-visualisation: 1024 MB per guest → only 1 guest fits in 1100 MB; graph-bfs: 512 MB → 1 and 2 guests fit
+    # dynamic-html: 512 MB per guest → 1, 2 and 4 guests fit in 2100 MB; graph-bfs: 2048 MB → only 1 guest fits
     assert _ran(capsys.readouterr().out) == [
-        "fn=dna-visualisation concurrency=1",
+        "fn=dynamic-html concurrency=1",
+        "fn=dynamic-html concurrency=2",
+        "fn=dynamic-html concurrency=4",
         "fn=graph-bfs concurrency=1",
-        "fn=graph-bfs concurrency=2",
     ]
-    assert "sebs fn=dna-visualisation concurrency=8" in _skipped(ctx)
+    assert "sebs fn=graph-bfs concurrency=8" in _skipped(ctx)
+
+
+def test_sebs_levels_reach_physical_cores_and_threads(tmp_path: Path) -> None:
+    ctx = _ctx(tmp_path, physical_cores="6")
+    levels = sebs.concurrencies(ctx)
+    assert (levels[:4] == [1, 2, 4, 6] and levels[-1] == (os.cpu_count() or 1)) or levels[-1] == 6
+
+
+def test_sebs_sizes_cover_the_published_classes() -> None:
+    for fn in ("dynamic-html", "graph-bfs", "graph-mst", "graph-pagerank"):
+        classes = {c for _, c in sebs.SIZES[fn]}
+        assert {"small", "large"} <= classes, fn
+    assert all(len(v) >= 3 for v in sebs.SIZES.values())
 
 
 def test_sebs_max_concurrency_option(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -386,3 +400,45 @@ def test_firecracker_socket_path_stays_short_in_deep_directories(tmp_path: Path)
     with contextlib.suppress(RuntimeError):  # /bin/true exits at once: only the chosen socket path matters here
         vm.spawn()
     assert len(vm.sock.encode()) < 100
+
+
+def test_appliance_collect_reads_every_v2_boot_step(tmp_path: Path) -> None:
+    log = "\n".join(
+        [
+            "VOSS_T agent_start 9.0",
+            "VOSS_U LoaderTimeInitUSec 7000000",
+            "VOSS_U LoaderTimeExecUSec 8500000",
+            "VOSS_T initrd_done 2.0",
+            "VOSS_T verity_ready 1.5",
+            "VOSS_T cache_unsealed none",
+            "VOSS_T services_ready 8.0",
+            "VOSS_T quote_start 9.5",
+            "VOSS_T quote_done 10.0",
+            "VOSS_T verifier_ok 10.04",
+            "VOSS_T cert_installed 10.1",
+            "VOSS_T tls_start 10.3",
+            "VOSS_T first_tls 10.32",
+            "VOSS_V image_mem_mb 412.5",
+            "VOSS_V image_cache_bytes 8589934592",
+            "Startup finished in 1.5s (kernel) + 7.0s (userspace) = 8.5s",
+        ]
+    )
+    (tmp_path / "appliance-0000.log").write_text(log)
+    ctx = _ctx(tmp_path)
+    assert appliance.collect(ctx, tmp_path) == 1
+    rows = {json.loads(x)["probe"]: json.loads(x)["value"] for x in ctx.rec.path.read_text().splitlines()}
+    assert rows["boot_firmware"] == pytest.approx(7.0) and rows["boot_loader"] == pytest.approx(1.5)
+    assert rows["boot_quote"] == pytest.approx(0.5) and rows["boot_verify"] == pytest.approx(0.04)
+    assert rows["boot_first_tls"] == pytest.approx(0.02) and rows["boot_total"] == pytest.approx(8.5 + 10.32)
+    assert rows["image_mem"] == pytest.approx(412.5) and "boot_at_cache_unsealed" not in rows
+    assert rows["reboot_to_kernel"] == pytest.approx(8.5 + 1.5)
+
+
+def test_keys_parsers_read_openssl_speed_output() -> None:
+    from tools.calibrate.suites import keys
+
+    aes = "type        1048576 bytes\nAES-256-GCM   14192846.87k\n"
+    assert keys.speed_aes_mbps(aes) == pytest.approx(14192.84687)
+    rsa = "                  sign    verify    sign/s verify/s\nrsa 2048 bits 0.000343s 0.000017s   2917.0  58743.3\n"
+    assert keys.speed_rsa_private_s(rsa) == pytest.approx(0.000343)
+    assert keys.speed_aes_mbps("nothing") is None and keys.speed_rsa_private_s("") is None

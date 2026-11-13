@@ -1,4 +1,7 @@
-"""SeBS 411.image-recognition: ResNet-50 inference on one image (PyTorch, CPU). Weights at /voss/data/resnet50.pth."""
+"""SeBS 411.image-recognition: ResNet-50 inference on one image (PyTorch, CPU). Weights at /voss/data/resnet50.pth.
+
+Size parameter: at most 100 means a 224x224 image, above 100 a 448x448 image.
+"""
 
 from __future__ import annotations
 

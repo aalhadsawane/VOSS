@@ -1,4 +1,8 @@
-"""SeBS 120.uploader without the network: persist the payload to disk (fsync) and read it back."""
+"""SeBS 120.uploader without the network: persist the payload to disk (fsync) and read it back.
+
+Size parameter: kB of payload (SeBS test = 256, small = 6,700, large = 100,000). The payload is written to
+the guest's /tmp, a tmpfs, so the handler measures memory copies; SeBS's network transfer is modelled separately.
+"""
 
 from __future__ import annotations
 

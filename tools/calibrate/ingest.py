@@ -94,6 +94,11 @@ def distributions(
             continue
         if spec.get("transform") == "inverse":  # e.g. MB/s → s per MB
             x = 1.0 / x[x > 0]
+        if spec.get("plus"):  # a sum of two steps, e.g. key_release = key_request + median key_unwrap
+            extra = select(df, spec["plus"]).value.to_numpy(dtype=float)
+            if len(extra) == 0:
+                continue
+            x = x + float(np.median(extra))
         if spec.get("as") == "const":
             out[key] = Const(value=float(np.median(x)), tag="measured", source=_source(spec, meta)).model_dump()
         else:
@@ -154,6 +159,9 @@ def functions(df: pd.DataFrame, ref_kb: dict[str, float]) -> dict[str, dict[str,
             m = h.groupby("size_kb").value.median()
             slow[int(n)] = float(np.exp(np.mean(np.log(m / med.reindex(m.index)))))
         out[str(fn)] = {
+            "exec_by_size": _by_size(alone),
+            "rss_mb": _median(g, "fn_rss"),
+            "snapshot_mb": _median(g, "snap_size"),
             "init_s": float(init.median()) if len(init) else None,
             "work_ref_s": work,
             "size_exp": slope,
@@ -162,6 +170,20 @@ def functions(df: pd.DataFrame, ref_kb: dict[str, float]) -> dict[str, dict[str,
             "tag": "measured",
         }
     return out
+
+
+def _by_size(alone: pd.DataFrame) -> dict[int, dict[str, Any]]:
+    """Median handler seconds per input size, with the SeBS input class the size matches (contract §5)."""
+    out: dict[int, dict[str, Any]] = {}
+    for size, h in alone.groupby("size_kb"):
+        cls = h["sebs_class"].dropna().iloc[0] if "sebs_class" in h and h["sebs_class"].notna().any() else "-"
+        out[int(size)] = {"median_s": float(h.value.median()), "n": len(h), "sebs_class": str(cls)}
+    return out
+
+
+def _median(g: pd.DataFrame, probe: str) -> float | None:
+    v = g[g.probe == probe].value
+    return float(v.median()) if len(v) else None
 
 
 def build(

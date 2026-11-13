@@ -116,6 +116,19 @@ class FcVm:
             self.proc.wait(timeout=10)
         Path(self.sock).unlink(missing_ok=True)
 
+    def rss_mb(self) -> float:
+        """Resident memory of the Firecracker process in MB (the jailer execs Firecracker in the same process)."""
+        if self.proc is None:
+            return float("nan")
+        try:
+            text = Path(f"/proc/{self.proc.pid}/status").read_text()
+        except OSError:
+            return float("nan")
+        for line in text.splitlines():
+            if line.startswith("VmRSS:"):
+                return float(line.split()[1]) / 1024
+        return float("nan")
+
     # --- API ------------------------------------------------------------------------------------------------
     def api(self, method: str, path: str, body: dict[str, Any] | None = None) -> float:
         """One API call; returns its wall seconds. Raises on a non-2xx status."""

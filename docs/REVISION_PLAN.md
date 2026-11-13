@@ -48,8 +48,8 @@ Issue IDs in square brackets (e.g. [D3]) refer to the review files. F-numbers re
 | ID | Fact | Evidence |
 |---|---|---|
 | F1 | All v1 experiments except E24/E24b ran on the placeholder calibration. | `configs/base.yaml`: `calibration: configs/calibration/placeholder/c0`; no spec overrides it |
-| F2 | Placeholder function run times differ from measured ones by 10-400x; two measured functions are themselves implausible. | `configs/functions.yaml` vs `configs/calibration/measured/*/functions.yaml` (compression 1.5 s vs 0.006-0.02 s; dynamic-html 0.005 s vs 2.5-7.9 s) |
-| F2a | Probable cause of the implausible values: guest entropy. `dynamic_html.handler` and `uploader.make_input` call `os.urandom` in a freshly booted microVM with no entropy device. | `tools/calibrate/guest/functions/dynamic_html.py`, `uploader.py` |
+| F2 | Placeholder function run times are 5-18,000x **longer** than the measured ones. Measured handler times at the catalogue's reference inputs are microseconds to milliseconds (dynamic-html 25-79 µs, uploader 11-63 µs, graph-bfs 0.9 ms, video-processing 0.18-0.54 s). | `configs/functions.yaml` vs `configs/calibration/measured/*/functions.yaml`; raw samples in `calibration/raw/*/sebs/` agree with the bundles. (An earlier version of this table called two measured values implausible; that was a formatting error in the comparison script, `2.5e-05` printed as `2.500000`. Corrected.) |
+| F2a | The measured profiles are faithful to the guest functions, but at one input size each they span only microseconds to 0.5 s, while trace durations span milliseconds to seconds. Mapping trace functions to profiles by duration would put most of them on two or three functions. | V9.1 mapping; `tools/calibrate/suites/sebs.py` `SIZES` |
 | F3 | Measured co-run slowdown is 1.6-3.5x at 20 concurrent guests; v1 assumed at most 1.1x. | `interference` in the i7 bundle |
 | F4 | No provider-hosted scheduler exists; every scheduler is appointed from workers. | `voss/runtime/orchlib/appoint.py` |
 | F5 | A lost invocation is retried no sooner than 3 s + 2 s after dispatch. | `DetectionConfig.watchdog_min_s`, `probe_timeout_s` |
@@ -309,12 +309,14 @@ decisions and guardrails committed; ledger test green.
 ## V1. Calibration harness changes (so the bare-metal session only runs things)
 
 **Goal:** the harness measures everything the data contract asks for, testable in CI with `--dry-run` and fixtures.
-**Closes:** F2, F2a, F3; prepares E1, E2, X11, X17.
+**Closes:** F2a, F3; prepares E1, E2, X11, X17.
 Read `docs/handoff/CALIBRATION_DATA_CONTRACT.md` first; it defines the outputs. Implement:
 
-1. **Guest entropy [F2a].** In `tools/calibrate/fc.py` add a virtio-rng device (Firecracker `entropy` device) to every guest, and
-   in `guest/voss-init` wait for the CRNG to be initialised before printing the first timestamp. Add an explicit probe: time
-   `os.urandom(1)` at guest start and log it (`guest_entropy_wait`).
+1. **Input sizes that span the trace [F2a].** For every function, measure at SeBS's `test`, `small` and `large` input
+   classes (from `benchmarks/*/input.py` in spcl/serverless-benchmarks; e.g. dynamic-html 10/1,000/100,000 random
+   numbers, graph benchmarks 10/10,000/100,000 nodes) and at two larger sizes, so that the measured (function, input
+   size) profiles together cover handler times from under 1 ms to over 10 s. Record the SeBS class of each size. The
+   catalogue's `in_kb` mapping to each function's own size parameter must be stated in the guest function's docstring.
 2. **Handler-only timing.** In `guest/fnrunner.py` make sure `make_input` runs before the timer starts and only `handler` is
    timed; log input generation time separately. Add unit tests with a fake clock.
 3. **All workload functions.** The workload uses the functions that have a guest implementation in
@@ -332,6 +334,18 @@ Read `docs/handoff/CALIBRATION_DATA_CONTRACT.md` first; it defines the outputs. 
    `measured`, with `n` ≥ the contract's minimum, and flags any function whose run time is more than 10x away from SeBS's
    published value (as a warning the session must explain). Unit-test it with a good and a bad fixture.
 9. **Ingest.** `tools/calibrate/ingest.py` writes the fields of the contract (per-step distributions, not only totals).
+
+**V1 outcome (branch `v2/V1-calibration-harness`).**
+- Step 1: `sebs.SIZES` lists every function's input sizes with the SeBS class each matches; co-run levels 1, 2, 4, …,
+  physical cores and threads; `fn_rss` and `snap_size` per function.
+- Step 2: already true in v1 (`fnrunner` times only `handler`; `make_input` runs before the timer). No change.
+- Step 3: the JavaScript variants stay in `configs/functions.yaml` until the catalogue is rebuilt in V9; the harness
+  measures only functions with a guest implementation.
+- Steps 5-7: `appliance` probe stamps every boot step and idle memory; image gains a TPM-sealed cache partition (not yet
+  built or booted); new `keys` suite (key request, unwrap, AES-GCM decryption); `qemu_vm` suite deleted.
+- Steps 8-9: `tools/calibrate/check_bundle.py` (tests in `tests/unit/test_check_bundle.py`); ingest writes
+  `exec_by_size`, `rss_mb`, `snapshot_mb` per function and `key_release`, `decrypt_per_MB`, `boot_*`, `image_mem_mb`.
+- `check_bundle.PUBLISHED` (SeBS reference times) is empty: fill it only from a checked source (class L).
 
 **Exit criteria V1:** `python -m tools.calibrate.run --dry-run --suite all` lists every probe; fixtures pass
 `check_bundle.py`; handoff documents reviewed against the final probe names; **[ASK]** the author to start the bare-metal
@@ -591,7 +605,9 @@ parameters). Raw downloads are not committed.
 - Content: invocations per function per minute for 14 days, trigger type, owner and application hashes, duration and memory percentiles.
 - Derivation: tenant = owner hash; a function is synchronous if its trigger is `http`, else asynchronous. Sample functions
   stratified by invocation-rate decile (count is set in V9.5). Map each sampled function to one measured workload function by
-  nearest median duration on a log scale (record the mapping). Run times come from the bundles, never from the trace. Within a
+  nearest median duration on a log scale among all measured (function, input size) profiles (V1 step 1), and invocations
+  of that trace function use that input size (record the mapping and the share of trace functions whose duration is
+  outside the measured range). Run times come from the bundles, never from the trace. Within a
   minute, arrivals are a Poisson process with that minute's count (the trace has only per-minute counts; stated in the paper).
   One global rate multiplier per experiment sets utilisation.
 - Splits (G17): **development** = days 1-4; **held-out** = days 8-11. Different functions may appear in each; sample separately.

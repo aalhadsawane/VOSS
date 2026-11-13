@@ -125,10 +125,11 @@ def test_sebs_concurrencies_and_host_meta_fields(tmp_path: Path, monkeypatch: py
     from tools.calibrate.suites import Ctx, sebs
 
     monkeypatch.setattr("os.cpu_count", lambda: 20)
-    ctx_default = Ctx(Shell(dry_run=True), Records(tmp_path / "r.jsonl", "sebs"), tmp_path, {})
-    assert sebs.concurrencies(ctx_default) == [1, 2, 4, 8]
-    ctx_scaled = Ctx(Shell(dry_run=True), Records(tmp_path / "r.jsonl", "sebs"), tmp_path, {"max_concurrency": "80"})
-    assert sebs.concurrencies(ctx_scaled) == [1, 2, 4, 8, 20, 40, 80]
+    rec = Records(tmp_path / "r.jsonl", "sebs")
+    ctx_default = Ctx(Shell(dry_run=True), rec, tmp_path, {"physical_cores": "10"})
+    assert sebs.concurrencies(ctx_default) == [1, 2, 4, 8, 10, 20]  # powers of two, physical cores, threads
+    ctx_capped = Ctx(Shell(dry_run=True), rec, tmp_path, {"physical_cores": "10", "max_concurrency": "8"})
+    assert sebs.concurrencies(ctx_capped) == [1, 2, 4, 8]
     ctx_exp = Ctx(Shell(dry_run=True), Records(tmp_path / "r.jsonl", "sebs"), tmp_path, {"concurrencies": "1,6,12"})
     assert sebs.concurrencies(ctx_exp) == [1, 6, 12]
     meta = host_meta(Shell(dry_run=True))

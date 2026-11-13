@@ -35,8 +35,9 @@ A bundle that fails this contract is not used for any reported result (plan guar
 | `tpm2_unseal` | unseal of the cache-partition key under the PCR policy | boot step | 50 |
 | `verify_quote` | verifier checks quote, certificate chain and event log; signs a session certificate | verifier time per session | 50 |
 | `tls_handshake` | TLS 1.3 mutual handshake CPU time on this machine | every new connection to a worker | 1,000 |
-| `key_release` | worker side of a key release: request, receive, unwrap with the session key | key fetch delay | 200 |
-| `decrypt_per_MB` | AES-GCM decryption throughput of a bundle | start-up from an encrypted bundle | 20 |
+| `key_request` | worker side of a key request over loopback TLS: new connection, 256-byte request, 256-byte reply (`keys` suite) | key fetch delay (with `key_unwrap`; ingest writes `key_release` = sum) | 200 |
+| `key_unwrap` | one RSA-2048 private-key operation, unwrapping the function key (`openssl speed`) | key fetch delay | 1 run |
+| `decrypt_per_MB` | seconds per MB of AES-256-GCM decryption on 1 MB blocks (`openssl speed`, `keys` suite) | start-up from an encrypted bundle | 1 run |
 | `hash_per_MB` | SHA-256 throughput | integrity check of fetched files | 20 |
 
 ## 3. Boot of the real image (reboots; approval needed)
@@ -81,9 +82,8 @@ Configurations: sandbox memory sizes used by the workload functions; each storag
 
 | Probe | What | Used for | n ≥ |
 |---|---|---|---|
-| `guest_entropy_wait` | time for the guest's first random read | proves timing is not blocked on entropy (plan F2a) | every guest; must be < 50 ms |
 | `fn_init` | initialisation (imports, model load) | cold-start cost | 30 |
-| `fn_exec[size]` | handler time only, at three input sizes around the reference | run-time model, deadlines | 30 per size |
+| `fn_exec[size]` | handler time only, at SeBS's test, small and large input classes and two larger sizes | run-time model, deadlines, mapping of trace functions (plan V1 step 1, V9.1) | 30 per size |
 | `fn_input_gen[size]` | time to build the input (reported, excluded from `fn_exec`) | sanity | 30 |
 | `fn_rss` | resident memory of the running sandbox | memory admission | 10 |
 | `snap_size` | snapshot file size | disk space, restore time | 3 |
@@ -92,7 +92,8 @@ Configurations: sandbox memory sizes used by the workload functions; each storag
 
 Checks:
 - all functions present on every machine;
-- `fn_exec` at the reference size within 10x of the published SeBS execution time, or an explanation in the report;
+- every input size of the suite present; handler times together span under 1 ms to over 10 s, or the gap is reported;
+- `fn_exec` within 10x of the published SeBS execution time where one exists, or an explanation in the report;
 - `fn_corun[1]` equals `fn_exec` at the reference size within 5%;
 - slowdown is non-decreasing in `n` within noise, or explained.
 
