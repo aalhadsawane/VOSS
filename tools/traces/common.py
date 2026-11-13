@@ -19,14 +19,21 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def download(url: str, dst: Path) -> Path:
-    """Fetch ``url`` to ``dst`` unless it is already there (curl: follows redirects, fails on HTTP errors)."""
-    if not dst.exists():
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        tmp = dst.with_suffix(dst.suffix + ".part")
-        subprocess.run(["curl", "-fsSL", "--retry", "4", "-o", str(tmp), url], check=True)
-        tmp.rename(dst)
-    return dst
+def download(url: str, dst: Path, attempts: int = 8) -> Path:
+    """Fetch ``url`` to ``dst`` unless it is already there. Large archive files break mid-transfer (HTTP/2 stream
+    resets from the Internet Archive), so the transfer uses HTTP/1.1 and resumes the partial file (``-C -``) on each
+    attempt; curl follows redirects and fails on HTTP errors."""
+    if dst.exists():
+        return dst
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dst.with_suffix(dst.suffix + ".part")
+    cmd = ["curl", "-fsSL", "--http1.1", "-C", "-", "--retry", "5", "--retry-all-errors", "-o", str(tmp), url]
+    for k in range(attempts):
+        if subprocess.run(cmd, check=False).returncode == 0:
+            tmp.rename(dst)
+            return dst
+        print(f"download attempt {k + 1} of {attempts} broke at {tmp.stat().st_size if tmp.exists() else 0} bytes")
+    raise RuntimeError(f"could not download {url} after {attempts} attempts")
 
 
 def write_provenance(out: Path, source: dict[str, Any], inputs: list[Path], params: dict[str, Any]) -> Path:
