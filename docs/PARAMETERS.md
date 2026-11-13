@@ -31,7 +31,7 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `scenario.adversary` | `{}` | A | owner faults: fraction and behaviour (R04, R05) |
 | `scenario.load` | `{}` | pending V9 | parametric arrivals; replaced by the Azure 2019 trace |
 | `scenario.geo` | `{}` | pending V9 | metro and region data |
-| `scenario.network` | `{}` | pending V9 | link and delay model; replaced by broadband measurement data (V9.3) |
+| `scenario.network` | `{}` | T | links: `link.trace` = Ookla fixed-broadband per metro (V9.3); `route_factor` 1.654 fitted to WonderProxy pings; `c_eff` 100 km/ms (fibre) |
 | `scenario.envelope` | `{}` | pending V5 | donated shares 0.75/0.6/0.2; removed by the capacity model (V5.5) |
 | `scenario.execution` | `{}` | pending V5 | execution noise and interference; interference becomes measured (V5.5) |
 | `scenario.functions` | `'functions.yaml'` | pending V9 | catalogue of measured functions (V1, V9.1) |

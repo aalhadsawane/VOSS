@@ -1,0 +1,64 @@
+# Trace pipeline (docs/REVISION_PLAN.md V9): request file -> tools/traces/<tool> on a runner -> derived files as release
+# assets (data-<name>-<sha>) -> provenance committed under configs/traces/<name>/ on a branch with a PR into revision-v2.
+# Start it by committing runs/requests/traces/<name>.yaml ({tool: azure, args: ["--n", "200"]}) on revision-v2.
+name: traces
+on:
+  push:
+    branches: [revision-v2]
+    paths: ['runs/requests/traces/*.yaml']
+  workflow_dispatch:
+    inputs:
+      request: {description: 'path of a request file', required: true}
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  derive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: astral-sh/setup-uv@v6
+        with: {python-version: "3.11"}
+      - run: nproc; free -m; df -h .
+      - run: uv sync --frozen
+      - name: derive and publish every requested trace
+        env:
+          BEFORE: ${{ github.event.before }}
+          INPUT: ${{ github.event.inputs.request }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$INPUT" ]; then files="$INPUT"; else
+            files=$(git diff --name-only --diff-filter=AM "$BEFORE" HEAD -- 'runs/requests/traces/*.yaml' | sort)
+          fi
+          test -n "$files"
+          git checkout -b "traces/run-$GITHUB_RUN_ID"
+          published=""
+          for f in $files; do
+            name=$(basename "$f" .yaml)
+            tool=$(python3 -c "import sys,yaml;print(yaml.safe_load(open(sys.argv[1]))['tool'])" "$f")
+            mapfile -t args < <(python3 -c "import sys,yaml;[print(x) for x in yaml.safe_load(open(sys.argv[1])).get('args',[])]" "$f")
+            echo "::group::$name ($tool ${args[*]})"
+            uv run python -m "tools.traces.$tool" --out "data/traces/$name" "${args[@]}"
+            echo "::endgroup::"
+            d="data/traces/$name"
+            [ -f "$d/provenance.yaml" ] || { echo "$name: no derived files (discovery run): see the log"; continue; }
+            tag="data-$name-${GITHUB_SHA::8}"
+            gh release create "$tag" $(find "$d" -maxdepth 1 -type f ! -name provenance.yaml | sort) --target "$GITHUB_SHA" \
+              --prerelease --title "$tag" --notes "Derived files of $f (docs/REVISION_PLAN.md V9)."
+            mkdir -p "configs/traces/$name"
+            { echo "release: $tag"; echo "run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"; cat "$d/provenance.yaml"; } \
+              > "configs/traces/$name/provenance.yaml"
+            git add "configs/traces/$name/provenance.yaml"
+            published="$published $name"
+          done
+          if [ -n "$published" ]; then
+            git commit -m "Traces:$published (run $GITHUB_RUN_ID)"
+            git push origin HEAD
+            gh pr create --base revision-v2 --title "Traces:$published" --body "Provenance of the releases of run $GITHUB_RUN_ID." \
+              || echo "::warning::PR not created (Actions may not open PRs); the branch is pushed"
+          fi

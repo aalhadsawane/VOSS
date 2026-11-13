@@ -56,6 +56,8 @@ jobs:
         with: {python-version: "3.11"}
       - run: nproc; free -m; lscpu
       - run: uv sync --frozen
+      - run: uv run python -m tools.traces.fetch  # published traces into data/traces, hashes checked (plan V9)
+        env: {GH_TOKEN: '${{ github.token }}'}
       - run: >-
           uv run python -m experiments.sweep ${{ needs.plan.outputs.spec }}
           --shard ${{ matrix.shard }}/${{ needs.plan.outputs.shards }} --jobs "$(nproc)" --out runs
@@ -74,6 +76,8 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with: {python-version: "3.11"}
       - run: uv sync --frozen
+      - run: uv run python -m tools.traces.fetch  # published traces into data/traces, hashes checked (plan V9)
+        env: {GH_TOKEN: '${{ github.token }}'}
       - uses: actions/download-artifact@v4
         with: {pattern: 'shard-*', merge-multiple: true, path: shards}
       - name: raw logs as release assets

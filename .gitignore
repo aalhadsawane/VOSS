@@ -27,3 +27,6 @@ manuscript/*.pdf
 
 # tectonic / synctex build products
 manuscript/*.synctex.gz
+
+# derived trace files come from release assets (tools/traces, plan V9); raw downloads are never committed
+/data/
