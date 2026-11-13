@@ -1,7 +1,8 @@
 name: ci
 on:
+  # Branch pushes run only on the long-lived branches; work branches are checked through their PR (one run per commit).
   push:
-    branches: [main, revision-v2, 'v2/**']
+    branches: [main, revision-v2]
   pull_request:
 jobs:
   check:
