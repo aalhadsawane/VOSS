@@ -1,4 +1,4 @@
-"""Reference clouds (doc 02 §9, doc 06 §4 ``ref_lambda_like``/``ref_azure_like``): regional always-on, reliable
+"""Reference clouds (doc 02 §9; docs/REVISION_PLAN.md V8 ``trusted_hosts``): regional always-on, reliable
 provider hosts at the router metros with a fixed keep-alive TTL and published cold-start distributions; no churn, no
 adversaries, no control-plane faults. The workload (catalog, arrivals, geography) is the VOSS scenario's, so
 systems compare paired on the same arrivals. Profiles live in ``configs/references/<name>.yaml``.

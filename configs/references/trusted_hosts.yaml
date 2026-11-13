@@ -1,0 +1,9 @@
+# Trusted always-on hosts (docs/REVISION_PLAN.md V8): provider hosts at the router metros that never leave and need no
+# attestation, running VOSS's own provisioning and placement. Upper bound; never named after a vendor (guardrail 17).
+provenance: {default: assumed, note: "hosts_per_region sized so the pool never saturates at the experiment loads"}
+name: trusted_hosts
+substrate: trusted_hosts
+hw: DC
+hosts_per_region: 40
+voss: []
+pricing: {per_m_requests: 0.0, per_gb_s: 0.0, min_billed_ms: 1, mem_step_mb: 1, min_mem_mb: 128}

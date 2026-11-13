@@ -182,8 +182,8 @@ class KeepaliveHistConfig(Frozen):
     """Hybrid-histogram keep-alive baseline (Shahrad et al., ATC 2020; D-77). Used by planner ``histogram_prewarm``.
     tag: literature (percentiles, margin, CV threshold); range and sample/OOB limits are assumed."""
 
-    bin_s: float = 1.0  # assumed: 1 s bins over 30 min (paper: 1 min over 4 h = 240 bins)
-    range_s: float = 1800.0  # assumed: paper 4 h; scaled to E04 v2 runs of 1800 s
+    bin_s: float = 60.0  # literature: 1-minute bins (plan V8: as published)
+    range_s: float = 14400.0  # literature: 4-hour range (240 bins)
     head_pct: float = 5.0  # literature
     tail_pct: float = 99.0  # literature
     margin: float = 0.10  # literature
@@ -255,7 +255,7 @@ class RunConfig(Frozen):
     seed: int = 1
     horizon_s: float = 3600.0
     system: str = "voss"
-    reference: str = "ref_lambda_like"  # profile of ``system: reference_cloud`` (configs/references/)
+    reference: str = "trusted_hosts"  # profile of ``system: reference_cloud`` (configs/references/, plan V8)
     scenario: ScenarioConfig = Field(default_factory=ScenarioConfig)
     voss: VossConfig = Field(default_factory=VossConfig)
     drain_s: float = 30.0

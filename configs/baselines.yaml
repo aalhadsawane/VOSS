@@ -1,0 +1,55 @@
+# Systems compared (docs/REVISION_PLAN.md V8, §10.2; guardrails 16-18). Every entry runs on the same architecture,
+# holder budget K, placement inputs, timeouts and capacity; it differs only in what the overrides change. Experiment
+# specs copy `overrides` into their `systems:`; the paper's "systems compared" table is generated from this file.
+provisioning:
+  voss:
+    source: "this paper (plan §11)"
+    overrides: [voss.planner.name=hetero]
+    deviations: []
+  on_demand:
+    source: "lower bound"
+    overrides: [voss.planner.name=none, voss.worker.warm_ttl_s=0]
+    deviations: []
+  fixed_keepalive:
+    source: "fixed keep-alive timer; value from Shahrad et al., ATC 2020 (10 minutes)"
+    overrides: [voss.planner.name=keepalive_ttl]
+    deviations: ["keys follow first use and are held until the session ends"]
+  hybrid_histogram:
+    source: "Shahrad et al., Serverless in the Wild, USENIX ATC 2020"
+    overrides: [voss.planner.name=histogram_prewarm]
+    deviations:
+      - "one histogram per function (the paper: per application; here every application has one function)"
+      - "out-of-range idle times fall back to the fixed timer instead of an ARIMA forecast"
+  prereleased_keys:
+    source: "isolates how many holders from which holders"
+    overrides: [voss.planner.name=provisioned_keys]
+    deviations: []
+  eviction_aware:
+    source: "Zhang et al., Faster and Cheaper Serverless Computing on Harvested Resources, SOSP 2021"
+    overrides: [voss.planner.name=keepalive_ttl, voss.placer.sync=eviction_aware, voss.placer.async=eviction_aware]
+    deviations: ["survival model of volunteer sessions in place of the harvest-VM eviction model"]
+  exact_program:
+    source: "optimality bound: the exact program solved by MILP"
+    overrides: [voss.planner.name=milp]
+    deviations: []
+  trusted_hosts:
+    source: "upper bound: hosts that never leave and need no attestation"
+    overrides: [system=reference_cloud]
+    deviations: []
+failure_handling:
+  voss:
+    source: "this paper (plan V7)"
+    overrides: [voss.detection.detector=voss]
+    deviations: []
+  fixed_timeout:
+    source: "request timeout at the deadline and one retry (standard client mechanism)"
+    overrides: [voss.detection.detector=fixed]
+    deviations: []
+  consecutive_ejection:
+    source: "Envoy outlier detection (consecutive_5xx 5, base_ejection_time 30 s)"
+    overrides: [voss.detection.detector=consecutive]
+    deviations: ["a timeout counts as a failure (Envoy counts 5xx responses)"]
+  hedged:
+    source: "Dean and Barroso, The Tail at Scale, CACM 2013"
+    overrides: [voss.detection.detector=hedged]
+    deviations: ["the deadline is the timer until 20 latencies of the function are observed"]

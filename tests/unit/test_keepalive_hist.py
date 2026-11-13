@@ -19,7 +19,7 @@ from voss.runtime.workerlib.keepwarm import KeepWarmMixin
 from voss.world.cache import WorkerCache
 
 REPO = Path(__file__).resolve().parents[2]
-P = HistParams(bin_s=60.0)  # 1-minute bins keep the hand-computed numbers below readable
+P = HistParams(bin_s=60.0, range_s=1800.0)  # a 30-minute range keeps the hand-computed numbers below readable
 
 
 def hist(samples: list[float], p: HistParams = P) -> IdleHistogram:
@@ -97,7 +97,7 @@ def test_hot_function_idle_times_are_not_zero() -> None:
 
 
 def test_pool_not_emptied_means_no_unload() -> None:
-    t = IdleTracker(HistParams(bin_s=60.0, min_samples=10))
+    t = IdleTracker(HistParams(bin_s=60.0, range_s=1800.0, min_samples=10))
     now = 0.0
     for i in range(30):  # learn a 3 to 7 minute idle pattern with a single sandbox
         t.end("f", 1, now, others_busy=False)
