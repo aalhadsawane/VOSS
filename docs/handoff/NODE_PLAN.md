@@ -30,12 +30,21 @@ A virtual machine hides the TPM, the disks and the CPU's frequency behaviour, so
 |---|---|
 | Machines differ in speed, and the ratio differs per function (measured before: 2.4x to 5.7x between a laptop and a desktop) | ≥ 3 machine classes. With 2, a per-function ratio cannot be told apart from one scalar speed. |
 | The run-time model's machine-class term (γ) transfers a run on one machine to another machine of the same class | ≥ 2 classes measured with the same functions and sizes |
-| Start-up cost depends on storage | ≥ 2 of: HDD, SATA SSD, NVMe |
+| Start-up cost depends on storage: bundle fetch, sandbox boot from disk, snapshot write and restore | all three of HDD, SATA SSD, NVMe across the node set (≥ 2 required); on each node, **every** disk class it has is measured as its own tier |
 | Attestation cost depends on the TPM | firmware TPM (Intel PTT or AMD fTPM) **and** a discrete TPM, if available |
 | Co-run slowdown depends on core count | core counts at least 2x apart |
 | Owner class M (memory encryption) | one node whose firmware can enable TME, SME or SEV; optional |
 
-Machine classes in the simulator are exactly the calibrated nodes (plan V9.4); each class's share of the volunteer
+**Disks matter as much as CPUs.** A volunteer machine's start-up path reads the function bundle, the sandbox root file
+system and snapshots from its own disk; an HDD can be 10-100x slower than NVMe on these. So:
+- each node measures `disk`, `fc_boot` and `fc_snapshot` once per disk class it has (`nvme=`, `sata=`, `hdd=` scratch
+  directories; `node_run.sh` refuses to start if a class in the spec has no directory);
+- ingest writes one bundle per tier, `configs/calibration/measured/<label>_<tier>`; in the simulator a machine class is a
+  (node, tier) pair, so a node with NVMe and HDD gives two classes that share the CPU and differ in storage;
+- two nodes with the same CPU but different disk models are not duplicates (§3), and the node table lists every disk's
+  class and model.
+
+Machine classes in the simulator are exactly the calibrated (node, tier) pairs (plan V9.4); each class's share of the volunteer
 population comes from a public hardware survey mapped to the nearest calibrated node. More distinct nodes means a smaller
 part of the survey is represented badly; the paper reports that part.
 
@@ -48,6 +57,8 @@ better (10 workers). It must have a TPM 2.0 and an NVMe or SATA SSD.
 
 ## 3. Node names and the duplicate check
 
+- Scratch directories: one per disk class, on a filesystem of that disk, with ≥ 20 GB free (benchmarks write only there;
+  the handoff, §2, forbids touching raw devices).
 - The human gives each node a number, `node01`, `node02`, … (never the real hostname). Write the numbers down once, here:
 
   | Number | What the human calls it (kept outside the repository) | Assigned |
@@ -60,11 +71,12 @@ better (10 workers). It must have a TPM 2.0 and an NVMe or SATA SSD.
   `calibration/specs/<label>/`, `configs/calibration/measured/<label>[_hdd]/` and `docs/validation/<label>.md`.
 - Part A ends with `nodes check <label> --branches`, which compares this node with every node already pushed on an
   `origin/calib/*` branch:
-  - **duplicate** (same CPU model, memory within 25%, same storage classes, same TPM kind): the session stops, pushes the
-    spec only and tells the human. Measuring it would count one machine twice. The human decides whether it adds anything
-    (e.g. a different disk); if not, the node is dropped.
-  - **similar** (same CPU model with other memory or storage, or three of the four checks): continue, and say in the report
-    what differs.
+  - **duplicate** (same CPU model, memory within 25%, same disk models, same TPM kind): the session stops, pushes the
+    spec only and tells the human. Measuring it would count one machine twice. The human decides whether it adds anything;
+    if not, the node is dropped.
+  - **similar** (same CPU model with other memory or other disks, or the same disk models, or three of the CPU, memory,
+    disk-class and TPM checks): continue, and say in the report what differs. A node whose only difference is its disks
+    still adds a storage data point; measure all its tiers.
 - Push the spec (step 4 of §5) before Part B, so nodes measured in parallel see each other.
 
 ## 4. Consistency rules (so results from different sessions are comparable)
@@ -93,25 +105,25 @@ better (10 workers). It must have a TPM 2.0 and an NVMe or SATA SSD.
 |---|---|---|---|
 | 0. Read | `AGENTS.md`, this file, `CALIBRATION_HANDOFF.md`, `CALIBRATION_DATA_CONTRACT.md` | 15 min | answers §0.4 of the handoff |
 | 1. Branch | `git checkout -b calib/<label> origin/revision-v2` | 1 min | |
-| 2. Part A | `bash tools/calibrate/node_run.sh spec <label> <scratch on each disk>` | 10-15 min | |
+| 2. Part A | `bash tools/calibrate/node_run.sh spec <label> nvme=<dir> sata=<dir> hdd=<dir>` (the classes it has) | 10-15 min | name a scratch dir on every disk |
 | 3. Fill gaps | add `manual` fields the script cannot see (contract §1) | 5 min | maybe |
 | 4. Push spec | commit `calibration/specs/<label>/`, push `calib/<label>` | 2 min | |
 | 5. Setup | `bash tools/calibrate/node_run.sh setup <label>` (asks before installing packages) | 30-60 min | approve installs |
-| 6. Smoke | `bash tools/calibrate/node_run.sh quick <label> <ssd scratch> [<hdd scratch>]` | 20-60 min | |
+| 6. Smoke | `bash tools/calibrate/node_run.sh quick <label> nvme=<dir> sata=<dir> hdd=<dir>` | 20-60 min | `sudo -v` |
 | 7. Read smoke output | errors, implausible values (`%.3g` formatting) | 15 min | |
-| 8. Part B | `bash tools/calibrate/node_run.sh full <label> <ssd scratch> [<hdd scratch>]` | 3-8 h (laptop with HDD: upper end) | no |
+| 8. Part B | `bash tools/calibrate/node_run.sh full <label> nvme=<dir> sata=<dir> hdd=<dir>` | 3-8 h; +30-60 min per extra disk class | `sudo -v` once |
 | 9. Part C | handoff §5: build image, 10 boots, collect | 1.5-2.5 h | yes, for every reboot |
-| 10. Part D | `node_run.sh ingest <label>` (and `ingest <label> hdd`), report | 30-60 min | |
+| 10. Part D | `node_run.sh ingest <label> <each tier measured>`, report | 30-60 min | |
 | 11. PR | `Calibration: <label>` into `revision-v2`; do not merge | 5 min | |
 
 Where the time of Part B goes (rough, from the sample counts; the real durations land in `timeline.csv`):
 
 | Suite | Work | Typical |
 |---|---|---|
-| `caps`, `disk` | capability probe; `fio` per scratch directory | 10-20 min |
+| `caps`, `disk` | capability probe; `fio` sequential and random read/write on every tier | 10-20 min per tier |
 | `tpm`, `attest_local` | 200 quotes, 50 unseals, 50 verifications (a discrete TPM is slower) | 5-20 min |
 | `tls`, `keys` | 1,000 handshakes, 200 key requests, `openssl speed` | 5 min |
-| `fc_boot`, `fc_snapshot` | 100 boots per memory size, tier and page-cache state; 50 snapshots and restores | 30-90 min |
+| `fc_boot`, `fc_snapshot` | 100 boots per memory size, tier and page-cache state; 50 snapshots and restores per tier | 30-90 min per tier (HDD: upper end) |
 | `sebs` | 10 functions × 5 input sizes × 30 runs; co-run at 1…cores and threads × 30; memory and snapshot size | 2-6 h |
 
 `timeline.csv` records the start, end and duration of every suite. Report the actual total in the validation report, so
@@ -129,7 +141,8 @@ The rules of `CALIBRATION_HANDOFF.md` §8, plus:
 
 ## 7. After all nodes are merged (builder session)
 
-1. `uv run python -m tools.calibrate.nodes table` → the paper's machine table and the coverage statement.
+1. `uv run python -m tools.calibrate.nodes table` → the paper's machine table (CPU, memory, every disk's class and
+   model, TPM) and the coverage statement.
 2. Plan V9.4: map the hardware survey onto the calibrated nodes; report the unrepresented share.
 3. Plan V5: class priors γ from the measured per-function ratios between nodes.
 4. Check that speed ratios between nodes are function-dependent (the claim of §2); if they are not, the paper says so.

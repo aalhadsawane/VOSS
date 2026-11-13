@@ -17,6 +17,9 @@ RESERVE_MB = 2048  # space always left free on a scratch filesystem
 MEM_SHARE = 0.6  # share of the available RAM that guests may use together
 
 
+TIERS = ("nvme", "sata", "ssd", "hdd")  # docs/handoff/NODE_PLAN.md §2: every disk class of a node is measured
+
+
 @dataclass
 class Ctx:
     sh: Shell
@@ -35,9 +38,10 @@ class Ctx:
         return self.opts.get(key, default)
 
     def dirs(self) -> dict[str, Path]:
-        """Scratch directories on each disk tier (``--set ssd_dir=... --set hdd_dir=...``)."""
+        """Scratch directories on each disk tier (``--set nvme_dir=... --set sata_dir=... --set hdd_dir=...``;
+        ``ssd_dir`` is the older name of the solid-state tier). Every record of a disk-bound suite carries its tier."""
         out = {}
-        for tier in ("ssd", "hdd"):
+        for tier in TIERS:
             d = self.opts.get(f"{tier}_dir")
             if d:
                 out[tier] = Path(d)

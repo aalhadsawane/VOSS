@@ -7,12 +7,14 @@ from typing import Any
 from tools.calibrate.nodes import DISTINCT, DUPLICATE, SIMILAR, compare, gaps, node_class
 
 
-def spec(label: str, cpu: str, cores: int, gib: float, disks: list[tuple[str, bool]], tpm: str) -> dict[str, Any]:
+def spec(
+    label: str, cpu: str, cores: int, gib: float, disks: list[tuple[str, bool]], tpm: str, model: str = "M1"
+) -> dict[str, Any]:
     return {
         "host_label": label,
         "cpu": {"model": cpu, "cores_total": cores, "threads_total": 2 * cores},
         "memory": {"total_gib": gib},
-        "storage": {"devices": [{"interface": i, "rotational": r} for i, r in disks]},
+        "storage": {"devices": [{"interface": i, "rotational": r, "model": model} for i, r in disks]},
         "tpm": {"type": tpm, "manufacturer": "X vendor"},
     }
 
@@ -24,7 +26,7 @@ D = node_class(spec("d", "AMD Ryzen 5 5600", 6, 15.6, [("SATA", False)], "firmwa
 
 
 def test_storage_and_tpm_kinds() -> None:
-    assert A.storage == ("nvme",) and C.storage == ("hdd",) and D.storage == ("sata_ssd",)
+    assert A.storage == ("nvme",) and C.storage == ("hdd",) and D.storage == ("sata",)
     assert (A.tpm, C.tpm, D.tpm) == ("firmware", "discrete", "firmware") and D.vendor == "amd"
 
 
@@ -35,6 +37,15 @@ def test_same_machine_twice_is_a_duplicate() -> None:
     assert compare(A, bigger)[0] == SIMILAR  # same CPU, different memory: one sentence in the report
 
 
+def test_other_disk_models_make_a_similar_node_not_a_duplicate() -> None:
+    other = node_class(spec("f", "Intel i7-12700", 12, 62.5, [("NVME", False)], "firmware (PTT)", model="M2"))
+    kind, why = compare(A, other)
+    assert kind == SIMILAR and "different disk models" in why
+    two = node_class(spec("g", "Intel i7-12700", 12, 62.5, [("NVME", False), ("SATA", True)], "firmware (PTT)"))
+    assert compare(A, two)[0] == SIMILAR and two.storage == ("hdd", "nvme")
+
+
 def test_gaps_name_what_the_node_set_lacks() -> None:
     assert any("at least 3" in g for g in gaps([A, B]))
     assert gaps([A, C, D]) == []
+    assert any("missing" in g for g in gaps([A, C, node_class(spec("h", "AMD X", 24, 8, [("NVME", False)], "tpm"))]))

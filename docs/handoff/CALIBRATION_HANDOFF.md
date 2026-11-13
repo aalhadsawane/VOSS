@@ -70,7 +70,8 @@ machines with the same CPU, board, BIOS and memory as two data points; say so an
 
 1. Choose the label `nodeNN-<cpu>-<memory>g-<main storage>` (NODE_PLAN.md §3), e.g. `node03-i3-7020u-4g-hdd`. Never the
    real hostname. `<host_label>` below means this label.
-2. `bash tools/calibrate/node_run.sh spec <host_label> <scratch on device 1> [<scratch on device 2> ...]` runs `spec.sh`
+2. `bash tools/calibrate/node_run.sh spec <host_label> nvme=<dir> sata=<dir> hdd=<dir>` (a scratch directory on every disk
+   class the machine has) runs `spec.sh`
    (writes `calibration/specs/<host_label>/SPEC.md` and `spec.yaml`), the `caps` suite and the duplicate check
    (`tools.calibrate.nodes check --branches`). Exit 3 means duplicate: stop. Then push the spec (NODE_PLAN.md §5 step 4).
 3. Check the spec contains every field of contract §1 (physical cores and threads, memory, each disk's type, model class and
@@ -87,7 +88,9 @@ sudo env DOCKER="sudo docker" SUDO="sudo" sh tools/calibrate/guest/build_rootfs.
 bash tools/emu/preflight.sh | tee ~/voss-calib/preflight.txt
 ```
 In practice: `node_run.sh setup <host_label>`, then `node_run.sh quick …`, read its output for errors and implausible
-values, then `node_run.sh full <host_label> <ssd scratch> [<hdd scratch>]`. What those stages run:
+values, then `node_run.sh full <host_label> nvme=<dir> sata=<dir> hdd=<dir>` (every disk class the machine has; the script
+stops if one is missing). Then `node_run.sh ingest <host_label> <tiers>`: one bundle per tier. What those stages run
+(older single-tier form; `node_run.sh` passes `nvme_dir`, `sata_dir`, `hdd_dir` instead):
 ```sh
 A="--set firecracker=$HOME/voss-calib/assets/firecracker --set kernel=$HOME/voss-calib/assets/vmlinux \
    --set rootfs=$HOME/voss-calib/assets/voss-guest.ext4 --set sebs_rootfs=$HOME/voss-calib/assets/voss-guest.ext4"
