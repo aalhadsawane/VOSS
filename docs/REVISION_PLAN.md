@@ -735,8 +735,11 @@ blocked here; `tools/traces/fta.py --discover` lists archived SETI@home files fr
 tiles, Q1 2024 (CC BY-NC-SA 4.0, checked; attribution in the provenance): per metro, 500 (download, upload, latency)
 triples drawn from tiles within 30 km, weighted by tests. All 105 metros have tiles (the fewest: 77). Workers draw
 their metro's triple (`scenario.network.link.trace`); last mile = half the Speedtest round trip. Median download over
-a 300-worker pool: 189 Mbps (seed: 99), median last mile 4 ms (seed: 10). Open: the wide-area `route_factor` 1.3 in
-`world/network.py` has no cited source; replace it with a public inter-city latency dataset before results.
+a 300-worker pool: 189 Mbps (seed: 99), median last mile 4 ms (seed: 10). The wide-area `route_factor` (was an
+unsourced 1.3) is now fitted by `tools/traces/pings.py` to WonderProxy's public all-pairs pings (2020-07-19/20): the
+least-absolute-deviation slope of median RTT against distance over 58,087 server pairs > 500 km gives 1.654 (median
+absolute residual 18 ms; intercept 16 ms, not modelled). The dataset states no licence, so only the fitted statistic
+is kept and the source is cited.
 
 **Exit criteria V9:** derived files published with provenance; `docs/PARAMETERS.md` rows for every T value; a traced smoke run completes.
 

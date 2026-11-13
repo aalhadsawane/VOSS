@@ -29,11 +29,13 @@ Handler = Callable[[Message], None]
 
 
 class NetworkParams(BaseModel):
-    """Doc 02 §3. tag: literature (fiber ≈ 2/3 c ⇒ ~100 km per ms of RTT; route inflation ~1.3), else assumed."""
+    """Doc 02 §3. ``c_eff``: light in fibre (2/3 c ⇒ 100 km per ms of round trip). ``route_factor``: measured,
+    fitted to WonderProxy's public all-pairs pings (``tools/traces/pings.py``, plan V9.3: slope 1.654 over 58,087
+    pairs; the fit's 16 ms intercept between data centres is not modelled). Other values assumed."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
     c_eff_km_per_ms: float = 100.0
-    route_factor: float = 1.3
+    route_factor: float = 1.654
     jitter_sigma: float = 0.1
     infra_last_mile_ms: float = 1.0
     infra_bw_mbps: float = 10_000.0
