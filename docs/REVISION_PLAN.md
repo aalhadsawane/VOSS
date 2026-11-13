@@ -604,6 +604,19 @@ estimate sees silent attempts, and every omitted invocation whose backup ran on 
 within the deadline). Short-deadline functions (0.27 s) cannot be rescued: the q95 timer already exceeds the deadline.
 The paper must show this limit next to the budget `K`.
 
+**Outcome (V7b: V7.3, with V3.3 owner classes).** Workers carry `owner_class` (S, P, M): M where the hardware class
+sets `mem_encryption`, otherwise P with probability `scenario.physical_frac` (axis, default 0), else S. The scheduler
+cannot tell S from P; only M is attested. Behaviour `forge` (parameter `forge_p`) is assigned only to class-P owners and
+returns a wrong result digest; `Outcome.digest` is equal for every honest execution. `voss/policy/audit.py` selects
+idempotent invocations with probability `voss.audit.p`, picks a holder outside every used failure domain, and finds the
+minority digest. The comparison runs in the scheduler, not the router (a deviation from the text above): it already
+receives every outcome, and a digest carries no tenant data. The router keeps an audited invocation's input and sends
+it to the audit worker (`Assigned.audit_bytes`). On a mismatch a third holder decides; the minority worker is banned by
+the verifier (`Ban`), which revokes its session and refuses its TPM identity from then on. The dropping strategies map
+onto existing behaviours: drop-all = `black_hole`, drop-fraction = `omit_random`, drop-after-delay = any omitting
+behaviour with `start_t > 0`, delay = `throttle`. Smoke (200 workers, 10% forgers among P owners, forge_p 1, audit p
+0.5): both active forgers banned after 48 forged results, no honest worker banned.
+
 **Exit criteria V7:** integration tests: a dropped idempotent invocation meets its deadline through a backup; each detector's
 timers; a forging worker is banned; non-idempotent invocations are never duplicated (invariant).
 

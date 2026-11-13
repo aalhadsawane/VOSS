@@ -51,6 +51,8 @@ class ScenarioConfig(Frozen):
     tiers: dict[str, float] = Field(default_factory=lambda: {"nightly": 0.6, "idle": 0.3, "dedicated": 0.1})
     hw_mix: dict[str, float] = Field(default_factory=lambda: {"C0": 0.1, "C1": 0.35, "C2": 0.35, "C3": 0.2})
     tofu_frac: float = Field(default=0.3, ge=0, le=1)
+    physical_frac: float = Field(default=0.0, ge=0, le=1)  # owners without memory encryption willing to attack
+    # physically: class P, the rest class S (plan V3.3; axis, >0 only in the security experiment)
     regime: str = "churn_med"
     churn: dict[str, Any] = Field(default_factory=dict)
     adversary: dict[str, Any] = Field(default_factory=dict)
@@ -218,6 +220,12 @@ class DetectionConfig(Frozen):
     suspect_s: float = 600.0  # suspicion lasts this long (then probation)
 
 
+class AuditConfig(Frozen):
+    """Sampled audit (plan V7.3)."""
+
+    p: float = Field(default=0.0, ge=0, le=1)  # audit probability per idempotent invocation; swept in R05
+
+
 class VossConfig(Frozen):
     """The ``voss`` section: scheduler-side choices (doc 05 §6). Grows phase by phase."""
 
@@ -234,6 +242,7 @@ class VossConfig(Frozen):
     keepalive_hist: KeepaliveHistConfig = Field(default_factory=KeepaliveHistConfig)
     cache: CacheConfig = Field(default_factory=CacheConfig)
     detection: DetectionConfig = Field(default_factory=DetectionConfig)
+    audit: AuditConfig = Field(default_factory=AuditConfig)
     keys: KeysConfig = Field(default_factory=KeysConfig)
 
 

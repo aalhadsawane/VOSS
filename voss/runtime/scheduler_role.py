@@ -31,6 +31,7 @@ from voss.policy.detect import detector
 from voss.policy.predict.base import ExecObs, FnPrior
 from voss.policy.retry import BasicRetry
 from voss.runtime.actor import Actor, ActorContext
+from voss.runtime.schedlib.audit import AuditMixin, AuditRec
 from voss.runtime.schedlib.backup import BackupMixin
 from voss.runtime.schedlib.decide import Decider, Decision, Timing
 from voss.runtime.schedlib.inflight import Copy, Inflight, job_estimates
@@ -44,7 +45,7 @@ from voss.runtime.schedlib.viewcache import ViewCache
 from voss.runtime.schedlib.watchdog import WatchdogMixin
 
 
-class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, PlannerMixin, Actor):
+class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, AuditMixin, PlannerMixin, Actor):
     role = "sched"
 
     def __init__(
@@ -65,6 +66,7 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, PlannerMixin, Ac
         self.decide_lat: deque[float] = deque(maxlen=256)
         self.inflight: dict[InvId, Inflight] = {}
         self.done: set[InvId] = set()
+        self.audits: dict[InvId, AuditRec] = {}
         self.window: list[InvId] = []
         self.busy_until = 0.0
         self.models = SchedModels(cfg, self.priors)
@@ -276,6 +278,8 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, PlannerMixin, Ac
 
     # --- outcomes ---------------------------------------------------------------------------------------------
     def _outcome(self, o: Outcome) -> None:
+        if self._audit_outcome(o):
+            return
         rec = self.inflight.get(o.inv)
         if rec is None or o.attempt not in rec.copies:
             return
@@ -294,6 +298,7 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, PlannerMixin, Ac
                 self.send(("agent", other.worker), Cancel(o.inv, other.attempt))
                 self._log_attempt(rec, other, "cancelled")
         self._learn(rec, c, o)
+        self._maybe_audit(rec.inv, rec.router, o, rec.next_attempt)
 
     def _learn(self, rec: Inflight, c: Copy, o: Outcome) -> None:
         st = self.views.store.states.get(c.worker)

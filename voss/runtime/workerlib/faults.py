@@ -1,6 +1,7 @@
 """Adversarial owner behavior applied to its own host (doc 02 §7, doc 04 §2): the trace says who defects, how and
 when; the owner can only omit or delay (the attested stack cannot be changed), so effects are dropped results and
-throttled execution. ``replay`` needs no effect (TLS rejects replays) and ``fake_signals`` are fake drain notices in
+throttled execution. A class-P owner can also read and change memory, so ``forge`` returns wrong results
+(plan V7.3). ``replay`` needs no effect (TLS rejects replays) and ``fake_signals`` are fake drain notices in
 the session trace."""
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ class Adversary:
     windows: tuple[tuple[float, float], ...]
     hot_k: int
     gen: np.random.Generator
+    forge_p: float = 0.0
     seen: dict[str, int] = field(default_factory=dict)
 
     @classmethod
@@ -30,7 +32,10 @@ class Adversary:
         if name == "benign":
             return None
         p = trace.params
-        return cls(name, float(trace.omit_p[w]), float(trace.throttle_f[w]), trace.windows[w], p.selective_hot_k, gen)
+        forge = p.forge_p if name == "forge" else 0.0
+        return cls(
+            name, float(trace.omit_p[w]), float(trace.throttle_f[w]), trace.windows[w], p.selective_hot_k, gen, forge
+        )
 
     def defecting(self, t: float) -> bool:
         return any(a <= t < b for a, b in self.windows)
@@ -48,6 +53,10 @@ class Adversary:
             if tenant not in hot:
                 return False
         return bool(self.gen.random() < self.omit_p)
+
+    def forges(self, t: float) -> bool:
+        """Return a wrong result digest for this attempt (class P owners only: plan V7.3, D-84)."""
+        return self.name == "forge" and self.defecting(t) and bool(self.gen.random() < self.forge_p)
 
     def exec_factor(self, t: float) -> float:
         return 1.0 / self.throttle_f if self.name == "throttle" and self.defecting(t) else 1.0

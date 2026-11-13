@@ -37,6 +37,7 @@ class Assigned(Message):
     epoch: int
     token: int
     cluster: int = -1
+    audit_bytes: int = -1  # an audit attempt (plan V7.3): the router re-sends this many input bytes
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,6 +169,14 @@ class Requote(Message):
     session: int
     cert_id: str
     reply_to: Addr
+
+
+@dataclass(frozen=True, slots=True)
+class Ban(Message):
+    """Scheduler → verifier: an audit found this worker's result wrong; refuse its TPM identity (plan V7.3)."""
+
+    worker: WorkerId
+    cert_id: str
 
 
 @dataclass(frozen=True, slots=True)

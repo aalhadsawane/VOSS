@@ -73,6 +73,7 @@ class WorkerTable:
     mem_mb: np.ndarray
     ssd_mb: np.ndarray
     hdd_mb: np.ndarray
+    owner_class: np.ndarray  # index into OWNER_CLASSES (plan V3.3)
     identity: tuple[str, ...]
     hw_names: tuple[str, ...]
     substrate_names: tuple[str, ...]
@@ -91,6 +92,17 @@ class WorkerTable:
         df["substrate_name"] = [self.substrate_names[i] for i in self.substrate]
         df["tier_name"] = [TIERS[i] for i in self.tier]
         return df
+
+
+OWNER_CLASSES: tuple[str, ...] = ("S", "P", "M")
+
+
+def _owner_class(gen: np.random.Generator, hw: list[HwClass], physical_frac: float) -> np.ndarray:
+    """M where the hardware encrypts memory; otherwise P with probability ``physical_frac``, else S (plan V3.3)."""
+    enc = np.array([h.mem_encryption for h in hw], dtype=bool)
+    phys = gen.random(len(hw)) < physical_frac
+    out: np.ndarray = np.where(enc, 2, np.where(phys, 1, 0)).astype(np.int64)
+    return out
 
 
 def _pick(gen: np.random.Generator, mix: dict[str, float], names: tuple[str, ...], n: int) -> np.ndarray:
@@ -156,6 +168,7 @@ def generate_workers(
         asn=asn,
         domain=domain,
         known_good=rng.stream("workers.firmware").random(n) >= sc.tofu_frac,
+        owner_class=_owner_class(rng.stream("workers.owner"), [hw_classes[hw_names[i]] for i in hw], sc.physical_frac),
         identity=identity,
         hw_names=hw_names,
         substrate_names=substrate_names,

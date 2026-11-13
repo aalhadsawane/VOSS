@@ -25,6 +25,7 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `scenario.tiers` | `{'nightly': 0.6, 'idle': 0.3, 'dedicated': 0.1}` | pending V9 | v1 assumed worker tiers; replaced by traced availability |
 | `scenario.hw_mix` | `{'C0': 0.1, 'C1': 0.35, 'C2': 0.35, 'C3': 0.2}` | pending V9 | v1 assumed classes; becomes calibrated machines weighted by a hardware survey (V9.4) |
 | `scenario.tofu_frac` | `0.3` | pending V4 | v1 firmware trust-on-first-use share; removed with trust scores |
+| `scenario.physical_frac` | `0.0` | A | share of owners without memory encryption willing to attack physically (class P, V3.3) |
 | `scenario.regime` | `'churn_med'` | pending V9 | parametric churn regime; replaced by traced sessions |
 | `scenario.churn` | `{}` | pending V9 | inline churn overrides |
 | `scenario.adversary` | `{}` | A | owner faults: fraction and behaviour (R04, R05) |
@@ -109,6 +110,7 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.keepalive_hist.fallback_ttl_s` | `600.0` | pending V8 | fallback when the histogram is not representative |
 | `voss.cache.value` | `'gdsf'` | S | disk cache value policy |
 | `voss.cache.hdd_tier` | `True` | S | hard-disk tier on/off |
+| `voss.audit.p` | `0.0` | A | audit probability per idempotent invocation (V7.3; swept in R05) |
 | `voss.detection.detector` | `voss` | A | `fixed`, `consecutive`, `voss` (plan V7.2) |
 | `voss.detection.quantile` | `0.95` | S | voss timer: predicted completion quantile, no floor (plan V7.1, F5) |
 | `voss.detection.probe_timeout_s` | `2.0` | S | an unanswered probe is drop-estimate evidence; it does not end the attempt |

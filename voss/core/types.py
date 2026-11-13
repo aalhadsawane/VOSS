@@ -162,3 +162,4 @@ class Outcome:
     trust_cold: bool
     tier: str = ""
     ref_work_units: float = 0.0
+    digest: int = 0  # digest of the result: equal for every honest execution of an invocation (plan V7.3)
