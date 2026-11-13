@@ -92,3 +92,19 @@ def test_keys_are_kept_unless_the_budget_needs_the_place() -> None:
     assert hold_until_needed(rel, holders, plan, {"a/f": 0}) == []  # no budget: never release
     assert hold_until_needed(rel, holders, plan, {"a/f": 4}) == []  # {1, 2, 3, 4} fits K = 4
     assert hold_until_needed(rel, holders, plan, {"a/f": 3}) == rel[:1]  # one too many: release worker 1 only
+
+
+def test_rotation_forces_a_new_release_and_deletes_old_snapshots() -> None:
+    over = ["horizon_s=240", "scenario.workers=120", "scenario.load.rate=16", "voss.keys.rotate_s=60"]
+    r = run_system(load_config(REPO / "configs/smoke.yaml", over))
+    ev = r.recorder.frame(Table.EVENTS)
+    assert ev[ev.kind == "invariant_violation"].empty, list(ev[ev.kind == "invariant_violation"].detail)
+    assert len(ev[ev.kind == "key_rotate"]) >= 3 * 12  # every key, at 60, 120 and 180 s
+    rotated = ev[(ev.kind == "key_dropped") & (ev.reason == "rotate")]
+    assert len(rotated)
+    later = ev[(ev.kind == "key_release") & (ev.value >= 2.0)]  # releases of version 2 or later
+    assert len(later) and set(later.worker) & set(rotated.worker)
+    from experiments.analysis.metrics import holders
+
+    keys = sorted(set(later.tenant))
+    assert all(holders(ev, k, 0.0, 240.0).distinct_per_version >= 1.0 for k in keys)

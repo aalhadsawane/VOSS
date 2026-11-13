@@ -200,6 +200,7 @@ class KeysConfig(Frozen):
     (an experiment axis); None keeps each tenant's ``max_holders``."""
 
     max_holders: int | None = Field(default=None, ge=1)
+    rotate_s: float | None = Field(default=None, gt=0)  # key rotation period R (axis); None = never rotate
 
 
 class DetectionConfig(Frozen):

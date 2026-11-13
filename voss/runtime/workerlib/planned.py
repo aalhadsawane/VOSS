@@ -7,7 +7,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from voss.core.ids import Addr, FnId, TenantId, WorkerId
-from voss.core.messages import KeyDrop, PinSnapshot, Prepare, Release, Warm
+from voss.core.messages import KeyDrop, KeyRotate, PinSnapshot, Prepare, Release, Warm
 from voss.core.messages_ka import KeepWarm
 from voss.metrics.schema import Table
 from voss.runtime.actor import ActorContext
@@ -182,3 +182,24 @@ class PlannedMixin(KeepWarmMixin):
                 tenant=tenant,
                 reason="release",
             )
+
+    def _rotate(self, m: KeyRotate) -> None:
+        """A new key version (D-85): drop the old key and delete snapshots written under it; warm sandboxes stay
+        (their memory is already decrypted). The next invocation fetches the new version; the place is kept."""
+        if m.tenant not in self.keys:
+            return
+        self.keys.discard(m.tenant)
+        for fid, fn in sorted(self.catalog.items()):
+            if fn.tenant == m.tenant:
+                d = self.digests[fid]["snapshot"]
+                if self.host.cache.tier_of(d) is not None:
+                    self.host.cache.remove(d)
+        self.ctx.rec.log(
+            Table.EVENTS,
+            t=self.now,
+            kind="key_dropped",
+            worker=self.host.worker,
+            value=float(m.version),
+            tenant=m.tenant,
+            reason="rotate",
+        )

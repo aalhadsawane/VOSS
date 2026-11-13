@@ -441,6 +441,16 @@ shapes exist. Audit metrics come with V7.3.
 5. **Snapshots** are encrypted under the function key and version. (Review 5 D10's idea of a worker-local sealed key is
    rejected: a worker that can restore without the key can run the function after revocation.)
 
+**V4 outcome (branch `v2/V4-keys`).** V4.1: the catalogue makes every function its own key domain
+`<tenant>/<function>` (`workload.key_domains`), so the planner, placement, trust sets and key messages are per function
+unchanged. V4.2: key rotation every `voss.keys.rotate_s`; holders keep their place, drop the old version, delete
+snapshots written under it, and fetch the new version on next use (`key_rotate`, `key_dropped reason=rotate`,
+`key_release value=version`). V4.3: `hold_until_needed` keeps keys unless the budget needs the place. Budget:
+`voss/policy/keys/budget.py`, applied in plan `finish()`, in placement candidates and in the tenant key service; invariant
+`holders_within_budget`. Not done here: peer copies were already removed in V0 (V4.4); snapshots are encrypted under the
+key version by construction of the rotation rule (V4.5). Test suite runtime grew from about 3.5 to 9 minutes (twice the
+keys); revisit with V10's decision timing.
+
 **Exit criteria V4:** property test: random policies never exceed `K`; integration: rotation forces re-fetch; metrics show
 distinct holders per version.
 

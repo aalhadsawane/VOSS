@@ -74,6 +74,7 @@ class Holders:
     peak: int  # most holders at one time
     distinct: int  # distinct workers that held the key during the window
     releases_per_h: float
+    distinct_per_version: float = 0.0  # mean over key versions of the distinct workers that received that version
 
 
 def _intervals(events: pd.DataFrame, key: str, t_end: float) -> list[tuple[int, float, float]]:
@@ -102,7 +103,8 @@ def holders(events: pd.DataFrame, key: str, t0: float, t1: float) -> Holders:
         cur += step
         peak = max(peak, cur)
     rel = events[(events.kind == "key_release") & (events.tenant == key) & (events.t >= t0) & (events.t < t1)]
-    return Holders(mean, peak, len({w for w, _, _ in iv}), len(rel) / span * 3600.0)
+    per_version = rel.groupby("value").worker.nunique().mean() if "value" in rel and len(rel) else 0.0
+    return Holders(mean, peak, len({w for w, _, _ in iv}), len(rel) / span * 3600.0, float(per_version))
 
 
 def utilisation(samples: pd.DataFrame, t0: float) -> float:

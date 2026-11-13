@@ -9,7 +9,7 @@ or when the certificate the key was released under has expired. The scheduler an
 from __future__ import annotations
 
 from voss.core.ids import NodeId, TenantId, WorkerId
-from voss.core.messages import Key, KeyDrop, KeyRequest, Message, RevokeSession
+from voss.core.messages import Key, KeyDrop, KeyRequest, KeyRotate, Message, RevokeSession
 from voss.metrics.schema import Table
 from voss.runtime.actor import Actor, ActorContext
 
@@ -23,7 +23,21 @@ class TenantKbs(Actor):
         super().__init__(host, ctx)
         self.budgets = budgets  # key domain -> K (None = unbounded)
         self.holders: dict[TenantId, dict[WorkerId, Holding]] = {k: {} for k in budgets}
+        self.version: dict[TenantId, int] = dict.fromkeys(budgets, 1)
         self.released = 0
+        rotate = ctx.cfg.voss.keys.rotate_s
+        if rotate is not None:
+            self.after(rotate, self._rotate, rotate)
+
+    def _rotate(self, period: float) -> None:
+        """Every ``R`` seconds each key gets a new version; holders keep their place and fetch it again (D-85)."""
+        for key in sorted(self.version):
+            self.version[key] += 1
+            self.ctx.rec.log(Table.EVENTS, t=self.now, kind="key_rotate", worker=-1, value=float(self.version[key]),
+                             tenant=key)  # fmt: skip
+            for w in sorted(self.holders[key]):
+                self.send(("agent", int(w)), KeyRotate(key, self.version[key]))
+        self.after(period, self._rotate, period)
 
     def on_message(self, msg: Message) -> None:
         if isinstance(msg, KeyRequest):
@@ -54,6 +68,12 @@ class TenantKbs(Actor):
         h[m.worker] = (m.cert_id, m.cert_expiry)
         self.released += 1
         self.ctx.rec.log(
-            Table.EVENTS, t=self.now, kind="key_release", worker=m.worker, cert=m.cert_id, value=0.0, tenant=m.tenant
+            Table.EVENTS,
+            t=self.now,
+            kind="key_release",
+            worker=m.worker,
+            cert=m.cert_id,
+            value=float(self.version[m.tenant]),  # key version released
+            tenant=m.tenant,
         )
         self.send(m.reply_to, Key(m.tenant, m.cert_id, True))

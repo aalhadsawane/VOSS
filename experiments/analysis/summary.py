@@ -33,6 +33,7 @@ def summarize(frame: Frame, warmup_s: float, t_end: float) -> dict[str, Any]:
         "holders_peak": max((h.peak for h in hold), default=0),
         "holders_distinct": int(sum(h.distinct for h in hold)),
         "releases_per_h": float(sum(h.releases_per_h for h in hold)),
+        "distinct_per_version": float(np.mean([h.distinct_per_version for h in hold])) if hold else 0.0,
         "episodes": len(ep),
         "episode_s": float((ep.end - ep.start).sum()) if len(ep) else 0.0,
         "attempts_per_inv": len(att) / max(1, len(inv)),

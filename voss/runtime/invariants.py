@@ -49,8 +49,10 @@ def keys_released(rec: Recorder) -> list[str]:
             hist.setdefault((int(w), str(c) if sign > 0 else "*", str(ten)), []).append((float(t), sign))
     out = []
     for r in ex[ex.needs_key == True].itertuples():  # noqa: E712
-        rel = [t for t, _ in hist.get((int(r.worker), r.cert, r.tenant), []) if t <= r.t]
-        drop = [t for t, _ in hist.get((int(r.worker), "*", r.tenant), []) if t <= r.t]
+        used = getattr(r, "key_at", r.t)  # the key is used when the attempt obtains it, not when execution starts
+        used = r.t if pd.isna(used) else used  # no time recorded
+        rel = [t for t, _ in hist.get((int(r.worker), r.cert, r.tenant), []) if t <= used]
+        drop = [t for t, _ in hist.get((int(r.worker), "*", r.tenant), []) if t <= used]
         if not rel or (drop and max(drop) > max(rel)):
             out.append(f"key used without release: worker {r.worker} tenant {r.tenant} inv {r.inv}")
     return out

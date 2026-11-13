@@ -76,6 +76,14 @@ must not remove answers to questions reviewers ask, and every comparison must us
 *Rejected:* restoring the clustered volunteer-hosted design (confounds partitioning with untrusted hosting, needs
 succession, and saves no provider infrastructure).
 
+**D-95 Per-function keys as key domains; budget enforced by the tenant's key service.** Every function is its own key
+domain `<tenant>/<function>`; one key service per tenant serves its domains and refuses a release beyond `K`. A place
+frees on the worker's drop notice, on session revocation by the verifier, or at certificate expiry. *Consequence:* a
+machine that disappears without notice keeps its places until its session certificate expires, so the re-attestation
+period bounds how long the budget is held by departed machines; R07 reports this effect. *Rejected:* a new plan
+dimension per function (larger change for the same behaviour); trusting the scheduler to enforce `K` (the tenant must
+not depend on the provider for its own budget).
+
 
 ## v1 decisions (D-01 to D-80)
 
