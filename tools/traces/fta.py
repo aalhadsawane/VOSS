@@ -20,10 +20,12 @@ Derivation (plan V9.2) from the SETI@home 2009 trace in the archive's tabular fo
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import subprocess
 import tarfile
 from pathlib import Path
+from typing import IO, Any
 
 import numpy as np
 import pandas as pd
@@ -83,8 +85,10 @@ def discover() -> list[list[str]]:
     return rows
 
 
-def fetch_complete(urls: tuple[str, ...], work: Path) -> tuple[Path, str]:
-    """The first snapshot that downloads completely and passes ``gzip -t``; prints why each other one was rejected."""
+def fetch_complete(urls: tuple[str, ...], work: Path, allow_prefix: bool = False) -> tuple[Path, str]:
+    """The first snapshot that downloads completely and passes ``gzip -t``; prints why each other one was rejected.
+    Every archived copy is truncated (2026-11-13: at 0.43, 0.66 and 1.07 GB on every attempt). With ``allow_prefix``
+    the longest partial download is used instead; ``read_events`` then keeps the hosts it holds completely."""
     for k, url in enumerate(urls):
         dst = work / f"seti09_tab.{k}.tgz"
         try:
@@ -97,39 +101,76 @@ def fetch_complete(urls: tuple[str, ...], work: Path) -> tuple[Path, str]:
         if ok:
             return dst, url
         dst.unlink()
+    parts = sorted(work.glob("seti09_tab.*.tgz.part"), key=lambda p: p.stat().st_size)
+    if allow_prefix and parts:
+        k = int(parts[-1].name.split(".")[1])
+        print(f"using the longest truncated copy: snapshot {k}, {parts[-1].stat().st_size} bytes")
+        return parts[-1], urls[k]
     raise SystemExit("no complete snapshot of seti09_tab.tgz")
 
 
-def _event_member(tar: tarfile.TarFile) -> tarfile.TarInfo:
-    members = tar.getmembers()
-    for m in members:
-        print(f"member {m.name} {m.size}")
-    return next(m for m in members if m.name.endswith("event_trace.tab"))
+class _Replay(io.RawIOBase):
+    """A readable stream that returns ``head`` and then the rest of ``f`` (a tar member read as a stream)."""
+
+    def __init__(self, head: bytes, f: IO[bytes]) -> None:
+        self.head, self.f = head, f
+
+    def readable(self) -> bool:
+        return True
+
+    def readinto(self, b: Any) -> int:
+        if self.head:
+            n = min(len(b), len(self.head))
+            b[:n], self.head = self.head[:n], self.head[n:]
+            return n
+        data = self.f.read(len(b))
+        b[: len(data)] = data
+        return len(data)
 
 
-def read_events(archive: Path, chunk: int = 5_000_000) -> pd.DataFrame:
-    """(node, type, start, stop) of every event, with the file's first lines printed for the log."""
-    with tarfile.open(archive, "r:gz") as tar:
-        m = _event_member(tar)
-        f = tar.extractfile(m)
-        assert f is not None
-        head = [f.readline().decode(errors="replace").rstrip() for _ in range(5)]
-        print("event file head:", *head, sep="\n  ")
-        skip = 0 if head[0].split("\t")[0].strip().lstrip("-").isdigit() else 1
-    with tarfile.open(archive, "r:gz") as tar:
-        f = tar.extractfile(_event_member(tar))
-        parts = []
-        for df in pd.read_csv(
-            f,
-            sep="\t",
-            header=None,
-            names=EVENT_COLS,
-            skiprows=skip,
-            chunksize=chunk,
-            usecols=["node_id", "event_type", "start", "stop"],
-        ):
-            parts.append(df.astype({"node_id": np.int64, "event_type": np.int8, "start": float, "stop": float}))
-    return pd.concat(parts, ignore_index=True)
+def read_events(archive: Path, chunk: int = 1_000_000) -> pd.DataFrame:
+    """(node, type, start, stop) of every event, with the archive's members and the file's first lines printed for
+    the log. The archive is read as a stream, so a truncated copy is read up to the break; the last host read may be
+    incomplete and is dropped, and the log says whether host ids are in non-decreasing order (if they are, the hosts
+    kept are a prefix of the host list, chosen by id only)."""
+    parts: list[pd.DataFrame] = []
+    truncated = False
+    with tarfile.open(archive, "r|gz") as tar:
+        try:
+            for m in tar:
+                print(f"member {m.name} {m.size}")
+                if not m.name.endswith("event_trace.tab"):
+                    continue
+                f = tar.extractfile(m)
+                assert f is not None
+                head = f.read(4096)
+                print("event file head:", *head.decode(errors="replace").splitlines()[:5], sep="\n  ")
+                skip = 0 if head.split(b"\t", 1)[0].strip().lstrip(b"-").isdigit() else 1
+                reader = pd.read_csv(
+                    io.BufferedReader(_Replay(head, f)),
+                    sep="\t",
+                    header=None,
+                    names=EVENT_COLS,
+                    skiprows=skip,
+                    chunksize=chunk,
+                    usecols=["node_id", "event_type", "start", "stop"],
+                )
+                for df in reader:
+                    parts.append(
+                        df.dropna().astype({"node_id": np.int64, "event_type": np.int8, "start": float, "stop": float})
+                    )
+                break
+        except (EOFError, OSError, tarfile.ReadError, pd.errors.ParserError, ValueError) as e:
+            truncated = True
+            print(f"archive ends early ({type(e).__name__}: {str(e)[:80]}): keeping {sum(map(len, parts))} events")
+    ev = pd.concat(parts, ignore_index=True)
+    print(
+        f"events {len(ev)}, hosts {ev.node_id.nunique()}, host ids non-decreasing: "
+        f"{bool(ev.node_id.is_monotonic_increasing)}"
+    )
+    if truncated:
+        ev = ev[ev.node_id != ev.node_id.iloc[-1]]  # the last host may be cut off
+    return ev.reset_index(drop=True)
 
 
 def sessions(ev: pd.DataFrame, avail: int, hosts: int, heldout_day: float, seed: int) -> dict[str, pd.DataFrame]:
@@ -164,6 +205,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--discover", action="store_true")
     p.add_argument("--url", default=None, help="one snapshot to use (default: try SNAPSHOTS in order)")
+    p.add_argument("--allow-prefix", action="store_true", help="use the longest truncated copy if none is complete")
     p.add_argument("--work", type=Path, default=Path("data/raw/fta"))
     p.add_argument("--avail-type", type=int, default=1)
     p.add_argument("--hosts", type=int, default=20000)
@@ -174,7 +216,7 @@ def main(argv: list[str] | None = None) -> int:
         for ts, url, status, length in sorted(discover(), key=lambda r: (r[1], r[0])):
             print(f"{status} {length:>12} https://web.archive.org/web/{ts}id_/{url}")
         return 0
-    archive, used = fetch_complete((a.url,) if a.url else SNAPSHOTS, a.work)
+    archive, used = fetch_complete((a.url,) if a.url else SNAPSHOTS, a.work, a.allow_prefix)
     out = sessions(read_events(archive), a.avail_type, a.hosts, a.heldout_day, a.seed)
     a.out.mkdir(parents=True, exist_ok=True)
     for split, df in out.items():

@@ -749,6 +749,14 @@ hosts per split, development = even host ids in the trace's first week, held-out
 later. `configs/regimes/churn_seti.yaml` makes each worker replay one host's week, repeated to cover warm-up and
 horizon; no synthetic shocks; notice at end is the `graceful_frac` axis. The licence line is marked TODO: check the
 archive's terms page before publication.
+Every archived copy of `seti09_tab.tgz` is truncated (from GitHub runners, on every attempt: 2015 copy at 0.43 GB,
+2017 at 0.66 GB, 2024 and 2025 at 1.07 GB). The fallback of option 3 is incomplete in the open literature: Javadi et
+al. (MASCOTS 2009 report, HAL inria-00375624, Table 3) give per-cluster fits of availability intervals in hours (all iid
+hosts: Weibull shape 0.3787, scale 3.0932; six clusters, Gamma/log-normal/Weibull) but no model of the unavailable
+gaps, which a session process needs. So the derivation streams the longest truncated copy, keeps every host it holds
+completely (the last one read is dropped) and logs whether host ids are in order; if they are, the hosts kept are a
+prefix of the host list chosen by id only, and the paper states the number of hosts used and that the archived copy
+is truncated. Table 3 stays a check: the availability intervals of the hosts kept are compared with it.
 
 **Exit criteria V9:** derived files published with provenance; `docs/PARAMETERS.md` rows for every T value; a traced smoke run completes.
 

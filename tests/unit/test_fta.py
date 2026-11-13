@@ -36,3 +36,18 @@ def test_sessions_are_availability_intervals_clipped_to_the_week(tmp_path: Path)
         assert dev.iloc[0].start_s == 0.0 and dev.iloc[0].end_s == 4000.0  # relative to the first event (t0 = 1000)
         odd = out["heldout"]
         assert list(odd.host.unique()) == [3] and odd.end_s.max() <= WEEK
+
+
+def test_a_truncated_archive_keeps_the_hosts_it_holds_completely(tmp_path: Path) -> None:
+    rows = "".join(f"{i}\t0\t{i // 3}\t0\th\t1\t{1000 + i}\t{2000 + i}\t0\n" for i in range(30000))
+    data = rows.encode()
+    full = tmp_path / "full.tgz"
+    with tarfile.open(full, "w:gz") as tar:
+        info = tarfile.TarInfo("seti09/event_trace.tab")
+        info.size = len(data)
+        tar.addfile(info, io.BytesIO(data))
+    cut = tmp_path / "cut.tgz"
+    cut.write_bytes(full.read_bytes()[: full.stat().st_size // 2])
+    ev = read_events(cut, chunk=1000)
+    assert 0 < len(ev) < 30000 and ev.node_id.is_monotonic_increasing
+    assert (ev.groupby("node_id").size() == 3).all()  # the cut-off last host is dropped
