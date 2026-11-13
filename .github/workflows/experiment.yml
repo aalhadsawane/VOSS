@@ -1,0 +1,99 @@
+# Experiment pipeline (docs/REVISION_PLAN.md V6, D-90): request file -> shard matrix -> raw logs in a release ->
+# summaries and hashes in a PR into revision-v2. Start a run by committing runs/requests/experiment/<name>.yaml
+# ({spec: TOY, shards: 3, note: "..."}) on revision-v2; workflow_dispatch is not offered for non-default branches.
+name: experiment
+on:
+  push:
+    branches: [revision-v2]
+    paths: ['runs/requests/experiment/*.yaml']
+  workflow_dispatch:
+    inputs:
+      request: {description: 'path of a request file', required: true}
+permissions:
+  contents: write
+  pull-requests: write
+env:
+  OMP_NUM_THREADS: 1
+  OPENBLAS_NUM_THREADS: 1
+  MKL_NUM_THREADS: 1
+  NPY_DISABLE_CPU_FEATURES: X86_V4 X86_V3 AVX512_ICL AVX512_SPR
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      spec: ${{ steps.req.outputs.spec }}
+      shards: ${{ steps.req.outputs.shards }}
+      matrix: ${{ steps.req.outputs.matrix }}
+      request: ${{ steps.req.outputs.request }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - id: req
+        env:
+          BEFORE: ${{ github.event.before }}
+          INPUT: ${{ github.event.inputs.request }}
+        run: |
+          if [ -n "$INPUT" ]; then f="$INPUT"; else
+            f=$(git diff --name-only --diff-filter=AM "$BEFORE" HEAD -- 'runs/requests/experiment/*.yaml' | sort | head -1)
+          fi
+          test -n "$f" && test -f "$f"
+          spec=$(python3 -c "import sys,yaml;print(yaml.safe_load(open(sys.argv[1]))['spec'])" "$f")
+          n=$(python3 -c "import sys,yaml;print(int(yaml.safe_load(open(sys.argv[1])).get('shards',1)))" "$f")
+          test -f "configs/experiments/$spec.yaml"
+          echo "request=$f" >> "$GITHUB_OUTPUT"; echo "spec=$spec" >> "$GITHUB_OUTPUT"; echo "shards=$n" >> "$GITHUB_OUTPUT"
+          echo "matrix=$(python3 -c "import json,sys;print(json.dumps(list(range(int(sys.argv[1])))))" "$n")" >> "$GITHUB_OUTPUT"
+          echo "request $f: spec=$spec shards=$n"
+  sweep:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix: {shard: '${{ fromJSON(needs.plan.outputs.matrix) }}'}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with: {python-version: "3.11"}
+      - run: nproc; free -m; lscpu
+      - run: uv sync --frozen
+      - run: >-
+          uv run python -m experiments.sweep ${{ needs.plan.outputs.spec }}
+          --shard ${{ matrix.shard }}/${{ needs.plan.outputs.shards }} --jobs "$(nproc)" --out runs
+      - run: tar --zstd -cf shard-${{ matrix.shard }}.tar.zst -C runs ${{ needs.plan.outputs.spec }}
+      - uses: actions/upload-artifact@v4
+        with: {name: 'shard-${{ matrix.shard }}', path: 'shard-${{ matrix.shard }}.tar.zst', retention-days: 7}
+  publish:
+    needs: [plan, sweep]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: runs-${{ needs.plan.outputs.spec }}-${{ github.run_id }}
+      DST: results/${{ needs.plan.outputs.spec }}-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with: {python-version: "3.11"}
+      - run: uv sync --frozen
+      - uses: actions/download-artifact@v4
+        with: {pattern: 'shard-*', merge-multiple: true, path: shards}
+      - name: raw logs as release assets
+        run: |
+          gh release create "$TAG" shards/*.tar.zst --target "$GITHUB_SHA" --prerelease \
+            --title "$TAG" --notes "Raw logs of ${{ needs.plan.outputs.request }} at $GITHUB_SHA (docs/REVISION_PLAN.md V6)."
+      - name: summaries and hashes
+        run: |
+          mkdir -p runs && for f in shards/*.tar.zst; do tar --zstd -xf "$f" -C runs; done
+          uv run python -m experiments.collect ${{ needs.plan.outputs.spec }} --runs runs --dst "$DST"
+          cp "${{ needs.plan.outputs.request }}" "$DST/request.yaml"
+          printf 'release: %s\ncommit: %s\nrun: %s/%s/actions/runs/%s\n' "$TAG" "$GITHUB_SHA" \
+            "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "$DST/provenance.yaml"
+      - name: results PR into revision-v2
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "results/${{ needs.plan.outputs.spec }}-$GITHUB_RUN_ID"
+          git add -f "$DST" && git commit -m "Results of ${{ needs.plan.outputs.spec }} (run $GITHUB_RUN_ID)"
+          git push origin HEAD
+          gh pr create --base revision-v2 --title "Results: ${{ needs.plan.outputs.spec }} run $GITHUB_RUN_ID" \
+            --body "Summaries and hashes of release \`$TAG\`, from \`${{ needs.plan.outputs.request }}\`." \
+            || echo "::warning::PR not created (Actions may lack permission to open PRs); the branch is pushed"

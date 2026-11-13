@@ -3,7 +3,8 @@ grid × seeds) in parallel processes, idempotent, with failures recorded instead
 ``runs/<EXP>/index.csv`` (label, seed, run directory, config / scenario / result hashes, status) for analysis and
 figures.
 
-``make sweep EXP=E19 JOBS=4`` or ``python -m experiments.sweep E19 --jobs 4 [--seeds 1,2]``.
+``make sweep EXP=E19 JOBS=4`` or ``python -m experiments.sweep E19 --jobs 4 [--seeds 1,2] [--shard i/n]``. A shard
+(docs/REVISION_PLAN.md V6) runs points ``i, i+n, i+2n, ...`` of the stable order and writes ``index-<i>.csv``.
 """
 
 from __future__ import annotations
@@ -66,6 +67,14 @@ def plan(exp: str, out_root: Path, seeds: list[int] | None = None) -> tuple[list
     return pts, cfgs
 
 
+def shard(n_points: int, spec: str) -> list[int]:
+    """Point indices of shard ``"i/n"`` (``0 <= i < n``): a deterministic round-robin partition of the run list."""
+    i, n = (int(x) for x in spec.split("/"))
+    if not 0 <= i < n:
+        raise ValueError(f"bad shard {spec!r}")
+    return list(range(i, n_points, n))
+
+
 def _one(cfg: RunConfig, run_dir: str) -> Outcome:
     d = Path(run_dir)
     if (d / "manifest.json").exists():
@@ -79,8 +88,13 @@ def _one(cfg: RunConfig, run_dir: str) -> Outcome:
     return Outcome(run_dir, "ok", time.perf_counter() - t0, man.scenario_hash or "", man.result_hash)
 
 
-def sweep(exp: str, jobs: int = 1, out_root: Path = Path("runs"), seeds: list[int] | None = None) -> pd.DataFrame:
+def sweep(
+    exp: str, jobs: int = 1, out_root: Path = Path("runs"), seeds: list[int] | None = None, part: str | None = None
+) -> pd.DataFrame:
     pts, cfgs = plan(exp, out_root, seeds)
+    if part is not None:
+        keep = shard(len(pts), part)
+        pts, cfgs = [pts[k] for k in keep], [cfgs[k] for k in keep]
     dirs = [p.run_dir for p in pts]
     if jobs <= 1:
         outs = [_one(c, d) for c, d in zip(cfgs, dirs, strict=True)]
@@ -89,7 +103,7 @@ def sweep(exp: str, jobs: int = 1, out_root: Path = Path("runs"), seeds: list[in
             outs = list(pool.map(_one, cfgs, dirs))
     rows = [asdict(p) | asdict(o) for p, o in zip(pts, outs, strict=True)]
     df = pd.DataFrame(rows).drop(columns=["overrides"]).assign(overrides=[" ".join(p.overrides) for p in pts])
-    index = out_root / exp / "index.csv"
+    index = out_root / exp / ("index.csv" if part is None else f"index-{part.split('/')[0]}.csv")
     index.parent.mkdir(parents=True, exist_ok=True)
     df.drop(columns=["wall_s"]).to_csv(index, index=False)
     return df
@@ -101,8 +115,9 @@ def main() -> None:
     p.add_argument("--jobs", type=int, default=1)
     p.add_argument("--out", type=Path, default=Path("runs"))
     p.add_argument("--seeds", type=lambda s: [int(x) for x in s.split(",")], default=None)
+    p.add_argument("--shard", default=None, help="i/n: run only shard i of n")
     a = p.parse_args()
-    df = sweep(a.exp, a.jobs, a.out, a.seeds)
+    df = sweep(a.exp, a.jobs, a.out, a.seeds, a.shard)
     counts = df.status.value_counts().to_dict()
     print(f"{a.exp}: {len(df)} points {counts} → {a.out / a.exp / 'index.csv'}")
     for r in df[df.status == "failed"].itertuples():

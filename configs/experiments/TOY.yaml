@@ -1,0 +1,12 @@
+# V6 pipeline check (docs/REVISION_PLAN.md V6 exit criteria): 2 planners x 3 seeds on a small pool. Not a result.
+experiment: TOY
+base: ../base.yaml
+overrides:
+  - horizon_s=900
+  - scenario.workers=30
+  - scenario.warmup_s=300
+  - scenario.load.rate=5
+systems:
+  hetero: [voss.planner.name=hetero]
+  greedy: [voss.planner.name=greedy]
+seeds: [1, 2, 3]
