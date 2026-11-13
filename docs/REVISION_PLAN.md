@@ -862,3 +862,69 @@ mechanism it studied is not in v2. "Calibration" (v1's E01 emulation and the cal
 | — | new | V5.2 optimality check of greedy vs exact (test + appendix table) | replaces E04's MILP-as-system |
 
 Total v2 experiments: 3 development (D01-D03), 9 held-out (R01-R09), 1 emulation (V13), plus the calibration runs per machine.
+
+---
+
+## 10. Breadth, baselines and novelty (amendment after the author's review of V0)
+
+The author asked whether removing clusters, loss-model planners and the rest narrows the paper. Each removed mechanism
+was re-examined. A mechanism comes back if v2 can evaluate it fairly and it either adds a claim or answers a question a
+reviewer will ask; otherwise the paper states the argument in one paragraph and does not simulate it.
+
+### 10.1 Decisions per removed mechanism
+
+| v1 mechanism | v2 | Reason |
+|---|---|---|
+| Loss-model (Erlang) provisioning | **Restored as Algorithm 1b, a candidate provisioning rule (V5.2b)** | Its only provable part, the (1 − 1/e) bound for choosing holders under a cardinality limit, applies exactly in v2: the per-function holder budget `K` is a cardinality limit and keys are per function. v1 lost the bound through exposure weights and per-tenant keys. Development (V11) picks Algorithm 1 or 1b as VOSS by deadline-met at equal `K`; the other is reported in R06. |
+| Exact program | kept as offline optimality check (V5.2) | answers "how far from optimal is the chosen rule" directly |
+| Geographic clusters with volunteer-hosted schedulers | **not restored; replaced by an experiment on partitioning (R10) and a stated argument** | (a) The provider must run routers, verifier and registry with high availability anyway, so a volunteer-hosted scheduler saves no infrastructure. (b) It puts an untrusted owner on the control path of every invocation of a cluster, which needs succession and fencing to tolerate. (c) Under a per-function holder budget, partitioning workers into `C` groups gives each group at most `K/C` holders of a function (or `C·K` holders in total), so partitioning trades holders against latency structurally. R10 measures (c) with provider-hosted regional schedulers, which isolates partitioning from hosting; (a) and (b) are design arguments that need no simulation. v1's numbers are not cited (confounded, D1). |
+| Miss-probability hedging | replaced by backup attempts, **and the published hedged-request policy becomes a baseline** | Backup attempts are hedged requests (Dean and Barroso, CACM 2013) restricted to key holders in another failure domain and triggered by the attempt's predicted q95. The baseline sends the second request after the observed 95th-percentile latency to any eligible worker (as published). R04 compares both. |
+| Reputation, credits | dropped | the paper does not study incentives (Parked) |
+| Peer-to-peer fetching | dropped | null in v1's ablation; contradicts the NAT argument |
+| Relayed workers | dropped | only existed for the broker |
+| Confidential-VM substrates | dropped | no measurement possible here (Parked) |
+| Filler invocations | dropped | never evaluated |
+
+### 10.2 Baselines (all under the same `K`, timeouts, placement and capacity; G2-G4)
+
+Provisioning: on demand; fixed keep-alive; hybrid histogram (Shahrad et al., ATC 2020); target-concurrency autoscaler
+(Knative KPA); greedy-dual keep-alive (FaaSCache, ASPLOS 2021); pre-released keys on `K` workers; eviction-aware
+placement (harvested resources, SOSP 2021); exact program (optimality bound); trusted always-on hosts (upper bound).
+Failure handling: fixed timeout and retry; consecutive-failure ejection (Envoy); hedged requests (Dean and Barroso).
+Scheduling structure: one scheduler vs regional provider shards (R10).
+
+### 10.3 What is new (the paper's novelty claims, each tied to a result)
+
+1. **Problem.** Serving deadline-bound functions on machines that leave and whose owners are untrusted, where every
+   machine that can run a function must hold its key. The resource scheduled is the set of attested key holders,
+   bounded per function by the tenant (`K`). Serverless schedulers assume trusted, durable machines; confidential FaaS
+   assumes provider servers that do not leave; volunteer computing replicates every task. (Related work, §8 of the paper.)
+2. **Provisioning under a holder budget that survives departures.** A cover rule that keeps demand served after losing
+   `f` holders, with `f` derived from measured departure rates over the preparation time, and (Algorithm 1b) a
+   loss-model rule with a (1 − 1/e) guarantee per function under the budget; an optimality check against the exact
+   program. Result: R01, R06 and the appendix gap table.
+3. **Failure handling for owners who drop or forge work.** Timeouts from each attempt's predicted completion, backup
+   attempts only on holders in another failure domain, a per-worker drop estimate, and a sampled audit whose detection
+   bound is stated per owner class (S, P, M). Result: R04, R05.
+4. **Key lifecycle measured as a cost.** Per-function keys, rotation and hold-until-session-end, with key holders
+   reported as concurrent, distinct per version and releases per hour; the trade-off between deadlines met and holders
+   is the main figure. Result: R01, R07.
+5. **An evaluation that a reader can trust.** Real attested image booted on several machines, public traces, a
+   development/held-out split, equal budgets for every baseline, every grid cell reported, and a multi-worker emulation.
+   Result: methodology and V13.
+6. **Partitioning under a holder budget.** Why one scheduler beats regional partitions when holders are budgeted, with
+   the measured single-scheduler limit (V10, R08, R10).
+
+### 10.4 Plan changes
+
+- **V5.2b** Restore `erlang_keys.py`, `erlang_math.py` and `erlang_warm.py` from `main` b0f2fb24 as Algorithm 1b. Adapt to
+  per-function keys (V4), the budget `K` as the cardinality limit, no exposure prices and no virtual queue (the budget is
+  hard). Keep the property tests (Erlang-B closed form, convexity, monotone submodular gain, cardinality respected).
+  State the guarantee exactly: per function, for the holder choice with fixed per-holder concurrency; none for the joint
+  plan across functions sharing workers.
+- **V8** Add the hedged-request baseline (Dean and Barroso): after the observed 95th-percentile latency of the function,
+  send a second request to the best other eligible worker; cancel the slower one.
+- **V12** Add **R10 partitioning**: `C` ∈ {1, 2, 4, 8} regional provider-hosted schedulers, each with its own holder sets
+  (budget `K` per region, and `K/C` per region), on the R01 central cell. Implementation: workers assigned to the
+  nearest region; routers send to the region's scheduler; no failover between regions.
+- **V11** Development chooses between Algorithm 1 and 1b by deadline-met at equal `K` (D01), recorded as a decision.
