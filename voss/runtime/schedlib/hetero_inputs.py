@@ -47,6 +47,7 @@ def hetero_inputs(
     n_f, n_j = len(inp.fns), len(inp.workers)
     et, pi = np.zeros((n_f, n_j)), np.zeros((n_f, n_j))
     dispatch = next(iter(ctx.startup.values())).dispatch_s
+    models.sync_classes(view)
     for a, f in enumerate(inp.fns):
         info = ctx.fns[f]
         d = models.predictor.predict(f, int(info.in_ref_bytes), np.asarray(inp.workers), speed, np.zeros(n_j))

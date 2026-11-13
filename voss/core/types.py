@@ -62,6 +62,7 @@ class WorkerStatic:
     mem_mb: float = 0.0
     ssd_mb: float = 0.0
     snapshot_class: str = ""
+    machine_class: str = ""  # attested hardware class (calibrated machine), for the run-time model (plan §11.3)
 
 
 @dataclass(frozen=True, slots=True)

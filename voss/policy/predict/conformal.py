@@ -26,6 +26,10 @@ class Conformal:
         d = self.inner.predict(fn, in_bytes, workers, speed, load)
         return LogDist(d.mu, d.sigma * self.scale)
 
+    def set_classes(self, classes: dict[int, str]) -> None:
+        if hasattr(self.inner, "set_classes"):
+            self.inner.set_classes(classes)
+
     def update(self, obs: ExecObs) -> None:
         d = self.inner.predict(
             obs.fn, obs.in_bytes, np.array([obs.worker]), np.array([obs.speed]), np.array([obs.load])

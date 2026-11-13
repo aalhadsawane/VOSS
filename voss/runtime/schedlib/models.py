@@ -46,6 +46,7 @@ class SchedModels:
     def preds_fn(self, invs: tuple[Invocation, ...], view: ClusterView, now: float, start_utc_h: float) -> PredsFn:
         """Predictions for row ``i`` on view indices ``sub`` (evaluated lazily on pruned candidates only)."""
         workers = np.asarray(view.workers, dtype=np.int64)
+        self.sync_classes(view)
         load = (view.busy + view.queued + view.inflight) / np.maximum(view.slots, 1)
         k, lam, start, tz, drain = self._static(view)
         hour = np.mod(start_utc_h + now / 3600 + tz, 24)
@@ -61,6 +62,12 @@ class SchedModels:
             return Preds(mean, d.var(), alive, self.p_omit(workers[sub]))
 
         return fn
+
+    def sync_classes(self, view: ClusterView) -> None:
+        """Tell the run-time model each worker's machine class (declared at join, attested hardware; plan §11.3)."""
+        if hasattr(self.predictor, "set_classes") and view.static:
+            cls = {int(w): s.machine_class for w, s in zip(view.workers, view.static, strict=True) if s is not None}
+            self.predictor.set_classes(cls)
 
     def _static(self, view: ClusterView) -> tuple[np.ndarray, ...]:
         if (

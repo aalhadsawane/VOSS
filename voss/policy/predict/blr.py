@@ -1,9 +1,15 @@
-"""``blr`` predictor (doc 03 §6.1): Bayesian log-linear regression with hierarchical shrinkage and forgetting.
+"""``blr`` predictor (docs/REVISION_PLAN.md §11.3): hierarchical Bayesian log-linear run-time model with forgetting.
 
-``log T = f_fn + g·log(in_bytes) − log(speed_j) + δ_j + β·load + ε``. Per function, the coefficients
-``(f_fn, g, β)`` have a Gaussian prior centred on the profile (SeBS on node C0) and are updated in information form
-with forgetting factor λ on the data. Worker offsets ``δ_j`` are shrunk toward 0 (prior pseudo-count κ) and also
-forgotten. The predictive sd combines noise and coefficient uncertainty.
+``log T_fj = α_f + β_f·log(x/x_f) − log(speed_j) + γ_{f,m(j)} + δ_j + b_f·load + ε``.
+
+- ``(α_f, β_f, b_f)``: Gaussian prior centred on the function's measured profile, updated in information form with
+  forgetting factor λ. A function with no profile gets the population prior (``base.population_prior``).
+- ``γ_{f,m}``: function × machine-class effect, shrunk toward its prior mean (the calibration's measured log ratio for
+  that function on class ``m``, else 0) with strength ``noise / τ_γ²``; learned from runs of ``f`` on any worker of
+  class ``m``.
+- ``δ_j``: worker effect shared by all functions on ``j``, shrunk toward 0 (pseudo-count κ).
+The predictive variance adds the noise, the coefficients' uncertainty and the remaining uncertainty of ``γ`` and ``δ``,
+so a pair (function, worker) never seen together gets a wider distribution (§11.3, table of cases).
 """
 
 from __future__ import annotations
@@ -14,7 +20,7 @@ import numpy as np
 
 from voss.core.detmath import inv3, log_safe, matvec3, quad3, rows_dot3
 from voss.core.registry import register
-from voss.policy.predict.base import ExecObs, FnPrior, LogDist
+from voss.policy.predict.base import ExecObs, FnPrior, LogDist, population_prior
 
 
 class _FnModel:
@@ -48,11 +54,30 @@ class BlrPredictor:
         forgetting: float = 0.995,
         kappa: float = 5.0,
         prior_sd: tuple[float, float, float] = (0.7, 0.3, 0.5),
+        tau_gamma: float = 0.4,
     ) -> None:
+        self.priors, self.prior_sd = dict(priors), prior_sd
         self.models = {fn: _FnModel(p, prior_sd) for fn, p in sorted(priors.items())}
-        self.lam, self.kappa = forgetting, kappa
+        self.lam, self.kappa, self.tau2 = forgetting, kappa, tau_gamma**2
         self.delta_s = np.zeros(64)
         self.delta_n = np.zeros(64)
+        self.classes: dict[int, str] = {}  # worker -> machine class (set from the view)
+        self.gamma: dict[tuple[str, str], tuple[float, float]] = {}  # (fn, class) -> (residual sum, count)
+
+    def set_classes(self, classes: dict[int, str]) -> None:
+        self.classes.update(classes)
+
+    def _model(self, fn: str) -> _FnModel:
+        if fn not in self.models:  # a new function: population prior (plan §11.3)
+            self.models[fn] = _FnModel(population_prior(self.priors), self.prior_sd)
+        return self.models[fn]
+
+    def _gamma(self, fn: str, m: _FnModel, cls: str) -> tuple[float, float]:
+        """Posterior mean and variance of ``γ_{f,cls}``."""
+        mu0 = self.priors[fn].class_log_ratio.get(cls, 0.0) if fn in self.priors else 0.0
+        s, n = self.gamma.get((fn, cls), (0.0, 0.0))
+        k = m.noise_var / self.tau2
+        return (k * mu0 + s) / (k + n), m.noise_var / (k + n)
 
     def _grow(self, w: int) -> None:
         if w >= len(self.delta_s):
@@ -69,22 +94,36 @@ class BlrPredictor:
         return out
 
     def predict(self, fn: str, in_bytes: int, workers: np.ndarray, speed: np.ndarray, load: np.ndarray) -> LogDist:
-        m = self.models[fn]
+        m = self._model(fn)
         X = m.x(in_bytes, np.asarray(load, dtype=float))
         beta, cov = m.posterior()
-        mu = rows_dot3(X, beta) - log_safe(speed) + self.offsets(workers)
-        var = m.noise_var + quad3(X, cov)
+        w = np.asarray(workers, dtype=np.int64)
+        g = [self._gamma(fn, m, self.classes.get(int(j), "")) for j in w]
+        g_mu = np.array([a for a, _ in g]) if g else np.zeros(0)
+        g_var = np.array([b for _, b in g]) if g else np.zeros(0)
+        if len(w):
+            self._grow(int(w.max()))
+        d_var = m.noise_var / (self.delta_n[w] + self.kappa) if len(w) else np.zeros(0)
+        mu = rows_dot3(X, beta) - log_safe(speed) + self.offsets(w) + g_mu
+        var = m.noise_var + quad3(X, cov) + g_var + d_var
         return LogDist(mu, np.sqrt(var))
 
     def update(self, obs: ExecObs) -> None:
-        m = self.models[obs.fn]
+        m = self._model(obs.fn)
         X = m.x(obs.in_bytes, np.array([obs.load]))[0]
         y = math.log(max(obs.exec_s, 1e-9)) + math.log(max(obs.speed, 1e-9))
         beta, _ = m.posterior()
         w = int(obs.worker)
         self._grow(w)
+        cls = obs.cls or self.classes.get(w, "")
+        if obs.cls:
+            self.classes[w] = obs.cls
+        gam, _ = self._gamma(obs.fn, m, cls)
         delta = float(self.delta_s[w] / (self.delta_n[w] + self.kappa))
-        resid = y - float(rows_dot3(X[None, :], beta)[0])
+        raw = y - float(rows_dot3(X[None, :], beta)[0])
+        s, n = self.gamma.get((obs.fn, cls), (0.0, 0.0))
+        self.gamma[(obs.fn, cls)] = (self.lam * s + (raw - delta), self.lam * n + 1.0)
+        y, resid = y - gam, raw - gam
         # noise variance: discounted mean of squared residuals after the worker offset
         m.noise_var = max(1e-4, self.lam * m.noise_var + (1 - self.lam) * (resid - delta) ** 2)
         m.D = self.lam * m.D + np.outer(X, X)
