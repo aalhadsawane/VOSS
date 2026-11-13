@@ -130,6 +130,9 @@ class Router(Actor):
                     self._enqueue(inv_id)
 
     def _assigned(self, m: Assigned) -> None:
+        if m.audit_bytes >= 0:  # the router keeps an audited invocation's input until the audit ends (plan V7.3)
+            self.send(("agent", m.worker), Input(m.inv, m.attempt, m.token, m.audit_bytes))
+            return
         p = self.pending.get(m.inv)
         if p is None or m.attempt in p.workers:
             return  # unknown, finished, or a re-announced assignment whose input is already on its way

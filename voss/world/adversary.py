@@ -28,6 +28,7 @@ BEHAVIORS: tuple[str, ...] = (
     "replay",
     "colluding_domain",
     "selective",
+    "forge",
 )
 INF = float("inf")
 
@@ -45,6 +46,7 @@ class AdversaryParams(BaseModel):
     replay_rate_per_h: float = Field(default=10.0, ge=0)
     collude_t: float = Field(default=1200.0, ge=0)
     selective_hot_k: int = Field(default=3, ge=1)
+    forge_p: float = Field(default=0.5, ge=0, le=1)  # forge: wrong result digest with this probability (V7.3)
     start_t: float = Field(default=0.0, ge=0)
 
 
@@ -152,7 +154,10 @@ def generate_adversaries(sc: ScenarioConfig, workers: WorkerTable, horizon: floa
     behavior = np.zeros(n, dtype=np.int64)
     taken = _colluders(gen, workers.domain, counts.pop("colluding_domain", 0))
     behavior[taken] = BEHAVIORS.index("colluding_domain")
-    free = gen.permutation(np.setdiff1d(np.arange(n), taken))
+    phys = np.flatnonzero(workers.owner_class == 1)  # forging needs physical access: class P owners only (V7.3)
+    forgers = gen.permutation(np.setdiff1d(phys, taken))[: counts.pop("forge", 0)]
+    behavior[forgers] = BEHAVIORS.index("forge")
+    free = gen.permutation(np.setdiff1d(np.arange(n), np.union1d(taken, forgers)))
     pos = 0
     for name in sorted(counts):
         sel = free[pos : pos + counts[name]]

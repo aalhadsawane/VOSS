@@ -24,6 +24,7 @@ class HwClass(BaseModel):
     hdd_write_MBps: float = Field(ge=0)
     cpu_model: str
     tpm: str
+    mem_encryption: bool = False  # active memory encryption (SEV-SNP/TDX): owner class M (plan V3.3)
 
 
 def load_hw_class(name: str, calibration: str | None = None) -> HwClass:

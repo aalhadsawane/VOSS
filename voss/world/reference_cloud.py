@@ -70,6 +70,7 @@ def dc_workers(scn: Scenario, ref: RefProfile, regions: tuple[str, ...]) -> Work
         lon=m.lon[city].astype(float),
         tz=m.tz[city],
         hw=np.zeros(n, dtype=np.int64),
+        owner_class=np.zeros(n, dtype=np.int64),  # provider hosts: class S (no physical attack)
         substrate=np.zeros(n, dtype=np.int64),
         tier=np.full(n, TIERS.index("dedicated")),
         asn=domain.copy(),

@@ -168,6 +168,7 @@ class WorkerAgent(RecoveryMixin, PlannedMixin, FetchMixin, SessionMixin, Actor):
             att.trust_cold,
             att.tier,
             att.ref_units,
+            self._digest(att),
         )
         if status == "ok":
             rcpt = Receipt(
@@ -193,6 +194,14 @@ class WorkerAgent(RecoveryMixin, PlannedMixin, FetchMixin, SessionMixin, Actor):
             self._after_success(att)
         self.send(att.scheduler, OutcomeMsg(out))
         self._finished(att, out)
+
+    def _digest(self, att: Attempt) -> int:
+        """The honest digest is a function of the invocation; a forging class-P owner returns another (V7.3)."""
+        honest = int(att.inv.id)
+        if self.adversary is not None and self.adversary.forges(self.now):
+            self.ctx.rec.log(Table.EVENTS, t=self.now, kind="adv_forge", worker=self.host.worker, inv=honest)
+            return -honest - 1
+        return honest
 
     def _after_success(self, att: Attempt) -> None:
         h = self.host
