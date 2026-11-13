@@ -288,7 +288,8 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, PlannerMixin, Actor):
     def _learn(self, rec: Inflight, c: Copy, o: Outcome) -> None:
         st = self.views.store.states.get(c.worker)
         speed = st.speed if st else 1.0
-        obs = ExecObs(rec.inv.fn, int(c.worker), rec.inv.in_bytes, speed, c.load, o.timings.exec, self.now)
+        cls = st.static.machine_class if st is not None and st.static is not None else ""
+        obs = ExecObs(rec.inv.fn, int(c.worker), rec.inv.in_bytes, speed, c.load, o.timings.exec, self.now, cls)
         self.models.observe(obs)
         self.models.forecaster.observe_service(rec.inv.tenant, o.timings.exec)
         self.models.forecaster.observe_service(f"fn:{rec.inv.fn}", o.timings.exec)

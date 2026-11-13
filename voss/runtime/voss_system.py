@@ -167,6 +167,7 @@ class VossSystem:
             mem_mb=caps["mem_mb"],
             ssd_mb=caps["ssd_mb"],
             snapshot_class=meta[2],
+            machine_class=hc.name,
         )
         return host
 

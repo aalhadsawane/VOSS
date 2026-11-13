@@ -139,6 +139,9 @@ class PlannerConfig(Frozen):
     cold_penalty: float = 10.0
     max_parallel_prepares: int = 2
     T_linger: float = 30.0
+    scenarios: int = Field(default=32, ge=1)  # failure scenarios sampled per provisioning round (hetero, §11.6)
+    domain_shock_p: float = Field(default=0.0, ge=0.0, le=1.0)  # P(a failure domain is lost in a horizon); V9 estimates
+    ablate: tuple[Literal["homogeneous", "binary", "reliability_blind"], ...] = ()  # hetero ablations (§11.7, R06)
     params: dict[str, Any] = Field(default_factory=dict)
 
 
