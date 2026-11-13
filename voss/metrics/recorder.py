@@ -2,10 +2,17 @@
 
 Rows are buffered in memory per table and written as Parquet. ``result_hash`` is a deterministic digest of the
 logged content, independent of file formats and library versions.
+
+Memory (docs/REVISION_PLAN.md V9.5): a Python dict per row costs about ten times its columnar size, and a day-long run
+at 700 workers exhausted a 16 GB runner. Every ``batch_rows`` rows a table's buffer becomes a DataFrame chunk written
+to a Parquet file in a temporary directory (``spill=True``, the default), so recorder memory no longer grows with the
+run's length; ``frame`` reads the chunks back and concatenates them with the open buffer, columns in order of first
+appearance as before. Frames and result hashes equal the unchunked ones (``tests/unit/test_recorder_chunks.py``).
 """
 
 from __future__ import annotations
 
+import tempfile
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -17,22 +24,45 @@ from voss.metrics.schema import Table
 
 
 class Recorder:
-    """Append-only row buffers, one per table."""
+    """Append-only tables: an open row buffer plus compacted columnar chunks per table."""
 
-    def __init__(self) -> None:
+    def __init__(self, batch_rows: int = 100_000, spill: bool = True) -> None:
+        self.batch_rows = batch_rows
         self._rows: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        self._chunks: dict[str, list[pd.DataFrame | Path]] = defaultdict(list)
+        self._n: dict[str, int] = defaultdict(int)
+        self._dir = tempfile.TemporaryDirectory(prefix="voss-rec-") if spill else None
 
     def log(self, table: Table | str, **fields: Any) -> None:
-        self._rows[str(table)].append(fields)
+        name = str(table)
+        rows = self._rows[name]
+        rows.append(fields)
+        self._n[name] += 1
+        if len(rows) >= self.batch_rows:
+            chunk = pd.DataFrame(rows)
+            self._rows[name] = []
+            if self._dir is None:
+                self._chunks[name].append(chunk)
+                return
+            path = Path(self._dir.name) / f"{name}.{len(self._chunks[name]):06d}.pkl"
+            chunk.to_pickle(path)  # exact round trip of dtypes and object columns (Parquet coerces mixed objects)
+            self._chunks[name].append(path)
 
     def tables(self) -> list[str]:
-        return sorted(self._rows)
+        return sorted(self._n)
 
     def frame(self, table: Table | str) -> pd.DataFrame:
-        return pd.DataFrame(self._rows.get(str(table), []))
+        name = str(table)
+        chunks = [pd.read_pickle(c) if isinstance(c, Path) else c for c in self._chunks.get(name, [])]
+        parts = [*chunks, *([pd.DataFrame(self._rows[name])] if self._rows.get(name) else [])]
+        if not parts:
+            return pd.DataFrame()
+        if len(parts) == 1:
+            return parts[0]
+        return pd.concat(parts, ignore_index=True, sort=False)
 
     def count(self, table: Table | str) -> int:
-        return len(self._rows.get(str(table), []))
+        return self._n.get(str(table), 0)
 
     def write(self, out_dir: Path) -> None:
         out_dir.mkdir(parents=True, exist_ok=True)

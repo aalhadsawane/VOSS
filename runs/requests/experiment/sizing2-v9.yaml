@@ -1,3 +1,3 @@
 spec: SIZING2
 shards: 2
-note: "V9.5: full-length runs (4 h warm-up + 24 h) at 700 and 1000 workers"
+note: "V9.5 rerun with the spilling recorder (the first run lost its 700-worker runner at 91 min, likely out of memory)"
