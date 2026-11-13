@@ -1,4 +1,5 @@
-"""Every data YAML carries a provenance block (AGENTS.md rule 13: literature/assumed/measured tags)."""
+"""Every data YAML carries a provenance block (AGENTS.md rule 13: literature/assumed/measured tags; ``trace`` for
+values derived from a public trace, ledger class T in docs/PARAMETERS.md, plan V9)."""
 
 from __future__ import annotations
 
@@ -18,6 +19,6 @@ def test_data_files_have_provenance() -> None:
     for f in files:
         data = yaml.safe_load(f.read_text())
         prov = data.get("provenance") if isinstance(data, dict) else None
-        if not prov or prov.get("default") not in ("measured", "literature", "assumed"):
+        if not prov or prov.get("default") not in ("measured", "literature", "assumed", "trace"):
             missing.append(str(f.relative_to(CONFIGS)))
     assert not missing, missing
