@@ -25,6 +25,8 @@ jobs:
         with: {python-version: "3.11"}
       - run: nproc; free -m; lscpu
       - run: uv sync --frozen
+      - run: uv run python -m tools.traces.fetch  # published traces into data/traces, hashes checked (plan V9)
+        env: {GH_TOKEN: '${{ github.token }}'}
       - env:
           BEFORE: ${{ github.event.before }}
           INPUT: ${{ github.event.inputs.request }}

@@ -81,6 +81,12 @@ class LoadRegime(_M):
     async_deadline_s: float = 60.0
     sync_overhead_s: float = 0.05
     flash_crowds: list[FlashCrowd] = Field(default_factory=list)
+    # trace-driven load (world.trace_load, plan V9.1): a directory under trace_root; empty = synthetic arrivals
+    trace: str = ""
+    trace_root: str = "data/traces"
+    split: Literal["dev", "heldout"] = "dev"
+    rate_mult: float = Field(default=1.0, gt=0)  # one global multiplier per experiment sets utilisation
+    start_min: int = Field(default=0, ge=0)
 
 
 @dataclass(frozen=True)
@@ -112,6 +118,12 @@ def load_catalog(sc: ScenarioConfig, calibration: str | None = None) -> Catalog:
         FunctionSpec.model_validate(f | meas.get(f["name"], {})) for f in load_data_yaml(sc.functions)["functions"]
     )
     ten = tuple(TenantSpec.model_validate(t) for t in load_data_yaml(sc.tenants)["tenants"])
+    reg = load_load_regime(sc)
+    if reg.trace:  # the trace's functions and owners replace the catalog (plan V9.1)
+        from voss.world.trace_load import trace_catalog  # noqa: PLC0415  (trace_load imports this module)
+
+        traced = trace_catalog(reg, Catalog(fns, ten))
+        fns, ten = traced.functions, traced.tenants
     known = {t.id for t in ten}
     for f in fns:
         if f.tenant not in known:
@@ -193,6 +205,10 @@ def generate_arrivals(
 ) -> ArrivalTrace:
     """Doc 02 §8; each function draws from its own stream (adding a function never perturbs the others)."""
     reg = load_load_regime(sc)
+    if reg.trace:
+        from voss.world.trace_load import trace_arrivals  # noqa: PLC0415
+
+        return ArrivalTrace(trace_arrivals(reg, catalog, metros, horizon, rng))
     fns = catalog.functions
     share = popularity(len(fns), reg.zipf_s, rng.stream("workload.popularity"))
     top = int(np.argmax(share))

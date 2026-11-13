@@ -719,6 +719,18 @@ Try sources in this order; use the first that works and record which:
   under 10 GB. Target: 1,000 workers, 24 h measured. If that does not fit, reduce workers before duration; never shorten warm-up
   below 4 h (G9). Record in D-89.
 
+**Outcome (V9a: V9.1 and the pipeline).** `tools/traces/azure.py` derives `functions_<split>.parquet` and
+`arrivals_<split>.parquet` (200 functions per split, 20 per rate decile; licence CC-BY 4.0, checked) in about 2 minutes.
+Trace durations are percentiles of per-minute averages (the dataset's definition); they are used only for the mapping.
+`voss/world/trace_load.py` turns them into a catalog (tenant = owner, sync = http trigger, each function a copy of the
+measured profile with the nearest run time) and Poisson arrivals per minute (`scenario.load.trace`, `split`,
+`rate_mult`, `start_min`). The mapping uses each function's reference input only until the bundles carry run times per
+input size (blocked on bare-metal calibration). `traces.yml` runs a tool from a request file, publishes the derived
+files as a release and commits `configs/traces/<name>/provenance.yaml`; `tools/traces/fetch.py` gives experiment and
+verify jobs the files with hashes checked. Smoke: dev split, `rate_mult` 5, 600 s, 150 workers: 187 functions of 174
+owners, 7.2 invocations/s, no invariant violation. The archive of V9.2 refuses this sandbox and `web.archive.org` is
+blocked here; `tools/traces/fta.py --discover` lists archived SETI@home files from an Actions runner.
+
 **Exit criteria V9:** derived files published with provenance; `docs/PARAMETERS.md` rows for every T value; a traced smoke run completes.
 
 ---
