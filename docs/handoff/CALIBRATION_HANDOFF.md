@@ -4,6 +4,10 @@
 physically able to approve reboots. You have no memory of earlier sessions. Everything you need is in this file and the files
 it names.
 
+**Read `docs/handoff/NODE_PLAN.md` first.** It says how many nodes are measured, how this node is named (`nodeNN-…`), the
+rules that keep results from different sessions comparable, and how long each step takes. Every measurement below runs
+through `tools/calibrate/node_run.sh`; the commands further down show what that script runs, for reference.
+
 **What you deliver:** measured costs of every step a volunteer machine performs (Parts A-D), and later a multi-worker emulation
 run that checks the simulator (Part E). The exact fields and acceptance checks are in
 `docs/handoff/CALIBRATION_DATA_CONTRACT.md`. Read it before measuring anything.
@@ -15,7 +19,7 @@ run that checks the simulator (Part E). The exact fields and acceptance checks a
 
 ## 0. Start here
 
-1. Clone `aalhadsawane/voss`, check out `revision-v2`, create `calib/<host_label>` from it (the label is chosen in Part A).
+1. Clone `aalhadsawane/voss`, check out `revision-v2`, create `calib/<label>` from it (label: NODE_PLAN.md §3).
    Your PRs go **into `revision-v2`**, never `main`.
 2. Read, in this order:
    - `AGENTS.md` (rule 14: never run a reboot or BIOS-dependent suite without the human's explicit approval in this session);
@@ -36,7 +40,8 @@ run that checks the simulator (Part E). The exact fields and acceptance checks a
 
 ## 1. Machines wanted
 
-At least three, chosen to differ in what moves a cost. One session per machine.
+See NODE_PLAN.md §2 (how many and why) and §3 (duplicate check). At least three, chosen to differ in what moves a cost.
+One session per machine.
 
 | Role | Example | Why |
 |---|---|---|
@@ -63,13 +68,16 @@ machines with the same CPU, board, BIOS and memory as two data points; say so an
 
 ## 3. Part A: describe the machine
 
-1. Choose `<host_label>`: CPU family, memory, main storage, e.g. `i3-7020u-4g-hdd`. Never the real hostname.
-2. `bash tools/calibrate/spec.sh <host_label> <scratch on device 1> [<scratch on device 2> ...]`
-   writes `calibration/specs/<host_label>/SPEC.md` and `spec.yaml`.
+1. Choose the label `nodeNN-<cpu>-<memory>g-<main storage>` (NODE_PLAN.md §3), e.g. `node03-i3-7020u-4g-hdd`. Never the
+   real hostname. `<host_label>` below means this label.
+2. `bash tools/calibrate/node_run.sh spec <host_label> nvme=<dir> sata=<dir> hdd=<dir>` (a scratch directory on every disk
+   class the machine has) runs `spec.sh`
+   (writes `calibration/specs/<host_label>/SPEC.md` and `spec.yaml`), the `caps` suite and the duplicate check
+   (`tools.calibrate.nodes check --branches`). Exit 3 means duplicate: stop. Then push the spec (NODE_PLAN.md §5 step 4).
 3. Check the spec contains every field of contract §1 (physical cores and threads, memory, each disk's type, model class and
    capacity, TPM manufacturer, family and firmware version, firmware type and version, Secure Boot state, memory-encryption
    state, kernel). Add by hand what the script cannot see, marked `manual`.
-4. `uv run python -m tools.calibrate.run --suite caps` and keep its output.
+4. Keep `calibration/specs/<host_label>/class.yaml` and `nodes-at-spec-time.md` with the spec.
 
 ## 4. Part B: start-up, crypto, functions (no reboot)
 
@@ -79,8 +87,10 @@ sh tools/calibrate/guest/fetch_assets.sh ~/voss-calib/assets
 sudo env DOCKER="sudo docker" SUDO="sudo" sh tools/calibrate/guest/build_rootfs.sh ~/voss-calib/assets
 bash tools/emu/preflight.sh | tee ~/voss-calib/preflight.txt
 ```
-Run a 10% smoke pass first (`--quick`), read its output for errors and implausible values, then the full pass, once per
-storage tier:
+In practice: `node_run.sh setup <host_label>`, then `node_run.sh quick …`, read its output for errors and implausible
+values, then `node_run.sh full <host_label> nvme=<dir> sata=<dir> hdd=<dir>` (every disk class the machine has; the script
+stops if one is missing). Then `node_run.sh ingest <host_label> <tiers>`: one bundle per tier. What those stages run
+(older single-tier form; `node_run.sh` passes `nvme_dir`, `sata_dir`, `hdd_dir` instead):
 ```sh
 A="--set firecracker=$HOME/voss-calib/assets/firecracker --set kernel=$HOME/voss-calib/assets/vmlinux \
    --set rootfs=$HOME/voss-calib/assets/voss-guest.ext4 --set sebs_rootfs=$HOME/voss-calib/assets/voss-guest.ext4"
@@ -178,10 +188,4 @@ Run:
 
 ## 9. Message to paste into the new session
 
-```text
-You are working on the VOSS research repository (GitHub: aalhadsawane/voss) on a bare-metal Linux machine with sudo.
-Check out branch revision-v2 and read docs/handoff/CALIBRATION_HANDOFF.md from top to bottom, then
-docs/handoff/CALIBRATION_DATA_CONTRACT.md. Follow them exactly. Start with section 0: ask me the questions in 0.4
-before you measure anything. Never reboot, change BIOS settings, install packages or change system settings
-without my explicit approval in this session. Do not reuse any number from earlier calibration runs.
-```
+Use the message in `docs/handoff/NODE_PLAN.md` §9 (the same text on every node, with the node number filled in).

@@ -119,7 +119,7 @@ def run(ctx: Ctx) -> None:
     ctx.sh.need("fio")
     dirs = ctx.dirs()
     if not dirs:
-        raise SuiteSkipped("pass --set ssd_dir=<dir on the NVMe> --set hdd_dir=<dir on the HDD>")
+        raise SuiteSkipped("pass --set <tier>_dir=<scratch dir> for each disk class (nvme, sata, hdd)")
     for rep in range(ctx.reps(5)):
         ctx.rec.add("sha256_MBps", 0.0 if ctx.sh.dry_run else sha256_MBps(), unit="MBps", rep=rep)
     for tier, d in sorted(dirs.items()):
