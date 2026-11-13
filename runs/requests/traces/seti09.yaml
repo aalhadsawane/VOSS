@@ -1,3 +1,3 @@
 tool: fta
-args: ["--hosts", "20000", "--heldout-day", "182", "--avail-type", "1"]
-note: "third attempt: try archive snapshots in order, keep the first complete one"
+args: ["--url", "https://web.archive.org/web/20250311173327id_/http://fta.scem.westernsydney.edu.au/data/seti09/seti09_tab.tgz", "--allow-prefix", "--hosts", "20000", "--heldout-day", "182", "--avail-type", "1"]
+note: "fourth attempt: every archived copy is truncated; use the 1.07 GB prefix of the 2025 copy and keep its complete hosts"
