@@ -1,0 +1,2 @@
+tool: ookla
+args: ["--radius-km", "30", "--draws", "500"]
