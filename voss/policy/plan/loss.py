@@ -4,7 +4,8 @@
 by the stable recursion ``B(0) = 1``, ``B(k) = a·B(k−1) / (k + a·B(k−1))``; it is decreasing and convex in ``c``
 (Messerli 1972). For real ``c ≥ 0`` this module uses the linear interpolation between the neighbouring integers. A
 linear interpolation of a convex decreasing sequence is convex and decreasing, so the carried fraction ``1 − B`` is
-concave and increasing in ``c``: the property Proposition 1 needs. Only fixed-order arithmetic is used (identical on every CPU).
+concave and increasing in ``c``: the property Proposition 1 needs. Only fixed-order arithmetic is used, so results are
+identical on every CPU.
 """
 
 from __future__ import annotations
