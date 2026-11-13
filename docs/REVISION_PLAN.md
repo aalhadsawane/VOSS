@@ -741,6 +741,15 @@ least-absolute-deviation slope of median RTT against distance over 58,087 server
 absolute residual 18 ms; intercept 16 ms, not modelled). The dataset states no licence, so only the fitted statistic
 is kept and the source is cited.
 
+**Outcome (V9.2, availability).** `tools/traces/fta.py --discover` (run on Actions) found the SETI@home 2009 trace of
+the Failure Trace Archive in the Internet Archive (`seti09_tab.tgz`, about 793 MB in complete snapshots). The
+derivation reads `event_trace.tab` in chunks, prints the archive's members, the file's first lines and per event type
+the count and median length (to check that type 1 is availability), and writes `sessions_<split>.parquet`: 20,000
+hosts per split, development = even host ids in the trace's first week, held-out = odd host ids in the week 182 days
+later. `configs/regimes/churn_seti.yaml` makes each worker replay one host's week, repeated to cover warm-up and
+horizon; no synthetic shocks; notice at end is the `graceful_frac` axis. The licence line is marked TODO: check the
+archive's terms page before publication.
+
 **Exit criteria V9:** derived files published with provenance; `docs/PARAMETERS.md` rows for every T value; a traced smoke run completes.
 
 ---

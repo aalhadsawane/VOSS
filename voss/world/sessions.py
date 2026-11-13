@@ -8,6 +8,7 @@ join and leave the platform. Fake drain notices come from ``fake_signals`` adver
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 import numpy as np
@@ -16,7 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from voss.core.config import ScenarioConfig
 from voss.core.dist import Dist, LogNormal
-from voss.core.paths import load_data_yaml
+from voss.core.paths import REPO_ROOT, load_data_yaml
 from voss.core.rng import RngFactory
 from voss.world.config_merge import merged
 from voss.world.geo import Metros, diurnal, local_hour
@@ -62,6 +63,11 @@ class SessionRegime(_M):
     drain_lead: Dist
     shocks: ShockModel = Field(default_factory=ShockModel)
     platform: PlatformModel = Field(default_factory=PlatformModel)
+    # traced availability (plan V9.2): data/traces/<trace>/sessions_<split>.parquet from tools/traces/fta.py; each
+    # worker replays one sampled host's week of availability intervals, repeated to cover the run. Empty = tiers.
+    trace: str = ""
+    trace_root: str = "data/traces"
+    split: str = "dev"
 
 
 @dataclass(frozen=True)
@@ -217,6 +223,30 @@ def _areas(workers: WorkerTable, metros: Metros, scope: str) -> tuple[np.ndarray
     return reg_of_city[workers.city], w / w.sum()
 
 
+WEEK_S = 7 * 86400.0
+
+
+def _traced_rows(
+    reg: SessionRegime, n: int, lo: float, hi: float, g: np.random.Generator
+) -> list[tuple[int, float, float]]:
+    """Each worker takes one traced host (a random assignment, without repeats while hosts last) and replays its week
+    of intervals, shifted by whole weeks to cover ``[lo, hi)``."""
+    d = Path(reg.trace_root) / reg.trace / f"sessions_{reg.split}.parquet"
+    tab = pd.read_parquet(d if d.is_absolute() else REPO_ROOT / d)
+    hosts = np.sort(tab.host.unique())
+    by_host = {int(h): grp[["start_s", "end_s"]].to_numpy() for h, grp in tab.groupby("host", sort=True)}
+    order = g.permutation(len(hosts))
+    rows: list[tuple[int, float, float]] = []
+    for w in range(n):
+        iv = by_host[int(hosts[order[w % len(hosts)]])]
+        for k in range(int(np.floor(lo / WEEK_S)), int(np.ceil(hi / WEEK_S)) + 1):
+            for s0, e0 in iv:
+                s, e = max(s0 + k * WEEK_S, lo), min(e0 + k * WEEK_S, hi)
+                if e > s:
+                    rows.append((w, float(s), float(e)))
+    return rows
+
+
 def generate_sessions(
     sc: ScenarioConfig,
     workers: WorkerTable,
@@ -230,13 +260,16 @@ def generate_sessions(
     lo = -sc.warmup_s
     join, leave = _platform(reg, workers, horizon, rng.stream("sessions.platform"))
     rows: list[tuple[int, float, float]] = []
-    for w in range(len(workers)):
+    if reg.trace:
+        rows = _traced_rows(reg, len(workers), lo, horizon, rng.stream("sessions.trace"))
+    for w in range(0 if reg.trace else len(workers)):
         tm = reg.tiers[TIERS[int(workers.tier[w])]]
         g = rng.stream("sessions.worker", w)
         for s0, e0 in _worker_sessions(tm, float(workers.tz[w]), lo, horizon, sc.start_utc_h, g):
             s, e = max(s0, join[w]), min(e0, leave[w])
             if e > s:
                 rows.append((w, s, e))
+    rows = [(w, max(s, join[w]), min(e, leave[w])) for w, s, e in rows if min(e, leave[w]) > max(s, join[w])]
     sess = pd.DataFrame(rows, columns=["worker", "start", "end"])
     _ends(reg, sess, rng.stream("sessions.ends"))
     area, area_w = _areas(workers, metros, reg.shocks.scope)

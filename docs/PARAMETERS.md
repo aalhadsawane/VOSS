@@ -183,6 +183,7 @@ for the file as a whole.
 | `configs/regimes/churn_high.yaml` | pending V9 | assumed parametric regime; replaced by traces or kept as a labelled sensitivity |
 | `configs/regimes/churn_low.yaml` | pending V9 | assumed parametric regime; replaced by traces or kept as a labelled sensitivity |
 | `configs/regimes/churn_med.yaml` | pending V9 | assumed parametric regime; replaced by traces or kept as a labelled sensitivity |
+| `configs/regimes/churn_seti.yaml` | T | SETI@home host availability (FTA seti09), one host's week per worker (V9.2); `graceful_frac` axis |
 | `configs/regimes/load_default.yaml` | pending V9 | assumed parametric regime; replaced by traces or kept as a labelled sensitivity |
 | `configs/regimes/load_flash.yaml` | pending V9 | assumed parametric regime; replaced by traces or kept as a labelled sensitivity |
 | `configs/smoke.yaml` | A | test configuration |
