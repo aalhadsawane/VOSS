@@ -92,7 +92,8 @@ def test_adversary_schedules_match_spec() -> None:
     assert abs(len(adv) - 200) <= 25  # colluders take whole domains (may overshoot slightly)
     names = [tr.name(i) for i in adv]
     for b in BEHAVIORS[1:]:
-        assert names.count(b) >= 15, b
+        if b != "forge":  # forging needs class-P owners: test_forgers_are_class_p_owners
+            assert names.count(b) >= 15, b
     p = tr.params
     for i in adv:
         if tr.name(i) == "on_off":
@@ -155,3 +156,17 @@ def test_ladder_validation() -> None:
 def test_tiers_constant() -> None:
     assert TIERS == ("nightly", "idle", "dedicated")
     assert RunConfig().scenario.workers == 1000
+
+
+def test_forgers_are_class_p_owners() -> None:
+    """Plan V7.3: only owners with physical access (class P) can forge results."""
+    sc = ScenarioConfig(
+        workers=1000, physical_frac=0.3, adversary={"regime": "adversary_all", "alpha": 0.1, "mix": {"forge": 1.0}}
+    )
+    w = _workers(sc)
+    tr = generate_adversaries(sc, w, 7200.0, RngFactory(5))
+    forgers = [i for i in tr.adversaries() if tr.name(i) == "forge"]
+    assert len(forgers) == 100 and all(w.owner_class[i] == 1 for i in forgers)
+    none = ScenarioConfig(workers=1000, adversary={"regime": "adversary_all", "alpha": 0.1, "mix": {"forge": 1.0}})
+    tr0 = generate_adversaries(none, _workers(none), 7200.0, RngFactory(5))
+    assert not any(tr0.name(i) == "forge" for i in tr0.adversaries())
