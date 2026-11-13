@@ -1,0 +1,2 @@
+tool: fta
+args: ["--discover"]

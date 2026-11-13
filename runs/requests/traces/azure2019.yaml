@@ -1,0 +1,2 @@
+tool: azure
+args: ["--n", "200", "--seed", "1"]
