@@ -31,7 +31,7 @@ class Carried:
 
     def __init__(self, a: float, c_max: float) -> None:
         self.a = max(float(a), 0.0)
-        self.n = int(math.ceil(max(c_max, 0.0))) + 1
+        self.n = math.ceil(max(c_max, 0.0)) + 1
         self.b = erlang_b_curve(self.n, self.a)
 
     def __call__(self, c: np.ndarray | float) -> np.ndarray:
