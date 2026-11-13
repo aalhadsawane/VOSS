@@ -21,8 +21,8 @@ from dataclasses import dataclass, field
 class HistParams:
     """Policy parameters (``core.config.KeepaliveHistConfig``). tag: literature for percentiles, margin, CV."""
 
-    bin_s: float = 1.0
-    range_s: float = 1800.0
+    bin_s: float = 60.0
+    range_s: float = 14400.0
     head_pct: float = 5.0  # TODO verify
     tail_pct: float = 99.0  # TODO verify
     margin: float = 0.10  # TODO verify

@@ -67,6 +67,7 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, AuditMixin, Plan
         self.inflight: dict[InvId, Inflight] = {}
         self.done: set[InvId] = set()
         self.audits: dict[InvId, AuditRec] = {}
+        self.lat_obs: dict[str, deque[float]] = {}
         self.window: list[InvId] = []
         self.busy_until = 0.0
         self.models = SchedModels(cfg, self.priors)
@@ -287,6 +288,7 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, AuditMixin, Plan
         if o.status != "ok":
             self._copy_failed(rec, c, o.status)
             return
+        self.lat_obs.setdefault(str(rec.inv.fn), deque(maxlen=1000)).append(self.now - c.t_dispatch)
         del self.inflight[o.inv]
         self.done.add(o.inv)
         self.streak.pop(c.worker, None)

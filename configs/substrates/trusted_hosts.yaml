@@ -1,0 +1,24 @@
+# Trusted always-on hosts (docs/REVISION_PLAN.md V8, upper bound): the same sandbox ladder as appliance_tpm on hosts
+# that never leave and need no attestation or key release. Every start-up cost is the measured appliance cost.
+provenance: {default: measured, note: "appliance_tpm without session establishment, re-attestation and key release"}
+name: trusted_hosts
+assurance_base: 1.0
+concurrent_owner_use: false
+session:
+  establish: []
+  reattest: []
+  reattest_every_s: 1.0e9
+  valid_s: 1.0e12
+trust: []
+ladder:                       # Firecracker ladder (doc 02 §5)
+  levels: [L0, L1, L2, L3, L4]
+  ready: L3
+  busy: L4
+  persistent: [L1, L2]
+  transitions:
+    L0->L1: [{op: fetch, artifacts: [bundle, rootfs]}, {op: cpu, work: measured/verify_s_per_MB, per_mb: [bundle, rootfs]}]
+    L1->L3: [{op: disk_read, what: rootfs}, {op: delay, dist: measured/fc_boot}, {op: cpu, work: fn.init_s}]
+    L2->L3: [{op: disk_read, what: snapshot_touched}, {op: delay, dist: measured/fc_restore}]
+    L3->L4: [{op: delay, dist: measured/dispatch}]
+  after_init: [{op: delay, dist: measured/fc_snapshot_create}, {op: disk_write, what: snapshot}]
+slowdown: {cpu: measured/tme_cpu_factor, mem: measured/tme_mem_factor, io: 1.0}

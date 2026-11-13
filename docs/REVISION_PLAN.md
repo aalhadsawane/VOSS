@@ -642,6 +642,15 @@ queueing and the same failure handling. They differ only in **when keys are rele
 
 Each has a unit test against its published rule and a row in the paper's "systems compared" table with source and deviations.
 
+**Outcome (V8a).** `configs/baselines.yaml` lists every compared system (source, overrides, deviations); the
+paper's table is generated from it, and `tests/integration/test_baselines_run.py` runs each preset under `K = 4` with
+all invariants. Done here: hybrid histogram at its published 1-minute bins and 4-hour range; pre-released keys hold the
+full budget `K` on the workers with the highest survival × (1 − drop); on demand = no plan and no keep-alive; hedged
+requests (`voss.detection.detector=hedged`: observed q95 of the function, any other eligible worker, no probe, no
+deadline check, as published); eviction-aware placement (`eviction_aware`: lowest predicted failure probability);
+trusted always-on hosts (`trusted_hosts`: the appliance ladder without attestation or key release; the vendor-named
+profiles are deleted). Left for V8b: the target-concurrency autoscaler and the greedy-dual keep-alive check.
+
 **Exit criteria V8:** tests green; all baselines pass the holder-budget invariant.
 
 ---

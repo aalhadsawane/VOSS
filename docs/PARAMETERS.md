@@ -17,7 +17,7 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `seed` | `1` | A | run identity; seeds listed per experiment |
 | `horizon_s` | `3600.0` | A | per experiment (V9.5 sizing) |
 | `system` | `'voss'` | A | system under test |
-| `reference` | `'ref_lambda_like'` | pending V8 | trusted always-on hosts baseline; v1 vendor-named profiles deleted |
+| `reference` | `'trusted_hosts'` | D | trusted always-on hosts baseline (V8): appliance ladder without attestation |
 | `scenario.workers` | `1000` | A | pool size axis (R03) |
 | `scenario.start_utc_h` | `0.0` | T | aligned to the trace window (V9) |
 | `scenario.warmup_s` | `172800.0` | pending V9 | session warm-up of the parametric generator; replaced by trace alignment |
@@ -99,8 +99,8 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.worker.m_base_mb` | `512.0` | pending V5 | image memory; becomes measured image_mem |
 | `voss.worker.assurance_tofu_factor` | `0.9` | pending V4 | trust scores removed |
 | `voss.worker.sync_priority` | `False` | pending V5 | synchronous-first queueing; on for every system in v2 |
-| `voss.keepalive_hist.bin_s` | `1.0` | pending V8 | 1 s (v1); published value 60 s |
-| `voss.keepalive_hist.range_s` | `1800.0` | pending V8 | 30 min (v1); published value 4 h |
+| `voss.keepalive_hist.bin_s` | `60.0` | L | Shahrad et al. ATC 2020: 1-minute bins |
+| `voss.keepalive_hist.range_s` | `14400.0` | L | Shahrad et al. ATC 2020: 4-hour range |
 | `voss.keepalive_hist.head_pct` | `5.0` | L | Shahrad et al. ATC 2020 |
 | `voss.keepalive_hist.tail_pct` | `99.0` | L | Shahrad et al. ATC 2020 |
 | `voss.keepalive_hist.margin` | `0.1` | L | Shahrad et al. ATC 2020 |
@@ -187,8 +187,9 @@ for the file as a whole.
 | `configs/smoke.yaml` | A | test configuration |
 | `configs/substrates/appliance_tpm.yaml` | pending V4 | substrate profile; ref_* become the trusted-host baseline in V8 |
 | `configs/substrates/none.yaml` | pending V4 | substrate profile; ref_* become the trusted-host baseline in V8 |
-| `configs/substrates/ref_azure_like.yaml` | pending V4 | substrate profile; ref_* become the trusted-host baseline in V8 |
-| `configs/substrates/ref_lambda_like.yaml` | pending V4 | substrate profile; ref_* become the trusted-host baseline in V8 |
+| `configs/baselines.yaml` | D | systems compared: source, overrides, deviations (V8) |
+| `configs/substrates/trusted_hosts.yaml` | M | appliance_tpm ladder without attestation or key release (V8) |
+| `configs/references/trusted_hosts.yaml` | A | trusted always-on hosts: 40 per router metro (V8) |
 | `configs/tenants.yaml` | pending V9 | assumed tenants; replaced by trace owners |
 | `configs/tenants_e01.yaml` | pending V13 | v1 emulation tenants |
 | `configs/toy.yaml` | A | test configuration |

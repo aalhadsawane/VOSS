@@ -6,6 +6,7 @@ attempt on a key holder in another failure domain and probes the first worker: t
 
 from __future__ import annotations
 
+from collections import deque
 from typing import TYPE_CHECKING, Any
 
 from voss.core.ids import Addr, ClusterId, InvId, TenantId, WorkerId
@@ -32,6 +33,7 @@ class WatchdogMixin:
     suspects: dict[WorkerId, float]
     streak: dict[WorkerId, int]
     det: Detector
+    lat_obs: dict[str, deque[float]]  # per function: observed dispatch-to-outcome latencies (hedged timer)
 
     if TYPE_CHECKING:
 
@@ -49,7 +51,8 @@ class WatchdogMixin:
 
     def _arm(self, rec: Inflight, c: Copy) -> None:
         """Result watchdog at the detector's timer: predicted completion quantile or the deadline (plan V7.2)."""
-        dt = self.det.expiry_s(c.t_dispatch, c.q_done, rec.t_deadline, self.now)
+        obs = self.lat_obs.get(str(rec.inv.fn), ())
+        dt = self.det.expiry_s(c.t_dispatch, c.q_done, rec.t_deadline, self.now, obs)
         self.after(dt, self._watch_fire, rec.inv.id, c.attempt, c.probes)
 
     def _arm_dispatch(self, rec: Inflight, c: Copy) -> None:
@@ -81,6 +84,8 @@ class WatchdogMixin:
             self._copy_failed(rec, c, "timeout")
             return
         self._request_backup(rec, c)
+        if not self.det.probe:
+            return
         self.send(("agent", int(c.worker)), Probe(inv, attempt, self.addr))
         self.after(self.ctx.cfg.voss.detection.probe_timeout_s, self._probe_timeout, inv, attempt, c.probes)
 

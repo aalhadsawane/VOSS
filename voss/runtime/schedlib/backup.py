@@ -17,7 +17,7 @@ from voss.core.ids import Addr, InvId
 from voss.core.messages import Reject
 from voss.core.types import Invocation
 from voss.metrics.schema import Table
-from voss.policy.detect import fits
+from voss.policy.detect import Detector, fits
 from voss.runtime.actor import ActorContext
 from voss.runtime.schedlib.decide import Timing
 from voss.runtime.schedlib.inflight import Copy, Inflight
@@ -29,6 +29,7 @@ class BackupMixin:
     views: ViewCache
     inflight: dict[InvId, Inflight]
     done: set[InvId]
+    det: Detector
 
     if TYPE_CHECKING:
 
@@ -50,15 +51,19 @@ class BackupMixin:
         """The invocation as placement sees it: a backup excludes every worker in a live attempt's failure domain."""
         if not rec.want_backup:
             return rec.inv
+        live = {c.worker for c in rec.copies.values()}
+        if self.det.backup_scope == "any":  # hedged requests as published: any other eligible worker
+            return replace(rec.inv, excluded=rec.inv.excluded | live)
         st = self.views.store.states
         doms = {st[c.worker].domain for c in rec.copies.values() if c.worker in st}
         same = {w for w, s in st.items() if s.domain in doms}
-        live = {c.worker for c in rec.copies.values()}
         return replace(rec.inv, excluded=rec.inv.excluded | live | same, holders_only=True)
 
     def _fits_or_drop(self, rec: Inflight, backup: bool, t: Timing | None) -> bool:
         """Whether a retry or backup fits the deadline; a misfit retry ends the invocation as missed."""
-        if rec.next_attempt == 0 or (t is not None and fits(t.mean, t.budget)):
+        if rec.next_attempt == 0 or (backup and self.det.backup_scope == "any"):
+            return True  # first attempts and published hedges are not checked against the deadline
+        if t is not None and fits(t.mean, t.budget):
             return True
         self.ctx.rec.log(Table.EVENTS, t=self.now, kind="no_fit", worker=-1, value=0.0, inv=int(rec.inv.id))
         if not backup and not rec.copies:
