@@ -1,0 +1,13 @@
+# V9.5 run sizing, second step (docs/REVISION_PLAN.md V9.5): the full experiment length (4 h warm-up + 24 h measured)
+# at 700 and 1,000 workers, measured directly (1-hour runs: 175 s/h at 300 workers, 514 s/h at 1,000; memory over a
+# full day is what the 1-hour runs cannot show). Not a result; it sets the experiment size (D-89).
+experiment: SIZING2
+base: ../base.yaml
+overrides:
+  - horizon_s=86400
+  - scenario.warmup_s=14400
+  - voss.planner.name=hetero
+systems:
+  w0700: [scenario.workers=700, scenario.load.rate=70]
+  w1000: [scenario.workers=1000, scenario.load.rate=100]
+seeds: [1]
