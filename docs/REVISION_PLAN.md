@@ -651,6 +651,15 @@ deadline check, as published); eviction-aware placement (`eviction_aware`: lowes
 trusted always-on hosts (`trusted_hosts`: the appliance ladder without attestation or key release; the vendor-named
 profiles are deleted). Left for V8b: the target-concurrency autoscaler and the greedy-dual keep-alive check.
 
+**Outcome (V8b).** `kpa` (`policy/plan/kpa.py`, `kpa_planner.py`): the Knative Pod Autoscaler in concurrency mode with
+Knative's defaults (60 s stable and 6 s panic windows, 200% panic threshold, 70% of containerConcurrency 1, scale-down
+rate 2, 30 s scale-to-zero grace), ticking every 2 s (`T_plan=2` in the preset) on the scheduler's in-flight counts per
+function (`PlanInput.fn_inflight`); its rounds are never reused. The greedy-dual check found that `cache_value.gdsf`
+ranks disk artifacts, not warm sandboxes, so FaaSCache had no implementation: `WorkerCache.warm_policy = greedy_dual`
+now evicts warm sandboxes by clock + frequency × initialisation time / memory, as published, with no idle timer
+(`voss.worker.warm_eviction`). Both are presets in `configs/baselines.yaml`; all 14 presets run with every invariant.
+Smoke (120 workers, 300 s): warm starts 18% on demand, 90% with `kpa`, 90% with `greedy_dual`.
+
 **Exit criteria V8:** tests green; all baselines pass the holder-budget invariant.
 
 ---

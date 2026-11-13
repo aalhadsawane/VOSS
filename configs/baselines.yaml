@@ -28,6 +28,17 @@ provisioning:
     source: "Zhang et al., Faster and Cheaper Serverless Computing on Harvested Resources, SOSP 2021"
     overrides: [voss.planner.name=keepalive_ttl, voss.placer.sync=eviction_aware, voss.placer.async=eviction_aware]
     deviations: ["survival model of volunteer sessions in place of the harvest-VM eviction model"]
+  kpa:
+    source: "Knative Serving Pod Autoscaler (concurrency mode), default settings"
+    overrides: [voss.planner.name=kpa, voss.planner.T_plan=2]
+    deviations:
+      - "containerConcurrency 1 (a sandbox serves one invocation at a time); target 70% of it, as Knative's default"
+      - "sandboxes placed on key holders first, then on the most reliable eligible workers (Knative leaves placement
+        to the Kubernetes scheduler)"
+  greedy_dual:
+    source: "FaaSCache: Fuerst and Sharma, ASPLOS 2021 (greedy-dual keep-alive)"
+    overrides: [voss.planner.name=keepalive_ttl, voss.worker.warm_eviction=greedy_dual, voss.worker.warm_ttl_s=1e9]
+    deviations: ["cold-start cost is the function's measured initialisation time"]
   exact_program:
     source: "optimality bound: the exact program solved by MILP"
     overrides: [voss.planner.name=milp]

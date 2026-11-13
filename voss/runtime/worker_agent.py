@@ -83,6 +83,7 @@ class WorkerAgent(RecoveryMixin, PlannedMixin, FetchMixin, SessionMixin, Actor):
         self.gdsf = GdsfState()
         if ctx.cfg.voss.cache.value == "gdsf":
             self.use_gdsf()
+        host.cache.warm_policy = ctx.cfg.voss.worker.warm_eviction
         self._init_session_state()
 
     def _init_session_state(self) -> None:
@@ -205,7 +206,7 @@ class WorkerAgent(RecoveryMixin, PlannedMixin, FetchMixin, SessionMixin, Actor):
 
     def _after_success(self, att: Attempt) -> None:
         h = self.host
-        h.cache.park_warm(att.fn.name, att.fn.mem_mb, self.now)
+        h.cache.park_warm(att.fn.name, att.fn.mem_mb, self.now, att.fn.init_s, invoked=True)
         lad = h.profile.ladder
         snap = artifact_digests(att.fn, h.snapshot_class)["snapshot"]
         if lad.after_init and "L2" in lad.persistent and att.level != lad.ready and h.cache.tier_of(snap) is None:

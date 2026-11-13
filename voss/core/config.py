@@ -173,6 +173,7 @@ class WorkerConfig(Frozen):
     """Worker agent knobs (doc 02 §5-6)."""
 
     warm_ttl_s: float = 600.0
+    warm_eviction: str = "lru"  # lru | greedy_dual (FaaSCache keep-alive, plan V8)
     m_base_mb: float = 512.0
     assurance_tofu_factor: float = 0.9  # f_policy for TOFU firmware (doc 04 §8). tag: assumed
     sync_priority: bool = False  # D-77: a free slot serves waiting synchronous requests before queued async ones

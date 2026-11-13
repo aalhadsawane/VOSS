@@ -36,6 +36,7 @@ class WarmVm:
     fn: str
     mem_mb: float
     idle_since: float
+    prio: float = 0.0  # greedy-dual priority (warm_policy "greedy_dual")
 
 
 @dataclass
@@ -60,6 +61,12 @@ class WorkerCache:
         self.version = 0
         self.stats = CacheStats()
         self.value: Callable[[Entry], float] = lambda e: e.last_used  # LRU
+        # Warm sandboxes: "lru" evicts the longest idle; "greedy_dual" is FaaSCache's keep-alive (Fuerst and Sharma,
+        # ASPLOS 2021): priority = clock + frequency × cold-start cost / memory, lowest evicted, the clock rising to
+        # each evicted priority, a function's frequency reset when its last sandbox goes.
+        self.warm_policy = "lru"
+        self.gd_clock = 0.0
+        self.gd_freq: dict[str, int] = {}
         self.on_evict: Callable[[Entry], None] = lambda e: None
         self.warm_pins: dict[str, int] = {}  # fn → warm VMs the plan wants kept
         self.warm_ttls: dict[
@@ -187,20 +194,32 @@ class WorkerCache:
             out.extend(vs[: max(0, len(vs) - keep)])
         return out
 
-    def park_warm(self, fn: str, mem_mb: float, now: float) -> bool:
-        """Keep a finished VM warm if RAM allows (evicting the least recently idle unpinned VMs)."""
+    def park_warm(self, fn: str, mem_mb: float, now: float, cost_s: float = 0.0, invoked: bool = False) -> bool:
+        """Keep a finished VM warm if RAM allows, evicting unpinned VMs by ``warm_policy``. ``invoked``: this VM just
+        served an invocation (counts toward the function's frequency); ``cost_s``: its cold-start cost."""
+        if invoked:
+            self.gd_freq[fn] = self.gd_freq.get(fn, 0) + 1
         while self.mem_free() < mem_mb and self._evictable_warm():
-            oldest = min(self._evictable_warm(), key=lambda v: (v.idle_since, v.fn))
-            self.version += 1
-            self.warm[oldest.fn].remove(oldest)
-            if not self.warm[oldest.fn]:
-                del self.warm[oldest.fn]
-            self.stats.evictions += 1
+            self._evict_one()
         if self.mem_free() < mem_mb:
             return False
-        self.warm.setdefault(fn, []).append(WarmVm(fn, mem_mb, now))
+        prio = self.gd_clock + self.gd_freq.get(fn, 0) * cost_s / max(mem_mb, 1.0)
+        self.warm.setdefault(fn, []).append(WarmVm(fn, mem_mb, now, prio))
         self.version += 1
         return True
+
+    def _evict_one(self) -> None:
+        if self.warm_policy == "greedy_dual":
+            victim = min(self._evictable_warm(), key=lambda v: (v.prio, v.idle_since, v.fn))
+            self.gd_clock = victim.prio
+        else:
+            victim = min(self._evictable_warm(), key=lambda v: (v.idle_since, v.fn))
+        self.version += 1
+        self.warm[victim.fn].remove(victim)
+        if not self.warm[victim.fn]:
+            del self.warm[victim.fn]
+            self.gd_freq.pop(victim.fn, None)
+        self.stats.evictions += 1
 
     def expire_warm(self, now: float, ttl: float) -> int:
         """Drop VMs idle longer than ``ttl`` (keep-alive), except the plan's pinned ones (most recent first)."""
