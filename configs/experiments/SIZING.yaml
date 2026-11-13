@@ -1,0 +1,13 @@
+# V9.5 run sizing (docs/REVISION_PLAN.md V9.5): wall time, events per second and peak memory of 1-hour runs at three
+# pool sizes, load proportional to the pool. Not a result; it sets the experiment size (D-89).
+experiment: SIZING
+base: ../base.yaml
+overrides:
+  - horizon_s=3600
+  - scenario.warmup_s=0
+  - voss.planner.name=hetero
+systems:
+  w0300: [scenario.workers=300, scenario.load.rate=30]
+  w1000: [scenario.workers=1000, scenario.load.rate=100]
+  w3000: [scenario.workers=3000, scenario.load.rate=300]
+seeds: [1]

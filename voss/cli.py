@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import resource
 import sys
 import time
 import warnings
@@ -30,6 +31,8 @@ def cmd_run(cfg: RunConfig, out: Path | None) -> Manifest:
     result = run_system(cfg)
     manifest = build_manifest(cfg, result.scenario_hash, result.recorder.result_hash(), REPO)
     manifest.wall_s = time.perf_counter() - t0
+    manifest.peak_rss_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024  # Linux reports KiB
+    manifest.events = int(result.events_run)
     run_dir = out or Path(cfg.out_dir) / cfg.config_hash()[:16]
     result.recorder.write(run_dir)
     manifest.write(run_dir / "manifest.json")

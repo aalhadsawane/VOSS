@@ -42,7 +42,12 @@ def one(run_dir: Path) -> tuple[dict[str, Any], dict[str, Any]]:
         **{k: man.get(k) or "" for k in HASH_COLS[3:]},
     }
     warm, end = float(cfg["scenario"]["warmup_s"]), float(cfg["horizon_s"])
-    return head, {"run": run_dir.name, "label": head["label"], "seed": head["seed"]} | summarize(
+    cost = {
+        "wall_s": float(man.get("wall_s", 0.0)),
+        "peak_rss_mb": float(man.get("peak_rss_mb", 0.0)),
+        "events": int(man.get("events", 0)),
+    }
+    return head, {"run": run_dir.name, "label": head["label"], "seed": head["seed"]} | cost | summarize(
         reader(run_dir), warm, end
     )
 

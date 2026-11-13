@@ -31,6 +31,8 @@ class Manifest:
     result_hash: str
     versions: dict[str, str] = field(default_factory=dict)
     wall_s: float = 0.0  # simulator wall time (metadata, not part of the result)
+    peak_rss_mb: float = 0.0  # peak resident memory of the process (metadata; run sizing, plan V9.5)
+    events: int = 0  # simulation events processed (metadata; run sizing)
     numeric_canary: str = ""  # voss.core.numerics.canary() of the process that ran (D-70)
 
     def write(self, path: Path) -> None:
