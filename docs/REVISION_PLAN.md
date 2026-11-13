@@ -552,6 +552,9 @@ Rules:
 Request files live in `runs/requests/experiment/` and `runs/requests/verify/`. `traces.yml` lands with V9,
 `bench-decision.yml` with V10, `manuscript.yml` with V14. If Actions may not open PRs (repository setting), the results
 branch is still pushed and the job prints a warning.
+Exit criteria met: request `toy-v6-check.yaml` → experiment run 43381745173 (3 shards, release `runs-TOY-43381745173`) →
+results PR (opened by hand: the repository does not let Actions open PRs) → verify run 43383888111 re-ran 3 of 6 runs on
+a fresh runner and all result hashes matched; two of them also match a local run on a different CPU.
 
 **Exit criteria V6:** a 3-seed toy spec goes request file → sweep → release → analysis PR without manual steps; `verify.yml` matches hashes.
 
