@@ -63,6 +63,7 @@ class PlanInput:
     y_prev: np.ndarray  # [T, J] previous trust-warm sets
     params: PlanParams = field(default_factory=PlanParams)
     max_holders: np.ndarray | None = None  # [T] holder budget K per key, 0 = none (D-85); None = no budgets
+    fn_inflight: np.ndarray | None = None  # [F] in-flight requests of each function now (kpa baseline)
     hetero: HeteroInput | None = None  # per-worker run times, deadline probabilities, scenarios (§11; hetero planner)
 
     @property

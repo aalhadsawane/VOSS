@@ -96,6 +96,7 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.scheduler.no_candidate_retry_s` | `0.5` | S | retry delay when no candidate exists |
 | `voss.scheduler.view_refresh_s` | `0.25` | S | view cache refresh |
 | `voss.worker.warm_ttl_s` | `600.0` | L | fixed keep-alive baseline timer; citation to be checked in V8; also an axis |
+| `voss.worker.warm_eviction` | `lru` | A | warm-sandbox eviction: `lru` or `greedy_dual` (FaaSCache baseline, V8) |
 | `voss.worker.m_base_mb` | `512.0` | pending V5 | image memory; becomes measured image_mem |
 | `voss.worker.assurance_tofu_factor` | `0.9` | pending V4 | trust scores removed |
 | `voss.worker.sync_priority` | `False` | pending V5 | synchronous-first queueing; on for every system in v2 |

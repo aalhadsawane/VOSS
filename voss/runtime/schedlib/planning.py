@@ -4,6 +4,7 @@ registered planner, and turn the plan diff into rate-limited, value-ordered acti
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -176,12 +177,16 @@ class Planning:
         units = tuple(np.round(np.log1p(inp.fn_units) / max(tol, 1e-6)).astype(int).tolist())
         return (inp.tenants, inp.fns, inp.workers, q, units)
 
-    def run(self, view: ClusterView, now: float) -> PlanRound:
+    def run(self, view: ClusterView, now: float, inflight: Mapping[str, int] | None = None) -> PlanRound:
         """Re-solve only when the inputs changed materially (doc 03 §4: periodic + events); otherwise keep the
-        previous plan and re-send whatever workers have not confirmed yet."""
+        previous plan and re-send whatever workers have not confirmed yet. ``inflight``: in-flight requests per
+        function, for planners that react to it every tick (``kpa``, which is never skipped)."""
         inp = self.build(view, now)
+        if inflight is not None:
+            inp = replace(inp, fn_inflight=np.array([float(inflight.get(str(f), 0)) for f in inp.fns]))
         sig = self._signature(inp)
-        if self.prev is not None and sig == self._last_sig:
+        every_tick = self.cfg.planner.name == "kpa"
+        if self.prev is not None and sig == self._last_sig and not every_tick:
             plan = replace(self.prev, valid_until=now + inp.horizon_s, status="reused")
         else:
             plan = self.planner.plan(inp)

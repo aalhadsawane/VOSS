@@ -6,12 +6,13 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING, Any
 
-from voss.core.ids import Addr, ClusterId, FnId, TenantId, WorkerId
+from voss.core.ids import Addr, ClusterId, FnId, InvId, TenantId, WorkerId
 from voss.core.messages import PinSnapshot, Prepare, Release, Warm
 from voss.metrics.schema import Table
 from voss.policy.cost.inputs import CostContext
 from voss.policy.plan.diff import PlanAction
 from voss.runtime.actor import ActorContext
+from voss.runtime.schedlib.inflight import Inflight
 from voss.runtime.schedlib.planning import Planning, PlanRound
 from voss.runtime.schedlib.provider_host import ProviderHost
 from voss.runtime.schedlib.viewcache import ViewCache
@@ -23,6 +24,7 @@ class PlannerMixin:
     cost: CostContext
     views: ViewCache
     planning: Planning
+    inflight: dict[InvId, Inflight]
     members: set[WorkerId]
     active: bool
     epoch: int
@@ -41,7 +43,10 @@ class PlannerMixin:
             return
         view = self.views.view(self.eligible(), self.now)
         t0 = time.perf_counter()
-        rnd = self.planning.run(view, self.now)
+        counts: dict[str, int] = {}
+        for rec in self.inflight.values():  # in-flight requests per function (the kpa baseline's metric)
+            counts[str(rec.inv.fn)] = counts.get(str(rec.inv.fn), 0) + 1
+        rnd = self.planning.run(view, self.now, counts)
         wall = time.perf_counter() - t0
         delay = self.ctx.clock.charge("plan", work=rnd.n_vars, host_speed=self.hl.speed, wall_s=wall)
         self.after(delay, self._apply_plan, rnd, wall, delay)
