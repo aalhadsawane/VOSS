@@ -1,4 +1,4 @@
-"""Sampled audit end to end (docs/REVISION_PLAN.md V7.3 exit): a forging class-P owner is banned, no honest worker is."""
+"""Sampled audit end to end (docs/REVISION_PLAN.md V7.3 exit): a forging class-P owner is banned, no honest one."""
 
 from __future__ import annotations
 
