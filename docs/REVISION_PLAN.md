@@ -528,8 +528,8 @@ Workflows (adapt the structure of the deleted `paper-rerun.yml`: plan → sweep 
 | `ci.yml` | push to `revision-v2`, `v2/**`; PRs | `make check`, 2-minute determinism smoke |
 | `traces.yml` | dispatch; push of `runs/requests/traces-*.yaml` | downloads public datasets, runs `tools/traces/*`, uploads derived files to a release `data-<name>-<sha>`, opens a PR with `provenance.yaml` |
 | `bench-decision.yml` | dispatch; push of `runs/requests/bench-*.yaml` | times policy code (V10), records `lscpu`, opens a PR with `decision.yaml` |
-| `experiment.yml` | dispatch (`spec`, `shards`); push of `runs/requests/<spec>-*.yaml` | plan job builds a shard matrix; each shard runs `python -m experiments.sweep --spec <spec> --shard i/n`; packs raw logs as `tar.zst` release assets under tag `runs-<spec>-<run id>`; analyse job runs `experiments.analysis`, pushes `results/<spec>-<run id>` and opens a PR into `revision-v2` |
-| `verify.yml` | dispatch | re-runs a random 10% of a finished experiment on fresh runners and compares result hashes |
+| `experiment.yml` | dispatch (`request`); push of `runs/requests/experiment/*.yaml` | plan job builds a shard matrix; each shard runs `python -m experiments.sweep --spec <spec> --shard i/n`; packs raw logs as `tar.zst` release assets under tag `runs-<spec>-<run id>`; analyse job runs `experiments.analysis`, pushes `results/<spec>-<run id>` and opens a PR into `revision-v2` |
+| `verify.yml` | dispatch (`request`); push of `runs/requests/verify/*.yaml` (`{spec, hashes, frac}`) | re-runs a random 10% of a finished experiment on fresh runners and compares result hashes |
 | `manuscript.yml` | push touching `manuscript/**` | builds the PDF, runs the forbidden-terms and feedback-regression tests (V14), uploads the PDF |
 
 Rules:
@@ -545,6 +545,13 @@ Rules:
   (`results/<spec>/summary.parquet`) and generated tables and figures.
 - `experiments/sweep.py` gains `--shard i/n` (deterministic partition of the run list) and writes one manifest per run with
   scenario hash, bundle hashes, trace hashes, config hash, code commit.
+
+**Outcome (V6, pipeline part).** `experiments/sweep.py --shard i/n` (round-robin partition), `experiments/collect.py`
+(`summary.parquet`, `hashes.csv`), `experiments/verify.py` (hash re-check of a seeded sample), `experiment.yml`,
+`verify.yml` and the spec `configs/experiments/TOY.yaml` (2 planners × 3 seeds; a pipeline check, not a result).
+Request files live in `runs/requests/experiment/` and `runs/requests/verify/`. `traces.yml` lands with V9,
+`bench-decision.yml` with V10, `manuscript.yml` with V14. If Actions may not open PRs (repository setting), the results
+branch is still pushed and the job prints a warning.
 
 **Exit criteria V6:** a 3-seed toy spec goes request file → sweep → release → analysis PR without manual steps; `verify.yml` matches hashes.
 

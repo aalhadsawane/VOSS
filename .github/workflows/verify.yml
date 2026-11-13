@@ -1,0 +1,36 @@
+# Reproduction check (docs/REVISION_PLAN.md V6): re-runs a sample of a finished experiment on a fresh runner and
+# compares result hashes. Start it by committing runs/requests/verify/<name>.yaml
+# ({spec: TOY, hashes: results/TOY-<run id>/hashes.csv, frac: 0.1}) on revision-v2.
+name: verify
+on:
+  push:
+    branches: [revision-v2]
+    paths: ['runs/requests/verify/*.yaml']
+  workflow_dispatch:
+    inputs:
+      request: {description: 'path of a request file', required: true}
+env:
+  OMP_NUM_THREADS: 1
+  OPENBLAS_NUM_THREADS: 1
+  MKL_NUM_THREADS: 1
+  NPY_DISABLE_CPU_FEATURES: X86_V4 X86_V3 AVX512_ICL AVX512_SPR
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: astral-sh/setup-uv@v6
+        with: {python-version: "3.11"}
+      - run: nproc; free -m; lscpu
+      - run: uv sync --frozen
+      - env:
+          BEFORE: ${{ github.event.before }}
+          INPUT: ${{ github.event.inputs.request }}
+        run: |
+          if [ -n "$INPUT" ]; then f="$INPUT"; else
+            f=$(git diff --name-only --diff-filter=AM "$BEFORE" HEAD -- 'runs/requests/verify/*.yaml' | sort | head -1)
+          fi
+          read -r spec hashes frac < <(python3 -c "import sys,yaml;r=yaml.safe_load(open(sys.argv[1]));print(r['spec'],r['hashes'],r.get('frac',0.1))" "$f")
+          uv run python -m experiments.verify "$spec" "$hashes" --frac "$frac" --salt "$GITHUB_RUN_ID"
