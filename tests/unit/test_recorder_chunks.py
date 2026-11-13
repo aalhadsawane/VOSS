@@ -18,9 +18,10 @@ def _fill(rec: Recorder) -> list[dict[str, object]]:
 
 
 def test_chunked_frames_and_hashes_equal_the_unchunked_ones() -> None:
-    small, big = Recorder(batch_rows=64), Recorder(batch_rows=10**9)
-    rows = _fill(small)
+    big = Recorder(batch_rows=10**9)
     _fill(big)
-    pd.testing.assert_frame_equal(small.frame("events"), pd.DataFrame(rows))
-    assert small.count("events") == 1000 and small.tables() == ["events"]
-    assert small.result_hash() == big.result_hash()
+    for small in (Recorder(batch_rows=64, spill=False), Recorder(batch_rows=64)):  # in memory, spilled to disk
+        rows = _fill(small)
+        pd.testing.assert_frame_equal(small.frame("events"), pd.DataFrame(rows))
+        assert small.count("events") == 1000 and small.tables() == ["events"]
+        assert small.result_hash() == big.result_hash()

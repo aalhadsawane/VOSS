@@ -4,12 +4,15 @@ Rows are buffered in memory per table and written as Parquet. ``result_hash`` is
 logged content, independent of file formats and library versions.
 
 Memory (docs/REVISION_PLAN.md V9.5): a Python dict per row costs about ten times its columnar size, and a day-long run
-at 700 workers exhausted a 16 GB runner. Every ``batch_rows`` rows a table's buffer is compacted into a DataFrame
-chunk; ``frame`` concatenates the chunks and the open buffer, with columns in order of first appearance as before.
+at 700 workers exhausted a 16 GB runner. Every ``batch_rows`` rows a table's buffer becomes a DataFrame chunk written
+to a Parquet file in a temporary directory (``spill=True``, the default), so recorder memory no longer grows with the
+run's length; ``frame`` reads the chunks back and concatenates them with the open buffer, columns in order of first
+appearance as before. Frames and result hashes equal the unchunked ones (``tests/unit/test_recorder_chunks.py``).
 """
 
 from __future__ import annotations
 
+import tempfile
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -23,11 +26,12 @@ from voss.metrics.schema import Table
 class Recorder:
     """Append-only tables: an open row buffer plus compacted columnar chunks per table."""
 
-    def __init__(self, batch_rows: int = 100_000) -> None:
+    def __init__(self, batch_rows: int = 100_000, spill: bool = True) -> None:
         self.batch_rows = batch_rows
         self._rows: dict[str, list[dict[str, Any]]] = defaultdict(list)
-        self._chunks: dict[str, list[pd.DataFrame]] = defaultdict(list)
+        self._chunks: dict[str, list[pd.DataFrame | Path]] = defaultdict(list)
         self._n: dict[str, int] = defaultdict(int)
+        self._dir = tempfile.TemporaryDirectory(prefix="voss-rec-") if spill else None
 
     def log(self, table: Table | str, **fields: Any) -> None:
         name = str(table)
@@ -35,15 +39,22 @@ class Recorder:
         rows.append(fields)
         self._n[name] += 1
         if len(rows) >= self.batch_rows:
-            self._chunks[name].append(pd.DataFrame(rows))
+            chunk = pd.DataFrame(rows)
             self._rows[name] = []
+            if self._dir is None:
+                self._chunks[name].append(chunk)
+                return
+            path = Path(self._dir.name) / f"{name}.{len(self._chunks[name]):06d}.pkl"
+            chunk.to_pickle(path)  # exact round trip of dtypes and object columns (Parquet coerces mixed objects)
+            self._chunks[name].append(path)
 
     def tables(self) -> list[str]:
         return sorted(self._n)
 
     def frame(self, table: Table | str) -> pd.DataFrame:
         name = str(table)
-        parts = [*self._chunks.get(name, []), *([pd.DataFrame(self._rows[name])] if self._rows.get(name) else [])]
+        chunks = [pd.read_pickle(c) if isinstance(c, Path) else c for c in self._chunks.get(name, [])]
+        parts = [*chunks, *([pd.DataFrame(self._rows[name])] if self._rows.get(name) else [])]
         if not parts:
             return pd.DataFrame()
         if len(parts) == 1:
