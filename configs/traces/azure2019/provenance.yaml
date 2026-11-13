@@ -1,0 +1,32 @@
+release: data-azure2019-aa120149
+run: https://github.com/aalhadsawane/VOSS/actions/runs/43462191310
+source:
+  name: Azure Functions trace 2019 (Shahrad et al., USENIX ATC 2020)
+  url: https://github.com/Azure/AzurePublicDataset/releases/download/dataset-functions-2019/azurefunctions_dataset2019_azurefunctions-dataset2019.tar.xz
+  description: https://github.com/Azure/AzurePublicDataset/blob/master/AzureFunctionsDataset2019.md
+  licence: CC-BY 4.0 (AzurePublicDataset LICENSE)
+retrieved_utc: '2026-11-13T16:24:32Z'
+inputs:
+  azurefunctions-dataset2019.tar.xz: aff8b3ca7240a41a109e4ee598e0a96e45fcb92e7b8395ac19cb3748cd260d89
+outputs:
+  arrivals_dev.parquet: b8ce22306f9e5c86fc62996ccd6f05c9ad2e4557513ccd400a75fa5663eb0ca4
+  arrivals_heldout.parquet: 40f8db66beca5942c3a5e822da0a84f2e4b4cbe6e4b723acc45ff0cd9e5cfcf9
+  functions_dev.parquet: e5b36115de553146af2ab0f1a1aba8b5220b8558f1f5817d5091022ac663c4a0
+  functions_heldout.parquet: 29d3ece72bf4aed4114bb3c368688249e8183f89f3642e29dfe95fee6eac14b5
+params:
+  splits:
+    dev:
+    - 1
+    - 2
+    - 3
+    - 4
+    heldout:
+    - 8
+    - 9
+    - 10
+    - 11
+  n_per_split: 200
+  seed: 1
+  sampling: 10 invocation-rate deciles, n/10 each
+  sync: trigger == http
+  duration: count-weighted mean of daily median and p99 (ms); mapping only

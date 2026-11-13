@@ -1,0 +1,22 @@
+release: data-ookla-fixed-2024q1-aa120149
+run: https://github.com/aalhadsawane/VOSS/actions/runs/43462191310
+source:
+  name: Speedtest by Ookla Global Fixed Network Performance Map Tiles, Q1 2024
+  url: https://ookla-open-data.s3.amazonaws.com/parquet/performance/type=fixed/year=2024/quarter=1/2024-01-01_performance_fixed_tiles.parquet
+  description: https://github.com/teamookla/ookla-open-data
+  licence: CC BY-NC-SA 4.0
+  attribution: Speedtest by Ookla Global Fixed and Mobile Network Performance Maps,
+    accessed via AWS Open Data. Based on analysis by the VOSS authors of Speedtest
+    by Ookla data for Q1 2024. Ookla trademarks used under license.
+retrieved_utc: '2026-11-13T16:26:51Z'
+inputs:
+  2024-01-01_performance_fixed_tiles.parquet: f8ec7a2bc890919c28ad4fe9807714de67498e055f8248a568671bb844e4022a
+outputs:
+  links.parquet: cbd94341bd9934f884762509cffd10af6ec918797afb2954982b4def96870c9c
+params:
+  radius_km: 30.0
+  draws_per_city: 500
+  seed: 1
+  weight: tests per tile
+  last_mile: half the Speedtest round-trip latency
+  cities_without_tiles: []
