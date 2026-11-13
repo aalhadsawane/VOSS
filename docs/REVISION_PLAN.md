@@ -377,6 +377,14 @@ session(s) with `docs/handoff/CALIBRATION_HANDOFF.md`.
     `manuscript/generated/macros.tex` (prefix `V`). No number is ever typed into a `.tex` file.
 - Tests: `tests/unit/test_metrics.py` with hand-built frames for every function, including a lost invocation and a late one.
 
+**V2 outcome (branch `v2/V2-metrics-analysis`).** Logged: `attempts` table (one row per attempt: first, retry or backup;
+ok, cancelled or failure status), `key_dropped` with `reason` (`release`, `session_end`), `busy` and `capacity` in
+`samples`. Analysis: `experiments/analysis/metrics.py` (classes met/late/lost/rejected, deadline-met, censored
+percentiles with a lower-bound flag, slowdown, holders, utilisation, warm memory, episodes, detection),
+`paired.py` (paired difference and ratio of means with seeded bootstrap, Holm), `summary.py` (one row per run),
+`macros.py` (prefix `V`, two significant digits). Table and figure emitters are written in V12, when the result
+shapes exist. Audit metrics come with V7.3.
+
 **Exit criteria V2:** tests green; a smoke run produces every metric.
 
 ---

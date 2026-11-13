@@ -176,9 +176,12 @@ class VossSystem:
 
     def _sample(self) -> None:
         up = sum(1 for a in self.agents.values() if a.host.up)
-        att = sum(1 for a in self.agents.values() if a.host.attested)
+        live = [a.host for a in self.agents.values() if a.host.attested]
         pending = sum(len(r.pending) for r in self.routers)
-        self.rec.log(Table.SAMPLES, t=self.kernel.now, hosts_up=up, attested=att, pending=pending)
+        busy, cap = sum(h.slots.busy for h in live), sum(h.n_slots for h in live)  # utilisation (D-88)
+        self.rec.log(
+            Table.SAMPLES, t=self.kernel.now, hosts_up=up, attested=len(live), pending=pending, busy=busy, capacity=cap
+        )
         self._sample_cache()
         self.kernel.after(60.0, self._sample)
 

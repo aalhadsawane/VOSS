@@ -171,5 +171,11 @@ class PlannedMixin(KeepWarmMixin):
         if session == self.host.session and tenant not in self.prepared and not busy:
             self.keys.discard(tenant)
             self.ctx.rec.log(
-                Table.EVENTS, t=self.now, kind="key_dropped", worker=self.host.worker, value=0.0, tenant=tenant
+                Table.EVENTS,
+                t=self.now,
+                kind="key_dropped",
+                worker=self.host.worker,
+                value=0.0,
+                tenant=tenant,
+                reason="release",
             )

@@ -7,6 +7,7 @@ from enum import StrEnum
 
 class Table(StrEnum):
     INVOCATIONS = "invocations"
+    ATTEMPTS = "attempts"
     EVENTS = "events"
     PLANS = "plans"
     SOLVER = "solver"
