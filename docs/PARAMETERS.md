@@ -109,9 +109,11 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.keepalive_hist.fallback_ttl_s` | `600.0` | pending V8 | fallback when the histogram is not representative |
 | `voss.cache.value` | `'gdsf'` | S | disk cache value policy |
 | `voss.cache.hdd_tier` | `True` | S | hard-disk tier on/off |
-| `voss.detection.watchdog_slack` | `1.2` | pending V7 | 1.2; removed (timeout = predicted q95) |
-| `voss.detection.watchdog_min_s` | `3.0` | pending V7 | 3 s floor; removed (F5) |
-| `voss.detection.probe_timeout_s` | `2.0` | pending V7 | no longer gates the retry; S for evidence |
+| `voss.detection.detector` | `voss` | A | `fixed`, `consecutive`, `voss` (plan V7.2) |
+| `voss.detection.quantile` | `0.95` | S | voss timer: predicted completion quantile, no floor (plan V7.1, F5) |
+| `voss.detection.probe_timeout_s` | `2.0` | S | an unanswered probe is drop-estimate evidence; it does not end the attempt |
+| `voss.detection.consecutive_streak` | `5` | L | Envoy outlier detection `consecutive_5xx`; TODO verify |
+| `voss.detection.consecutive_eject_s` | `30.0` | L | Envoy outlier detection `base_ejection_time`; TODO verify |
 | `voss.detection.suspect_streak` | `2` | S | consecutive failures before a worker is marked as failed |
 | `voss.detection.suspect_s` | `600.0` | S | how long a worker stays marked |
 | `voss.keys.max_holders` | `None` | A | holder budget K per function key (D-85); axis {2, 4, 8, 16, unbounded} in R01 |

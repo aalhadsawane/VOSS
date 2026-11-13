@@ -26,12 +26,22 @@ from voss.policy.place.base import PlaceRequest
 from voss.runtime.schedlib.models import SchedModels
 
 
+@dataclass(frozen=True)
+class Timing:
+    """Predicted completion of the chosen attempt, from the decision time (plan V7.1)."""
+
+    q: float  # the detector quantile (``voss.detection.quantile``) of completion time
+    mean: float  # mean completion time
+    budget: float  # remaining deadline budget
+
+
 @dataclass
 class Decision:
     assign: dict[InvId, WorkerId] = field(default_factory=dict)
     rejected: dict[InvId, str] = field(default_factory=dict)
     deferred: list[InvId] = field(default_factory=list)
     predicted: dict[tuple[InvId, WorkerId], tuple[float, float]] = field(default_factory=dict)
+    timing: dict[InvId, Timing] = field(default_factory=dict)
     work: int = 0
 
 
@@ -90,6 +100,7 @@ class Decider:
             out.assign[inv.id] = w
             j = idx[w]
             out.predicted[(inv.id, w)] = _pred(req.cm, r, j)
+            out.timing[inv.id] = _timing(req.cm, r, j, self.cfg.detection.quantile)
         return out
 
     def _waits(
@@ -126,6 +137,14 @@ def _pred(cm: CostMatrix | None, r: int, j: int) -> tuple[float, float]:
         return 0.0, 0.0
     k = int(np.flatnonzero(cm.candidates[r] == j)[0])
     return float(cm.components["exec"][r, k]), float(cm.components["exec_var"][r, k])
+
+
+def _timing(cm: CostMatrix | None, r: int, j: int, q: float) -> Timing:
+    if cm is None or j not in cm.candidates[r]:
+        return Timing(0.0, 0.0, float("inf"))
+    k = int(np.flatnonzero(cm.candidates[r] == j)[0])
+    c = cm.completion
+    return Timing(float(c.quantile(q)[r, k]), float(c.mean()[r, k]), float(cm.budget[r, k]))
 
 
 def _rows(cm: CostMatrix, keep: list[int]) -> CostMatrix:

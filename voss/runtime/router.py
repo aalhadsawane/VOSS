@@ -63,7 +63,8 @@ class Router(Actor):
         elif isinstance(msg, Reject):
             p = self.pending.get(msg.inv)
             if p is not None:
-                self._finalize(p, "rejected", None)
+                # the scheduler gave up (attempts used up, or no worker fits a retry, plan V7.1): lost, reported at once
+                self._finalize(p, "abandoned" if msg.reason in ("no_fit", "gave_up") else "rejected", None)
 
     # --- request path ------------------------------------------------------------------------------------------
     def _invoke(self, inv: Invocation) -> None:

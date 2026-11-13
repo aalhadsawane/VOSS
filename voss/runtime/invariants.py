@@ -7,6 +7,7 @@ import pandas as pd
 
 from voss.metrics.recorder import Recorder
 from voss.metrics.schema import Table
+from voss.policy.retry import PRE_EXEC_FAILURES
 from voss.world.scenario import Scenario
 
 COMPONENTS = ("route", "retry", "batch_wait", "decide", "net_in", "wait", "trust", "startup", "exec", "net_out")
@@ -160,6 +161,20 @@ def holders_within_budget(rec: Recorder, budgets: dict[str, int | None]) -> list
     return out
 
 
+def non_idempotent_once(rec: Recorder) -> list[str]:
+    """Plan V7 exit: a non-idempotent invocation never gets a backup, and is retried only after an attempt that never
+    reached execution."""
+    att = rec.frame(Table.ATTEMPTS)
+    if att.empty or "idempotent" not in att:
+        return []
+    ni = att[~att.idempotent.astype(bool)].sort_values(["inv", "attempt"])
+    out = [f"backup of non-idempotent invocation {int(r.inv)}" for r in ni[ni.kind == "backup"].head(10).itertuples()]
+    for inv, g in ni.groupby("inv", sort=True):
+        if not set(g.result.iloc[:-1]) <= PRE_EXEC_FAILURES:
+            out.append(f"non-idempotent invocation {int(inv)} executed more than once ({list(g.result)})")
+    return out[:20]
+
+
 def check_invariants(
     rec: Recorder,
     scn: Scenario,
@@ -179,4 +194,5 @@ def check_invariants(
         *one_terminal_outcome(rec, n_invocations),
         *no_stale_epoch(rec),
         *receipts_complete(rec),
+        *non_idempotent_once(rec),
     ]

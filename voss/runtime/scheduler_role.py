@@ -27,10 +27,12 @@ from voss.core.messages_ft import Pong
 from voss.core.types import Outcome, SloClass
 from voss.metrics.schema import Table
 from voss.policy.cost.inputs import CostContext
+from voss.policy.detect import detector
 from voss.policy.predict.base import ExecObs, FnPrior
 from voss.policy.retry import BasicRetry
 from voss.runtime.actor import Actor, ActorContext
-from voss.runtime.schedlib.decide import Decider, Decision
+from voss.runtime.schedlib.backup import BackupMixin
+from voss.runtime.schedlib.decide import Decider, Decision, Timing
 from voss.runtime.schedlib.inflight import Copy, Inflight, job_estimates
 from voss.runtime.schedlib.keepalive import KeepaliveMixin
 from voss.runtime.schedlib.models import SchedModels
@@ -42,7 +44,7 @@ from voss.runtime.schedlib.viewcache import ViewCache
 from voss.runtime.schedlib.watchdog import WatchdogMixin
 
 
-class SchedulerRole(KeepaliveMixin, WatchdogMixin, PlannerMixin, Actor):
+class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, PlannerMixin, Actor):
     role = "sched"
 
     def __init__(
@@ -68,7 +70,8 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, PlannerMixin, Actor):
         self.models = SchedModels(cfg, self.priors)
         self.decider = Decider(cfg, self.cost, self.models, self.ctx.cfg.scenario.start_utc_h)
         self.planning = Planning(cfg, self.cost, self.models, self.ctx.cfg.scenario.start_utc_h)
-        self.retry = BasicRetry(cfg.scheduler.max_attempts, cfg.scheduler.retry_backoff_s)
+        self.det = detector(cfg.detection.detector, cfg.detection, cfg.scheduler.max_attempts)
+        self.retry = BasicRetry(self.det.max_attempts, cfg.scheduler.retry_backoff_s)
         self.gen = self.ctx.rng.stream("sched.place", self.hl.worker, self.hl.session)
         self.token = 0
         rc = cfg.router
@@ -177,6 +180,7 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, PlannerMixin, Actor):
                 )
             return
         self.inflight[m.inv.id] = Inflight(m.inv, m.router, m.t_sent, t_in=self.now)
+        self._arm_expiry(self.inflight[m.inv.id])
         self.models.forecaster.observe(m.inv.tenant, self.now)
         self.models.forecaster.observe(f"fn:{m.inv.fn}", self.now)
         if m.inv.slo_class == SloClass.SYNC:
@@ -204,7 +208,7 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, PlannerMixin, Actor):
         t0 = time.perf_counter()
         jobs = job_estimates(self.inflight) if self.ctx.cfg.voss.cost.wait_model == "per_worker" else None
         d = self.decider.decide(
-            tuple(r.inv for r in recs), view, self.now, routers, self.gen, windowed, self.views.idx, jobs
+            tuple(self._variant(r) for r in recs), view, self.now, routers, self.gen, windowed, self.views.idx, jobs
         )
         wall = time.perf_counter() - t0
         delay = self.ctx.clock.charge("place", work=d.work, host_speed=self.hl.speed, wall_s=wall)
@@ -232,19 +236,25 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, PlannerMixin, Actor):
                 self.done.add(inv_id)
                 self.send(rec.router, Reject(inv_id, d.rejected[inv_id]))
             elif inv_id in d.assign:
-                self._dispatch(rec, d.assign[inv_id], False, d.predicted.get((inv_id, d.assign[inv_id])))
+                w, backup, rec.want_backup = d.assign[inv_id], rec.want_backup, False
+                if self._fits_or_drop(rec, backup, d.timing.get(inv_id)):
+                    self._dispatch(rec, w, backup, d.predicted.get((inv_id, w)), d.timing.get(inv_id))
+            elif rec.want_backup:
+                rec.want_backup = False  # no holder in another domain: no backup (the budget K limits this)
             else:
                 wait = cfg.admission.defer_s if windowed else cfg.scheduler.no_candidate_retry_s
                 self.after(wait, self._decide, [inv_id], windowed)
 
-    def _dispatch(self, rec: Inflight, w: WorkerId, backup: bool, pred: tuple[float, float] | None) -> None:
+    def _dispatch(
+        self, rec: Inflight, w: WorkerId, backup: bool, pred: tuple[float, float] | None, t: Timing | None
+    ) -> None:
         self.token += 1
         a = rec.next_attempt
         rec.next_attempt += 1
         mu, var = pred or (0.0, 0.0)
         st = self.views.store.states.get(w)
         load = (st.busy + st.queued) / max(1, st.slots) if st else 0.0
-        rec.copies[a] = Copy(a, w, self.now, backup, mu=mu, sigma=var, load=load)
+        rec.copies[a] = Copy(a, w, self.now, backup, mu=mu, sigma=var, load=load, q_done=t.q if t else 0.0)
         self.views.dispatched(w, self.now)
         self._ka_dispatch(rec.inv.fn, w)
         inv = replace(rec.inv, attempt=a)
@@ -321,6 +331,7 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, PlannerMixin, Actor):
             t_end=self.now,
             result=result,
             fn=str(rec.inv.fn),
+            idempotent=rec.inv.idempotent,
         )
 
     def _copy_failed(self, rec: Inflight, c: Copy, status: str) -> None:
@@ -332,9 +343,10 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, PlannerMixin, Actor):
         dec = self.retry.on_failure(replace(rec.inv, attempt=rec.failures), status, self.now)
         if dec.counts_attempt:
             rec.failures += 1
-        if not dec.retry:
+        if not dec.retry:  # attempts used up, or not idempotent: report the miss at once (plan V7.1)
             del self.inflight[rec.inv.id]
             self.done.add(rec.inv.id)
+            self.send(rec.router, Reject(rec.inv.id, "gave_up"))
             return
         rec.inv = replace(rec.inv, excluded=rec.inv.excluded | {c.worker})
         rec.t_enqueue, rec.batch_wait = self.now, 0.0

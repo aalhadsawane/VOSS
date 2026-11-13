@@ -83,7 +83,8 @@ def static_parts(
     f, t = ctx.fns[inv.fn], ctx.tenants[inv.tenant]
     ok = eligible(view, inv, now, margin_s) & (view.assurance >= t.assurance_floor)
     holder = cache.holder(view, inv.tenant)
-    if not may_add_holder(int(holder.sum()), t.max_holders):  # budget reached: only holders are candidates (D-85)
+    # a backup, or the budget is reached: only holders are candidates (D-85, plan V7.1)
+    if inv.holders_only or not may_add_holder(int(holder.sum()), t.max_holders):
         ok &= holder
     trust = np.where(holder | (a.trust_fixed == 0), 0.0, cache.rtt(ctx, t.kbs_lat, t.kbs_lon) + a.trust_fixed)
     fetch, rest = cache.startup(view, ctx, inv.fn)
