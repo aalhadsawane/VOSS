@@ -31,6 +31,7 @@ class SessionMixin:
     attempts: dict[Any, Any]
     drain_deadline: float | None
     sched: Addr | None
+    keys: set[str]
 
     if TYPE_CHECKING:  # provided by Actor / WorkerAgent
 
@@ -151,6 +152,16 @@ class SessionMixin:
             att.cancelled = True
             for r in att.runs:
                 r.abort()
+        for tenant in sorted(self.keys):  # keys live in RAM only: the session's end drops them (D-88 holder metrics)
+            self.ctx.rec.log(
+                Table.EVENTS,
+                t=self.now,
+                kind="key_dropped",
+                worker=h.worker,
+                value=0.0,
+                tenant=tenant,
+                reason="session_end",
+            )
         self.cancel_timers()
         h.reset_session()
         self._init_session_state()

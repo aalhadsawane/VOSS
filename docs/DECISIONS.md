@@ -68,6 +68,14 @@ boundary: `policy` never imports `world`), D-06 (actor model with typed messages
 **D-93 An inline adversary behaviour mix replaces the regime's mix.** Found in V0: `scenario.adversary.mix` was
 deep-merged into the regime file's mix, so a test that asked for black-hole owners only got all eight behaviours. A mix is
 a distribution; an inline one replaces the file's.
+**D-94 Breadth after V0 (plan §10).** The loss-model provisioning rule returns as a candidate (Algorithm 1b): its
+(1 − 1/e) bound under a cardinality limit applies to the per-function holder budget. Volunteer-hosted clusters do not
+return; partitioning is measured with provider-hosted regional schedulers (R10) and the hosting question is argued.
+Hedged requests (Dean and Barroso) become a failure-handling baseline. *Why:* the author's review: removing mechanisms
+must not remove answers to questions reviewers ask, and every comparison must use strong, published baselines.
+*Rejected:* restoring the clustered volunteer-hosted design (confounds partitioning with untrusted hosting, needs
+succession, and saves no provider infrastructure).
+
 
 ## v1 decisions (D-01 to D-80)
 

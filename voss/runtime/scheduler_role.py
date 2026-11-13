@@ -278,9 +278,11 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, PlannerMixin, Actor):
         self.streak.pop(c.worker, None)
         self._ka_end(rec.inv.fn, rec.inv.tenant, c.worker)
         self.prices.outcome(o, c.t_dispatch - rec.t_in if rec.inv.slo_class == SloClass.SYNC else None)
+        self._log_attempt(rec, c, "ok")
         for other in sorted(rec.copies.values(), key=lambda x: x.attempt):
             if other.attempt != o.attempt:
                 self.send(("agent", other.worker), Cancel(o.inv, other.attempt))
+                self._log_attempt(rec, other, "cancelled")
         self._learn(rec, c, o)
 
     def _learn(self, rec: Inflight, c: Copy, o: Outcome) -> None:
@@ -305,7 +307,24 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, PlannerMixin, Actor):
             tenant=TenantId(rec.inv.tenant),
         )
 
+    def _log_attempt(self, rec: Inflight, c: Copy, result: str) -> None:
+        """One row per attempt when it ends (D-88): first, retry or backup; ok, cancelled or the failure status."""
+        kind = "backup" if c.backup else ("first" if c.attempt == 0 else "retry")
+        self.ctx.rec.log(
+            Table.ATTEMPTS,
+            inv=int(rec.inv.id),
+            attempt=c.attempt,
+            worker=int(c.worker),
+            kind=kind,
+            t_dispatch=c.t_dispatch,
+            t_end=self.now,
+            result=result,
+            fn=str(rec.inv.fn),
+        )
+
     def _copy_failed(self, rec: Inflight, c: Copy, status: str) -> None:
+        if c.attempt in rec.copies:
+            self._log_attempt(rec, c, status)
         rec.copies.pop(c.attempt, None)
         if rec.copies or rec.inv.id not in self.inflight:
             return  # another copy is still running
