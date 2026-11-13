@@ -35,6 +35,8 @@ class FnInfo:
     out_bytes: float
     idempotent: bool
     work_ref_s: float = 0.1
+    in_ref_bytes: float = 1024.0  # reference input size
+    deadline_s: float = 1.0  # deadline the tenant sets at the reference input size (synchronous) or the async one
 
 
 @dataclass(frozen=True)

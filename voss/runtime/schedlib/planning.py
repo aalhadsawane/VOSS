@@ -20,6 +20,7 @@ from voss.policy.plan.ablate import survival_blind
 from voss.policy.plan.diff import PlanAction, diff, hold_until_needed, rate_limit
 from voss.policy.plan.types import Plan, PlanInput, PlanParams
 from voss.policy.predict.arrivals import poisson_quantile
+from voss.runtime.schedlib.hetero_inputs import hetero_inputs
 from voss.runtime.schedlib.models import SchedModels
 from voss.runtime.schedlib.prices import Prices
 
@@ -67,7 +68,12 @@ class Planning:
 
     def build(self, view: ClusterView, now: float) -> PlanInput:
         inp = self._build(view, now)
-        return survival_blind(inp) if self.params.survival_blind else inp
+        inp = survival_blind(inp) if self.params.survival_blind else inp
+        if self.cfg.planner.name == "hetero":  # per-worker run times, deadline probabilities, failure scenarios (§11)
+            pc = self.cfg.planner
+            het = hetero_inputs(inp, view, self.ctx, self.models, pc.scenarios, pc.domain_shock_p, pc.ablate)
+            inp = replace(inp, hetero=het)
+        return inp
 
     def _build(self, view: ClusterView, now: float) -> PlanInput:
         pc = self.cfg.planner

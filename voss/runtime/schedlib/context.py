@@ -9,7 +9,7 @@ from voss.policy.cost.inputs import CostContext, FnInfo, StartupModel, TenantInf
 from voss.policy.predict.base import FnPrior
 from voss.world.geo import Metros
 from voss.world.substrate import CpuOp, DelayOp, SubstrateProfile
-from voss.world.workload import Catalog
+from voss.world.workload import Catalog, FunctionSpec, load_load_regime
 
 
 def _mean(ref: object) -> float:
@@ -61,6 +61,8 @@ def cost_context(
             f.out_kb * 1024,
             f.idempotent,
             f.work_ref_s,
+            f.in_kb * 1024,
+            _deadline(f, cfg),
         )
         for f in catalog.functions
     }
@@ -94,3 +96,11 @@ def cost_context(
 
 def fn_priors(catalog: Catalog) -> dict[str, FnPrior]:
     return {f.name: FnPrior(f.work_ref_s, f.in_kb * 1024, f.size_exp) for f in catalog.functions}
+
+
+def _deadline(f: FunctionSpec, cfg: RunConfig) -> float:
+    """The deadline the tenant states for ``f`` at its reference input (doc 02 §8, background §2.3 of the paper)."""
+    reg = load_load_regime(cfg.scenario)
+    if f.slo_class == "sync":
+        return float(f.slo_k * (f.work_ref_s + reg.sync_overhead_s))
+    return float(reg.async_deadline_s)
