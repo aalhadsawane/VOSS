@@ -1,0 +1,17 @@
+# Traced host availability (docs/REVISION_PLAN.md V9.2): every worker replays one SETI@home host's week of availability
+# intervals (Failure Trace Archive, seti09; tools/traces/fta.py). Correlated losses are in the trace, so no synthetic
+# shocks; whether a session ends with notice is not in the data: graceful_frac is an axis (A: {0, 0.5}).
+provenance: {default: trace, note: "sessions from configs/traces/seti09/provenance.yaml; tiers unused when trace is set"}
+regime: churn_seti
+trace: seti09
+split: dev
+graceful_frac: 0.5
+drain_lead: {dist: lognormal, median: 120, sigma: 0.7}
+tiers:
+  nightly: {kind: always, length: {dist: weibull, shape: 0.7, scale: 259200}}
+  idle: {kind: always, length: {dist: weibull, shape: 0.7, scale: 259200}}
+  dedicated: {kind: always, length: {dist: weibull, shape: 0.7, scale: 259200}}
+shocks: {rate_per_h: 0.0, frac: 0.0, scope: city}
+platform:
+  late_join_frac: 0.0
+  leave_rate_per_day: {nightly: 0.0, idle: 0.0, dedicated: 0.0}

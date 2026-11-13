@@ -1,0 +1,2 @@
+tool: fta
+args: ["--hosts", "20000", "--heldout-day", "182", "--avail-type", "1"]
