@@ -84,6 +84,16 @@ period bounds how long the budget is held by departed machines; R07 reports this
 dimension per function (larger change for the same behaviour); trusting the scheduler to enforce `K` (the tenant must
 not depend on the provider for its own budget).
 
+**D-96 Provisioning is heterogeneity- and reliability-aware stochastic submodular maximisation (plan §11).** Holders
+are chosen per function to maximise the expected rate of invocations served within their deadline, with each worker's
+contribution weighted by its predicted speed for that function (function × machine-class × worker run-time model with
+calibration priors), its probability of meeting the deadline, and its probability of staying and not dropping work;
+failure domains add correlated losses. Proposition 1 (monotone submodular) gives greedy (1 − 1/e) per function under the
+holder budget; Proposition 2 gives 1/3 across functions sharing workers. *Why:* the author's direction that
+heterogeneity and unreliability be first-class; our measurements show per-function machine ratios of 2.4-5.7x and 1.5%
+repeatability. *Replaces:* the §10 choice between a cover rule and a loss-model rule; the cover rule becomes the robust
+baseline.
+
 
 ## v1 decisions (D-01 to D-80)
 
