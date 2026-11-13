@@ -6,7 +6,7 @@ import io
 import tarfile
 from pathlib import Path
 
-from tools.traces.fta import WEEK, read_events, sessions
+from tools.traces.fta import WEEK, inspect, read_events, sessions
 
 
 def _archive(tmp: Path, header: bool) -> Path:
@@ -51,3 +51,9 @@ def test_a_truncated_archive_keeps_the_hosts_it_holds_completely(tmp_path: Path)
     ev = read_events(cut, chunk=1000)
     assert 0 < len(ev) < 30000 and ev.node_id.is_monotonic_increasing
     assert (ev.groupby("node_id").size() == 3).all()  # the cut-off last host is dropped
+
+
+def test_inspect_prints_the_facts(tmp_path: Path, capsys) -> None:  # type: ignore[no-untyped-def]
+    inspect(read_events(_archive(tmp_path, False)))
+    out = capsys.readouterr().out
+    assert "start times non-decreasing" in out and "event_type 1" in out and "alternate type" in out

@@ -173,6 +173,33 @@ def read_events(archive: Path, chunk: int = 1_000_000) -> pd.DataFrame:
     return ev.reset_index(drop=True)
 
 
+def inspect(ev: pd.DataFrame) -> None:
+    """Facts the derivation must rest on, printed for the log (plan V9.2): time order and span, hosts per week,
+    duration quantiles and total time per event type, and whether the two types alternate within a host."""
+    d = (ev.stop - ev.start) / 3600
+    print(
+        f"start times non-decreasing: {bool(ev.start.is_monotonic_increasing)}; "
+        f"span {pd.to_datetime(ev.start.min(), unit='s')} to {pd.to_datetime(ev.start.max(), unit='s')}"
+    )
+    q = [0.1, 0.25, 0.5, 0.75, 0.9, 0.99]
+    for t, g in d.groupby(ev.event_type):
+        print(
+            f"event_type {t}: n={len(g)}, total {g.sum():.4g} h, quantiles (h) "
+            + ", ".join(f"{x:g}:{g.quantile(x):.3g}" for x in q)
+        )
+    week = ((ev.start - ev.start.min()) // (7 * 86400)).astype(int)
+    hosts = ev.groupby(week).node_id.nunique()
+    print("active hosts per week:", ", ".join(f"w{int(k)}:{int(v)}" for k, v in hosts.items()))
+    s = ev.sort_values(["node_id", "start"], kind="stable")
+    same = s.node_id.to_numpy()[1:] == s.node_id.to_numpy()[:-1]
+    alt = s.event_type.to_numpy()[1:] != s.event_type.to_numpy()[:-1]
+    gap = (s.start.to_numpy()[1:] - s.stop.to_numpy()[:-1])[same]
+    print(
+        f"within a host: consecutive events alternate type {float(alt[same].mean()):.3f} of the time; "
+        f"gap to next event (s) quantiles 0.5:{np.quantile(gap, 0.5):.3g} 0.99:{np.quantile(gap, 0.99):.3g}"
+    )
+
+
 def sessions(ev: pd.DataFrame, avail: int, hosts: int, heldout_day: float, seed: int) -> dict[str, pd.DataFrame]:
     for t, g in ev.groupby("event_type"):
         print(f"event_type {t}: {len(g)} events, median length {float((g.stop - g.start).median()) / 3600:.2f} h")
@@ -206,6 +233,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--discover", action="store_true")
     p.add_argument("--url", default=None, help="one snapshot to use (default: try SNAPSHOTS in order)")
     p.add_argument("--allow-prefix", action="store_true", help="use the longest truncated copy if none is complete")
+    p.add_argument("--inspect", action="store_true", help="print facts about the events and stop (no derived files)")
     p.add_argument("--work", type=Path, default=Path("data/raw/fta"))
     p.add_argument("--avail-type", type=int, default=1)
     p.add_argument("--hosts", type=int, default=20000)
@@ -217,7 +245,11 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{status} {length:>12} https://web.archive.org/web/{ts}id_/{url}")
         return 0
     archive, used = fetch_complete((a.url,) if a.url else SNAPSHOTS, a.work, a.allow_prefix)
-    out = sessions(read_events(archive), a.avail_type, a.hosts, a.heldout_day, a.seed)
+    ev = read_events(archive)
+    if a.inspect:
+        inspect(ev)
+        return 0
+    out = sessions(ev, a.avail_type, a.hosts, a.heldout_day, a.seed)
     a.out.mkdir(parents=True, exist_ok=True)
     for split, df in out.items():
         df.to_parquet(a.out / f"sessions_{split}.parquet", index=False)
