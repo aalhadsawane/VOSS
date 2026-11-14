@@ -12,9 +12,11 @@ Derivation (plan V9.2) from the SETI@home 2009 trace in the archive's tabular fo
   stop, end reason) is read in chunks; the log prints the archive's members, the file's first lines, and the count and
   median length of each event type, so the availability encoding (``--avail-type``, the archive's documented value 1)
   is checked against the data;
-- a host's availability intervals are its sessions. Splits: development = even host ids in the week starting at the
-  trace's first event; held-out = odd host ids in the week starting ``--heldout-day`` days later. ``--hosts`` hosts are
-  sampled per split (deterministic); intervals are clipped to the week and stored relative to its start.
+- a host's availability intervals (type 1: checked on 2026-11-14 against the paper's totals; the two types alternate
+  without gaps) are its sessions, after joining the gaps of the client's 5-day benchmark. Splits: development = even
+  host ids in week ``--weeks[0]``, held-out = odd host ids in week ``--weeks[1]`` (default 40 and 66: 21,969 and
+  44,933 active hosts in the truncated copy). ``--hosts`` hosts are sampled per split (deterministic); intervals are
+  clipped to the week and stored relative to its start.
 """
 
 from __future__ import annotations
@@ -200,14 +202,32 @@ def inspect(ev: pd.DataFrame) -> None:
     )
 
 
-def sessions(ev: pd.DataFrame, avail: int, hosts: int, heldout_day: float, seed: int) -> dict[str, pd.DataFrame]:
+BENCH_GAP_S, BENCH_RUN_S = 120.0, 4.9 * 86400  # the 5-day benchmark artefact (Javadi et al., section 3)
+
+
+def merge_benchmark_gaps(a: pd.DataFrame) -> pd.DataFrame:
+    """Join availability intervals split by the client's 5-day benchmark: an interval of at least ``BENCH_RUN_S``
+    followed, after a gap under ``BENCH_GAP_S``, by the next one of the same host (the authors removed these gaps)."""
+    a = a.sort_values(["node_id", "start"], kind="stable").reset_index(drop=True)
+    same = a.node_id.eq(a.node_id.shift())
+    join = same & ((a.start - a.stop.shift()) < BENCH_GAP_S) & ((a.stop - a.start).shift() >= BENCH_RUN_S)
+    g = (~join).cumsum()
+    out = a.groupby(g).agg(node_id=("node_id", "first"), start=("start", "first"), stop=("stop", "last"))
+    print(f"benchmark gaps merged: {int(join.sum())}")
+    return out.reset_index(drop=True)
+
+
+def sessions(ev: pd.DataFrame, avail: int, hosts: int, weeks: tuple[int, int], seed: int) -> dict[str, pd.DataFrame]:
+    """Development = even host ids in week ``weeks[0]``, held-out = odd host ids in week ``weeks[1]`` (weeks counted
+    from the trace's first event); intervals clipped to the week, relative to its start."""
     for t, g in ev.groupby("event_type"):
         print(f"event_type {t}: {len(g)} events, median length {float((g.stop - g.start).median()) / 3600:.2f} h")
-    a = ev[ev.event_type == avail]
+    a = merge_benchmark_gaps(ev[ev.event_type == avail][["node_id", "start", "stop"]])
     t0 = float(ev.start.min())
     out = {}
-    for split, parity, day in (("dev", 0, 0.0), ("heldout", 1, heldout_day)):
-        lo, hi = t0 + day * 86400, t0 + day * 86400 + WEEK
+    for split, parity, week in (("dev", 0, weeks[0]), ("heldout", 1, weeks[1])):
+        lo = t0 + week * WEEK
+        hi = lo + WEEK
         w = a[(a.node_id % 2 == parity) & (a.stop > lo) & (a.start < hi)]
         ids = np.sort(w.node_id.unique())
         pick = np.sort(stream(seed, "traces.fta.hosts", split).choice(ids, size=min(hosts, len(ids)), replace=False))
@@ -223,7 +243,7 @@ def sessions(ev: pd.DataFrame, avail: int, hosts: int, heldout_day: float, seed:
             .sort_values(["host", "start_s"])
             .reset_index(drop=True)
         )
-        print(f"{split}: {len(pick)} hosts, {len(out[split])} intervals, window starts {lo:.0f}")
+        print(f"{split}: week {week}, {len(pick)} of {len(ids)} hosts, {len(out[split])} intervals, starts {lo:.0f}")
     return out
 
 
@@ -237,7 +257,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--work", type=Path, default=Path("data/raw/fta"))
     p.add_argument("--avail-type", type=int, default=1)
     p.add_argument("--hosts", type=int, default=20000)
-    p.add_argument("--heldout-day", type=float, default=182.0)
+    p.add_argument("--weeks", type=int, nargs=2, default=(40, 66), help="development and held-out week numbers")
     p.add_argument("--seed", type=int, default=1)
     a = p.parse_args(argv)
     if a.discover:
@@ -249,17 +269,19 @@ def main(argv: list[str] | None = None) -> int:
     if a.inspect:
         inspect(ev)
         return 0
-    out = sessions(ev, a.avail_type, a.hosts, a.heldout_day, a.seed)
+    out = sessions(ev, a.avail_type, a.hosts, tuple(a.weeks), a.seed)
     a.out.mkdir(parents=True, exist_ok=True)
     for split, df in out.items():
         df.to_parquet(a.out / f"sessions_{split}.parquet", index=False)
     params = {
         "avail_type": a.avail_type,
         "hosts_per_split": a.hosts,
+        "prefix_of_truncated_archive": archive.name.endswith(".part"),
         "week_s": WEEK,
-        "heldout_day": a.heldout_day,
+        "weeks": list(a.weeks),
+        "benchmark_gap": {"gap_s": BENCH_GAP_S, "run_s": BENCH_RUN_S},
         "seed": a.seed,
-        "splits": "dev = even host ids, week 1; heldout = odd host ids, week at heldout_day",
+        "splits": "dev = even host ids in weeks[0]; heldout = odd host ids in weeks[1]",
     }
     write_provenance(a.out, {**SOURCE, "url": used}, [archive], params)
     return 0
