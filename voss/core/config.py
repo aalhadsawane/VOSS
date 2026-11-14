@@ -85,6 +85,9 @@ class RouterConfig(Frozen):
     max_resends: int = 3
     give_up_s: dict[str, float] = Field(default_factory=lambda: {"sync": 30.0, "async": 300.0})
     receipt_batch_s: float = 1.0
+    # finished invocations are remembered this long, to recognise a slower attempt's result as a duplicate (bounded
+    # memory over long runs, plan V9.5); derived: 12x the async give-up
+    done_keep_s: float = 3600.0
 
 
 class PlacerConfig(Frozen):

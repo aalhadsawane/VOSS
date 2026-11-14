@@ -19,6 +19,7 @@ from voss.core.types import Invocation
 from voss.metrics.schema import Table
 from voss.policy.detect import Detector, fits
 from voss.runtime.actor import ActorContext
+from voss.runtime.expiring import ExpiringSet
 from voss.runtime.schedlib.decide import Timing
 from voss.runtime.schedlib.inflight import Copy, Inflight
 from voss.runtime.schedlib.viewcache import ViewCache
@@ -28,7 +29,7 @@ class BackupMixin:
     ctx: ActorContext
     views: ViewCache
     inflight: dict[InvId, Inflight]
-    done: set[InvId]
+    done: ExpiringSet[InvId]
     det: Detector
 
     if TYPE_CHECKING:

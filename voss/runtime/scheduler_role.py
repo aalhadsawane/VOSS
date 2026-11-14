@@ -31,6 +31,7 @@ from voss.policy.detect import detector
 from voss.policy.predict.base import ExecObs, FnPrior
 from voss.policy.retry import BasicRetry
 from voss.runtime.actor import Actor, ActorContext
+from voss.runtime.expiring import ExpiringSet
 from voss.runtime.schedlib.audit import AuditMixin, AuditRec
 from voss.runtime.schedlib.backup import BackupMixin
 from voss.runtime.schedlib.decide import Decider, Decision, Timing
@@ -65,7 +66,7 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, AuditMixin, Plan
         self.streak: dict[WorkerId, int] = {}
         self.decide_lat: deque[float] = deque(maxlen=256)
         self.inflight: dict[InvId, Inflight] = {}
-        self.done: set[InvId] = set()
+        self.done: ExpiringSet[InvId] = ExpiringSet(cfg.router.done_keep_s, lambda: self.now)
         self.audits: dict[InvId, AuditRec] = {}
         self.lat_obs: dict[str, deque[float]] = {}
         self.window: list[InvId] = []
