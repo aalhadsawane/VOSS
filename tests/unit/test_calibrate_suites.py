@@ -12,7 +12,7 @@ import pytest
 from tools.calibrate import run as harness
 from tools.calibrate.common import Records, Shell
 from tools.calibrate.fc import MARK, boot_args
-from tools.calibrate.suites import Ctx, appliance, caps, disk, sebs, tme
+from tools.calibrate.suites import Ctx, appliance, caps, disk, fc_snapshot, sebs, tme
 
 GETCAP = (
     'TPM2_PT_FAMILY_INDICATOR:\n  raw: 0x322E3000\n  value: "2.0"\n'
@@ -126,17 +126,33 @@ def _ran(out: str) -> list[str]:
 
 
 def test_sebs_leaves_out_guest_sets_over_the_ram_budget(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    opts = {"kernel": "/a/k", "sebs_rootfs": "/a/r", "firecracker": "/a/fc", "functions": "dynamic-html,graph-bfs"}
+    opts = {"kernel": "/a/k", "sebs_rootfs": "/a/r", "firecracker": "/a/fc", "functions": "thumbnailer,graph-bfs"}
     ctx = _ctx(tmp_path, mem_budget_mb="2100", concurrencies="1,2,4,8", **opts)
     sebs.run(ctx)
-    # dynamic-html: 512 MB per guest → 1, 2 and 4 guests fit in 2100 MB; graph-bfs: 2048 MB → only 1 guest fits
+    # thumbnailer: 512 MB per guest → 1, 2 and 4 guests fit in 2100 MB; graph-bfs: 2048 MB → only 1 guest fits
     assert _ran(capsys.readouterr().out) == [
-        "fn=dynamic-html concurrency=1",
-        "fn=dynamic-html concurrency=2",
-        "fn=dynamic-html concurrency=4",
+        "fn=thumbnailer concurrency=1",
+        "fn=thumbnailer concurrency=2",
+        "fn=thumbnailer concurrency=4",
         "fn=graph-bfs concurrency=1",
     ]
     assert "sebs fn=graph-bfs concurrency=8" in _skipped(ctx)
+
+
+def test_sebs_memory_covers_the_largest_inputs() -> None:
+    # The largest dynamic-html and dna-visualisation inputs OOM-kill a 512/1,024 MB guest before reporting a size.
+    assert sebs.MEM_MB["dynamic-html"] >= 4096
+    assert sebs.MEM_MB["dna-visualisation"] >= 4096
+
+
+def test_sebs_scratch_dir_accepts_the_nvme_tier(tmp_path: Path) -> None:
+    # node_run.sh calls an NVMe-only node's tier nvme_dir; using only ssd_dir silently skipped every snap_size.
+    assert sebs.scratch_dir(_ctx(tmp_path, nvme_dir=str(tmp_path / "nvme"))) == tmp_path / "nvme"
+    assert sebs.scratch_dir(_ctx(tmp_path, ssd_dir=str(tmp_path / "ssd"))) == tmp_path / "ssd"
+
+
+def test_fc_snapshot_creates_the_contract_sample_count() -> None:
+    assert fc_snapshot.CREATE_REPS >= 50
 
 
 def test_sebs_levels_reach_physical_cores_and_threads(tmp_path: Path) -> None:
@@ -442,3 +458,10 @@ def test_keys_parsers_read_openssl_speed_output() -> None:
     rsa = "                  sign    verify    sign/s verify/s\nrsa 2048 bits 0.000343s 0.000017s   2917.0  58743.3\n"
     assert keys.speed_rsa_private_s(rsa) == pytest.approx(0.000343)
     assert keys.speed_aes_mbps("nothing") is None and keys.speed_rsa_private_s("") is None
+
+
+def test_only_image_recognition_uses_the_ml_guest_image(tmp_path: Path) -> None:
+    """The ML image (PyTorch) serves image-recognition alone; every other function keeps the base image."""
+    ctx = _ctx(tmp_path, kernel="/a/k", firecracker="/a/fc", sebs_rootfs="/a/base.ext4", sebs_ml_rootfs="/a/ml.ext4")
+    assert sebs.guest_assets(ctx, "image-recognition").rootfs == "/a/ml.ext4"
+    assert {sebs.guest_assets(ctx, f).rootfs for f in sebs.SIZES if f not in sebs.ML_FUNCTIONS} == {"/a/base.ext4"}

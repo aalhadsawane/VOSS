@@ -15,7 +15,7 @@ import concurrent.futures as cf
 import os
 from pathlib import Path
 
-from tools.calibrate.common import _cores
+from tools.calibrate.common import SuiteSkipped, _cores
 from tools.calibrate.fc import FcAssets, FcVm, boot_args
 from tools.calibrate.suites import Ctx, Suite
 from tools.calibrate.suites.fc_boot import assets
@@ -37,15 +37,29 @@ SIZES: dict[str, tuple[tuple[int, str], ...]] = {
 }
 # guest memory (MB); the larger input sizes need more than the 512 MB default
 MEM_MB = {
+    # dynamic-html's largest size renders 10 million random numbers into one Jinja2 page; 512 MB OOM-kills the guest
+    # (fnrunner exit 137) before any size is reported.
+    "dynamic-html": 4096,
     "video-processing": 1024,
     "image-recognition": 2048,
-    "dna-visualisation": 1024,
+    # dna-visualisation's largest size transforms 8 MB of DNA with squiggle; 1,024 MB OOM-kills the guest.
+    "dna-visualisation": 4096,
     "uploader": 1024,
     "compression": 1024,
     "graph-pagerank": 2048,
     "graph-mst": 2048,
     "graph-bfs": 2048,
 }
+
+
+def scratch_dir(ctx: Ctx) -> Path | None:
+    """Tier used for snapshot files: the solid-state tier, or the first tier the node supplies.
+
+    ``node_run.sh`` passes ``nvme_dir``/``sata_dir``/``hdd_dir`` (NODE_PLAN §2); the older ``ssd_dir`` name is kept
+    for the laptop helper. Using only ``ssd`` silently skipped every ``snap_size`` on an NVMe-only node.
+    """
+    dirs = ctx.dirs()
+    return dirs.get("ssd") or dirs.get("nvme") or dirs.get("sata") or next(iter(dirs.values()), None)
 
 
 def concurrencies(ctx: Ctx) -> list[int]:
@@ -121,17 +135,32 @@ def _level(ctx: Ctx, a: FcAssets, fn: str, n: int, reps: int) -> bool:
         for name, size, rep, secs in parse(execs, "EXEC"):
             cls = classes.get(size, "-")
             ctx.rec.add("sebs_exec", secs, rep=rep, fn=name, size_kb=size, sebs_class=cls, concurrency=n, guest=guest)
-        if n == 1:
-            ctx.rec.add("fn_rss", rss, unit="MB", fn=fn)
+        # Contract §5 asks for n >= 10 per function; one RSS per level gives 1+2+4+... samples, not one.
+        ctx.rec.add("fn_rss", rss, unit="MB", fn=fn, concurrency=n, guest=guest)
     return True
 
 
+# functions that need the ML guest image (``build_rootfs.sh --with-ml``: PyTorch + ResNet-50); the others run on the
+# base image, so adding the ML image changes no other function's measurements
+ML_FUNCTIONS = ("image-recognition",)
+
+
+def guest_assets(ctx: Ctx, fn: str) -> FcAssets:
+    """The base guest image, or the ML image (``sebs_ml_rootfs``) for the functions of ``ML_FUNCTIONS``."""
+    return assets(ctx, "sebs_ml_rootfs" if fn in ML_FUNCTIONS else "sebs_rootfs")
+
+
 def run(ctx: Ctx) -> None:
-    a = assets(ctx, "sebs_rootfs")
     fns = [f for f in ctx.opt("functions", ",".join(SIZES)).split(",") if f]
     reps, levels = ctx.reps(30), concurrencies(ctx)
-    scratch = ctx.dirs().get("ssd")
+    scratch = scratch_dir(ctx)
     for fn in fns:
+        try:
+            a = guest_assets(ctx, fn)
+        except SuiteSkipped as e:  # no ML image given: only the functions that need it are left out
+            ctx.skip(f"sebs fn={fn}", 0, str(e))
+            continue
+        ok = True
         for n in levels:
             need = n * MEM_MB.get(fn, 512)
             if need > ctx.mem_budget_mb():
@@ -141,10 +170,14 @@ def run(ctx: Ctx) -> None:
                 print(f"DRY sebs fn={fn} concurrency={n} reps={reps}")
                 continue
             if not _level(ctx, a, fn, n, reps):
+                ok = False
                 break
-        if scratch is not None and not ctx.sh.dry_run:
+        # Contract §5 asks for n >= 3 snapshots; skip a function whose guest could not even start (e.g. no torch).
+        if ok and scratch is not None and not ctx.sh.dry_run:
             scratch.mkdir(parents=True, exist_ok=True)
-            ctx.rec.add("snap_size", snapshot_size(ctx, a, fn, scratch), unit="MB", fn=fn)
+            for rep in range(ctx.reps(3)):
+                size_mb = snapshot_size(ctx, a, fn, scratch)
+                ctx.rec.add("snap_size", size_mb, unit="MB", fn=fn, rep=rep)
 
 
 SUITE = Suite("sebs", run, "SeBS-style functions in Firecracker: init, exec by input size, co-run, memory, snapshot")
