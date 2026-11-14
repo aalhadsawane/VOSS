@@ -1,0 +1,15 @@
+# V9.5 run sizing, third step (docs/REVISION_PLAN.md V9.5). SIZING2 (4 h warm-up + 24 h): the 700-worker runner was
+# lost after 4 h 19 min and the 1,000-worker run was still going after 5 h, so neither fits the 4-hour budget. This
+# step measures 300, 500 and 700 workers at the same length, with one progress line per simulated hour (wall time,
+# events, resident memory) so that a lost runner still shows how far it got. Not a result; it sets D-89.
+experiment: SIZING3
+base: ../base.yaml
+overrides:
+  - horizon_s=86400
+  - scenario.warmup_s=14400
+  - voss.planner.name=hetero
+systems:
+  w0300: [scenario.workers=300, scenario.load.rate=30]
+  w0500: [scenario.workers=500, scenario.load.rate=50]
+  w0700: [scenario.workers=700, scenario.load.rate=70]
+seeds: [1]

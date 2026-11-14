@@ -1,0 +1,3 @@
+spec: SIZING3
+shards: 3
+note: "V9.5 third step: 300, 500, 700 workers at full length with hourly progress lines (SIZING2 did not fit 4 h)"

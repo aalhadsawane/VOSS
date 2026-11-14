@@ -57,3 +57,27 @@ def test_run_stops_at_until() -> None:
 def test_kernel_determinism() -> None:
     assert _trace(3) == _trace(3)
     assert _trace(3) != _trace(4)
+
+
+def test_chunked_run_is_the_same_run() -> None:
+    """run_chunked (progress lines, plan V9.5) runs the same events at the same times as one run."""
+    from voss.core.kernel import Kernel, run_chunked
+
+    def trace(chunked: bool) -> tuple[list[tuple[float, int]], list[float]]:
+        k, seen, reports = Kernel(), [], []
+
+        def tick(i: int) -> None:
+            seen.append((k.now, i))
+            if i < 40:
+                k.after(0.37 * (i % 5) + 0.1, tick, i + 1)
+
+        k.at(0.0, tick, 0)
+        if chunked:
+            run_chunked(k, 10.0, 1.0, reports.append)
+        else:
+            k.run(10.0)
+        return seen, reports
+
+    one, _ = trace(False)
+    many, reports = trace(True)
+    assert one == many and reports == [float(i) for i in range(1, 11)]

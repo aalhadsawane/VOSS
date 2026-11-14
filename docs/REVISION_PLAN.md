@@ -719,6 +719,16 @@ Try sources in this order; use the first that works and record which:
   under 10 GB. Target: 1,000 workers, 24 h measured. If that does not fit, reduce workers before duration; never shorten warm-up
   below 4 h (G9). Record in D-89.
 
+**Outcome (V9.5, so far; D-89 waits for SIZING3).** One-hour runs on a runner (SIZING): 175 s per simulated hour and
+1.0 GB at 300 workers, 514 s and 2.8 GB at 1,000; 3,000 workers did not finish within the job (over 5.7 h). The
+recorder then kept every row in memory (4.77 GB at 300 workers over 6 h); it now spills columns to disk (1.96 GB, same
+result hash). Full length (SIZING2, 4 h warm-up + 24 h): the 700-worker runner was lost after 4 h 19 min with no log,
+and the 1,000-worker run was still going after 5 h, so neither fits the 4-hour budget; the one-hour rate predicted
+2.9 h for 700 workers, so the cost per simulated hour grows over a run. Runs now print one line per simulated hour
+(wall time, events, resident memory) to the job log; results are unchanged (same hash on the traced smoke). At 150
+workers resident memory grows by about 50 MB per simulated hour. SIZING3 measures 300, 500 and 700 workers at full
+length with these lines.
+
 **Outcome (V9a: V9.1 and the pipeline).** `tools/traces/azure.py` derives `functions_<split>.parquet` and
 `arrivals_<split>.parquet` (200 functions per split, 20 per rate decile; licence CC-BY 4.0, checked) in about 2 minutes.
 Trace durations are percentiles of per-minute averages (the dataset's definition); they are used only for the mapping.
