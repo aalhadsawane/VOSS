@@ -1,0 +1,4 @@
+Wrote /home/voss/voss/calibration/specs/node02-i7-12700-64g-nvme/SPEC.md and /home/voss/voss/calibration/specs/node02-i7-12700-64g-nvme/spec.yaml
+tools/calibrate/node_run.sh: line 60: uv: command not found
+Wrote /home/voss/voss/calibration/specs/node02-i7-12700-64g-nvme/SPEC.md and /home/voss/voss/calibration/specs/node02-i7-12700-64g-nvme/spec.yaml
+caps: ok

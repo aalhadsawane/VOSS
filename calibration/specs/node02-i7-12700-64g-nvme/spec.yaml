@@ -1,0 +1,431 @@
+host_label: node02-i7-12700-64g-nvme
+generated_utc: '2026-11-14T10:36:12Z'
+hostname_redacted: HOST
+virtualisation:
+  systemd_detect_virt: none
+  dev_kvm_exists: true
+  dev_kvm_stat: crw-rw---- 1 root kvm 10, 232 Nov 12 16:23 /dev/kvm
+  dev_kvm_accessible: true
+  nested:
+    /sys/module/kvm_intel/parameters/nested: Y
+cpu:
+  model: 12th Gen Intel(R) Core(TM) i7-12700
+  microarchitecture: Intel Alder Lake-S (Golden Cove P-cores + Gracemont E-cores)
+  family: 6
+  model_id: 151
+  stepping: 2
+  sockets: 1
+  cores_total: 12
+  threads_total: 20
+  hybrid_topology:
+    p_cores: 8
+    p_threads: 16
+    p_cpus: 0-15
+    p_max_mhz: 4900.0
+    e_cores: 4
+    e_threads: 4
+    e_cpus: 16-19
+    e_max_mhz: 3600.0
+  base_min_mhz: 800.0
+  max_mhz: 4900.0
+  caches:
+    l1d: 512 KiB (12 instances)
+    l1i: 512 KiB (12 instances)
+    l2: 12 MiB (9 instances)
+    l3: 25 MiB (1 instance)
+  microcode: '0x3e'
+  flags:
+    vmx: true
+    svm: false
+    ept: true
+    vpid: true
+    vnmi: true
+    tpr_shadow: true
+    flexpriority: true
+    aes: true
+    vaes: true
+    pclmulqdq: true
+    vpclmulqdq: true
+    sha_ni: true
+    rdrand: true
+    rdseed: true
+    avx: true
+    avx2: true
+    avx_vnni: true
+    avx512f: false
+    tme: true
+    smep: true
+    smap: true
+    umip: true
+    pku: true
+  smt_control: 'on'
+  smt_active: true
+  governor: powersave
+  no_turbo: 0
+  numa: "available: 1 nodes (0)\nnode 0 cpus: 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19\nnode 0 size: 63967 MB\nnode\
+    \ 0 free: 20960 MB\nnode distances:\nnode   0 \n  0:  10"
+  vulnerabilities:
+    gather_data_sampling: Not affected
+    indirect_target_selection: Not affected
+    itlb_multihit: Not affected
+    l1tf: Not affected
+    mds: Not affected
+    meltdown: Not affected
+    mmio_stale_data: Not affected
+    reg_file_data_sampling: 'Mitigation: Clear Register File'
+    retbleed: Not affected
+    spec_rstack_overflow: Not affected
+    spec_store_bypass: 'Mitigation: Speculative Store Bypass disabled via prctl and seccomp'
+    spectre_v1: 'Mitigation: usercopy/swapgs barriers and __user pointer sanitization'
+    spectre_v2: 'Mitigation: Enhanced / Automatic IBRS; IBPB: conditional; PBRSB-eIBRS: SW sequence; BHI: BHI_DIS_S'
+    srbds: Not affected
+    tsa: Not affected
+    tsx_async_abort: Not affected
+    vmscape: 'Mitigation: IBPB before exit to userspace'
+  tme_cpuid_supported: true
+  tme_msr_0x982: '1'
+  tme_bios_enabled: false
+  iommu_dmar_acpi: true
+  iommu_kernel_cmdline: intel_iommu=off (DMAR IRQ remapping active; DMA translation disabled via cmdline)
+  dmesg_tme_iommu:
+  - '[    0.000000] Command line: BOOT_IMAGE=/vmlinuz-5.15.0-203-generic root=/dev/mapper/ubuntu--vg-ubuntu--lv ro quiet splash
+    nomodeset intel_iommu=off'
+  - '[    0.000000] x86/tme: not enabled by BIOS'
+  - '[    0.011930] ACPI: DMAR 0x000000006DE86000 000088 (v01 INTEL  EDK2     00000002      01000013)'
+  - '[    0.011961] ACPI: Reserving DMAR table memory at [mem 0x6de86000-0x6de86087]'
+  - '[    0.012331] Initmem setup node 0 [mem 0x0000000000001000-0x000000107f7fffff]'
+  - '[    0.083771] Kernel command line: BOOT_IMAGE=/vmlinuz-5.15.0-203-generic root=/dev/mapper/ubuntu--vg-ubuntu--lv ro
+    quiet splash nomodeset intel_iommu=off'
+  - '[    0.083811] DMAR: IOMMU disabled'
+  - '[    0.180959] rcu: RCU calculated value of scheduler-enlistment delay is 25 jiffies.'
+  - '[    0.184197] DMAR: Host address width 39'
+  - '[    0.184198] DMAR: DRHD base: 0x000000fed90000 flags: 0x0'
+  - '[    0.184200] DMAR: dmar0: reg_base_addr fed90000 ver 4:0 cap 1c0000c40660462 ecap 29a00f0505e'
+  - '[    0.184202] DMAR: DRHD base: 0x000000fed91000 flags: 0x1'
+  - '[    0.184203] DMAR: dmar1: reg_base_addr fed91000 ver 5:0 cap d2008c40660462 ecap f050da'
+  - '[    0.184206] DMAR: RMRR base: 0x00000076000000 end: 0x000000807fffff'
+  - '[    0.184208] DMAR-IR: IOAPIC id 2 under DRHD base  0xfed91000 IOMMU 1'
+  - '[    0.184209] DMAR-IR: HPET id 0 under DRHD base 0xfed91000'
+  - '[    0.184209] DMAR-IR: Queued invalidation will be enabled to support x2apic and Intr-remapping.'
+  - '[    0.185725] DMAR-IR: Enabled IRQ remapping in x2apic mode'
+  - '[    0.415884] pci 0000:00:02.0: DMAR: Skip IOMMU disabling for graphics'
+  - '[    0.432170] iommu: Default domain type: Translated '
+  - '[    0.432170] iommu: DMA domain TLB invalidation policy: lazy mode '
+  - '[    0.906167] Freeing unused kernel image (initmem) memory: 3296K'
+memory:
+  total_kb: 65502984
+  total_gib: 62.47
+  nominal_gb: 64
+  type: DDR5
+  speed_mts: 5200
+  channels_populated: 2
+  slots_total: 4
+  dimms:
+  - locator: Controller0-DIMMA2
+    bank_locator: BANK 0
+    size: 32 GB
+    type: DDR5
+    speed: 5200 MT/s
+    configured_speed: 5200 MT/s
+    manufacturer: G Skill Intl
+    part_number: F5-5200J3636D32G
+    rank: '2'
+    serial_sha256: sha256:e9956da8ef
+  - locator: Controller1-DIMMB2
+    bank_locator: BANK 0
+    size: 32 GB
+    type: DDR5
+    speed: 5200 MT/s
+    configured_speed: 5200 MT/s
+    manufacturer: G Skill Intl
+    part_number: F5-5200J3636D32G
+    rank: '2'
+    serial_sha256: sha256:329a507d96
+  empty_slots:
+  - Controller0-DIMMA1
+  - Controller1-DIMMB1
+  swap_kb: 8388604
+  swap_gib: 8.0
+  thp_enabled: always [madvise] never
+  thp_defrag: always defer defer+madvise [madvise] never
+storage:
+  devices:
+  - device: /dev/sda
+    model: HGST HUS722T2TALA604
+    firmware: RAGNWA09
+    serial_sha256: sha256:41020ddf2d
+    capacity_gb: 2000.4
+    interface: SATA
+    rotational: true
+    logical_sector_bytes: 512
+    physical_sector_bytes: 512
+    nr_requests: 64
+    scheduler: '[mq-deadline] none'
+    smart_passed: true
+    temperature_c: 34
+    power_on_hours: 22037
+    wear_percentage_used: null
+    available_spare_pct: null
+    data_units_written: null
+    reallocated_sectors: 0
+  - device: /dev/sdb
+    model: HGST HUS722T2TALA604
+    firmware: RAGNWA09
+    serial_sha256: sha256:5473fc2638
+    capacity_gb: 2000.4
+    interface: SATA
+    rotational: true
+    logical_sector_bytes: 512
+    physical_sector_bytes: 512
+    nr_requests: 64
+    scheduler: '[mq-deadline] none'
+    smart_passed: true
+    temperature_c: 37
+    power_on_hours: 22452
+    wear_percentage_used: null
+    available_spare_pct: null
+    data_units_written: null
+    reallocated_sectors: 0
+  - device: /dev/sdc
+    model: HGST HUS722T2TALA604
+    firmware: RAGNWA09
+    serial_sha256: sha256:a2811a04b8
+    capacity_gb: 2000.4
+    interface: SATA
+    rotational: true
+    logical_sector_bytes: 512
+    physical_sector_bytes: 512
+    nr_requests: 64
+    scheduler: '[mq-deadline] none'
+    smart_passed: true
+    temperature_c: 36
+    power_on_hours: 22414
+    wear_percentage_used: null
+    available_spare_pct: null
+    data_units_written: null
+    reallocated_sectors: 0
+  - device: /dev/sdd
+    model: HGST HUS722T2TALA604
+    firmware: RAGNWA09
+    serial_sha256: sha256:709fc38039
+    capacity_gb: 2000.4
+    interface: SATA
+    rotational: true
+    logical_sector_bytes: 512
+    physical_sector_bytes: 512
+    nr_requests: 64
+    scheduler: '[mq-deadline] none'
+    smart_passed: true
+    temperature_c: 39
+    power_on_hours: 22451
+    wear_percentage_used: null
+    available_spare_pct: null
+    data_units_written: null
+    reallocated_sectors: 0
+  - device: /dev/nvme0n1
+    model: Samsung SSD 980 PRO 1TB
+    firmware: 5B2QGXA7
+    serial_sha256: sha256:d4f73c9424
+    capacity_gb: 1000.2
+    interface: NVME
+    rotational: false
+    logical_sector_bytes: 512
+    physical_sector_bytes: 512
+    nr_requests: 1023
+    scheduler: '[none] mq-deadline'
+    smart_passed: true
+    temperature_c: 44
+    power_on_hours: 4328
+    wear_percentage_used: 11
+    available_spare_pct: 100
+    data_units_written: 291041313
+    reallocated_sectors: null
+  - device: /dev/nvme2n1
+    model: Samsung SSD 980 PRO 1TB
+    firmware: 5B2QGXA7
+    serial_sha256: sha256:86ac30a492
+    capacity_gb: 1000.2
+    interface: NVME
+    rotational: false
+    logical_sector_bytes: 512
+    physical_sector_bytes: 512
+    nr_requests: 1023
+    scheduler: '[none] mq-deadline'
+    smart_passed: true
+    temperature_c: 41
+    power_on_hours: 386
+    wear_percentage_used: 0
+    available_spare_pct: 100
+    data_units_written: 13367584
+    reallocated_sectors: null
+  - device: /dev/nvme3n1
+    model: Samsung SSD 980 PRO 1TB
+    firmware: 5B2QGXA7
+    serial_sha256: sha256:4970fb4421
+    capacity_gb: 1000.2
+    interface: NVME
+    rotational: false
+    logical_sector_bytes: 512
+    physical_sector_bytes: 512
+    nr_requests: 1023
+    scheduler: '[none] mq-deadline'
+    smart_passed: true
+    temperature_c: 40
+    power_on_hours: 373
+    wear_percentage_used: 3
+    available_spare_pct: 100
+    data_units_written: 69405534
+    reallocated_sectors: null
+  - device: /dev/nvme1n1
+    model: Samsung SSD 980 PRO 1TB
+    firmware: 5B2QGXA7
+    serial_sha256: sha256:e93c926bc3
+    capacity_gb: 1000.2
+    interface: NVME
+    rotational: false
+    logical_sector_bytes: 512
+    physical_sector_bytes: 512
+    nr_requests: 1023
+    scheduler: '[none] mq-deadline'
+    smart_passed: true
+    temperature_c: 41
+    power_on_hours: 385
+    wear_percentage_used: 1
+    available_spare_pct: 100
+    data_units_written: 17689865
+    reallocated_sectors: null
+  scratch_directories:
+  - path: /mnt/nvme1/voss-calib-node02
+    target_mount: /mnt/nvme1
+    source_device: /dev/nvme1n1p1
+    fstype: xfs
+    mount_options: rw,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota
+    encryption_layer: none (raw partition)
+    total_gb: 999.7
+    free_gb: 815.0
+    free_gib: 759.0
+  - path: /mnt/hdd1/voss-calib-node02
+    target_mount: /mnt/hdd1
+    source_device: /dev/sda1
+    fstype: xfs
+    mount_options: rw,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota
+    encryption_layer: none (raw partition)
+    total_gb: 1999.4
+    free_gb: 1796.1
+    free_gib: 1672.7
+firmware:
+  bios_vendor: American Megatrends International, LLC.
+  bios_version: A.90
+  bios_date: 01/10/2024
+  board_vendor: Micro-Star International Co., Ltd.
+  board_model: PRO Z790-A WIFI (MS-7E07)
+  board_version: '2.0'
+  boot_mode: UEFI
+  secure_boot: SecureBoot disabled
+  efibootmgr:
+  - 'BootCurrent: 0003'
+  - 'Timeout: 0 seconds'
+  - 'BootOrder: 0003'
+  - "Boot0003* ubuntu\tHD(<redacted-partuuid>)/File(\\EFI\\ubuntu\\shimx64.efi)"
+  bootctl:
+  - systemd-boot not installed in ESP.
+  - 'System:'
+  - '     Firmware: n/a (n/a)'
+  - '  Secure Boot: disabled'
+  - '   Setup Mode: user'
+  - ' TPM2 Support: yes'
+  - ' Boot into FW: supported'
+  - ''
+  - 'Current Boot Loader:'
+  - '      Product: n/a'
+  - "     Features: \u2717 Boot counting"
+  - "               \u2717 Menu timeout control"
+  - "               \u2717 One-shot menu timeout control"
+  - "               \u2717 Default entry control"
+  - "               \u2717 One-shot entry control"
+  - "               \u2717 Support for XBOOTLDR partition"
+  - "               \u2717 Support for passing random seed to OS"
+  - "               \u2717 Boot loader sets ESP information"
+  - '          ESP: n/a'
+  - "         File: \u2514\u2500n/a"
+  - ''
+  - 'Random Seed:'
+  - ' Passed to OS: no'
+  - ' System Token: not set'
+  - '       Exists: no'
+tpm:
+  manufacturer: INTC (Intel PTT firmware TPM)
+  vendor_string: ADL
+  type: firmware (Intel Platform Trust Technology, integrated on Alder Lake PCH/SoC)
+  family: '2.0'
+  revision: '1.38'
+  firmware_version: 600.18.30.2264 (raw 0x2580012/0x1E08D8)
+  sysfs:
+    device: /dev/tpm0, /dev/tpmrm0
+    description: TPM 2.0 Device
+    tpm_version_major: '2'
+  active_pcr_banks:
+  - sha256
+  pcr_count: 24
+network:
+- interface: enp7s0
+  model: Intel Corporation Ethernet Controller I225-V (rev 03)
+  driver: igc
+  state: up
+  speed_mbps: '2500'
+  mac_sha256: sha256:e93398c11f
+- interface: wlo1
+  model: Intel Corporation Device 7a70 (rev 11)
+  driver: iwlwifi
+  state: down
+  speed_mbps: down
+  mac_sha256: sha256:ee540c2a43
+software:
+  distro: Ubuntu 22.04.5 LTS
+  kernel: 5.15.0-203-generic
+  kernel_version: '#213-Ubuntu SMP Fri Oct 23 13:21:06 UTC 2026'
+  kernel_cmdline: BOOT_IMAGE=/vmlinuz-5.15.0-203-generic root=/dev/mapper/ubuntu--vg-ubuntu--lv ro quiet splash nomodeset
+    intel_iommu=off
+  python_system: Python 3.10.12
+  python_venv: Python 3.11.18
+  gcc: gcc (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0
+  firecracker: Firecracker v1.10.1
+  firecracker_guest_assets: firecracker v1.10.1, kernel firecracker-ci/v1.10/x86_64/vmlinux-6.1.102
+  qemu: QEMU emulator version 6.2.0 (Debian 1:6.2+dfsg-2ubuntu6.31)
+  docker: Docker version 29.3.0, build 5927d80
+  fio: fio-3.36
+  tpm2_tools: tool="tpm2_quote" version="5.2" tctis="libtss2-tctildr" tcti-default=tcti-device
+  openssl: 'OpenSSL 3.0.2 15 Mar 2022 (Library: OpenSSL 3.0.2 15 Mar 2022)'
+power:
+  power_source: AC mains (desktop PSU; no battery in /sys/class/power_supply)
+  power_supplies: []
+  cpu_scaling_governor: powersave
+  intel_pstate_no_turbo: 0
+time_sync:
+- 'Local time: Sat 2026-11-14 16:06:12 IST'
+- '           Universal time: Sat 2026-11-14 10:36:12 UTC'
+- '                 RTC time: Sat 2026-11-14 10:36:12'
+- '                Time zone: Asia/Kolkata (IST, +0530)'
+- 'System clock synchronized: yes'
+- '              NTP service: active'
+- '          RTC in local TZ: no'
+manual:
+  recorded_utc: '2026-11-14T10:38:00Z'
+  source: read from lscpu//proc/dmidecode/tpm2_getcap by spec.sh; cross-checked by hand
+  cpu_generation: 12th Gen Intel Core (Alder Lake-S)
+  core_kinds:
+    performance_cores: 8
+    efficiency_cores: 4
+  memory_encryption:
+    supported_cpuid: true
+    enabled_firmware: false
+    evidence: 'CPUID leaf 7 ECX bit 13 set; dmesg: x86/tme: not enabled by BIOS'
+  tpm_family: firmware (Intel PTT, integrated)
+  secure_boot_state: disabled
+  power_source: AC mains (desktop, no battery)
+  turbo: firmware default; intel_pstate/no_turbo=0
+  governor_during_part_b: performance (set before quick/full; restored to powersave afterwards)
+  scratch_directories:
+    nvme: /mnt/nvme1/voss-calib-node02
+    hdd: /mnt/hdd1/voss-calib-node02
+  notes: "No prior v2 node spec on this branch; the older i7-12700-64g spec is history (NODE_PLAN.md \xA73)."
