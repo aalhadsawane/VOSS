@@ -63,6 +63,9 @@ def simulate(workers: int, n_fns: int, horizon: float, tmp: Path) -> pd.DataFram
         "scenario.warmup_s=0",
         "voss.planner.name=hetero",
         "voss.planner.T_plan=10",  # more provisioning rounds per simulated second; the round itself is unchanged
+        # each decision delays the simulation by its own wall time: with seed coefficients a large pool overloads the
+        # scheduler (2,000 workers: 10x the events, timeouts) and the views timed are those of a collapsing system
+        "decision_clock.mode=measured",
     ]
     if n_fns != len(load_data_yaml("functions.yaml")["functions"]):
         sets.append(f"scenario.functions={catalog(n_fns, tmp)}")

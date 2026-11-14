@@ -853,6 +853,11 @@ on 20 quantile-bin medians) and writes `configs/calibration/provider/<cpu-label>
 functions 12-500). `decision_clock.coeffs_file` loads the coefficients into the config (and its hash) and rejects a
 file that misses a charged kind; the unused kinds `orchestrate` and `settle` are deleted. Local trial (50 and 300
 workers): plan 29 µs per decision variable, place 0.26 ms + 2.3 µs per candidate pair, verify 90 µs per receipt.
+The first workflow run (43639002694) was cancelled: the timing simulations charged the seed coefficients, which
+overload the one scheduler from about 2,000 workers (10x the events, a probe storm, timeouts), so the views timed
+were those of a collapsing system. The bench now runs with `decision_clock.mode=measured` (each decision delays the
+simulation by its own wall time); at 2,000 and 4,000 workers the runs stay healthy (0.6 M and 1.7 M events per
+simulated minute).
 
 **Exit criteria V10:** coefficients committed with CPU label; a test checks the clock uses them.
 
