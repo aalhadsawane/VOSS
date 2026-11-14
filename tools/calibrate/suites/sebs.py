@@ -37,9 +37,13 @@ SIZES: dict[str, tuple[tuple[int, str], ...]] = {
 }
 # guest memory (MB); the larger input sizes need more than the 512 MB default
 MEM_MB = {
+    # dynamic-html's largest size renders 10 million random numbers into one Jinja2 page; 512 MB OOM-kills the guest
+    # (fnrunner exit 137) before any size is reported.
+    "dynamic-html": 4096,
     "video-processing": 1024,
     "image-recognition": 2048,
-    "dna-visualisation": 1024,
+    # dna-visualisation's largest size transforms 8 MB of DNA with squiggle; 1,024 MB OOM-kills the guest.
+    "dna-visualisation": 4096,
     "uploader": 1024,
     "compression": 1024,
     "graph-pagerank": 2048,

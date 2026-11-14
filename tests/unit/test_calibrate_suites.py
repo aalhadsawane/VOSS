@@ -126,17 +126,23 @@ def _ran(out: str) -> list[str]:
 
 
 def test_sebs_leaves_out_guest_sets_over_the_ram_budget(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    opts = {"kernel": "/a/k", "sebs_rootfs": "/a/r", "firecracker": "/a/fc", "functions": "dynamic-html,graph-bfs"}
+    opts = {"kernel": "/a/k", "sebs_rootfs": "/a/r", "firecracker": "/a/fc", "functions": "thumbnailer,graph-bfs"}
     ctx = _ctx(tmp_path, mem_budget_mb="2100", concurrencies="1,2,4,8", **opts)
     sebs.run(ctx)
-    # dynamic-html: 512 MB per guest → 1, 2 and 4 guests fit in 2100 MB; graph-bfs: 2048 MB → only 1 guest fits
+    # thumbnailer: 512 MB per guest → 1, 2 and 4 guests fit in 2100 MB; graph-bfs: 2048 MB → only 1 guest fits
     assert _ran(capsys.readouterr().out) == [
-        "fn=dynamic-html concurrency=1",
-        "fn=dynamic-html concurrency=2",
-        "fn=dynamic-html concurrency=4",
+        "fn=thumbnailer concurrency=1",
+        "fn=thumbnailer concurrency=2",
+        "fn=thumbnailer concurrency=4",
         "fn=graph-bfs concurrency=1",
     ]
     assert "sebs fn=graph-bfs concurrency=8" in _skipped(ctx)
+
+
+def test_sebs_memory_covers_the_largest_inputs() -> None:
+    # The largest dynamic-html and dna-visualisation inputs OOM-kill a 512/1,024 MB guest before reporting a size.
+    assert sebs.MEM_MB["dynamic-html"] >= 4096
+    assert sebs.MEM_MB["dna-visualisation"] >= 4096
 
 
 def test_sebs_levels_reach_physical_cores_and_threads(tmp_path: Path) -> None:
