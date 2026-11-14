@@ -772,6 +772,18 @@ scale is about 4x smaller. Clipping at the week edges and the joined benchmark g
 difference is in the data kept (truncated copy, 2008 weeks) or in a filter of the paper not stated in its text; the
 paper reports both fits and does not claim to reproduce Table 3.
 
+**Outcome (V9.4, part without bare metal).** Cities: `tools/traces/wup.py` replaces the metro table's rough populations
+(`geo.pop_trace`) with UN World Urbanization Prospects 2025 (CC BY 3.0 IGO): per metro, the 2024 population summed over
+the WUP cities (Degree of Urbanisation: contiguous cells of at least 1,500 inhabitants per km², at least 50,000 people)
+whose population-weighted centre is within 30 km and nearest to that metro. WUP cities do not overlap, so nobody is
+counted twice; GeoNames was tried first and dropped because its records for a city and for its parts overlap. Limit
+stated in the paper: suburbs below the density threshold belong to no city, which lowers sprawling metros (most in the
+USA) against the table. Machine mix: `tools/traces/boinc.py` reads the public host exports of two BOINC projects
+(Rosetta@home, MilkyWay@home) and keeps only counts of the hosts active in the last 30 days per (logical CPUs, memory
+rounded to a power of two GiB, CPU vendor, OS); no host or user id is kept. This survey replaces the gaming survey
+named above: it describes volunteer machines. Assigning its buckets to calibrated machines waits for the bare-metal
+bundles; disk type is not in the export, so the share of HDD, SATA and NVMe stays an axis.
+
 **Exit criteria V9:** derived files published with provenance; `docs/PARAMETERS.md` rows for every T value; a traced smoke run completes.
 
 ---

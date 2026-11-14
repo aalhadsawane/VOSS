@@ -1,0 +1,2 @@
+tool: boinc
+args: ["--project", "milkyway", "--active-days", "30"]

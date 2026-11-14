@@ -29,6 +29,10 @@ class GeoParams(BaseModel):
     asns_per_city: int = Field(default=3, ge=1)
     asn_zipf: float = Field(default=1.0, ge=0)
     regions: tuple[str, ...] = ()  # empty = world; else workers and demand only in these regions (E05 dispersion)
+    # measured populations (plan V9.4): data/traces/<pop_trace>/metro_pop.parquet from tools/traces/wup.py; empty =
+    # the table's figures
+    pop_trace: str = ""
+    trace_root: str = "data/traces"
 
 
 class LinkParams(BaseModel):

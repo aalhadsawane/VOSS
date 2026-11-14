@@ -1,0 +1,2 @@
+tool: boinc
+args: ["--project", "rosetta", "--active-days", "30"]
