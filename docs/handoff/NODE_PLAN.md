@@ -140,7 +140,7 @@ a node measured on the older harness runs again; everything else it measured sta
 | Lock | Change | A node measured on the previous lock runs |
 |---|---|---|
 | `570e04bc` | node01's fixes: guest memory 4,096 MB for `dynamic-html` and `dna-visualisation`; 50 snapshot creates; `fn_rss` per co-run level; `snap_size` 3 times, also on NVMe-only nodes | everything (earlier locks were never used for a bundle) |
-| `072b7760` | separate ML guest image (`voss-guest-ml.ext4`, PyTorch + ResNet-50) used only by `image-recognition`; `setup` builds both images | `git pull` (the lock check needs the new harness), then `bash tools/calibrate/node_run.sh ml <label> <tier>=<dir> ...` (builds the ML image, measures `image-recognition` alone, about 1-1.5 h), then `ingest` again. Nothing else. |
+| `1de5d147` | separate ML guest image (`voss-guest-ml.ext4`, PyTorch + ResNet-50) used only by `image-recognition`; `setup` builds both images | `git pull` (the lock check needs the new harness), then `bash tools/calibrate/node_run.sh ml <label> <tier>=<dir> ...` (builds the ML image, measures `image-recognition` alone, about 1-1.5 h), then `ingest` again. Nothing else. |
 
 The guest image is no longer a human choice: every node measures all ten functions.
 
