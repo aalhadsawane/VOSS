@@ -95,6 +95,17 @@ repeatability. *Replaces:* the §10 choice between a cover rule and a loss-model
 baseline.
 
 
+**D-97 Run size: 500 workers, 4 h warm-up + 24 h measured (plan V9.5).** Every reported run simulates 500 workers
+for 28 h (`horizon_s` 100,800, `scenario.warmup_s` 14,400); utilisation and load are axes on that pool. *Why:* one run
+must finish within a 4-hour job on a 4-vCPU, 16 GB runner and under 10 GB. Measured (SIZING3, 20 h measured): 300
+workers 75 M events in 65 min, 500 workers 130 M events in 114 min (about 19.5 k events per second, proportional to
+arrivals), so 28 h at 500 workers is about 2.2 h. 700 workers lost its runner at 2.8 h in SIZING3 and at 4.3 h in
+SIZING2, before the memory fix of V9.5 and with the end-of-run checks doubling peak memory; 1,000 workers passed 5 h.
+The 24-hour measured window is kept and workers are reduced first, as V9.5 says. SIZING4 confirms the chosen size
+(wall time and peak memory) with the memory fix. *Rejected:* 1,000 workers (the plan's target; does not fit one job);
+700 workers (fits on time only without margin for slower systems, and its memory was not measured to the end);
+shortening the measured window or the warm-up (G9).
+
 ## v1 decisions (D-01 to D-80)
 
 **D-01 Custom Python discrete-event simulator.** FaaS physics is small; solver wall time must enter simulated time;
