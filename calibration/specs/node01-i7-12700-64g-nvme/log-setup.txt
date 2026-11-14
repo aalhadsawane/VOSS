@@ -1,0 +1,142 @@
+realpath: /home/voss/voss-calib/assets: No such file or directory
+fc.tgz: OK
+firecracker v1.10.1, kernel firecracker-ci/v1.10/x86_64/vmlinux-6.1.102
+96d25e000e5fcbf5b11dca0e1275b5d7dc0922ff8b8206aeaed98e515a8468dc  firecracker
+8965e9ee855537561ac3adaf0b086a3882456fdc55472691f3bbe489199014ce  jailer
+49ba99a5299444ac59dda2efc3569cc2d58a5d72ea6475a6bfc37aa0bf322e54  vmlinux
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 378B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.11-slim-bookworm
+#2 DONE 1.5s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [1/6] FROM docker.io/library/python:3.11-slim-bookworm@sha256:a83ba18aef0f865b1a4a611c2cf460fe446f2795673bbb9fe43be570439e3b39
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 11.15kB done
+#5 DONE 0.0s
+
+#6 [2/6] RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg busybox-static && rm -rf /var/lib/apt/lists/*
+#6 CACHED
+
+#7 [3/6] RUN pip install --no-cache-dir jinja2==3.1.4 pillow==10.4.0 python-igraph==0.11.6 squiggle==0.3.1
+#7 CACHED
+
+#8 [4/6] COPY voss-init /voss-init
+#8 CACHED
+
+#9 [5/6] COPY fnrunner.py /voss/fnrunner.py
+#9 CACHED
+
+#10 [6/6] COPY functions /voss/functions
+#10 DONE 0.1s
+
+#11 exporting to image
+#11 exporting layers 0.1s done
+#11 writing image sha256:7b3382b580f5c0d0b4e7370ee1bf1db52e214b2f901bc29f4cb1afe813b0c1a5 done
+#11 naming to docker.io/library/voss-guest 0.0s done
+#11 DONE 0.2s
+Creating regular file /home/voss/voss-calib/assets/voss-guest.ext4
+81dbeb4ef46a54c59c7fff01c8cb36a78576a7b0bd70423d266efeb70206563d  /home/voss/voss-calib/assets/voss-guest.ext4
+
+== Machine
+host: anjuna2   date: 2026-11-14T10:56:40Z
+os:   Ubuntu 22.04.5 LTS   kernel: 5.15.0-198-generic   arch: x86_64
+  CPU(s):                                  20
+  Model name:                              12th Gen Intel(R) Core(TM) i7-12700
+  Thread(s) per core:                      2
+  Core(s) per socket:                      12
+  Socket(s):                               1
+  CPU max MHz:                             4900.0000
+  CPU min MHz:                             800.0000
+  L3 cache:                                25 MiB (1 instance)
+  RAM: 62 GB total, 60 GB available   swap: 8 GB
+  [WARN] RAM < 64 GB: plan fewer workers or smaller VMs
+  [ok]   20 hardware threads
+
+== Virtualisation (Firecracker needs KVM)
+  [ok]   CPU virtualisation flag present
+  crw-rw----+ 1 root kvm 10, 232 Nov 12 21:08 /dev/kvm
+  [ok]   /dev/kvm usable by this user
+  nested (/sys/module/kvm_intel/parameters/nested): Y
+  virt: none
+
+== Storage
+  NAME      SIZE ROTA TYPE MODEL
+  loop0    20.2M    0 loop 
+  loop1   543.6M    0 loop 
+  loop2    63.8M    0 loop 
+  loop3      74M    0 loop 
+  loop4    66.8M    0 loop 
+  loop5   543.3M    0 loop 
+  loop6   116.6M    0 loop 
+  loop7    44.7M    0 loop 
+  loop8       2M    0 loop 
+  loop9    32.5M    0 loop 
+  loop10    2.1M    0 loop 
+  loop11    9.5M    0 loop 
+  nvme0n1 931.5G    0 disk Samsung SSD 980 PRO 1TB
+  nvme1n1 931.5G    0 disk Samsung SSD 980 PRO 1TB
+  Filesystem                         Size  Used Avail Use% Mounted on
+  /dev/mapper/ubuntu--vg-ubuntu--lv  1.8T 1012G  744G  58% /
+  /dev/mapper/ubuntu--vg-ubuntu--lv  1.8T 1012G  744G  58% /
+  /dev/mapper/ubuntu--vg-ubuntu--lv  1.8T 1012G  744G  58% /
+  [ok]   744 GB free in $HOME
+
+== Privileges and tools
+  [ok]   passwordless sudo
+  [ok]   ip: /usr/sbin/ip
+  [ok]   tc: /usr/sbin/tc
+  [ok]   nft: /usr/sbin/nft
+  [ok]   iptables: /usr/sbin/iptables
+  [ok]   jq: /usr/bin/jq
+  [ok]   curl: /usr/bin/curl
+  [ok]   git: /usr/bin/git
+  [ok]   make: /usr/bin/make
+  [ok]   python3: /usr/bin/python3
+  [ok]   uv: /snap/bin/uv
+  [WARN] firecracker not found
+  [WARN] jailer not found
+  [ok]   qemu-system-x86_64: /usr/bin/qemu-system-x86_64
+  [ok]   tpm2_getcap: /usr/bin/tpm2_getcap
+  [ok]   tpm2_quote: /usr/bin/tpm2_quote
+  Python 3.10.12
+  [ok]   ip netns works
+  [ok]   tc available
+  [ok]   sch_netem module available
+  cgroup fs: cgroup2fs
+  open files limit: 1024
+
+== TPM (optional: real quotes)
+  /dev/tpm0
+  /dev/tpmrm0
+  /dev/tpmrm0
+  [ok]   TPM resource manager present
+
+== Load now (is the machine idle? E01 timings need a quiet box)
+   16:26:40 up 25 days, 16:06, 17 users,  load average: 0.48, 0.67, 0.85
+      PID %CPU %MEM COMMAND
+  1175676  2.3  0.3 opencode
+     1896  0.5  0.1 dockerd
+     1279  0.1  0.0 dbus-daemon
+     1311  0.1  0.0 systemd-logind
+     1447  0.1  0.0 zerotier-one
+  logged in: marvell  pts/6        2026-11-04 06:41 (tmux(4099789).%0)
+  logged in: voss     pts/1        2026-11-14 15:43 (192.168.0.2)
+  logged in: voss     pts/23       2026-11-12 18:57 (tmux(3180248).%0)
+
+== Outbound network (curl, not ping)
+  https://pypi.org -> 200
+  https://github.com -> 200
+  https://files.pythonhosted.org -> 404
+  https://github.com/firecracker-microvm/firecracker/releases -> 200
+
+done (nothing was modified)

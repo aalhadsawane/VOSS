@@ -247,8 +247,8 @@ software:
   python_system: Python 3.10.12
   python_venv: Python 3.11.16
   gcc: gcc (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0
-  firecracker: absent
-  firecracker_guest_assets: ''
+  firecracker: v1.10.1
+  firecracker_guest_assets: firecracker v1.10.1, kernel firecracker-ci/v1.10/x86_64/vmlinux-6.1.102
   qemu: QEMU emulator version 6.2.0 (Debian 1:6.2+dfsg-2ubuntu6.31)
   docker: Docker version 28.4.0, build d8eb465
   fio: fio-3.28
@@ -267,3 +267,51 @@ time_sync:
 - 'System clock synchronized: yes'
 - '              NTP service: active'
 - '          RTC in local TZ: no'
+manual:
+  part_a_cpu_governor: powersave
+  part_b_cpu_governor: performance
+  intel_pstate_no_turbo: 0
+  governor_restored_to: powersave after the experiments
+  services_stopped:
+  - cockroachdb
+  - code-server@pfs
+  - grafana-server
+  - influxdb
+  - netdata
+  - node_exporter
+  - prometheus
+  - syncthing@root
+  - telegraf
+  - nvidia-persistenced
+  - ModemManager
+  - packagekit
+  - udisks2
+  - upower
+  - wpa_supplicant
+  - unattended-upgrades
+  - snapd
+  - cron
+  containers_stopped:
+  - helixml-api-1
+  - helixml-keycloak-1
+  - helixml-typesense-1
+  - helixml-postgres-1
+  - helixml-tika-1
+  - helixml-chrome-1
+  - helixml-gptscript_runner-1
+  assets_sha256_file: assets.sha256
+  fio_medians:
+    nvme:
+      seq_read_MBps: 6574.902
+      seq_write_MBps: 4924.225
+      rand_read_4k_iops: 508753.35
+      rand_write_4k_iops: 331913.072
+      dm_crypt_seq_read_MBps: 4212.966
+      dm_crypt_seq_write_MBps: 4130.07
+      dm_verity_seq_read_MBps: 8786.341
+      sha256_MBps: 2261.299
+  notes:
+  - Part A spec.sh ran the locked harness 6ceef631, whose prose still hard-codes an MSI 4xNVMe/4xHDD host; SPEC.md section
+    1/table/topology/TME/DIMM were re-rendered from spec.yaml with spec_md.py (c444ff4) on human approval.
+  - The guest image was built WITHOUT --with-ml by human choice; image-recognition is not measured (no torch).
+  - dynamic-html and dna-visualisation use 4096 MB guests; co-run levels 12/20 are over the 60% RAM budget and are skipped.

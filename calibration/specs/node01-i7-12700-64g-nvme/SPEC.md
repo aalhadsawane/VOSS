@@ -22,7 +22,7 @@
 | **NVMe SSD (×2)** | `nvme0-1n1`: 2 × 1000.2 GB Samsung SSD 980 PRO 1TB (fw `5B2QGXA7`, NVMe SSD) |
 | **TPM** | Intel PTT firmware TPM 2.0: (`INTC` / `ADL`, rev `1.38`, fw `600.18.30.2307 (raw 0x2580012/0x1E0903)`, active bank `sha256`, 24 PCRs) |
 | **Firmware / Board** | ASUSTeK COMPUTER INC. `PRIME Z790-P WIFI` (Rev 1.xx), American Megatrends Inc. UEFI BIOS `1645` (`03/15/2024`), Secure Boot disabled |
-| **OS / Kernel** | Ubuntu 22.04.5 LTS, Linux `5.15.0-198-generic` x86_64, Firecracker `absent`, QEMU `6.2.0` |
+| **OS / Kernel** | Ubuntu 22.04.5 LTS, Linux `5.15.0-198-generic` x86_64, Firecracker `v1.10.1` (`firecracker v1.10.1, kernel firecracker-ci/v1.10/x86_64/vmlinux-6.1.102`), QEMU `6.2.0` |
 
 ---
 
@@ -189,3 +189,16 @@ System clock synchronized: yes
               NTP service: active
           RTC in local TZ: no
 ```
+
+## 9. Session environment and measured I/O (2026-11-14)
+
+- **Part A governor:** `powersave`; **Part B governor:** `performance` (`intel_pstate/no_turbo=0`, turbo at the firmware
+  default). Restored to `powersave` after the experiments.
+- **Stopped/disabled for the quiet measurement window:** cockroachdb, code-server@pfs, grafana-server, influxdb, netdata, node_exporter, prometheus, syncthing@root, telegraf, nvidia-persistenced, ModemManager, packagekit, udisks2, upower, wpa_supplicant, unattended-upgrades, snapd, cron; the Helix
+  Docker containers (helixml-api-1, helixml-keycloak-1, helixml-typesense-1, helixml-postgres-1, helixml-tika-1, helixml-chrome-1, helixml-gptscript_runner-1) were killed. Not restored, per the human.
+- **Scratch:** `/home/voss/voss-calib-work/scratch/nvme0` on the LVM/ext4 NVMe root; the node has no SATA SSD or HDD.
+- **Measured fio medians (5 reps, direct I/O, 2 GiB file, NVMe):** sequential read 6574.902 MB/s,
+  sequential write 4924.225 MB/s, 4 KiB random read 508753 IOPS,
+  4 KiB random write 331913 IOPS; dm-crypt seq read/write
+  4212.966/4130.07 MB/s; dm-verity seq read
+  8786.341 MB/s; SHA-256 2261.299 MB/s.

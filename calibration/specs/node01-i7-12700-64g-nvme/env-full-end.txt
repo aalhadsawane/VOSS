@@ -1,0 +1,8 @@
+stage=full-end utc=2026-11-14T14:13:46Z commit=233d022f7dbacb4c51d90763f8a1eab80fe18715
+virt=none
+governor=performance
+intel_no_turbo=0
+boost=n/a
+on_mains=n/a
+loadavg=5.14 5.43 6.73 nproc=20
+thermal_msgs=0
