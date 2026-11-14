@@ -31,10 +31,11 @@ def cmd_run(cfg: RunConfig, out: Path | None) -> Manifest:
     result = run_system(cfg)
     manifest = build_manifest(cfg, result.scenario_hash, result.recorder.result_hash(), REPO)
     manifest.wall_s = time.perf_counter() - t0
-    manifest.peak_rss_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024  # Linux reports KiB
     manifest.events = int(result.events_run)
     run_dir = out or Path(cfg.out_dir) / cfg.config_hash()[:16]
     result.recorder.write(run_dir)
+    # peak over the whole run, writing the logs included (plan V9.5); Linux reports KiB
+    manifest.peak_rss_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
     manifest.write(run_dir / "manifest.json")
     print(f"run_dir={run_dir} events={result.events_run} result_hash={manifest.result_hash}")
     return manifest
