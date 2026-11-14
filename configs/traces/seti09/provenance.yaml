@@ -1,0 +1,30 @@
+release: data-seti09-79bec54d
+run: https://github.com/aalhadsawane/VOSS/actions/runs/43534315672
+source:
+  name: SETI@home host availability 2009, Failure Trace Archive (Javadi, Kondo, Vincent,
+    Anderson)
+  url: https://web.archive.org/web/20250311173327id_/http://fta.scem.westernsydney.edu.au/data/seti09/seti09_tab.tgz
+  description: Failure Trace Archive, fta.scem.westernsydney.edu.au (live site refuses
+    automated clients); file retrieved from the Internet Archive snapshot named in
+    url
+  licence: not stated in the file; TODO verify against the archive's terms page (archived)
+    before publication; cite the archive and Javadi et al.
+retrieved_utc: '2026-11-14T00:43:43Z'
+inputs:
+  seti09_tab.0.tgz.part: d9816d8e999cd9bfe5d5c7be5bc1aa149c67fe837d9121260ee5d4a3fb90c6a7
+outputs:
+  sessions_dev.parquet: 6d093c3369c397325d7eeada1c7f3206145865bcb7cd6d05ef73b242c31d7eba
+  sessions_heldout.parquet: 4de0a762481d715c91e47579cda50f1dc9d58cde32c9c40f37e063e438e88390
+params:
+  avail_type: 1
+  hosts_per_split: 10000
+  prefix_of_truncated_archive: true
+  week_s: 604800
+  weeks:
+  - 40
+  - 66
+  benchmark_gap:
+    gap_s: 120.0
+    run_s: 423360.00000000006
+  seed: 1
+  splits: dev = even host ids in weeks[0]; heldout = odd host ids in weeks[1]
