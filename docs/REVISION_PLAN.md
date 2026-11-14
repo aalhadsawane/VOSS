@@ -743,7 +743,8 @@ memory flat at 3.4-3.5 GB from hour 3 to hour 28, but peak 15.3 GB: the end-of-r
 about ten times and the result hash joined each text column into one string. Both now read one chunk or one column at
 a time (`Recorder.frame_where`, streamed `result_hash`, same hashes on the traced smoke and a 6-hour run); the peak at
 150 workers over 6 h fell from 1,528 MB to 965 MB (against 735 MB while running), and the manifest's peak now includes
-writing the logs. SIZING4 is repeated with this fix.
+writing the logs. SIZING4 repeated with this fix (run 43598364623): 2 h 32 min on a slower runner, peak 8.7 GB, same
+result hash as the first run. D-97 holds: 500 workers, 4 h warm-up + 24 h measured, under 4 h and 10 GB.
 
 **Outcome (V9a: V9.1 and the pipeline).** `tools/traces/azure.py` derives `functions_<split>.parquet` and
 `arrivals_<split>.parquet` (200 functions per split, 20 per rate decile; licence CC-BY 4.0, checked) in about 2 minutes.
