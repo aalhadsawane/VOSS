@@ -52,6 +52,16 @@ MEM_MB = {
 }
 
 
+def scratch_dir(ctx: Ctx) -> Path | None:
+    """Tier used for snapshot files: the solid-state tier, or the first tier the node supplies.
+
+    ``node_run.sh`` passes ``nvme_dir``/``sata_dir``/``hdd_dir`` (NODE_PLAN §2); the older ``ssd_dir`` name is kept
+    for the laptop helper. Using only ``ssd`` silently skipped every ``snap_size`` on an NVMe-only node.
+    """
+    dirs = ctx.dirs()
+    return dirs.get("ssd") or dirs.get("nvme") or dirs.get("sata") or next(iter(dirs.values()), None)
+
+
 def concurrencies(ctx: Ctx) -> list[int]:
     """Co-run levels: explicit ``concurrencies``, else 1, 2, 4, ... up to the physical cores, plus the physical-core
     count and the hardware-thread count (contract §5 ``fn_corun``), capped by ``max_concurrency`` if given."""
@@ -125,8 +135,8 @@ def _level(ctx: Ctx, a: FcAssets, fn: str, n: int, reps: int) -> bool:
         for name, size, rep, secs in parse(execs, "EXEC"):
             cls = classes.get(size, "-")
             ctx.rec.add("sebs_exec", secs, rep=rep, fn=name, size_kb=size, sebs_class=cls, concurrency=n, guest=guest)
-        if n == 1:
-            ctx.rec.add("fn_rss", rss, unit="MB", fn=fn)
+        # Contract §5 asks for n >= 10 per function; one RSS per level gives 1+2+4+... samples, not one.
+        ctx.rec.add("fn_rss", rss, unit="MB", fn=fn, concurrency=n, guest=guest)
     return True
 
 
@@ -134,8 +144,9 @@ def run(ctx: Ctx) -> None:
     a = assets(ctx, "sebs_rootfs")
     fns = [f for f in ctx.opt("functions", ",".join(SIZES)).split(",") if f]
     reps, levels = ctx.reps(30), concurrencies(ctx)
-    scratch = ctx.dirs().get("ssd")
+    scratch = scratch_dir(ctx)
     for fn in fns:
+        ok = True
         for n in levels:
             need = n * MEM_MB.get(fn, 512)
             if need > ctx.mem_budget_mb():
@@ -145,10 +156,14 @@ def run(ctx: Ctx) -> None:
                 print(f"DRY sebs fn={fn} concurrency={n} reps={reps}")
                 continue
             if not _level(ctx, a, fn, n, reps):
+                ok = False
                 break
-        if scratch is not None and not ctx.sh.dry_run:
+        # Contract §5 asks for n >= 3 snapshots; skip a function whose guest could not even start (e.g. no torch).
+        if ok and scratch is not None and not ctx.sh.dry_run:
             scratch.mkdir(parents=True, exist_ok=True)
-            ctx.rec.add("snap_size", snapshot_size(ctx, a, fn, scratch), unit="MB", fn=fn)
+            for rep in range(ctx.reps(3)):
+                size_mb = snapshot_size(ctx, a, fn, scratch)
+                ctx.rec.add("snap_size", size_mb, unit="MB", fn=fn, rep=rep)
 
 
 SUITE = Suite("sebs", run, "SeBS-style functions in Firecracker: init, exec by input size, co-run, memory, snapshot")
