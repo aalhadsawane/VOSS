@@ -44,11 +44,11 @@ firecracker v1.10.1, kernel firecracker-ci/v1.10/x86_64/vmlinux-6.1.102
 #11 writing image sha256:206cf63e4bca1edcc4fc072b9cebfe1f70ea463d6901c2417e05a782a1d6cead done
 #11 naming to docker.io/library/voss-guest 0.0s done
 #11 DONE 0.1s
-Creating regular file /home/voss/voss-calib/assets/voss-guest.ext4
-c8d652d2c2430cd188a9ee8127922615f469d67b03b0e13bf519b2c90d33023e  /home/voss/voss-calib/assets/voss-guest.ext4
+Creating regular file /home/USER/voss-calib/assets/voss-guest.ext4
+c8d652d2c2430cd188a9ee8127922615f469d67b03b0e13bf519b2c90d33023e  /home/USER/voss-calib/assets/voss-guest.ext4
 
 == Machine
-host: colva3   date: 2026-11-14T10:39:01Z
+host: HOST   date: 2026-11-14T10:39:01Z
 os:   Ubuntu 22.04.5 LTS   kernel: 5.15.0-203-generic   arch: x86_64
   CPU(s):                                  20
   Model name:                              12th Gen Intel(R) Core(TM) i7-12700
@@ -108,9 +108,9 @@ os:   Ubuntu 22.04.5 LTS   kernel: 5.15.0-203-generic   arch: x86_64
   [ok]   git: /usr/bin/git
   [ok]   make: /usr/bin/make
   [ok]   python3: /usr/bin/python3
-  [ok]   uv: /home/voss/.local/bin/uv
-  [ok]   firecracker: /home/voss/.local/bin/firecracker
-  [ok]   jailer: /home/voss/.local/bin/jailer
+  [ok]   uv: /home/USER/.local/bin/uv
+  [ok]   firecracker: /home/USER/.local/bin/firecracker
+  [ok]   jailer: /home/USER/.local/bin/jailer
   [ok]   qemu-system-x86_64: /usr/bin/qemu-system-x86_64
   [ok]   tpm2_getcap: /usr/bin/tpm2_getcap
   [ok]   tpm2_quote: /usr/bin/tpm2_quote
