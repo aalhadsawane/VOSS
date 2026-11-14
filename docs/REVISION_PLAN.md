@@ -727,7 +727,14 @@ and the 1,000-worker run was still going after 5 h, so neither fits the 4-hour b
 2.9 h for 700 workers, so the cost per simulated hour grows over a run. Runs now print one line per simulated hour
 (wall time, events, resident memory) to the job log; results are unchanged (same hash on the traced smoke). At 150
 workers resident memory grows by about 50 MB per simulated hour. SIZING3 measures 300, 500 and 700 workers at full
-length with these lines.
+length with these lines. Live-object counts per hour found three containers that grew with every invocation: the
+router's finished-invocation contexts and the scheduler's finished-invocation ids (both kept to recognise a slower
+attempt's result as a duplicate) and an unread list of every decision-time charge. The first two now forget an entry
+after `voss.router.done_keep_s` = 3,600 s (12x the async give-up), the list is gone; the 2-hour traced run keeps its
+result hash, and resident memory at 150 workers is flat after hour 3 (733 MB at hours 3-6). Events per callback show no
+other growth: events per simulated hour follow the arrivals of the diurnal load (45 k at hour 1, 56 k at hour 5), at a
+constant 15.8 k events per wall second. The one-hour runs measured the first, quietest hour, so they underestimated a
+full day.
 
 **Outcome (V9a: V9.1 and the pipeline).** `tools/traces/azure.py` derives `functions_<split>.parquet` and
 `arrivals_<split>.parquet` (200 functions per split, 20 per rate decile; licence CC-BY 4.0, checked) in about 2 minutes.

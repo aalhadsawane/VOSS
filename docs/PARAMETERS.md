@@ -47,6 +47,7 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.router.T_dispatch` | `1.0` | S | router re-send timer |
 | `voss.router.max_resends` | `3` | S | router re-sends before giving up on the scheduler |
 | `voss.router.give_up_s` | `{'sync': 30.0, 'async': 300.0}` | S | router gives up after this; above every deadline |
+| `voss.router.done_keep_s` | `3600.0` | D | finished invocations remembered this long (duplicate detection); 12x the async give-up, bounds memory (plan V9.5) |
 | `voss.router.receipt_batch_s` | `1.0` | S | receipt batching to the DB |
 | `voss.placer.sync` | `'greedy'` | A | placement algorithm (V5.2) |
 | `voss.placer.async` | `'greedy'` | A | placement algorithm (V5.2) |

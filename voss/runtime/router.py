@@ -25,6 +25,7 @@ from voss.core.messages_acct import ReceiptRow
 from voss.core.types import Invocation, Outcome
 from voss.metrics.schema import Table
 from voss.runtime.actor import Actor, ActorContext
+from voss.runtime.expiring import ExpiringDict
 from voss.runtime.routerlib.pending import InvCtx, Pending, inv_ctx, row
 from voss.world.workload import SLO_CLASSES
 
@@ -39,7 +40,7 @@ class Router(Actor):
         self.epochs: dict[int, int] = {}
         self.pending: dict[InvId, Pending] = {}
         self.unrouted: list[InvId] = []
-        self.finished: dict[InvId, InvCtx] = {}
+        self.finished: ExpiringDict[InvId, InvCtx] = ExpiringDict(ctx.cfg.voss.router.done_keep_s, lambda: self.now)
         self.revoked: set[str] = set()
         self.batch: list[ReceiptRow] = []
         rc = ctx.cfg.voss.router

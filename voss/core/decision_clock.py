@@ -22,7 +22,6 @@ class DecisionClock:
     def __init__(self, cfg: DecisionClockConfig, sink: Sink | None = None) -> None:
         self.cfg = cfg
         self.sink = sink
-        self.log: list[tuple[str, float]] = []
 
     def charge(self, kind: str, work: float = 0.0, host_speed: float = 1.0, wall_s: float = 0.0) -> float:
         if self.cfg.mode == "modeled":
@@ -30,7 +29,6 @@ class DecisionClock:
             secs = (a + b * work) / max(host_speed, 1e-9)
         else:
             secs = wall_s * self.cfg.cpu_scale / max(host_speed, 1e-9)
-        self.log.append((kind, secs))
         if self.sink is not None:
             self.sink(kind, work, wall_s, secs)
         return secs
