@@ -1,0 +1,30 @@
+{"config": {"method": "wallclock"}, "probe": "shutdown", "rep": 0, "suite": "appliance", "unit": "s", "value": 12.042290925979614}
+{"config": {"method": "wallclock"}, "probe": "firmware_loader", "rep": 0, "suite": "appliance", "unit": "s", "value": 25.688119888305664}
+{"config": {"method": "wallclock"}, "probe": "reboot_cmd_to_kernel", "rep": 0, "suite": "appliance", "unit": "s", "value": 37.73041081428528}
+{"config": {"method": "wallclock"}, "probe": "reboot_to_kernel", "rep": 0, "suite": "appliance", "unit": "s", "value": 25.688119888305664}
+{"config": {}, "probe": "appliance_userspace", "rep": 0, "suite": "appliance", "unit": "s", "value": 17.83}
+{"config": {}, "probe": "appliance_attested", "rep": 0, "suite": "appliance", "unit": "s", "value": 22.22}
+{"config": {"method": "wallclock"}, "probe": "shutdown", "rep": 1, "suite": "appliance", "unit": "s", "value": 12.404743432998657}
+{"config": {"method": "wallclock"}, "probe": "firmware_loader", "rep": 1, "suite": "appliance", "unit": "s", "value": 24.81508708000183}
+{"config": {"method": "wallclock"}, "probe": "reboot_cmd_to_kernel", "rep": 1, "suite": "appliance", "unit": "s", "value": 37.21983051300049}
+{"config": {"method": "wallclock"}, "probe": "reboot_to_kernel", "rep": 1, "suite": "appliance", "unit": "s", "value": 24.81508708000183}
+{"config": {}, "probe": "appliance_userspace", "rep": 1, "suite": "appliance", "unit": "s", "value": 8.25}
+{"config": {}, "probe": "appliance_attested", "rep": 1, "suite": "appliance", "unit": "s", "value": 16.35}
+{"config": {"method": "wallclock"}, "probe": "shutdown", "rep": 2, "suite": "appliance", "unit": "s", "value": 12.412273645401001}
+{"config": {"method": "wallclock"}, "probe": "firmware_loader", "rep": 2, "suite": "appliance", "unit": "s", "value": 25.071149110794067}
+{"config": {"method": "wallclock"}, "probe": "reboot_cmd_to_kernel", "rep": 2, "suite": "appliance", "unit": "s", "value": 37.48342275619507}
+{"config": {"method": "wallclock"}, "probe": "reboot_to_kernel", "rep": 2, "suite": "appliance", "unit": "s", "value": 25.071149110794067}
+{"config": {}, "probe": "appliance_userspace", "rep": 2, "suite": "appliance", "unit": "s", "value": 8.2}
+{"config": {}, "probe": "appliance_attested", "rep": 2, "suite": "appliance", "unit": "s", "value": 15.41}
+{"config": {"method": "wallclock"}, "probe": "shutdown", "rep": 3, "suite": "appliance", "unit": "s", "value": 12.482239961624146}
+{"config": {"method": "wallclock"}, "probe": "firmware_loader", "rep": 3, "suite": "appliance", "unit": "s", "value": 24.266942024230957}
+{"config": {"method": "wallclock"}, "probe": "reboot_cmd_to_kernel", "rep": 3, "suite": "appliance", "unit": "s", "value": 36.7491819858551}
+{"config": {"method": "wallclock"}, "probe": "reboot_to_kernel", "rep": 3, "suite": "appliance", "unit": "s", "value": 24.266942024230957}
+{"config": {}, "probe": "appliance_userspace", "rep": 3, "suite": "appliance", "unit": "s", "value": 8.13}
+{"config": {}, "probe": "appliance_attested", "rep": 3, "suite": "appliance", "unit": "s", "value": 14.31}
+{"config": {"method": "wallclock"}, "probe": "shutdown", "rep": 4, "suite": "appliance", "unit": "s", "value": 12.350542783737183}
+{"config": {"method": "wallclock"}, "probe": "firmware_loader", "rep": 4, "suite": "appliance", "unit": "s", "value": 24.64712691307068}
+{"config": {"method": "wallclock"}, "probe": "reboot_cmd_to_kernel", "rep": 4, "suite": "appliance", "unit": "s", "value": 36.99766969680786}
+{"config": {"method": "wallclock"}, "probe": "reboot_to_kernel", "rep": 4, "suite": "appliance", "unit": "s", "value": 24.64712691307068}
+{"config": {}, "probe": "appliance_userspace", "rep": 4, "suite": "appliance", "unit": "s", "value": 8.14}
+{"config": {}, "probe": "appliance_attested", "rep": 4, "suite": "appliance", "unit": "s", "value": 13.54}

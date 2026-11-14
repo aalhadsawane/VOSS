@@ -1,3 +1,8 @@
+appliance_userspace:
+  ks: 0.46372456958976216
+  median: 9.559316015550486
+  n: 5.0
+  sigma: 0.3485226139608759
 decrypt_per_MB:
   n: 1.0
 fc_boot:
@@ -23,6 +28,11 @@ key_release:
 provenance:
   default: measured
   note: ingested from raw logs of host node02-i7-12700-64g-nvme_hdd (rule 13)
+reboot_to_kernel:
+  ks: 0.16839786674768598
+  median: 24.89320085794837
+  n: 5.0
+  sigma: 0.021193236154714405
 tpm2_quote:
   ks: 0.24388844825762113
   median: 0.19401986361684845
