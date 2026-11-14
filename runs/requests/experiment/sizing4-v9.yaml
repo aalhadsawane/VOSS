@@ -1,0 +1,3 @@
+spec: SIZING4
+shards: 1
+note: "V9.5: confirm D-97 (500 workers, 4 h warm-up + 24 h measured) with the bounded-memory fix"

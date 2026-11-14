@@ -717,9 +717,9 @@ Try sources in this order; use the first that works and record which:
   and peak memory.
 - Choose the largest pool and duration such that one run (warm-up 4 h + measured window) finishes in under 4 wall hours and
   under 10 GB. Target: 1,000 workers, 24 h measured. If that does not fit, reduce workers before duration; never shorten warm-up
-  below 4 h (G9). Record in D-89.
+  below 4 h (G9). Record in D-97.
 
-**Outcome (V9.5, so far; D-89 waits for SIZING3).** One-hour runs on a runner (SIZING): 175 s per simulated hour and
+**Outcome (V9.5; decision D-97).** One-hour runs on a runner (SIZING): 175 s per simulated hour and
 1.0 GB at 300 workers, 514 s and 2.8 GB at 1,000; 3,000 workers did not finish within the job (over 5.7 h). The
 recorder then kept every row in memory (4.77 GB at 300 workers over 6 h); it now spills columns to disk (1.96 GB, same
 result hash). Full length (SIZING2, 4 h warm-up + 24 h): the 700-worker runner was lost after 4 h 19 min with no log,
@@ -734,7 +734,11 @@ after `voss.router.done_keep_s` = 3,600 s (12x the async give-up), the list is g
 result hash, and resident memory at 150 workers is flat after hour 3 (733 MB at hours 3-6). Events per callback show no
 other growth: events per simulated hour follow the arrivals of the diurnal load (45 k at hour 1, 56 k at hour 5), at a
 constant 15.8 k events per wall second. The one-hour runs measured the first, quietest hour, so they underestimated a
-full day.
+full day. SIZING3 (before the memory fix; `horizon_s` 86,400 includes the 4 h warm-up, so 20 h measured): 300 workers
+75 M events, 65 min, 2.8 GB at hour 22; 500 workers 130 M events, 114 min, 4.4 GB at hour 22; 700 workers lost its
+runner at 2.8 h, near its predicted end, when the end-of-run checks rebuild whole tables (peak memory about twice the
+running level: 1.5 GB against 0.7 GB at 150 workers). Decision D-97: 500 workers, 4 h warm-up + 24 h measured, about
+2.2 h per run; SIZING4 confirms it with the memory fix.
 
 **Outcome (V9a: V9.1 and the pipeline).** `tools/traces/azure.py` derives `functions_<split>.parquet` and
 `arrivals_<split>.parquet` (200 functions per split, 20 per rate decile; licence CC-BY 4.0, checked) in about 2 minutes.

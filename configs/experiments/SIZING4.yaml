@@ -1,0 +1,12 @@
+# V9.5 confirmation of D-97 (docs/REVISION_PLAN.md V9.5): the chosen run size, 500 workers, 4 h warm-up + 24 h
+# measured, with the bounded-memory fix. Wall time must stay under 4 h and peak memory (manifest peak_rss_mb) under
+# 10 GB. Not a result.
+experiment: SIZING4
+base: ../base.yaml
+overrides:
+  - horizon_s=100800
+  - scenario.warmup_s=14400
+  - voss.planner.name=hetero
+systems:
+  w0500: [scenario.workers=500, scenario.load.rate=50]
+seeds: [1]
