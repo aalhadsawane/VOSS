@@ -24,3 +24,12 @@ def test_workers_draw_their_metros_triples(tmp_path: Path) -> None:
     assert out["down_bps"][1] == 50e6 and out["last_mile_s"][1] == 0.004
     assert set(out["down_bps"][[0, 2]]) <= {1e6, 2e6}
     assert np.all(out["up_bps"] == out["down_bps"] / 10)  # the triple stays together
+
+
+def test_the_trace_key_passes_the_network_config() -> None:
+    """``scenario.network.link.trace`` reaches LinkParams (it used to fail as a non-number)."""
+    from voss.world.network import NetworkParams
+
+    net = NetworkParams.model_validate({"link": {"trace": "ookla-fixed-2024q1", "down_mbps_median": 50}})
+    lp = LinkParams.model_validate(net.link)
+    assert lp.trace == "ookla-fixed-2024q1" and lp.down_mbps_median == 50.0

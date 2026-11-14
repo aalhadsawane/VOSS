@@ -1,0 +1,20 @@
+# V9 exit criterion (docs/REVISION_PLAN.md V9): one run with every published trace at once. Azure Functions 2019
+# arrivals (dev split, rate x5), SETI@home host availability (churn_seti, dev split), Ookla home links, WUP 2025 metro
+# populations, WonderProxy route factor (default). Not a result: it checks that the traces work together.
+# Fetch the traces first: uv run python -m tools.traces.fetch
+experiment: SMOKE_TRACED
+base: ../base.yaml
+overrides:
+  - horizon_s=1800
+  - scenario.warmup_s=0
+  - scenario.workers=150
+  - scenario.regime=churn_seti
+  - scenario.load.trace=azure2019
+  - scenario.load.split=dev
+  - scenario.load.rate_mult=5
+  - scenario.network.link.trace=ookla-fixed-2024q1
+  - scenario.geo.pop_trace=wup2025
+  - voss.planner.name=hetero
+systems:
+  voss: []
+seeds: [1]
