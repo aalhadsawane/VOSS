@@ -1,0 +1,82 @@
+# Decision timing on the provider CPU (docs/REVISION_PLAN.md V10): request file -> one job per pool size -> fit ->
+# configs/calibration/provider/<cpu-label>/decision.yaml on a branch (Actions may not open PRs; the builder does).
+# Start it by committing runs/requests/bench/<name>.yaml ({workers: [50, 200], functions: [12, 100], horizon: 300}).
+name: bench-decision
+on:
+  push:
+    branches: [revision-v2]
+    paths: ['runs/requests/bench/*.yaml']
+permissions:
+  contents: write
+env:
+  OMP_NUM_THREADS: 1
+  OPENBLAS_NUM_THREADS: 1
+  MKL_NUM_THREADS: 1
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      request: ${{ steps.req.outputs.request }}
+      workers: ${{ steps.req.outputs.workers }}
+      functions: ${{ steps.req.outputs.functions }}
+      horizon: ${{ steps.req.outputs.horizon }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - id: req
+        env: {BEFORE: '${{ github.event.before }}'}
+        run: |
+          f=$(git diff --name-only --diff-filter=AM "$BEFORE" HEAD -- 'runs/requests/bench/*.yaml' | sort | head -1)
+          test -n "$f" && test -f "$f"
+          python3 - "$f" >> "$GITHUB_OUTPUT" <<'PY'
+          import json, sys, yaml
+          r = yaml.safe_load(open(sys.argv[1]))
+          print(f"request={sys.argv[1]}")
+          print(f"workers={json.dumps(r['workers'])}")
+          print("functions=" + ",".join(str(x) for x in r["functions"]))
+          print(f"horizon={r.get('horizon', 300)}")
+          PY
+  time:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix: {workers: '${{ fromJSON(needs.plan.outputs.workers) }}'}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with: {python-version: "3.11"}
+      - run: nproc; free -m; lscpu
+      - run: uv sync --frozen
+      - name: time decisions (one thread)
+        run: >-
+          uv run python -m tools.bench.decision_timing run --workers ${{ matrix.workers }}
+          --functions ${{ needs.plan.outputs.functions }} --horizon ${{ needs.plan.outputs.horizon }}
+          --out bench/w${{ matrix.workers }} --micro
+      - uses: actions/upload-artifact@v4
+        with: {name: 'bench-w${{ matrix.workers }}', path: 'bench/w${{ matrix.workers }}', retention-days: 14}
+  fit:
+    needs: [plan, time]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with: {python-version: "3.11"}
+      - run: uv sync --frozen
+      - uses: actions/download-artifact@v4
+        with: {pattern: 'bench-*', path: bench}
+      - name: fit and commit
+        run: |
+          uv run python -m tools.bench.decision_timing fit bench/* --out configs/calibration/provider \
+            --source "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "bench/run-$GITHUB_RUN_ID"
+          for f in configs/calibration/provider/*/decision.yaml; do  # ledger row (tests/unit/test_parameters.py)
+            row="| \`$f\` | M | decision-time coefficients on the provider CPU (plan V10, run $GITHUB_RUN_ID) |"
+            grep -qF "$f" docs/PARAMETERS.md || sed -i "/^| \`configs\/baselines.yaml\`/a $row" docs/PARAMETERS.md
+          done
+          git add configs/calibration/provider docs/PARAMETERS.md
+          git commit -m "Decision timing (run $GITHUB_RUN_ID, ${{ needs.plan.outputs.request }})"
+          git push origin HEAD

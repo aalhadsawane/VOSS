@@ -11,9 +11,10 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from voss.core.hashing import hash_obj
+from voss.core.paths import load_data_yaml
 
 
 class Frozen(BaseModel):
@@ -22,22 +23,38 @@ class Frozen(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
+DECISION_KINDS = ("plan", "place", "route", "verify")  # every kind the runtime charges (plan V10)
+
+
 class DecisionClockConfig(Frozen):
-    """Doc 01 §7."""
+    """Doc 01 §7. ``modeled``: seconds = a + b·work per kind, coefficients measured on the provider's CPU by
+    ``tools/bench/decision_timing.py`` (plan V10) and read from ``coeffs_file``; the resolved coefficients are part of
+    the config (and its hash)."""
 
     mode: Literal["measured", "modeled"] = "modeled"
     cpu_scale: float = 1.0
-    # modeled cost: seconds = a + b * work, per kind. TODO verify: seeds, refit from E02 measured runs.
+    coeffs_file: str = ""  # configs/calibration/provider/<cpu-label>/decision.yaml; empty = the coefficients below
+    # used only without coeffs_file (unit tests): seeds, not results. TODO verify (superseded by the V10 file)
     coeffs: dict[str, tuple[float, float]] = Field(
         default_factory=lambda: {
             "plan": (0.02, 5e-5),
             "place": (0.0002, 2e-5),
             "route": (0.0001, 1e-5),
-            "orchestrate": (0.001, 1e-4),
-            "verify": (0.0, 5e-5),  # receipt signature check per row (Ed25519 ~50 µs)  # TODO verify
-            "settle": (0.01, 2e-6),
+            "verify": (0.0, 5e-5),
         }
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _from_file(cls, data: Any) -> Any:
+        """``coeffs_file`` replaces ``coeffs`` with the measured ones (every kind the file has)."""
+        if isinstance(data, dict) and data.get("coeffs_file"):
+            measured = load_data_yaml(data["coeffs_file"])["coeffs"]
+            missing = sorted(set(DECISION_KINDS) - set(measured))
+            if missing:  # nothing is free (AGENTS.md rule 6): every charged kind must be timed
+                raise ValueError(f"{data['coeffs_file']}: no coefficients for {missing}")
+            data = {**data, "coeffs": {k: (float(a), float(b)) for k, (a, b) in sorted(measured.items())}}
+        return data
 
 
 class ScenarioConfig(Frozen):

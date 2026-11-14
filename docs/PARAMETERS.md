@@ -125,7 +125,8 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `drain_s` | `30.0` | S | simulated time after the horizon for in-flight work |
 | `decision_clock.mode` | `'modeled'` | A | modeled for simulation, measured for emulation |
 | `decision_clock.cpu_scale` | `1.0` | S | emulation only |
-| `decision_clock.coeffs` | `{'plan': (0.02, 5e-05), 'place': (0.0002, 2e-05), 'route'...` | pending V10 | replaced by timed policy code |
+| `decision_clock.coeffs` | `{'plan': (0.02, 5e-05), 'place': (0.0002, 2e-05), 'route'...` | pending V10 | seeds used only without `coeffs_file` (unit tests) |
+| `decision_clock.coeffs_file` | `''` | M | measured provider coefficients (`configs/calibration/provider/<cpu>/decision.yaml`, V10) |
 | `calibration` | `None` | M | measured bundle per experiment (G14) |
 | `out_dir` | `'runs'` | A | output location |
 | `label` | `''` | A | run label |

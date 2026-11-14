@@ -842,6 +842,18 @@ planner failed on a planning step with no candidate worker. Both are fixed, with
   stated limit of one scheduler. Beyond it the paper says "regional scheduler shards on provider hardware", in one sentence,
   not evaluated.
 
+**Outcome (V10a, tooling).** `tools/bench/decision_timing.py run` simulates the real system briefly for each (pool, function
+count) on one thread, so Algorithms 1 and 2 are timed by the scheduler's own `time.perf_counter` around the policy call
+on real views, with the `work` the decision clock receives (`solver` table); function counts above the catalogue's are
+copies of its functions. `route` (the router's choice) and `verify` (Ed25519, one check per receipt, `cryptography`)
+are timed directly because the simulation does not execute them. `fit` fits `a + b·work` (non-negative least squares
+on 20 quantile-bin medians) and writes `configs/calibration/provider/<cpu-label>/decision.yaml` with the CPU's
+`lscpu` and the first pool at which a placement decision exceeds 10% of the median synchronous deadline.
+`bench-decision.yml` runs one job per pool size from `runs/requests/bench/decision-v10.yaml` (pools 50-10,000,
+functions 12-500). `decision_clock.coeffs_file` loads the coefficients into the config (and its hash) and rejects a
+file that misses a charged kind; the unused kinds `orchestrate` and `settle` are deleted. Local trial (50 and 300
+workers): plan 29 µs per decision variable, place 0.26 ms + 2.3 µs per candidate pair, verify 90 µs per receipt.
+
 **Exit criteria V10:** coefficients committed with CPU label; a test checks the clock uses them.
 
 ---
