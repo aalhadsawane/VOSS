@@ -1,0 +1,21 @@
+release: data-wup2025-1085a0d3
+run: https://github.com/aalhadsawane/VOSS/actions/runs/43542012527
+source:
+  name: 'World Urbanization Prospects: The 2025 Revision, F21 (population of cities,
+    Degree of Urbanisation)'
+  url: https://population.un.org/wup/assets/Download/Cities/WUP2025-F21-DEGURBA-Cities_Pop.xlsx
+  description: https://population.un.org/wup/downloads
+  licence: CC BY 3.0 IGO
+  attribution: 'United Nations, Department of Economic and Social Affairs, Population
+    Division (2025). World Urbanization Prospects: The 2025 Revision, Online Edition.'
+retrieved_utc: '2026-11-14T01:44:55Z'
+inputs:
+  WUP2025-F21-DEGURBA-Cities_Pop.xlsx: 3a96030d87aec6c1c50f658d5321067d6345e1ab936c5d2854524f972caa75c0
+outputs:
+  metro_pop.parquet: bf7e76f0f1bc7a2a17ad67bad63ae66abde9b28c61063493a5a2bd90bec1b840
+params:
+  year: 2024
+  radius_km: 30.0
+  match: sum of WUP cities whose population-weighted centre is within radius_km, each
+    to its nearest metro
+  unmatched_metros: []
