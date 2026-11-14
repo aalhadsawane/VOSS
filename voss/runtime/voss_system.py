@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import os
+import sys
+import time
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -9,7 +13,7 @@ import numpy as np
 from voss.core.config import RunConfig
 from voss.core.decision_clock import DecisionClock
 from voss.core.ids import FnId, TenantId, WorkerId
-from voss.core.kernel import Kernel
+from voss.core.kernel import Kernel, run_chunked
 from voss.core.registry import register
 from voss.core.rng import RngFactory
 from voss.core.types import WorkerStatic
@@ -215,12 +219,21 @@ class VossSystem:
             exposure=sum(len(a.keys) * (1 - a.host.assurance) for a in live),
         )
 
+    def _progress(self, now: float) -> None:
+        """One line per simulated hour on stderr (run sizing, plan V9.5): a runner that is killed still shows how far
+        it got and how much memory it held. Not a result: nothing here reaches the recorder."""
+        rss = int(Path("/proc/self/statm").read_text().split()[1]) * os.sysconf("SC_PAGE_SIZE") / 2**20
+        wall = time.perf_counter() - self._t0
+        msg = f"progress sim_h={now / 3600:.1f} events={self.kernel.events_run} wall_s={wall:.0f} rss_mb={rss:.0f}"
+        print(msg, file=sys.stderr, flush=True)
+
     def run(self) -> RunResult:
+        self._t0 = time.perf_counter()
         TraceDriver(self.kernel, session_events(self.scn, self.scn.horizon + self.cfg.drain_s), self._owner).start()
         arr = invocations(self.scn)
         TraceDriver(self.kernel, arr, client_handler(self.net, self.scn, list(self.directory.routers))).start()
         self.kernel.at(0.0, self._sample)
-        self.kernel.run(self.scn.horizon + self.cfg.drain_s)
+        run_chunked(self.kernel, self.scn.horizon + self.cfg.drain_s, PROGRESS_S, self._progress)
         end = self.kernel.now
         for r in self.routers:
             r.finalize_all()
@@ -244,6 +257,9 @@ def _sample(ref: Any, g: np.random.Generator) -> float:
     if isinstance(ref, int | float):
         return float(ref)
     return float(ref.sample(g))
+
+
+PROGRESS_S = 3600.0  # simulated seconds between progress lines
 
 
 @register("system", "voss")

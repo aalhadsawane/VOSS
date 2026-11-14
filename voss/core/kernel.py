@@ -9,7 +9,7 @@ from __future__ import annotations
 import heapq
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 
 @dataclass(slots=True)
@@ -67,3 +67,20 @@ class Kernel:
             self.events_run += 1
             h.fn(*h.args)
         self.now = max(self.now, until)
+
+
+class _Runs(Protocol):
+    now: float
+
+    def run(self, until: float) -> None: ...
+
+
+def run_chunked(k: _Runs, until: float, step: float, report: Callable[[float], None]) -> None:
+    """``k.run(until)`` in steps of ``step`` seconds, calling ``report(k.now)`` after each (any kernel with ``run`` and
+    ``now``, real-time included). Results are identical to one ``run(until)``: no callback runs between steps, and the
+    next event sets ``now`` as before."""
+    t = k.now
+    while t < until:
+        t = min(t + step, until)
+        k.run(t)
+        report(k.now)
