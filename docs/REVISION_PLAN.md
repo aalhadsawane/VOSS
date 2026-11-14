@@ -738,7 +738,12 @@ full day. SIZING3 (before the memory fix; `horizon_s` 86,400 includes the 4 h wa
 75 M events, 65 min, 2.8 GB at hour 22; 500 workers 130 M events, 114 min, 4.4 GB at hour 22; 700 workers lost its
 runner at 2.8 h, near its predicted end, when the end-of-run checks rebuild whole tables (peak memory about twice the
 running level: 1.5 GB against 0.7 GB at 150 workers). Decision D-97: 500 workers, 4 h warm-up + 24 h measured, about
-2.2 h per run; SIZING4 confirms it with the memory fix.
+2.2 h per run; SIZING4 confirms it with the memory fix. SIZING4 (run 43579246623): 149 M events in 1 h 55 min; resident
+memory flat at 3.4-3.5 GB from hour 3 to hour 28, but peak 15.3 GB: the end-of-run checks read the events table whole
+about ten times and the result hash joined each text column into one string. Both now read one chunk or one column at
+a time (`Recorder.frame_where`, streamed `result_hash`, same hashes on the traced smoke and a 6-hour run); the peak at
+150 workers over 6 h fell from 1,528 MB to 965 MB (against 735 MB while running), and the manifest's peak now includes
+writing the logs. SIZING4 is repeated with this fix.
 
 **Outcome (V9a: V9.1 and the pipeline).** `tools/traces/azure.py` derives `functions_<split>.parquet` and
 `arrivals_<split>.parquet` (200 functions per split, 20 per rate decile; licence CC-BY 4.0, checked) in about 2 minutes.

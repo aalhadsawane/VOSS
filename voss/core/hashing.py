@@ -52,3 +52,16 @@ def column_bytes(values: Sequence[Any] | np.ndarray) -> bytes:
     if arr.dtype.kind in "iuf":
         return np.ascontiguousarray(arr.astype(np.float64)).tobytes()
     return "\x1e".join(repr(v) for v in arr.tolist()).encode()
+
+
+def update_column(h: Any, values: Sequence[Any] | np.ndarray, step: int = 100_000) -> None:
+    """``h.update(column_bytes(values))`` in slices of ``step`` values: the same bytes, without building one string
+    for the whole column (run sizing, docs/REVISION_PLAN.md V9.5)."""
+    arr = np.asarray(values)
+    if arr.dtype.kind in "iuf":
+        for i in range(0, len(arr), step):
+            h.update(np.ascontiguousarray(arr[i : i + step].astype(np.float64)).tobytes())
+        return
+    for i in range(0, len(arr), step):
+        part = "\x1e".join(repr(v) for v in arr[i : i + step].tolist())
+        h.update((part if i == 0 else "\x1e" + part).encode())
