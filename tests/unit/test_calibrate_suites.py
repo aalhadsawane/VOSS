@@ -12,7 +12,7 @@ import pytest
 from tools.calibrate import run as harness
 from tools.calibrate.common import Records, Shell
 from tools.calibrate.fc import MARK, boot_args
-from tools.calibrate.suites import Ctx, appliance, caps, disk, sebs, tme
+from tools.calibrate.suites import Ctx, appliance, caps, disk, fc_snapshot, sebs, tme
 
 GETCAP = (
     'TPM2_PT_FAMILY_INDICATOR:\n  raw: 0x322E3000\n  value: "2.0"\n'
@@ -143,6 +143,16 @@ def test_sebs_memory_covers_the_largest_inputs() -> None:
     # The largest dynamic-html and dna-visualisation inputs OOM-kill a 512/1,024 MB guest before reporting a size.
     assert sebs.MEM_MB["dynamic-html"] >= 4096
     assert sebs.MEM_MB["dna-visualisation"] >= 4096
+
+
+def test_sebs_scratch_dir_accepts_the_nvme_tier(tmp_path: Path) -> None:
+    # node_run.sh calls an NVMe-only node's tier nvme_dir; using only ssd_dir silently skipped every snap_size.
+    assert sebs.scratch_dir(_ctx(tmp_path, nvme_dir=str(tmp_path / "nvme"))) == tmp_path / "nvme"
+    assert sebs.scratch_dir(_ctx(tmp_path, ssd_dir=str(tmp_path / "ssd"))) == tmp_path / "ssd"
+
+
+def test_fc_snapshot_creates_the_contract_sample_count() -> None:
+    assert fc_snapshot.CREATE_REPS >= 50
 
 
 def test_sebs_levels_reach_physical_cores_and_threads(tmp_path: Path) -> None:

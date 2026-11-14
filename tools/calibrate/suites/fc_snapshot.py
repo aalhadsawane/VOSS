@@ -15,6 +15,7 @@ from tools.calibrate.suites import Ctx, Suite
 from tools.calibrate.suites.fc_boot import assets
 
 MEM_MB = (128, 512, 2048)
+CREATE_REPS = 50  # contract §4: fc_pause / fc_snapshot_create n >= 50 per configuration
 
 
 def create(ctx: Ctx, a: FcAssets, d: Path, mem: int) -> tuple[Path, Path, float, float]:
@@ -72,7 +73,7 @@ def run(ctx: Ctx) -> None:
             if ctx.sh.dry_run:
                 print(f"DRY firecracker snapshot create/restore mem={mem} tier={tier} caches={caches}")
                 continue
-            for rep in range(ctx.reps(10)):  # a distribution, not one sample: the simulator draws from it
+            for rep in range(ctx.reps(CREATE_REPS)):  # a distribution, not one sample: the simulator draws from it
                 state, memf, pause_s, secs = create(ctx, a, d, mem)
                 size_mb = memf.stat().st_size / 2**20
                 ctx.rec.add("fc_pause", pause_s, rep=rep, mem_mb=mem, tier=tier, size_mb=size_mb)
