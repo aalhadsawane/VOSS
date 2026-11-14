@@ -14,8 +14,7 @@ COMPONENTS = ("route", "retry", "batch_wait", "decide", "net_in", "wait", "trust
 
 
 def _events(rec: Recorder, kind: str) -> pd.DataFrame:
-    ev = rec.frame(Table.EVENTS)
-    return ev[ev.kind == kind] if len(ev) else ev
+    return rec.frame_where(Table.EVENTS, "kind", [kind])
 
 
 def attested_execution(rec: Recorder, scn: Scenario) -> list[str]:
