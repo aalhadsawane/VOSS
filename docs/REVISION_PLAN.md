@@ -783,6 +783,13 @@ USA) against the table. Machine mix: `tools/traces/boinc.py` reads the public ho
 rounded to a power of two GiB, CPU vendor, OS); no host or user id is kept. This survey replaces the gaming survey
 named above: it describes volunteer machines. Assigning its buckets to calibrated machines waits for the bare-metal
 bundles; disk type is not in the export, so the share of HDD, SATA and NVMe stays an axis.
+Run 43542012527 (releases `data-wup2025-1085a0d3`, `data-boinc-rosetta-1085a0d3`, `data-boinc-milkyway-1085a0d3`):
+all 105 metros matched, 977 M people in total, WUP / table population median 0.94 (Atlanta 0.13, Jakarta 3.83).
+Active hosts in the 30 days before 2026-11-13: Rosetta@home 11,553 (of 4.58 M ever registered), MilkyWay@home 12,138
+(of 0.74 M). The two projects agree on size: logical CPUs 4 / 8 / 12 / 16 = 25 / 23 / 13 / 12% (Rosetta) and
+22 / 19 / 15 / 15% (MilkyWay); memory 8 / 16 / 32 / 64 GiB = 23 / 31 / 25 / 9% and 22 / 31 / 26 / 10%; Intel 67 / 69%,
+AMD 22 / 29%. They differ in OS (Windows 58 / 79%; Rosetta also has macOS 9% and Android 3%), which the simulator does
+not model. Mapping to calibrated machines uses the union of both.
 
 **Exit criteria V9:** derived files published with provenance; `docs/PARAMETERS.md` rows for every T value; a traced smoke run completes.
 

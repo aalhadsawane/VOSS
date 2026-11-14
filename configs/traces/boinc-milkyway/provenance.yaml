@@ -1,0 +1,20 @@
+release: data-boinc-milkyway-1085a0d3
+run: https://github.com/aalhadsawane/VOSS/actions/runs/43542012527
+source:
+  name: MilkyWay@home host statistics export (BOINC db_dump)
+  url: https://milkyway.cs.rpi.edu/milkyway/stats/host.gz
+  description: BOINC statistics export for third-party statistics sites
+  licence: none stated; only counts per hardware bucket are kept, no host or user
+    ids
+retrieved_utc: '2026-11-14T01:41:26Z'
+inputs:
+  host.gz: 383664dec77152eb84b67213e1ab6ffab1524d1eadeac9e58d3d6eb974dc3404
+outputs:
+  hosts.parquet: 4559c937513d4b04bbcb7faf57d8cbb3b0039123257367ca74ca57c922c3c2f2
+params:
+  active_days: 30.0
+  memory: nearest power of two GiB
+  cpus: logical (BOINC ncpus)
+  hosts_in_file: 735892
+  hosts_active: 12138
+  newest_rpc_time: 1794617417.0
