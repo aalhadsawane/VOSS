@@ -1,0 +1,269 @@
+host_label: node01-i7-12700-64g-nvme
+generated_utc: '2026-11-14T10:32:51Z'
+hostname_redacted: HOST
+virtualisation:
+  systemd_detect_virt: none
+  dev_kvm_exists: true
+  dev_kvm_stat: crw-rw----+ 1 root kvm 10, 232 Nov 12 21:08 /dev/kvm
+  dev_kvm_accessible: true
+  nested:
+    /sys/module/kvm_intel/parameters/nested: Y
+cpu:
+  model: 12th Gen Intel(R) Core(TM) i7-12700
+  microarchitecture: Intel Alder Lake-S (Golden Cove P-cores + Gracemont E-cores)
+  family: 6
+  model_id: 151
+  stepping: 2
+  sockets: 1
+  cores_total: 12
+  threads_total: 20
+  hybrid_topology:
+    p_cores: 8
+    p_threads: 16
+    p_cpus: 0-15
+    p_max_mhz: 4900.0
+    e_cores: 4
+    e_threads: 4
+    e_cpus: 16-19
+    e_max_mhz: 3600.0
+  base_min_mhz: 800.0
+  max_mhz: 4900.0
+  caches:
+    l1d: 512 KiB (12 instances)
+    l1i: 512 KiB (12 instances)
+    l2: 12 MiB (9 instances)
+    l3: 25 MiB (1 instance)
+  microcode: '0x3e'
+  flags:
+    vmx: true
+    svm: false
+    ept: true
+    vpid: true
+    vnmi: true
+    tpr_shadow: true
+    flexpriority: true
+    aes: true
+    vaes: true
+    pclmulqdq: true
+    vpclmulqdq: true
+    sha_ni: true
+    rdrand: true
+    rdseed: true
+    avx: true
+    avx2: true
+    avx_vnni: true
+    avx512f: false
+    tme: true
+    smep: true
+    smap: true
+    umip: true
+    pku: true
+  smt_control: 'on'
+  smt_active: true
+  governor: powersave
+  no_turbo: 0
+  numa: "available: 1 nodes (0)\nnode 0 cpus: 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19\nnode 0 size: 63946 MB\nnode\
+    \ 0 free: 31108 MB\nnode distances:\nnode   0 \n  0:  10"
+  vulnerabilities:
+    gather_data_sampling: Not affected
+    indirect_target_selection: Not affected
+    itlb_multihit: Not affected
+    l1tf: Not affected
+    mds: Not affected
+    meltdown: Not affected
+    mmio_stale_data: Not affected
+    reg_file_data_sampling: 'Mitigation: Clear Register File'
+    retbleed: Not affected
+    spec_rstack_overflow: Not affected
+    spec_store_bypass: 'Mitigation: Speculative Store Bypass disabled via prctl and seccomp'
+    spectre_v1: 'Mitigation: usercopy/swapgs barriers and __user pointer sanitization'
+    spectre_v2: 'Mitigation: Enhanced / Automatic IBRS; IBPB: conditional; PBRSB-eIBRS: SW sequence; BHI: BHI_DIS_S'
+    srbds: Not affected
+    tsa: Not affected
+    tsx_async_abort: Not affected
+    vmscape: 'Mitigation: IBPB before exit to userspace'
+  tme_cpuid_supported: true
+  tme_msr_0x982: '1'
+  tme_bios_enabled: false
+  iommu_dmar_acpi: present (ACPI DMAR table exists; boot-time dmesg rotated out)
+  iommu_kernel_cmdline: 'not set (kernel cmdline: ro nomodeset)'
+  dmesg_tme_iommu: []
+memory:
+  total_kb: 65481584
+  total_gib: 62.45
+  nominal_gb: 64
+  type: DDR5
+  speed_mts: 4800
+  channels_populated: 2
+  slots_total: 4
+  dimms:
+  - locator: Controller0-DIMM1
+    bank_locator: BANK 0
+    size: 32 GB
+    type: DDR5
+    speed: 4800 MT/s
+    configured_speed: 4800 MT/s
+    manufacturer: G Skill Intl
+    part_number: F5-5200J3636D32G
+    rank: '2'
+    serial_sha256: sha256:399f7ee6f4
+  - locator: Controller1-DIMM1
+    bank_locator: BANK 0
+    size: 32 GB
+    type: DDR5
+    speed: 4800 MT/s
+    configured_speed: 4800 MT/s
+    manufacturer: G Skill Intl
+    part_number: F5-5200J3636D32G
+    rank: '2'
+    serial_sha256: sha256:e50bd3db14
+  empty_slots:
+  - Controller0-DIMM0
+  - Controller1-DIMM0
+  swap_kb: 8388604
+  swap_gib: 8.0
+  thp_enabled: always [madvise] never
+  thp_defrag: always defer defer+madvise [madvise] never
+storage:
+  devices:
+  - device: /dev/nvme0n1
+    model: Samsung SSD 980 PRO 1TB
+    firmware: 5B2QGXA7
+    serial_sha256: sha256:afe5029168
+    capacity_gb: 1000.2
+    interface: NVME
+    rotational: false
+    logical_sector_bytes: 512
+    physical_sector_bytes: 512
+    nr_requests: 1023
+    scheduler: '[none] mq-deadline'
+    smart_passed: true
+    temperature_c: 46
+    power_on_hours: 5540
+    wear_percentage_used: 13
+    available_spare_pct: 100
+    data_units_written: 260903826
+    reallocated_sectors: null
+  - device: /dev/nvme1n1
+    model: Samsung SSD 980 PRO 1TB
+    firmware: 5B2QGXA7
+    serial_sha256: sha256:bb3adc8e22
+    capacity_gb: 1000.2
+    interface: NVME
+    rotational: false
+    logical_sector_bytes: 512
+    physical_sector_bytes: 512
+    nr_requests: 1023
+    scheduler: '[none] mq-deadline'
+    smart_passed: true
+    temperature_c: 44
+    power_on_hours: 3819
+    wear_percentage_used: 5
+    available_spare_pct: 100
+    data_units_written: 41040719
+    reallocated_sectors: null
+  scratch_directories:
+  - path: /home/USER/voss-calib-work/scratch/nvme0
+    target_mount: /
+    source_device: /dev/mapper/ubuntu--vg-ubuntu--lv
+    fstype: ext4
+    mount_options: rw,relatime
+    encryption_layer: none (LVM2 on raw partition)
+    total_gb: 1965.2
+    free_gb: 799.3
+    free_gib: 744.4
+firmware:
+  bios_vendor: American Megatrends Inc.
+  bios_version: '1645'
+  bios_date: 03/15/2024
+  board_vendor: ASUSTeK COMPUTER INC.
+  board_model: PRIME Z790-P WIFI
+  board_version: Rev 1.xx
+  boot_mode: UEFI
+  secure_boot: SecureBoot disabled
+  efibootmgr:
+  - 'BootCurrent: 0000'
+  - 'Timeout: 1 seconds'
+  - 'BootOrder: 0000'
+  - "Boot0000* ubuntu\tHD(<redacted-partuuid>)/File(\\EFI\\ubuntu\\shimx64.efi)"
+  bootctl:
+  - systemd-boot not installed in ESP.
+  - 'System:'
+  - '     Firmware: n/a (n/a)'
+  - '  Secure Boot: disabled'
+  - '   Setup Mode: user'
+  - ' TPM2 Support: yes'
+  - ' Boot into FW: supported'
+  - ''
+  - 'Current Boot Loader:'
+  - '      Product: n/a'
+  - "     Features: \u2717 Boot counting"
+  - "               \u2717 Menu timeout control"
+  - "               \u2717 One-shot menu timeout control"
+  - "               \u2717 Default entry control"
+  - "               \u2717 One-shot entry control"
+  - "               \u2717 Support for XBOOTLDR partition"
+  - "               \u2717 Support for passing random seed to OS"
+  - "               \u2717 Boot loader sets ESP information"
+  - '          ESP: n/a'
+  - "         File: \u2514\u2500n/a"
+  - ''
+  - 'Random Seed:'
+  - ' Passed to OS: no'
+  - ' System Token: not set'
+  - '       Exists: no'
+tpm:
+  manufacturer: INTC
+  vendor_string: ADL
+  type: firmware (Intel Platform Trust Technology, integrated on Alder Lake PCH/SoC)
+  family: '2.0'
+  revision: '1.38'
+  firmware_version: 600.18.30.2307 (raw 0x2580012/0x1E0903)
+  sysfs:
+    device: /dev/tpm0, /dev/tpmrm0
+    description: TPM 2.0 Device
+    tpm_version_major: '2'
+  active_pcr_banks:
+  - sha256
+  pcr_count: 24
+network:
+- interface: eno1
+  model: Realtek Semiconductor Co., Ltd. RTL8125 2.5GbE Controller (rev 05)
+  driver: r8169
+  state: up
+  speed_mbps: '2500'
+  mac_sha256: sha256:59f2ab78aa
+- interface: wlp0s20f3
+  model: Intel Corporation Device 7a70 (rev 11)
+  driver: iwlwifi
+  state: down
+  speed_mbps: down
+  mac_sha256: sha256:cabd7aa27e
+software:
+  distro: Ubuntu 22.04.5 LTS
+  kernel: 5.15.0-198-generic
+  kernel_version: '#208-Ubuntu SMP Fri Sep 4 10:22:38 UTC 2026'
+  kernel_cmdline: BOOT_IMAGE=/vmlinuz-5.15.0-198-generic root=/dev/mapper/ubuntu--vg-ubuntu--lv ro nomodeset
+  python_system: Python 3.10.12
+  python_venv: Python 3.11.16
+  gcc: gcc (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0
+  firecracker: absent
+  firecracker_guest_assets: ''
+  qemu: QEMU emulator version 6.2.0 (Debian 1:6.2+dfsg-2ubuntu6.31)
+  docker: Docker version 28.4.0, build d8eb465
+  fio: fio-3.28
+  tpm2_tools: tool="tpm2_quote" version="5.2" tctis="libtss2-tctildr" tcti-default=tcti-device
+  openssl: 'OpenSSL 3.0.2 15 Mar 2022 (Library: OpenSSL 3.0.2 15 Mar 2022)'
+power:
+  power_source: AC mains (desktop PSU; no battery in /sys/class/power_supply)
+  power_supplies: []
+  cpu_scaling_governor: powersave
+  intel_pstate_no_turbo: 0
+time_sync:
+- 'Local time: Sat 2026-11-14 16:02:51 IST'
+- '           Universal time: Sat 2026-11-14 10:32:51 UTC'
+- '                 RTC time: Sat 2026-11-14 10:32:51'
+- '                Time zone: Asia/Kolkata (IST, +0530)'
+- 'System clock synchronized: yes'
+- '              NTP service: active'
+- '          RTC in local TZ: no'

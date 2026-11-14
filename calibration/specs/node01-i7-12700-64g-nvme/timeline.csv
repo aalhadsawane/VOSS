@@ -1,0 +1,3 @@
+stage,suite,start_utc,end_utc,seconds,exit
+spec,spec,2026-11-14T10:32:50Z,2026-11-14T10:32:51Z,1,0
+spec,caps,2026-11-14T10:32:51Z,2026-11-14T10:32:52Z,1,0

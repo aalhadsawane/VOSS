@@ -1,0 +1,6 @@
+Wrote /home/voss/voss/calibration/specs/node01-i7-12700-64g-nvme/SPEC.md and /home/voss/voss/calibration/specs/node01-i7-12700-64g-nvme/spec.yaml
+   Building voss @ file:///home/voss/voss
+      Built voss @ file:///home/voss/voss
+Uninstalled 1 package in 0.44ms
+Installed 3 packages in 1ms
+caps: ok

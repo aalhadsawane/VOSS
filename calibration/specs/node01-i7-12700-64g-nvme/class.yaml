@@ -1,0 +1,14 @@
+label: node01-i7-12700-64g-nvme
+cpu: 12th Gen Intel(R) Core(TM) i7-12700
+vendor: intel
+cores: 12
+threads: 20
+mem_gib: 62.5
+storage:
+- nvme
+disks:
+- nvme:Samsung SSD 980 PRO 1TB
+tpm: firmware
+tpm_maker: INTC
+mem_encryption: false
+
