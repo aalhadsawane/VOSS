@@ -1,0 +1,2 @@
+tool: wup
+args: ["--year", "2024", "--radius-km", "30"]

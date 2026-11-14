@@ -8,8 +8,9 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 
-from voss.core.paths import config_path
+from voss.core.paths import REPO_ROOT, config_path
 
 EARTH_RADIUS_KM = 6371.0
 KM_PER_DEG_LAT = 111.0
@@ -57,6 +58,16 @@ def load_metros(path: str | Path = "geo/metros.csv") -> Metros:
         pop=np.array([float(r["pop"]) for r in rows]),
         region=tuple(r["region"] for r in rows),
     )
+
+
+def with_traced_pop(m: Metros, path: Path) -> Metros:
+    """Replace the table's populations by ``metro_pop.parquet`` (``tools/traces/wup.py``, plan V9.4); every metro of
+    the table must be in the file, so a stale derivation fails loudly."""
+    pops = pd.read_parquet(path if path.is_absolute() else REPO_ROOT / path).set_index("city")["pop"]
+    missing = sorted(set(m.name) - set(pops.index))
+    if missing:
+        raise ValueError(f"{path}: no population for metros {missing}")
+    return replace(m, pop=np.array([float(pops[n]) / 1e6 for n in m.name]))
 
 
 def haversine_km(

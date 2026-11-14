@@ -15,7 +15,7 @@ from voss.core.config import RunConfig
 from voss.core.hashing import hash_columns
 from voss.core.rng import RngFactory
 from voss.world.adversary import BEHAVIORS, AdversaryTrace, generate_adversaries, load_adversary_regime
-from voss.world.geo import Metros, load_metros
+from voss.world.geo import Metros, load_metros, with_traced_pop
 from voss.world.hardware import load_hw_classes
 from voss.world.sessions import SessionTrace, generate_sessions
 from voss.world.workers import GeoParams, WorkerTable, generate_workers
@@ -87,7 +87,10 @@ def generate(cfg: RunConfig) -> Scenario:
     """Doc 01 §4. Order: workers → adversaries → sessions (fake drains) → arrivals; each uses its own streams."""
     sc, rng, horizon = cfg.scenario, RngFactory(cfg.seed), cfg.horizon_s
     gp = GeoParams.model_validate(sc.geo)
-    metros = load_metros(gp.metros).restrict(gp.regions)
+    metros = load_metros(gp.metros)
+    if gp.pop_trace:
+        metros = with_traced_pop(metros, Path(gp.trace_root) / gp.pop_trace / "metro_pop.parquet")
+    metros = metros.restrict(gp.regions)
     catalog = load_catalog(sc, cfg.calibration)
     workers = generate_workers(sc, metros, load_hw_classes(sorted(sc.hw_mix), cfg.calibration), rng)
     check_memory_invariant(workers, catalog)
