@@ -744,9 +744,7 @@ is kept and the source is cited.
 **Outcome (V9.2, availability).** `tools/traces/fta.py --discover` (run on Actions) found the SETI@home 2009 trace of
 the Failure Trace Archive in the Internet Archive (`seti09_tab.tgz`, about 793 MB in complete snapshots). The
 derivation reads `event_trace.tab` in chunks, prints the archive's members, the file's first lines and per event type
-the count and median length (to check that type 1 is availability), and writes `sessions_<split>.parquet`: 20,000
-hosts per split, development = even host ids in the trace's first week, held-out = odd host ids in the week 182 days
-later. `configs/regimes/churn_seti.yaml` makes each worker replay one host's week, repeated to cover warm-up and
+the count and median length (to check that type 1 is availability), and writes `sessions_<split>.parquet` (splits as below). `configs/regimes/churn_seti.yaml` makes each worker replay one host's week, repeated to cover warm-up and
 horizon; no synthetic shocks; notice at end is the `graceful_frac` axis. The licence line is marked TODO: check the
 archive's terms page before publication.
 Every archived copy of `seti09_tab.tgz` is truncated (from GitHub runners, on every attempt: 2015 copy at 0.43 GB,
@@ -765,6 +763,14 @@ hosts kept, which suggests whole host histories. Active hosts per week rise from
 fall after week 84, so the splits use weeks 40 (21,969 hosts, even ids) and 66 (44,933, odd ids), 10,000 hosts each;
 the 5-day benchmark gaps are joined before clipping. The trace measures CPU availability (the CPU was free), not
 whether the host was on: the paper states this limit.
+Derivation (run 43534315672, release `data-seti09-79bec54d`): 68,435 benchmark gaps joined; development = 10,000 of
+12,470 even-id hosts complete in week 40 (2008-01-20), 200,323 availability intervals; held-out = 10,000 of 25,060
+odd-id hosts in week 66 (2008-07-20), 192,098 intervals. Against Table 3 (all hosts, Weibull shape 0.3787, scale
+3.09 h): a Weibull fit of the week-clipped intervals gives shape 0.341 / 0.355 (dev / held-out) and scale 0.73 / 0.78 h;
+median interval 0.13 / 0.15 h, mean 5.1 / 4.8 h; mean available fraction per host 0.60 / 0.55. The shape agrees; the
+scale is about 4x smaller. Clipping at the week edges and the joined benchmark gaps both act the other way, so the
+difference is in the data kept (truncated copy, 2008 weeks) or in a filter of the paper not stated in its text; the
+paper reports both fits and does not claim to reproduce Table 3.
 
 **Exit criteria V9:** derived files published with provenance; `docs/PARAMETERS.md` rows for every T value; a traced smoke run completes.
 
