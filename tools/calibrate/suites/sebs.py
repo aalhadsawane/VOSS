@@ -15,7 +15,7 @@ import concurrent.futures as cf
 import os
 from pathlib import Path
 
-from tools.calibrate.common import _cores
+from tools.calibrate.common import SuiteSkipped, _cores
 from tools.calibrate.fc import FcAssets, FcVm, boot_args
 from tools.calibrate.suites import Ctx, Suite
 from tools.calibrate.suites.fc_boot import assets
@@ -140,12 +140,26 @@ def _level(ctx: Ctx, a: FcAssets, fn: str, n: int, reps: int) -> bool:
     return True
 
 
+# functions that need the ML guest image (``build_rootfs.sh --with-ml``: PyTorch + ResNet-50); the others run on the
+# base image, so adding the ML image changes no other function's measurements
+ML_FUNCTIONS = ("image-recognition",)
+
+
+def guest_assets(ctx: Ctx, fn: str) -> FcAssets:
+    """The base guest image, or the ML image (``sebs_ml_rootfs``) for the functions of ``ML_FUNCTIONS``."""
+    return assets(ctx, "sebs_ml_rootfs" if fn in ML_FUNCTIONS else "sebs_rootfs")
+
+
 def run(ctx: Ctx) -> None:
-    a = assets(ctx, "sebs_rootfs")
     fns = [f for f in ctx.opt("functions", ",".join(SIZES)).split(",") if f]
     reps, levels = ctx.reps(30), concurrencies(ctx)
     scratch = scratch_dir(ctx)
     for fn in fns:
+        try:
+            a = guest_assets(ctx, fn)
+        except SuiteSkipped as e:  # no ML image given: only the functions that need it are left out
+            ctx.skip(f"sebs fn={fn}", 0, str(e))
+            continue
         ok = True
         for n in levels:
             need = n * MEM_MB.get(fn, 512)

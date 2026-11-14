@@ -458,3 +458,10 @@ def test_keys_parsers_read_openssl_speed_output() -> None:
     rsa = "                  sign    verify    sign/s verify/s\nrsa 2048 bits 0.000343s 0.000017s   2917.0  58743.3\n"
     assert keys.speed_rsa_private_s(rsa) == pytest.approx(0.000343)
     assert keys.speed_aes_mbps("nothing") is None and keys.speed_rsa_private_s("") is None
+
+
+def test_only_image_recognition_uses_the_ml_guest_image(tmp_path: Path) -> None:
+    """The ML image (PyTorch) serves image-recognition alone; every other function keeps the base image."""
+    ctx = _ctx(tmp_path, kernel="/a/k", firecracker="/a/fc", sebs_rootfs="/a/base.ext4", sebs_ml_rootfs="/a/ml.ext4")
+    assert sebs.guest_assets(ctx, "image-recognition").rootfs == "/a/ml.ext4"
+    assert {sebs.guest_assets(ctx, f).rootfs for f in sebs.SIZES if f not in sebs.ML_FUNCTIONS} == {"/a/base.ext4"}
