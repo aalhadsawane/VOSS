@@ -103,7 +103,10 @@ arrivals), so 28 h at 500 workers is about 2.2 h. 700 workers lost its runner at
 SIZING2, before the memory fix of V9.5 and with the end-of-run checks doubling peak memory; 1,000 workers passed 5 h.
 The 24-hour measured window is kept and workers are reduced first, as V9.5 says. SIZING4 confirms the chosen size
 (wall time and peak memory) with the memory fix: 1 h 55 min, running memory 3.5 GB; its first run peaked at 15.3 GB
-in the end-of-run checks, which now read one chunk or column at a time; the repeat measures the peak. *Rejected:* 1,000 workers (the plan's target; does not fit one job);
+in the end-of-run checks, which now read one chunk or column at a time. Repeat (run 43598364623): 2 h 32 min on a slower
+runner (wall time varies about 30% between runners for the same events), peak 8.7 GB with writing the logs included,
+and the same result hash as the first run. Both limits hold; the memory margin is 13%, so a system with a heavier
+log per invocation is checked against 10 GB before its sweep. *Rejected:* 1,000 workers (the plan's target; does not fit one job);
 700 workers (fits on time only without margin for slower systems, and its memory was not measured to the end);
 shortening the measured window or the warm-up (G9).
 
