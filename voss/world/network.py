@@ -43,7 +43,7 @@ class NetworkParams(BaseModel):
     local_delay_s: float = 1e-5
     tls_msg_cpu_s: float = 2e-5  # TODO verify: calibration suite `tls`
     tls_handshake_cpu_s: float = 1e-3  # TODO verify: calibration suite `tls`
-    link: dict[str, float] = {}  # consumed by workers.LinkParams
+    link: dict[str, float | str] = {}  # consumed by workers.LinkParams (str: the measured-links trace, plan V9.3)
 
 
 @dataclass

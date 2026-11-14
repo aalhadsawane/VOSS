@@ -791,6 +791,14 @@ Active hosts in the 30 days before 2026-11-13: Rosetta@home 11,553 (of 4.58 M ev
 AMD 22 / 29%. They differ in OS (Windows 58 / 79%; Rosetta also has macOS 9% and Android 3%), which the simulator does
 not model. Mapping to calibrated machines uses the union of both.
 
+**Outcome (traced smoke).** `configs/experiments/SMOKE_TRACED.yaml` runs every published trace at once (Azure arrivals
+dev ×5, SETI@home sessions dev, Ookla links, WUP populations, fitted route factor; 150 workers, 30 min, hetero
+planner): 488,174 events in 40 s, 331 MB; 10,106 invocations of 61 functions, 98.6% met, no invariant violation;
+107 of 150 workers start a session in the window; the busiest origins are Jakarta and Dhaka, as the WUP weights say.
+It found two faults that no test had reached: `scenario.network.link.trace` was rejected by the network config (the
+link table was typed as numbers only, so the Ookla links of V9.3 had never been used from a config), and the hetero
+planner failed on a planning step with no candidate worker. Both are fixed, with tests.
+
 **Exit criteria V9:** derived files published with provenance; `docs/PARAMETERS.md` rows for every T value; a traced smoke run completes.
 
 ---

@@ -23,3 +23,11 @@ def test_hetero_runs_clean_within_the_budget(ablate: str) -> None:
     assert len(plans) and (plans.planner == "hetero").any()
     inv = r.recorder.frame(Table.INVOCATIONS)
     assert (inv.outcome == "ok").mean() > 0.8
+
+
+def test_deadline_probability_of_no_workers_is_empty() -> None:
+    """A planning tick with no candidate workers (all traced hosts away) must not fail (V9 traced smoke)."""
+    import numpy as np
+    from voss.runtime.schedlib.hetero_inputs import _phi
+
+    assert _phi(np.zeros(0)).shape == (0,) and _phi(np.zeros(2)).tolist() == [0.5, 0.5]

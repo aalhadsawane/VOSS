@@ -24,7 +24,7 @@ SQRT2 = math.sqrt(2.0)
 
 
 def _phi(z: np.ndarray) -> np.ndarray:
-    out: np.ndarray = 0.5 * (1.0 + np.vectorize(math.erf)(z / SQRT2))
+    out: np.ndarray = 0.5 * (1.0 + np.vectorize(math.erf, otypes=[float])(z / SQRT2))  # otypes: z may be empty
     return out
 
 
