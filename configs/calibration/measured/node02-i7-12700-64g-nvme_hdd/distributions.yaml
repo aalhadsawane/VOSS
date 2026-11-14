@@ -1,10 +1,30 @@
 distributions:
   appliance_userspace:
-    dist: lognormal
-    median: 4.0
-    sigma: 0.2
-    source: systemd minimal userspace + dm-verity; TODO verify (P9 appliance)
-    tag: assumed
+    dist: empirical
+    quantiles:
+    - 8.04
+    - 8.058
+    - 8.076
+    - 8.101
+    - 8.128
+    - 8.14
+    - 8.14
+    - 8.1445
+    - 8.158
+    - 8.1705
+    - 8.175
+    - 8.179499999999999
+    - 8.187999999999999
+    - 8.197
+    - 8.203
+    - 8.2075
+    - 8.212000000000002
+    - 8.2165
+    - 8.222000000000001
+    - 8.231
+    - 8.24
+    source: appliance/appliance_userspace; harness 0.1.0
+    tag: measured
   decrypt_per_MB:
     dist: const
     source: keys/decrypt_per_MB; harness 0.1.0; AES-256-GCM, 1 MB blocks
@@ -134,11 +154,31 @@ distributions:
     source: keys/key_request; harness 0.1.0; loopback TLS request + RSA-2048 unwrap
     tag: measured
   reboot_to_kernel:
-    dist: lognormal
-    median: 15.0
-    sigma: 0.2
-    source: consumer UEFI POST + shim + UKI; TODO verify (P9 appliance)
-    tag: assumed
+    dist: empirical
+    quantiles:
+    - 24.19570803642273
+    - 24.238742899894714
+    - 24.281777763366698
+    - 24.3149817943573
+    - 24.345377016067506
+    - 24.380029261112213
+    - 24.418087124824524
+    - 24.53351409435272
+    - 24.803679275512696
+    - 25.04840214252472
+    - 25.08958649635315
+    - 25.13077085018158
+    - 25.171784114837646
+    - 25.21277599334717
+    - 25.241128873825073
+    - 25.26316225528717
+    - 25.303855228424073
+    - 25.36787269115448
+    - 25.435743355751036
+    - 25.51710022687912
+    - 25.598457098007202
+    source: appliance/reboot_to_kernel; harness 0.1.0; firmware + loader + kernel (systemd-analyze)
+    tag: measured
   snapshot_touched_frac:
     dist: const
     source: lazy restore touches a fraction of guest memory (REAP, FaaSnap)
