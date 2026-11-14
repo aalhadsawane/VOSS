@@ -480,3 +480,33 @@ manual:
   - helixml-typesense-1
   - helixml-tika-1
   - helixml-chrome-1
+  part_c_method: "host-mode appliance probe (D-60), 10 measured boots, wall-clock stamps \xB11 s; image mode was attempted\
+    \ but this Ubuntu 22.04 host has mkosi 12 and no systemd-repart/ukify for the v2 mkosi.conf"
+  part_c_boots: 10
+  part_c_median_s:
+    shutdown: 12.36
+    firmware_loader: 25.09
+    kernel_to_agent: 8.18
+    agent_to_quote_done: 6.96
+    quote_to_verifier: 0.02
+    kernel_to_verifier: 15.18
+    power_on_to_verifier: 39.75
+  part_c_outlier: boot 2 shutdown 91.55 s (normal-system settle); its firmware+loader and boot total are in family with the
+    other boots
+  part_c_image_mode: 'not built: mkosi 12 cannot interpret [Validation] Verity/Encrypt=tpm2/UnifiedKernelImages; no systemd-repart
+    or ukify on Ubuntu 22.04'
+  services_restored: true
+  containers_restored: true
+  governor_after_experiments: powersave
+  check_bundle_errors:
+  - boot_firmware
+  - boot_loader
+  - boot_quote
+  - boot_verify
+  - boot_first_tls
+  - boot_total
+  - image_mem_mb
+  - function image-recognition
+  check_bundle_warning: handler times span 2.5e-05-3.61 s, not <1 ms to >10 s
+  note_part_c: host-mode gives the simulator inputs reboot_to_kernel and appliance_userspace; per-step boot_* entries need
+    the image mode.
