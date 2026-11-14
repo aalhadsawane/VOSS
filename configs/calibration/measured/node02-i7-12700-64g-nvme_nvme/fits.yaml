@@ -1,0 +1,40 @@
+decrypt_per_MB:
+  n: 1.0
+fc_boot:
+  ks: 0.04939197987925456
+  median: 0.04401652602979136
+  n: 100.0
+  sigma: 0.010678415798297022
+fc_restore:
+  ks: 0.08962800412179162
+  median: 0.0018320822602911637
+  n: 50.0
+  sigma: 0.18288582282975313
+fc_snapshot_create:
+  ks: 0.19310313818031533
+  median: 0.25774746330235115
+  n: 50.0
+  sigma: 0.03179842362459131
+key_release:
+  ks: 0.4636762432449762
+  median: 0.04474350403574876
+  n: 200.0
+  sigma: 0.0275368926038282
+provenance:
+  default: measured
+  note: ingested from raw logs of host node02-i7-12700-64g-nvme_nvme (rule 13)
+tpm2_quote:
+  ks: 0.24388844825762113
+  median: 0.19401986361684845
+  n: 200.0
+  sigma: 0.006065093821491027
+verify_s:
+  ks: 0.11095013733489745
+  median: 0.00606210517110832
+  n: 50.0
+  sigma: 0.02887052839680189
+verify_s_per_MB:
+  ks: 0.2857801682771244
+  median: 0.00045190349064734786
+  n: 5.0
+  sigma: 0.011889148983511039

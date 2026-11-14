@@ -1,0 +1,21 @@
+# services active before stopping (2026-11-14T14:25:58Z)
+cockroachdb              active
+code-server@pfs          inactive
+grafana-server           active
+influxdb                 active
+netdata                  active
+node_exporter            active
+prometheus               active
+syncthing@root           inactive
+telegraf                 active
+nvidia-persistenced      active
+ModemManager             active
+packagekit               active
+udisks2                  active
+upower                   active
+wpa_supplicant           active
+unattended-upgrades      active
+snapd                    active
+cron                     active
+beegfs-storage           active
+# helix containers

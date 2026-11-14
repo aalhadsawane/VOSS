@@ -1,0 +1,39 @@
+caps: ok
+disk: ok
+tpm: ok
+attest_local: ok
+tls: ok
+keys: ok
+fc_boot: ok
+fc_snapshot: ok
+skip sebs fn=dynamic-html concurrency=8: guests together over the RAM budget (needs 32768 MB)
+skip sebs fn=dynamic-html concurrency=12: guests together over the RAM budget (needs 49152 MB)
+skip sebs fn=dynamic-html concurrency=20: guests together over the RAM budget (needs 81920 MB)
+skip sebs fn=image-recognition concurrency=1: guest failed: guest error: ModuleNotFoundError: No module named 'torch' (needs 0 MB)
+skip sebs fn=graph-pagerank concurrency=12: guests together over the RAM budget (needs 24576 MB)
+skip sebs fn=graph-pagerank concurrency=20: guests together over the RAM budget (needs 40960 MB)
+skip sebs fn=graph-mst concurrency=12: guests together over the RAM budget (needs 24576 MB)
+skip sebs fn=graph-mst concurrency=20: guests together over the RAM budget (needs 40960 MB)
+skip sebs fn=graph-bfs concurrency=12: guests together over the RAM budget (needs 24576 MB)
+skip sebs fn=graph-bfs concurrency=20: guests together over the RAM budget (needs 40960 MB)
+skip sebs fn=dna-visualisation concurrency=8: guests together over the RAM budget (needs 32768 MB)
+skip sebs fn=dna-visualisation concurrency=12: guests together over the RAM budget (needs 49152 MB)
+skip sebs fn=dna-visualisation concurrency=20: guests together over the RAM budget (needs 81920 MB)
+sebs: ok
+caps: ok
+disk: ok
+tpm: ok
+attest_local: ok
+tls: ok
+keys: ok
+fc_boot: ok
+fc_snapshot: ok
+skip sebs fn=dynamic-html concurrency=12: guests together over the RAM budget (needs 49152 MB)
+skip sebs fn=dynamic-html concurrency=20: guests together over the RAM budget (needs 81920 MB)
+skip sebs fn=image-recognition concurrency=1: guest failed: guest error: ModuleNotFoundError: No module named 'torch' (needs 0 MB)
+skip sebs fn=graph-pagerank concurrency=20: guests together over the RAM budget (needs 40960 MB)
+skip sebs fn=graph-mst concurrency=20: guests together over the RAM budget (needs 40960 MB)
+skip sebs fn=graph-bfs concurrency=20: guests together over the RAM budget (needs 40960 MB)
+skip sebs fn=dna-visualisation concurrency=12: guests together over the RAM budget (needs 49152 MB)
+skip sebs fn=dna-visualisation concurrency=20: guests together over the RAM budget (needs 81920 MB)
+sebs: ok

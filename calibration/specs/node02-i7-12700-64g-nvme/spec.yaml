@@ -428,4 +428,55 @@ manual:
   scratch_directories:
     nvme: /mnt/nvme1/voss-calib-node02
     hdd: /mnt/hdd1/voss-calib-node02
-  notes: "No prior v2 node spec on this branch; the older i7-12700-64g spec is history (NODE_PLAN.md \xA73)."
+  notes:
+  - "No prior v2 node spec on this branch; the older i7-12700-64g spec is history (NODE_PLAN.md \xA73)."
+  - Part B full run on the locked harness 570e04bc; 58 GB available after stopping background services.
+  - 'image-recognition is not measured: the guest image was built without --with-ml (no torch), matching node01.'
+  - dynamic-html and dna-visualisation use 4096 MB guests; co-run 12/20 are over the RAM budget. graph-* 20 is over it.
+  - The image-mode appliance build was attempted; Ubuntu 22.04 mkosi 12 lacks systemd-repart/ukify for the v2 mkosi.conf.
+  - dm-crypt/dm-verity loop probes carry no tier field and use the scratch dir basename as prefix (identical for both tiers);
+    they are kept in the raw records but not split per tier in this table.
+  harness_lock: 570e04bc7955a3a0a734ac51f530fe475c5f3ed5
+  harness_fixes:
+  - raise dynamic-html and dna-visualisation guests to 4096 MB
+  - fc_snapshot create 50 reps
+  - sebs snap_size on the nvme tier and fn_rss per level
+  fio_medians:
+    nvme:
+      seq_read_MBps: 6583.779
+      seq_write_MBps: 4890.745
+      rand_read_4k_iops: 569588.827
+      rand_write_4k_iops: 372876.075
+    hdd:
+      seq_read_MBps: 201.381
+      seq_write_MBps: 205.026
+      rand_read_4k_iops: 566.345
+      rand_write_4k_iops: 505.309
+    sha256_MBps: 2225.63
+  part_a_cpu_governor: powersave
+  part_b_cpu_governor: performance
+  governor_restored_to: powersave after the experiments
+  services_stopped:
+  - cockroachdb
+  - grafana-server
+  - influxdb
+  - netdata
+  - node_exporter
+  - prometheus
+  - telegraf
+  - nvidia-persistenced
+  - ModemManager
+  - packagekit
+  - udisks2
+  - upower
+  - unattended-upgrades
+  - snapd
+  - cron
+  containers_stopped:
+  - helixml-api-1
+  - helixml-keycloak-1
+  - helixml-gptscript_runner-1
+  - helixml-postgres-1
+  - helixml-typesense-1
+  - helixml-tika-1
+  - helixml-chrome-1

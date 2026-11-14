@@ -1,0 +1,219 @@
+distributions:
+  appliance_userspace:
+    dist: lognormal
+    median: 4.0
+    sigma: 0.2
+    source: systemd minimal userspace + dm-verity; TODO verify (P9 appliance)
+    tag: assumed
+  decrypt_per_MB:
+    dist: const
+    source: keys/decrypt_per_MB; harness 0.1.0; AES-256-GCM, 1 MB blocks
+    tag: measured
+    value: 0.00012706339566503176
+  dispatch:
+    dist: lognormal
+    median: 0.002
+    sigma: 0.3
+    source: "agent \u2192 warm VM vsock dispatch"
+    tag: assumed
+  drtm_launch:
+    dist: lognormal
+    median: 2.0
+    sigma: 0.3
+    source: DRTM late launch + measurement, no reboot
+    tag: assumed
+  fc_boot:
+    dist: empirical
+    quantiles:
+    - 0.04297913599293679
+    - 0.04325486680318136
+    - 0.04336325637996197
+    - 0.043489365444111173
+    - 0.04361700580338947
+    - 0.04366677423968213
+    - 0.043720965782995336
+    - 0.043808170699048785
+    - 0.0438631902099587
+    - 0.0439135541106225
+    - 0.04400632249598857
+    - 0.04409469905076548
+    - 0.044164297613315286
+    - 0.044199985396699046
+    - 0.04426813448953908
+    - 0.04434400299214758
+    - 0.04442587121739052
+    - 0.04445747905556345
+    - 0.044586437405087054
+    - 0.04478262768971035
+    - 0.04547199999797158
+    source: fc_boot/fc_boot [cache=warm, mem_mb=256, tier=hdd]; harness 0.1.0
+    tag: measured
+  fc_restore:
+    dist: empirical
+    quantiles:
+    - 0.0011036420182790607
+    - 0.0012567522557219491
+    - 0.001351110791438259
+    - 0.001392242750443984
+    - 0.0014667617972008884
+    - 0.001493525764090009
+    - 0.0015744851087220015
+    - 0.0016135774450958707
+    - 0.0016689519979991019
+    - 0.0017045088636223227
+    - 0.001845287493779324
+    - 0.0019135329086566344
+    - 0.0019701341923791917
+    - 0.0020067507546627896
+    - 0.0020537012809654703
+    - 0.002117453514074441
+    - 0.0021370375936385242
+    - 0.002216312600648962
+    - 0.0022477858845377343
+    - 0.0022968473567743786
+    - 0.0023697830038145185
+    source: fc_snapshot/fc_restore_api [cache=warm, mem_mb=512, tier=hdd]; harness 0.1.0; load API; page reads are modeled
+      separately
+    tag: measured
+  fc_snapshot_create:
+    dist: empirical
+    quantiles:
+    - 2.78411073499592
+    - 2.792042192550434
+    - 2.7925935636943904
+    - 2.79267586619535
+    - 2.7927951137942726
+    - 2.79290586575371
+    - 2.7932364441134268
+    - 2.7935158221429446
+    - 2.7937169974145943
+    - 2.799289505457273
+    - 2.7996383014979074
+    - 2.799865890010551
+    - 2.800638016790617
+    - 2.8010168096094277
+    - 2.8035045525204625
+    - 2.8100424052390736
+    - 2.819273465796141
+    - 2.837889301100222
+    - 2.858369770803256
+    - 2.8641983145527776
+    - 2.8677319010021165
+    source: fc_snapshot/fc_snapshot_create [mem_mb=512, tier=hdd]; harness 0.1.0
+    tag: measured
+  kbs_check_s:
+    dist: lognormal
+    median: 0.002
+    sigma: 0.3
+    source: KBS policy check
+    tag: assumed
+  key_release:
+    dist: empirical
+    quantiles:
+    - 0.0433050140186064
+    - 0.044166316713436043
+    - 0.04419560118991323
+    - 0.0442154673438021
+    - 0.04424540679034218
+    - 0.04426972474762844
+    - 0.04428397460729722
+    - 0.04429799513751315
+    - 0.04431259559647553
+    - 0.04431967083806777
+    - 0.04432397850037925
+    - 0.04432764820090635
+    - 0.04434235679515079
+    - 0.04435325835371297
+    - 0.04437284400342871
+    - 0.044394602757584306
+    - 0.04443135420739092
+    - 0.04445211573771341
+    - 0.04813807219039556
+    - 0.048298677246257665
+    - 0.04843608000961505
+    source: keys/key_request; harness 0.1.0; loopback TLS request + RSA-2048 unwrap
+    tag: measured
+  reboot_to_kernel:
+    dist: lognormal
+    median: 15.0
+    sigma: 0.2
+    source: consumer UEFI POST + shim + UKI; TODO verify (P9 appliance)
+    tag: assumed
+  snapshot_touched_frac:
+    dist: const
+    source: lazy restore touches a fraction of guest memory (REAP, FaaSnap)
+    tag: literature
+    value: 0.3
+  tme_cpu_factor:
+    dist: const
+    source: TME overhead; TODO verify (P9 tme)
+    tag: assumed
+    value: 1.0
+  tme_mem_factor:
+    dist: const
+    source: TME memory-bound overhead; TODO verify (P9 tme)
+    tag: assumed
+    value: 1.02
+  tpm2_quote:
+    dist: empirical
+    quantiles:
+    - 0.19233839798835106
+    - 0.19305478469323134
+    - 0.19318227619223763
+    - 0.19338218379998579
+    - 0.1935417696076911
+    - 0.19361920023948187
+    - 0.193672579707345
+    - 0.19375064431369537
+    - 0.19379564379923978
+    - 0.19385103385866387
+    - 0.19393530751403887
+    - 0.19397139054490253
+    - 0.19401994901127181
+    - 0.19408397939987482
+    - 0.19415192768210546
+    - 0.19421760200202698
+    - 0.19427779080579058
+    - 0.19438863876421236
+    - 0.19450167128816248
+    - 0.19480720424908213
+    - 0.20278046999010257
+    source: tpm/tpm2_quote; harness 0.1.0; one tpm2_quote process (includes tool start-up, see probe baseline)
+    tag: measured
+  verify_s:
+    dist: empirical
+    quantiles:
+    - 0.005720974033465609
+    - 0.005816753594262991
+    - 0.005851590802194551
+    - 0.0058927907768520525
+    - 0.005899168172618374
+    - 0.005925101737375371
+    - 0.005935972990118899
+    - 0.00595726179308258
+    - 0.005972274602390826
+    - 0.006027018853637855
+    - 0.006059944513253868
+    - 0.006084466134780087
+    - 0.006127005000598729
+    - 0.006149695298518054
+    - 0.006191527907503769
+    - 0.006229057231394108
+    - 0.006237391184549778
+    - 0.006252231904363725
+    - 0.006267435499466956
+    - 0.0063533170454320494
+    - 0.006387520988937467
+    source: attest_local/attest_verify; harness 0.1.0; checkquote + Ed25519 certificate signature; no Keylime policy evaluation
+    tag: measured
+  verify_s_per_MB:
+    dist: const
+    source: disk/sha256_MBps; harness 0.1.0; single-core SHA-256
+    tag: measured
+    value: 0.00044931095305855706
+harness_version: 0.1.0
+host: node02-i7-12700-64g-nvme_hdd
+measured: true
+provenance:
+  default: measured
+  note: entries tagged literature/assumed were not measured
