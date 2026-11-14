@@ -757,6 +757,14 @@ gaps, which a session process needs. So the derivation streams the longest trunc
 completely (the last one read is dropped) and logs whether host ids are in order; if they are, the hosts kept are a
 prefix of the host list chosen by id only, and the paper states the number of hosts used and that the archived copy
 is truncated. Table 3 stays a check: the availability intervals of the hosts kept are compared with it.
+Inspection of that copy (`--inspect`, run 43527663574): 94 M events of 105,121 of about 230,000 hosts, spanning the
+whole trace (2007-04-15 to 2009-01-26), ordered neither by host nor by time; within a host the two event types
+alternate with no gap. Type 1 is availability: scaled to all hosts its total time (5.16e8 h) is within 2% of the
+paper's 57,800 CPU-years (type 0: 7%), and its interval count (47.05 M, 46% of the paper's 102.4 M) matches the share of
+hosts kept, which suggests whole host histories. Active hosts per week rise from 25 to about 75,000 (week 80) and
+fall after week 84, so the splits use weeks 40 (21,969 hosts, even ids) and 66 (44,933, odd ids), 10,000 hosts each;
+the 5-day benchmark gaps are joined before clipping. The trace measures CPU availability (the CPU was free), not
+whether the host was on: the paper states this limit.
 
 **Exit criteria V9:** derived files published with provenance; `docs/PARAMETERS.md` rows for every T value; a traced smoke run completes.
 
