@@ -1,1 +1,75 @@
-% v2: rewritten in plan phase V14 following manuscript/WRITING_SPEC.md. v1 text is in git history (main b0f2fb2).
+% Outline (WRITING_SPEC.md §3 row 8; plan §11.1). Comparison table; keep-alive and autoscaling; heterogeneity-aware
+% scheduling; harvested and spot capacity; volunteer computing; confidential serverless; attestation on consumer
+% machines; failure detection from request outcomes.
+\section{Related Work}
+\label{sec:related}
+
+Table~\ref{tab:gap} places \voss{} among schedulers by what each models about a machine.
+
+\begin{table}[t]
+\caption{What schedulers model about a machine. ``---'' means the system does not model the property.}
+\label{tab:gap}
+\small
+\begin{tabular}{@{}P{33mm}P{33mm}P{25mm}P{18mm}P{15mm}@{}}
+\toprule
+System & Machine speed & Machine leaves & Deadline & Key holders \\
+\midrule
+Kubernetes scheduler~\cite{kubescheduler} & fit or no fit; free resources & --- & --- & --- \\
+Knative autoscaler~\cite{knativekpa} & --- & --- & --- & --- \\
+Hybrid histogram~\cite{shahrad2020wild}, FaaSCache~\cite{fuerst2021faascache} & --- & --- & --- & --- \\
+Paragon, Quasar~\cite{delimitrou2013paragon,delimitrou2014quasar}; Gavel~\cite{narayanan2020gavel} &
+  per application and machine type & --- & quality targets & --- \\
+Harvested resources~\cite{zhang2021harvest} & --- & eviction model & --- & --- \\
+\voss{} & per function, machine class and worker & per worker, correlated by owner, city and ISP &
+  probability of meeting it & budget per function \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Keep-alive and autoscaling.} Serverless platforms decide how long to keep a sandbox after an invocation
+and when to start one ahead of demand. Shahrad et al.\ characterise a production workload and set both times from a
+per-application histogram of idle times~\cite{shahrad2020wild}. FaaSCache treats warm sandboxes as a cache with
+greedy-dual eviction~\cite{fuerst2021faascache}. Autoscalers such as Knative's size the number of sandboxes from
+observed concurrency~\cite{knativekpa}. Work on faster starts restores sandboxes from snapshots~\cite{ao2022faasnap,
+cadden2020seuss} or shares runtime state~\cite{oakes2018sock}. All assume that the machine holding a sandbox stays,
+that any machine may hold any function, and that machines are interchangeable. We use these policies as baselines and
+snapshots as a mechanism.
+
+\paragraph{Machines of different speeds.} Paragon and Quasar classify applications by how they perform on each
+machine type and under interference, and assign them accordingly~\cite{delimitrou2013paragon,delimitrou2014quasar};
+Gavel makes scheduling policies for accelerators aware of per-job throughput on each
+type~\cite{narayanan2020gavel}. These systems schedule long-running services and jobs on machines that stay. Our
+run-time model has the same aim for functions that run for milliseconds, adds a per-worker term because volunteer
+machines of one model differ, and feeds a choice that also weighs whether each machine will still be there.
+
+\paragraph{Capacity that can be taken away.} Zhang et al.\ run serverless functions on harvested virtual machines
+that the provider can evict, with a placement policy aware of eviction~\cite{zhang2021harvest}. The machines belong to
+the provider, are trusted, and announce evictions. Volunteer machines belong to others, leave without notice, and
+must hold a key before they can serve.
+
+\paragraph{Volunteer computing.} BOINC and SETI@home run batch computations on volunteered
+machines~\cite{anderson2004boinc,anderson2002seti} and establish correctness by running each task on several machines
+and comparing. Availability of such machines has been measured and modelled in the Failure Trace
+Archive~\cite{javadi2013fta,javadi2009seti}, which we use as input. Deadlines there are hours to days. We replace
+replication of every task by attestation, and re-execute only a sample.
+
+\paragraph{Confidential serverless.} Confidential virtual machines and enclaves protect a function from the
+operator of the machine~\cite{costan2016sgx,amd2020snp,arnautov2016scone}; recent work reduces their start-up cost for
+serverless workloads~\cite{holmes2024severifast,segarra2024sesame,wallet2025} and measures their
+overheads~\cite{misono2025cvm,li2023bifrost}. These systems target server processors in datacenters. Consumer
+machines mostly lack such hardware, and have a TPM instead; we build on measured boot of the whole machine, which is
+why a session excludes the owner's own use.
+
+\paragraph{Attestation on consumer machines.} Keylime attests machines with TPMs at boot and
+continuously~\cite{schear2016keylime}, following the roles of the remote attestation
+architecture~\cite{rfc9334}. Firmware TPMs have been broken with physical access~\cite{jacob2023faultpm}, which is
+the reason for our class~P and the sampled audit.
+
+\paragraph{Detecting failures from request outcomes.} Failure detectors based on heartbeats, including accrual
+detectors~\cite{hayashibara2004phi}, observe whether a process is reachable. Studies of production incidents show
+that components often stay reachable while they stop doing their work~\cite{huang2017gray}. Proxies such as Envoy
+remove a server after consecutive failed requests~\cite{envoyoutlier}, and sending a second request after a
+latency percentile reduces tail latency when servers are slow~\cite{dean2013tail}. Our failure handling differs in
+three ways: the timer comes from a per-attempt prediction, not from a fixed value or a latency history; the second
+attempt is restricted to key holders in another failure domain; and the outcome of every attempt updates a per-worker
+estimate that provisioning uses.

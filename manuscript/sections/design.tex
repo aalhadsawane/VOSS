@@ -1,1 +1,231 @@
-% v2: rewritten in plan phase V14 following manuscript/WRITING_SPEC.md. v1 text is in git history (main b0f2fb2).
+% Outline (WRITING_SPEC.md §3 rows 4 and 4a; plan §11.9). 4.1 components and the path of one invocation, numbered to
+% the figure; 4.2 provisioning: measurements that motivate the model, run-time model (four cases), deadline
+% probability, reliability, objective, Propositions 1-2, Algorithm 1; 4.3 request placement (Algorithm 2);
+% 4.4 failure handling; constants table. No sentence about experiments or how the system is evaluated.
+\section{Architecture and Scheduler}
+\label{sec:design}
+
+\subsection{Components and the path of one invocation}
+\label{sec:arch}
+
+Figure~\ref{fig:arch} shows the components. The provider runs four services. \emph{Routers} at several sites are the
+public entry point. One \emph{scheduler} makes every provisioning and placement decision. The \emph{verifier} checks
+quotes and issues session certificates. The \emph{registry} stores each function's code and file system as
+ciphertext. Each tenant runs a \emph{key service}. A \emph{worker} is a volunteer machine running the image; it
+opens every connection outward, so it needs no reachable address behind a home router.
+
+\begin{figure}[t]
+\centering
+\input{diagrams/arch}
+\caption{Components of \voss{}. Solid arrows are the path of one invocation (1--4); dashed arrows prepare a worker
+(a--d).}
+\label{fig:arch}
+\end{figure}
+
+A worker is prepared in four steps, which the scheduler orders ahead of the invocations that use them. The worker
+attests to the verifier and receives its session certificate~(a). When the scheduler makes it a key holder of a
+function, it requests the function key from the tenant's key service~(b), fetches the function's encrypted code from
+the registry~(c), and starts or restores as many sandboxes as the scheduler asks for~(d).
+
+An invocation takes four steps. The client connects to the nearest router~(1). The router sends the function's name,
+the input's size and the deadline to the scheduler~(2). The scheduler answers with a worker~(3). The router forwards
+the client's connection to that worker, and the worker returns the result and its signed receipt along the same
+path~(4). The router keeps the invocation until the result arrives or the deadline passes, so a client never talks to
+a worker directly and a worker's departure does not break the client's connection to the router.
+
+The scheduler runs on the provider's machines because every other choice puts an untrusted owner on the control path
+of every invocation, and because the provider must run the routers, verifier and registry with high availability in
+any case. One scheduler sees every key holder of a function. If workers were divided among $C$ schedulers, each would
+have to work with $K/C$ holders of a function, or the function would have $C \cdot K$ holders in total; a holder
+budget makes partitioning expensive by construction.
+
+\subsection{Provisioning}
+\label{sec:prov}
+
+Provisioning runs periodically. For each function it chooses the key holders, the concurrency each holder reserves for
+the function, and the number of sandboxes each keeps warm. Two properties of volunteer machines shape the choice.
+
+\paragraph{Machines differ per function, and history predicts.}
+\critical{Two measurements from the calibration data, regenerated from the merged bundles: (i) the coefficient of
+variation of a function's execution time over repeated runs on one machine; (ii) the range, across functions, of the
+execution-time ratio between two machine classes at the same input size.} The first measurement means that earlier
+runs of a function on a machine predict later ones. The second means that one speed number per machine does not: a
+machine that is twice as slow as another for one function can be several times as slow for a different one, because
+functions stress processor, memory and disk differently.
+
+\paragraph{Run-time model.}
+For function $f$ with input size $x$ on worker $j$ of machine class $m(j)$, the execution time $T_{fj}$ follows
+\begin{equation}
+\log T_{fj}(x) = \alpha_f + \beta_f \log\frac{x}{x_f} + \gamma_{f,m(j)} + \delta_j + \varepsilon,
+\qquad \varepsilon \sim \mathcal{N}(0, \sigma_f^2).
+\label{eq:runtime}
+\end{equation}
+$\alpha_f$ is the function's log execution time at its reference input size $x_f$ on the reference machine class, and
+$\beta_f$ its size exponent. $\gamma_{f,m}$ is the effect of machine class $m$ on function $f$. $\delta_j$ is the
+effect of worker $j$ on every function, which captures the machine's cooling, firmware settings and wear. The
+scheduler holds a Gaussian posterior over the four terms and updates it from the execution time in every receipt,
+with exponential forgetting; the prediction for $T_{fj}$ is log-normal. The prior for $\gamma_{f,m}$ is the measured
+ratio of $f$'s execution time on class $m$ to the reference class when the provider has measured $f$ on that class.
+Table~\ref{tab:cases} lists what the scheduler uses when history is missing. The model answers the question that a
+platform of dissimilar machines poses: what a run of $f$ on one worker says about $f$ on a worker where it has never
+run.
+
+\begin{table}[t]
+\caption{What the run-time model uses for function $f$ on worker $j$, by available history.}
+\label{tab:cases}
+\small
+\begin{tabular}{@{}P{45mm}P{60mm}P{26mm}@{}}
+\toprule
+History & Prediction uses & Uncertainty \\
+\midrule
+$f$ has run on $j$ & posterior of all terms & smallest \\
+$f$ has run on other workers of class $m(j)$ & $\alpha_f,\beta_f,\gamma_{f,m(j)}$ from those runs; $\delta_j$ from $j$'s
+  runs of other functions & adds the prior variance of $\delta_j$ if $j$ is new \\
+$f$ has never run on class $m(j)$ & $\gamma_{f,m(j)}$ from its prior: the measured class ratio, or the mean ratio of
+  the class & adds the prior variance of $\gamma$ \\
+$f$ has never run & $\alpha_f,\beta_f$ from the population of functions & widest \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Deadline probability.}
+An invocation of $f$ placed on worker $j$ meets its deadline $d_f$ if the wait for a free core $W_j$, the sandbox
+start $U_{fj}$ from the state the function is in on $j$, the transfer of input and result over $j$'s link $N_j$, and
+the execution fit:
+\begin{equation}
+\pi_{fj} = \Pr\left( W_j + U_{fj} + N_j + T_{fj} \le d_f \right).
+\label{eq:pi}
+\end{equation}
+The scheduler evaluates~\eqref{eq:pi} with the log-normal prediction of $T_{fj}$ and the other three terms at their
+predicted values. A slow worker on a slow link is thereby not excluded from a function with a generous deadline, and a
+fast worker is not assumed sufficient for a tight one.
+
+\paragraph{Reliability.}
+The probability that worker $j$ serves through the provisioning horizon $H$ is
+$r_j = S(H \mid \mathit{age}_j)\,(1-p_j)$. $S$ is the survival function of sessions, a Weibull distribution fitted
+to observed session lengths including sessions still running, with a factor for the hour of the day; it is evaluated
+conditional on the session's current age, because a session that has lasted long is likely to last longer when the
+fitted shape is below one. $p_j$ is the estimated probability that $j$ drops an invocation it accepted
+(Section~\ref{sec:fail}). Workers of one owner, city or ISP form a \emph{failure domain}, and a domain fails as a
+whole with a probability estimated from how often several of its workers left together.
+
+\paragraph{Objective.}
+One reserved core on worker $j$ is worth $v_{fj} = (t_f / \mathrm{E}[T_{fj}])\,\pi_{fj}$ reference servers to
+function $f$, where $t_f$ is $f$'s mean execution time on the reference class: a slower worker counts for less, and so
+does a worker unlikely to meet the deadline. Let $S$ be the set of key holders of $f$, $u_{fj}$ the cores holder $j$
+reserves, and $\omega$ a \emph{scenario}: the set of workers that serve through the horizon. The capacity that
+survives in $\omega$ is $X_f(S,\omega) = \sum_{j \in S \cap \omega} u_{fj} v_{fj}$, and the rate of invocations of $f$
+served within their deadline is
+\begin{equation}
+R_f(S,\omega) = \lambda_f \left[ 1 - B\!\left(X_f(S,\omega),\, \lambda_f t_f\right) \right],
+\label{eq:rate}
+\end{equation}
+where $\lambda_f$ is $f$'s request rate and $B(c,a)$ is the Erlang loss probability of $c$ servers offered load $a$,
+extended to real $c$~\cite{jagers1986erlang}. Provisioning maximises the expected on-time rate
+$F(S) = \sum_f \mathrm{E}_\omega\!\left[R_f(S_f,\omega)\right]$, with scenarios drawn from the reliability model, subject
+to $|S_f| \le K_f$ for every function, the concurrency limit of every worker, and the owner classes each tenant
+allows.
+
+\begin{proposition}
+\label{prop:submodular}
+For fixed reservations, $F_f(S) = \mathrm{E}_\omega[R_f(S,\omega)]$ is monotone and submodular in the holder set $S$.
+\end{proposition}
+\begin{proof}
+Fix $\omega$. $X_f(S,\omega)$ is a sum of non-negative weights over the members of $S$, and $c \mapsto 1 - B(c,a)$ is
+increasing and concave in $c$~\cite{messerli1972,jagers1986erlang}. A concave increasing function of a non-negative
+modular function is monotone submodular. $F_f$ is a non-negative mixture of such functions over $\omega$.
+\end{proof}
+
+\begin{corollary}
+\label{cor:greedy}
+Choosing the holders of one function greedily under $|S| \le K_f$ yields at least $1 - 1/e$ of the largest expected
+on-time rate under the model~\cite{nemhauser1978}.
+\end{corollary}
+
+\begin{proposition}
+\label{prop:shared}
+Across functions that share workers, with one reserved core per chosen (function, worker) pair, greedy selection
+over pairs yields at least $1/3$ of the largest expected on-time rate under the model.
+\end{proposition}
+\begin{proof}
+The feasible sets of pairs are the intersection of two partition matroids: at most $K_f$ pairs per function and at
+most $c_j$ pairs per worker, $c_j$ being the worker's concurrency limit. $F$ is a sum of the monotone submodular
+functions of Proposition~\ref{prop:submodular} over disjoint ground sets. Greedy selection over the intersection of
+two matroids yields at least $1/3$ of the optimum~\cite{fisher1978}.
+\end{proof}
+
+Both guarantees are statements about the model objective. Whether the model ranks holder sets as the platform
+experiences them is an empirical question, which Section~\ref{sec:results} addresses. With $M$ sampled scenarios the
+guarantees hold for the sample average, which converges to the expectation as $M$
+grows~\cite{kleywegt2002saa}.
+
+\begin{algorithm}[t]
+\caption{Provisioning}
+\label{alg:prov}
+\small
+\begin{algorithmic}[1]
+\State predict $\mathrm{E}[T_{fj}]$ and $\pi_{fj}$ for every function $f$ and eligible worker $j$; compute $v_{fj}$
+\State draw $M$ scenarios $\omega_1,\dots,\omega_M$ from the reliability model
+\State $S_f \gets \emptyset$, $u_{fj} \gets 0$ for all $f, j$
+\Repeat \Comment{choose key holders}
+  \State $(f,j) \gets$ the pair with the largest gain in $\frac{1}{M}\sum_m \sum_f R_f(S_f,\omega_m)$ among pairs with
+         $|S_f| < K_f$, a free core on $j$, and $j$ allowed for $f$; ties go to current holders
+  \State $S_f \gets S_f \cup \{j\}$; $u_{fj} \gets 1$
+\Until{no pair has positive gain}
+\Repeat \Comment{reserve further cores on chosen holders}
+  \State $(f,j) \gets$ the pair with $j \in S_f$, a free core on $j$ and the largest gain; $u_{fj} \gets u_{fj} + 1$
+\Until{no pair has positive gain}
+\State on each holder, keep warm the sandboxes that save the most start-up time per megabyte, within its memory
+\State send each worker the keys to request, the sandboxes to start and the keys to drop
+\end{algorithmic}
+\end{algorithm}
+
+Algorithm~\ref{alg:prov} is this greedy selection. Line~5 evaluates gains lazily: by submodularity a gain computed
+earlier is an upper bound on the current one, so only the pair at the top of a priority queue is
+re-evaluated~\cite{minoux1978}. The second loop is greedy over one partition matroid. Line~10 is a knapsack on each
+worker's memory, for which we claim no bound. Ties go to workers that already hold the key, because a new holder
+costs a key release, a code fetch and a sandbox start, and the old holder keeps its place in the budget until its
+certificate expires. A worker whose session certificate expires inside the horizon is not eligible.
+
+\subsection{Request placement}
+\label{sec:place}
+
+For each invocation the scheduler evaluates~\eqref{eq:pi} for every key holder of the function with the current
+state of that worker: the invocations queued on it, the state the function is in on it, and the input's size. It
+assigns the invocation to the holder with the highest probability of meeting the deadline, and among equal
+probabilities to the one with the lowest expected completion time. There are no weights to tune. Synchronous
+invocations are placed as they arrive; invocations without a waiting client are placed in batches, after the
+synchronous ones. The time the scheduler itself takes is part of $W_j$; Section~\ref{sec:res-scale} measures it.
+
+\subsection{Failure handling}
+\label{sec:fail}
+
+\paragraph{Timers from predictions.}
+When the scheduler assigns an invocation it starts a timer at the 95th percentile of the attempt's predicted
+completion time, from the same prediction as~\eqref{eq:pi}. A fixed timeout must be as long as the slowest worker
+needs for the longest function; a predicted one expires within the deadline for most invocations, which leaves time
+for a second attempt.
+
+\paragraph{Backup attempts.}
+When the timer expires and the function may run twice, the scheduler starts a \emph{backup attempt}: the invocation
+also runs on a second key holder, and the first result to arrive is used. The second holder has a different owner,
+city and ISP from the first, so that one home network or one owner cannot fail both. A backup attempt starts only if
+its predicted completion fits the remaining time; otherwise the client is told at once that the invocation failed.
+Restricting backup attempts to key holders keeps the holder budget intact under failures.
+
+\paragraph{Evidence from progress.}
+On expiry the scheduler also asks the first worker whether the invocation is still running. A worker that answers is
+slow, and the scheduler waits for the deadline before it asks again. A worker that does not answer, or that reports
+the invocation finished while no result arrived, has dropped work; this updates the estimate $p_j$ of
+Section~\ref{sec:prov}, a Beta posterior with a change-point test~\cite{page1954cusum} so that a worker that starts
+dropping work is noticed after few invocations. When the test fires, or after consecutive failures, the scheduler
+stops assigning invocations to the worker for a period and tells it to drop its keys, which frees its places in the
+holder budgets. Heartbeats are used only to learn that a worker is gone; they are never evidence that it works.
+
+\paragraph{Forged results.}
+The sampled audit of Section~\ref{sec:audit} runs through the same mechanism as a backup attempt, with the audit
+probability in place of the timer. A banned worker's running invocations are cancelled and run elsewhere.
+
+\critical{Constants table (provisioning period, horizon, number of scenarios, timer quantile, probation period,
+audit probability, key rotation period, certificate renewal period), generated from the parameter ledger with each
+constant's class: measured, trace, literature, derived, axis or swept.}

@@ -1,1 +1,107 @@
-% v2: rewritten in plan phase V14 following manuscript/WRITING_SPEC.md. v1 text is in git history (main b0f2fb2).
+% Outline (WRITING_SPEC.md §7.3). Terms table; 2.1 what starting a function costs; 2.2 attestation in brief;
+% 2.3 how volunteer machines fail; 2.4 capacity of a worker; 2.5 problem statement. No sentence defends a choice.
+\section{Background and Problem}
+\label{sec:background}
+
+Table~\ref{tab:terms} lists the terms this paper uses.
+
+\begin{table}[t]
+\caption{Terms. Each is used with one meaning throughout.}
+\label{tab:terms}
+\small
+\begin{tabular}{@{}lP{104mm}@{}}
+\toprule
+Term & Meaning \\
+\midrule
+function, invocation & a piece of tenant code run on request; one call of it \\
+synchronous invocation & an invocation whose client waits for the result \\
+tenant, provider, owner & deploys functions; runs the platform; lends a machine \\
+worker & a volunteer machine while it runs the provider's image \\
+session & from a worker's attestation until its owner takes the machine back \\
+sandbox & the isolated environment one invocation runs in; here a Firecracker microVM~\cite{agache2020firecracker} \\
+warm sandbox & a sandbox that is started and idle, ready for an invocation \\
+snapshot & the memory and processor state of a sandbox, written to disk \\
+deadline & the time by which a synchronous invocation's result must reach the client \\
+function key & the key that decrypts one function's code and snapshots \\
+key holder & a worker that currently holds a function key \\
+holder budget $K$ & the largest number of key holders a tenant allows for a function \\
+provisioning & the periodic choice of key holders, warm sandboxes and reserved concurrency \\
+request placement & the choice of a worker for one invocation \\
+backup attempt & running an invocation on a second worker after the first attempt's timeout \\
+deadlines met & the share of synchronous invocations answered correctly within their deadline \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{What starting a function costs}
+\label{sec:bg-start}
+
+In a datacenter, a function's code and file system sit in a storage hierarchy: a remote store, a cache in each
+availability zone and a cache on each host; a host that lacks them fetches them from the tier
+above~\cite{brooker2023ondemand}. A volunteer machine has no shared tier. It fetches a function's encrypted code from
+the provider's registry over its own internet link and keeps it on its own disk. A snapshot contains data that the
+function handled, so the worker writes it to disk encrypted under the function key, and it is never copied to another
+machine.
+
+On one worker a function is therefore in one of four states, each faster to start from than the one before:
+nothing present; encrypted code on disk; an encrypted snapshot on disk; a warm sandbox. Starting from the first two
+states boots a sandbox and runs the function's initialisation. Starting from a snapshot restores the sandbox's memory
+and skips both. A warm sandbox runs the invocation at once. All states above ``code on disk'' need the function key
+in the worker's memory. \critical{Figure: per-step times, power-on to attested worker, sandbox boot and snapshot
+restore, one bar group per calibrated machine and disk type; table of the four states with measured times per
+machine. Needs the merged calibration bundles.}
+
+\subsection{Remote attestation in brief}
+\label{sec:bg-attest}
+
+A TPM is a chip, or a function of the processor's firmware, that records a hash chain of the software a machine
+boots and signs that record with a key that never leaves it~\cite{tcg2019tpm}. The signed record is a \emph{quote}.
+A \emph{verifier} checks the signature, checks that the signing TPM carries its manufacturer's certificate, and
+compares the recorded hashes with the expected values for the published image~\cite{rfc9334,schear2016keylime}. A key
+service that trusts the verifier releases a key to a machine only after the verifier has accepted its quote.
+
+Attestation has three limits that the design must cover. It holds for one boot: after a restart the machine must
+attest again and has lost every key. It shows what the machine booted, not that the machine keeps working: an attested
+machine can lose power, and its owner can drop its network traffic. It does not protect memory from an attacker with
+physical access and equipment; attacks that extract secrets from firmware TPMs with such access have been
+demonstrated~\cite{jacob2023faultpm}.
+
+\subsection{How volunteer machines fail}
+\label{sec:bg-fail}
+
+A session ends when the owner restarts the machine or switches it off. The scheduler receives no warning unless the
+owner uses the image's shutdown request. Section~\ref{sec:method} describes the availability data we use: in it, a
+host is available \critical{for a median of N minutes at a time and for N\% of a week (trace statistic macros)}.
+
+A worker can fail an invocation in three ways. In a \emph{crash}, the machine stops; its periodic liveness messages
+(heartbeats) stop as well. In a \emph{dropped result}, the machine stays attested and keeps sending heartbeats, and
+the result of an invocation never arrives, because the owner filters the traffic or the home network loses it.
+In a \emph{late result}, the result arrives after the deadline. Heartbeats detect only the first; failures in which a
+component stays reachable while its work does not complete are known to dominate incidents in large
+systems~\cite{huang2017gray}. Only the absence of the result itself shows the second and third.
+
+The tenant sets the deadline of a function's synchronous invocations when it deploys the function. The scheduler is
+told the deadline and estimates everything else: the execution time on each worker, the transfer time over the
+worker's link, and the time to start a sandbox. A failure must be detected and repaired inside the deadline. Repair
+means running the invocation again on another worker, which is safe only if the function may run twice for one
+request; the tenant declares this per function, as serverless platforms that retry already
+require~\cite{awslambdaretries}.
+
+\subsection{Capacity of a worker}
+\label{sec:bg-capacity}
+
+A worker runs at most as many invocations at once as it has physical cores (its \emph{concurrency limit}); each
+sandbox has one virtual processor. Invocations that run together slow each other; the slowdown is measured per
+machine and function for every number of concurrent sandboxes up to the hardware thread count
+(Section~\ref{sec:method}). A sandbox is admitted only if its memory fits in the worker's memory minus what the image
+uses. \critical{Table: concurrency limit, memory and measured co-run slowdown per calibrated machine.}
+
+\subsection{Problem statement}
+\label{sec:bg-problem}
+
+Given functions with request rates that change over the day, deadlines and holder budgets, and workers that differ in
+speed, attest when they arrive and leave without notice, the scheduler decides (i)~which workers hold each function's
+key, keep its warm sandboxes and reserve concurrency for it, and (ii)~which worker runs each invocation and when an
+invocation runs a second time. The goals are measurable: the share of synchronous invocations answered correctly
+within their deadline; at no time more key holders of a function than its holder budget; and no forged result
+accepted from a worker, up to the detection probability of the sampled audit, which Section~\ref{sec:trust} states.

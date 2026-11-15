@@ -1,1 +1,11 @@
-% v2: rewritten in plan phase V14 following manuscript/WRITING_SPEC.md. v1 text is in git history (main b0f2fb2).
+% Outline (WRITING_SPEC.md §3 row A). Every remaining grid cell; reproduction instructions.
+\section{Reproduction}
+\label{sec:repro}
+
+Every experiment is defined by a specification file and started by a request file in the repository; it runs on
+hosted runners, publishes its raw logs, and records a hash of each run's logs. Running a specification again with the
+same code revision reproduces the hashes. The public datasets are fetched by scripts that record the source, the
+retrieval time and the checksum of each input and derived file. The calibration measurements of each machine are
+committed with the machine's specification and the versions of every tool used.
+\critical{Repository URL, code revision of the reported results, and the table of every grid cell not shown in
+Section~\ref{sec:results}.}
