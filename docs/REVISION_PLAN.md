@@ -858,6 +858,13 @@ overload the one scheduler from about 2,000 workers (10x the events, a probe sto
 were those of a collapsing system. The bench now runs with `decision_clock.mode=measured` (each decision delays the
 simulation by its own wall time); at 2,000 and 4,000 workers the runs stay healthy (0.6 M and 1.7 M events per
 simulated minute).
+The second run (43648849765) was cancelled too: its 10,000-worker job spent hours in a probe storm (2.7 M probes in
+20 simulated seconds). After a probe answered "running", the result watchdog re-armed at the attempt's completion
+quantile, already passed, and probed again at once, once per round trip, for every late attempt. The watchdog now
+waits until the deadline after such an answer, and never less than one probe timeout (D-98); 10,000 workers then run
+0.5 M events in 20 simulated seconds instead of 16 M. The probe storm had also hidden a gap: a banned worker's
+in-flight and audit attempts kept running (only its receipts were rejected); the scheduler now cancels them and stops
+using the worker at once. `fit` now runs over the pools that finished.
 
 **Exit criteria V10:** coefficients committed with CPU label; a test checks the clock uses them.
 

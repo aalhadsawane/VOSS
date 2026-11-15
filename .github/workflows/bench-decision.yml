@@ -58,6 +58,7 @@ jobs:
         with: {name: 'bench-w${{ matrix.workers }}', path: 'bench/w${{ matrix.workers }}', retention-days: 14}
   fit:
     needs: [plan, time]
+    if: always() && needs.plan.result == 'success'  # fit the pools that finished; the file lists which they are
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
