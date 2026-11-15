@@ -45,7 +45,7 @@ provisioning:
     deviations: []
   trusted_hosts:
     source: "upper bound: hosts that never leave and need no attestation"
-    overrides: [system=reference_cloud]
+    overrides: [system=reference_cloud, voss.planner.name=hetero]  # VOSS's own provisioning on trusted hosts
     deviations: []
 failure_handling:
   voss:

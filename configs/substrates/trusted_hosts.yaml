@@ -5,7 +5,8 @@ name: trusted_hosts
 assurance_base: 1.0
 concurrent_owner_use: false
 session:
-  establish: []
+  establish:                  # fleet registration only: the session certificate a host needs to join (no quote)
+    - {op: rpc, to: verifier, size: 1KB, reply: 1KB}
   reattest: []
   reattest_every_s: 1.0e9
   valid_s: 1.0e12
