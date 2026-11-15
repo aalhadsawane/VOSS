@@ -865,6 +865,14 @@ waits until the deadline after such an answer, and never less than one probe tim
 0.5 M events in 20 simulated seconds instead of 16 M. The probe storm had also hidden a gap: a banned worker's
 in-flight and audit attempts kept running (only its receipts were rejected); the scheduler now cancels them and stops
 using the worker at once. `fit` now runs over the pools that finished.
+The third run (43671084451) finished every pool, but its jobs ran on two runner CPUs (AMD EPYC 9V74 for 1,000 and
+10,000 workers, EPYC 7763 for 50, 200 and 3,000), so one fit over them is not valid and the file was not used. It
+also showed the limit of one scheduler: at 0.1 invocations/s per worker, 10,000 workers ask for 1,000 placements/s
+while one takes 1.1 ms, so the scheduler saturates (a third of the invocations timed out); throughput, not the
+10%-of-deadline latency bound, is the binding limit. The bench now runs every pool in one job, caps the load at
+300 invocations/s so that per-decision times come from healthy runs, refuses to fit timings from two CPU models,
+and reports each pool's capacity (1 / placement time) and the first pool that 0.1 invocations/s per worker
+saturates.
 
 **Exit criteria V10:** coefficients committed with CPU label; a test checks the clock uses them.
 
