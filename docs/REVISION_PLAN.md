@@ -874,6 +874,26 @@ while one takes 1.1 ms, so the scheduler saturates (a third of the invocations t
 and reports each pool's capacity (1 / placement time) and the first pool that 0.1 invocations/s per worker
 saturates.
 
+**Outcome (V10).** Run 43684673754: every pool (50, 200, 1,000, 3,000, 10,000 workers × 12, 100, 500 functions) in one
+job on one CPU, Intel Xeon 6975P-C (GitHub-hosted runner), load capped at 300 invocations/s;
+`configs/calibration/provider/intel-xeon-6975p-c/decision.yaml`, which `configs/base.yaml` now charges
+(`decision_clock.coeffs_file`; test `test_the_base_config_charges_the_measured_provider_coefficients`).
+
+| Kind | a | b per unit of work | R² (bin medians) | samples |
+|---|---|---|---|---|
+| plan (provisioning round) | 0 | 40.7 µs per decision variable | 0.70 | 495 |
+| place (request placement) | 0.42 ms | 0.25 µs per candidate pair | 0.93 | 486,431 |
+| route | 0.11 µs | 0.007 µs per known scheduler | 0.98 | 40,000 |
+| verify (Ed25519 per receipt) | 0 | 88 µs per receipt | 1.00 | 400 |
+
+Median placement decision: 0.39-0.42 ms at 50 workers, 0.57-0.64 ms at 3,000 and 1.07-1.22 ms at 10,000 (12 to
+500 functions). It never reaches 10% of the median synchronous deadline (95-152 ms). The binding limit of one
+scheduler is throughput: it places one decision at a time, so its capacity is 1 / placement time, about 2,400 per
+second at 50 workers and 820-935 at 10,000; at the load of the sizing runs (0.1 invocations/s per worker) the first
+measured pool that saturates it is 10,000 workers (about 9,000 by interpolation). The reported runs (500 workers,
+50 invocations/s, D-97) use 2-3% of it. The paper states the limit in one sentence ("beyond about 9,000 workers at
+this load, regional scheduler shards on provider hardware") and does not evaluate shards.
+
 **Exit criteria V10:** coefficients committed with CPU label; a test checks the clock uses them.
 
 ---

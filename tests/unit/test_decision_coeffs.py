@@ -31,3 +31,21 @@ def test_a_file_that_misses_a_charged_kind_is_rejected(tmp_path: Path) -> None:
 
 def test_without_a_file_the_seed_coefficients_stay() -> None:
     assert DecisionClockConfig().coeffs["plan"] == (0.02, 5e-5)
+
+
+def test_the_base_config_charges_the_measured_provider_coefficients() -> None:
+    """V10 exit: every run built on configs/base.yaml charges the coefficients timed on the provider CPU."""
+    from voss.core.config import DECISION_KINDS, load_config
+    from voss.core.paths import REPO_ROOT, config_path
+
+    cfg = load_config(REPO_ROOT / "configs" / "base.yaml")
+    dc = cfg.decision_clock
+    assert dc.coeffs_file.startswith("calibration/provider/")
+    measured = yaml.safe_load(config_path(dc.coeffs_file).read_text())
+    assert measured["provenance"]["default"] == "measured"
+    for kind in DECISION_KINDS:
+        a, b = measured["coeffs"][kind]
+        assert dc.coeffs[kind] == (float(a), float(b))
+    clock = DecisionClock(dc)
+    a, b = dc.coeffs["place"]
+    assert clock.charge("place", work=1000) == pytest.approx(a + b * 1000)
