@@ -1,1 +1,82 @@
-% v2: rewritten in plan phase V14 following manuscript/WRITING_SPEC.md. v1 text is in git history (main b0f2fb2).
+% Outline (WRITING_SPEC.md §7.2). P1 serverless and the cold start; P2 the setting; P3 two problems and the gap;
+% P4 premise; P5 what must happen before a worker can run a function; P6 VOSS and contributions.
+\section{Introduction}
+\label{sec:intro}
+
+Serverless platforms run \emph{functions}: short pieces of code that a customer, the \emph{tenant}, deploys and that
+the platform executes on each request. Most functions execute for well under a
+second~\cite{shahrad2020wild}. Before a function can execute, the platform must prepare a \emph{sandbox}, the isolated
+environment the function runs in, fetch the function's code, load its language runtime and libraries, and run its
+initialisation. This preparation is the \emph{cold start}, and it often takes longer than the execution
+itself~\cite{shahrad2020wild,brooker2023ondemand}. Providers avoid it by keeping sandboxes for some time after an
+invocation (\emph{keep-alive}) and by starting sandboxes before requests arrive, on machines that they own and that
+stay on~\cite{shahrad2020wild,agache2020firecracker}. We ask whether machines that the provider does not own can serve
+the same invocations.
+
+Home and office machines are idle for hours every day. Volunteer computing has used them for two decades, for batch
+computations whose results are due within hours or days~\cite{anderson2004boinc,anderson2002seti}. In our setting an
+\emph{owner} lends a whole machine for a \emph{session} by booting an image that the provider publishes; the machine
+is a \emph{worker} until the owner takes it back. A \emph{synchronous} invocation is one whose client waits for the
+result, and the tenant gives it a \emph{deadline} of seconds.
+
+Two properties of volunteer machines stand between this setting and a serverless platform. First, the owner ends the
+session at any moment, without notice, and every sandbox prepared on the machine is lost with it. Second, the owner
+controls the hardware, and the tenant's code and data must not be readable or changeable by the owner. Existing
+systems each remove one of the two. Volunteer computing tolerates untrusted machines by running every task several
+times and comparing the results~\cite{anderson2004boinc}, which multiplies the work and has no bound on completion
+time. Serverless schedulers decide when to keep a sandbox and assume that the machine holding it
+stays~\cite{shahrad2020wild,fuerst2021faascache}. Confidential serverless systems protect functions from the machine's
+operator on servers in the provider's datacenter~\cite{segarra2024sesame,wallet2025}, which do not leave. Schedulers
+for datacenters with machines of different types model each machine type's speed per
+application~\cite{delimitrou2013paragon,delimitrou2014quasar} and assume the machines stay.
+
+Our premise is \emph{remote attestation}. A worker boots a measured image and its Trusted Platform Module (TPM) signs
+the measurements; a verifier run by the provider checks the signature before the worker receives anything from a
+tenant. An owner who does not physically attack the machine can then do two things: switch the machine off, or drop
+or hold back its network messages while the machine stays attested and reachable. An owner who reads the machine's
+memory with physical equipment is outside what attestation covers; for such machines we bound the damage to results by
+running a sample of invocations a second time on another owner's machine and comparing
+(Section~\ref{sec:trust}).
+
+Before a worker can run a tenant's function, three things must happen, and each takes time. The machine must boot the
+image and attest, which takes \critical{N--N s from power-on until the verifier accepts the worker, across our
+machines (Section~\ref{sec:method})}. The worker must obtain the function's key: code and sandbox snapshots are stored
+encrypted, so that the provider holds only ciphertext, and the tenant's key service releases the key to attested
+workers only. The worker must start a sandbox, which takes \critical{N ms from a snapshot and N ms from a kernel boot
+on the same machines}. All three are lost when the session ends. Each worker that holds a function's key is also one
+more machine from which a physical attack could extract it, so the tenant sets a \emph{holder budget}: the largest
+number of workers that may hold the key at one time. The workers that can serve a function are therefore a small set
+that the scheduler must choose in advance, from machines that differ in speed and that leave.
+
+\voss{}\footnote{\voss{} is a name; it is not an acronym in this paper.} is an architecture and a scheduler for this
+setting. The provider runs routers, one scheduler, the verifier and a registry of encrypted code; workers connect
+outward to them; the provider never holds a function key and never sees an invocation's input or result in clear.
+The scheduler has three parts. \emph{Provisioning} periodically chooses, for each function, the workers that hold its
+key, keep warm sandboxes and reserve capacity, within the holder budget. \emph{Request placement} chooses a worker for
+each invocation by its probability of meeting the deadline. \emph{Failure handling} runs an invocation on a second
+worker when the first does not answer by the time its result was predicted, and stops assigning invocations to
+workers that keep failing. The contributions are:
+
+\begin{enumerate}
+\item \textbf{The architecture} (Sections~\ref{sec:trust} and~\ref{sec:design}): per-function keys released only to
+  attested workers, a holder budget enforced by the tenant's own key service, and an invocation path on which
+  provider-run components carry only ciphertext. Each guarantee is stated for a named class of owner.
+\item \textbf{Provisioning for machines that differ and leave} (Section~\ref{sec:prov}). A run-time model predicts
+  each function's execution time on each worker from measurements of that function, of the worker's machine class and
+  of the worker. Provisioning chooses the key holders that maximise the expected rate of invocations served within
+  their deadline, over sampled scenarios of which workers leave. This objective is monotone submodular, so a greedy
+  choice reaches at least $1-1/e$ of the best expected rate for a function under its holder budget, and at least
+  $1/3$ across functions that share workers. To our knowledge no serverless scheduler models a per-function,
+  per-machine speed together with machine departures (Table~\ref{tab:gap}).
+\item \textbf{Failure handling for owners who drop or forge work} (Section~\ref{sec:fail}): timers set from each
+  attempt's predicted completion, backup attempts restricted to key holders of another owner, city and ISP, an
+  estimate of how often each worker drops work, and a sampled audit of results.
+\item \textbf{An evaluation with measured costs and public traces} (Sections~\ref{sec:method}
+  and~\ref{sec:results}): start-up, attestation and execution times measured with the real image on
+  \critical{N machines}; request arrivals, machine availability and home network links from public datasets; every
+  compared policy under the same holder budget; development and held-out data kept apart.
+  \critical{Main numbers from the held-out experiments.}
+\end{enumerate}
+
+The scheduler, the worker image and the cost measurements are real code and real measurements; the network, the
+sessions and the scale are simulated, and Section~\ref{sec:method} states what is modelled.

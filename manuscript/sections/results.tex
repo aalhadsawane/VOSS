@@ -1,1 +1,74 @@
-% v2: rewritten in plan phase V14 following manuscript/WRITING_SPEC.md. v1 text is in git history (main b0f2fb2).
+% Outline (WRITING_SPEC.md §3 row 6). One subsection per question; first sentence is the finding; then evidence; then
+% the figure. Only the scheduler-limit subsection has data so far; the others wait for the held-out experiments.
+\section{Results}
+\label{sec:results}
+
+\subsection{Deadlines met against key holders}
+\label{sec:res-main}
+\critical{Held-out experiment: deadlines met for each system at $K \in \{2,4,8,16,\infty\}$ and three utilisations;
+latency and slowdown distributions; holders, releases per hour and warm memory. Finding sentence, figure and table
+after the run.}
+
+\subsection{Why the baselines miss deadlines}
+\label{sec:res-mechanism}
+\critical{One episode over time (queue, key holders, missed deadlines) at the central setting.}
+
+\subsection{Where volunteer serverless works}
+\label{sec:res-region}
+\critical{Deadlines met over pool size, utilisation and the share of sessions that end with notice; the pool size and
+load below which no system meets 95\%.}
+
+\subsection{Owners who drop work}
+\label{sec:res-drop}
+\critical{Deadlines met, time until a dropping worker gets no more invocations, and wrongly excluded workers, for
+0, 10 and 20\% dropping owners and each failure-handling policy.}
+
+\subsection{Owners who forge results}
+\label{sec:res-forge}
+\critical{Forged results accepted and results until the ban, per audit probability and class-P share, against
+$1-(1-p)^n$; overhead of the audit.}
+
+\subsection{What each part of provisioning contributes}
+\label{sec:res-ablation}
+\critical{Provisioning without each element: per-function machine effect (one speed per machine), deadline
+probability (feasible or not), reliability (all workers stay), failure domains (independent departures), expectation
+(worst case over lost holders), warm sandboxes, backup attempts; prediction error and interval coverage of the
+run-time model for the four cases of Table~\ref{tab:cases}; distance from the exact program.}
+
+\subsection{Sensitivity}
+\label{sec:res-sens}
+\critical{Deadline multiple, share of functions that may run twice, key rotation period, each swept constant,
+machine mix.}
+
+\subsection{The limit of one scheduler}
+\label{sec:res-scale}
+
+One scheduler is limited by how many invocations it can place per second, and the limit lies far above the pools we
+evaluate. We timed the scheduler's own code on one core of an \VDecCpu{} processor, inside runs with
+\VDecPoolSmall{} to \VDecPoolLarge{} workers and \VDecFnLo{} to \VDecFnHi{} functions. A placement decision takes
+\VDecPlaceFixedMs{}~ms plus \VDecPlacePerPairUs{}~\textmu s for every candidate pair of invocation and worker
+(Table~\ref{tab:decision}). The median decision takes \VDecPlaceSmallLoMs{}--\VDecPlaceSmallHiMs{}~ms with
+\VDecPoolSmall{} workers and \VDecPlaceLargeLoMs{}--\VDecPlaceLargeHiMs{}~ms with \VDecPoolLarge{}, which is two
+orders of magnitude below a tenth of the median synchronous deadline (\VDecBoundLoMs{}--\VDecBoundHiMs{}~ms). The
+scheduler places one invocation at a time, so its capacity is the inverse of the decision time: \VDecCapSmall{}
+invocations per second with \VDecPoolSmall{} workers and \VDecCapLargeLo{}--\VDecCapLargeHi{} with
+\VDecPoolLarge{}. At 0.1 invocations per second per worker, the load of our experiments, the smallest measured pool
+whose load exceeds this capacity has \VDecSaturatedPool{} workers. A pool of 500 workers at that load uses a few
+percent of it. Beyond that size, workers would be divided among schedulers on the provider's machines; under a holder
+budget this costs holders (Section~\ref{sec:arch}), and we do not evaluate it.
+
+\begin{table}[t]
+\caption{Time per scheduler decision on one core of an \VDecCpu{} processor: fixed part and part per unit of work,
+fitted over pools of \VDecPoolSmall{} to \VDecPoolLarge{} workers.}
+\label{tab:decision}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+Decision & Fixed & Per unit of work \\
+\midrule
+Request placement & \VDecPlaceFixedMs{} ms & \VDecPlacePerPairUs{} \textmu s per candidate (invocation, worker) pair \\
+Provisioning & --- & \VDecPlanPerVarUs{} \textmu s per candidate (function, worker) pair \\
+Receipt check & --- & \VDecVerifyPerReceiptUs{} \textmu s per receipt (one signature verification) \\
+\bottomrule
+\end{tabular}
+\end{table}

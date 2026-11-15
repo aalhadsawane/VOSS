@@ -11,7 +11,7 @@ UV ?= uv
 RUN = $(UV) run
 CONFIG ?= configs/smoke.yaml
 
-.PHONY: check lint type imports test run repro-smoke sweep manuscript
+.PHONY: check lint type imports test run repro-smoke sweep manuscript manuscript-check
 
 check: lint type imports test
 
@@ -43,5 +43,10 @@ sweep:
 	$(RUN) python -m experiments.sweep $(EXP) --jobs $(JOBS)
 
 # Manuscript (plan V14). Generated inputs come from experiments.analysis (plan V2).
-manuscript:
+manuscript: manuscript-check
 	cd manuscript && latexmk -pdf -interaction=nonstopmode main.tex
+
+# Regenerate the measured-input macros and run the text checks (WRITING_SPEC.md §2 step 5).
+manuscript-check:
+	uv run python -m experiments.analysis.paper_inputs
+	uv run pytest -q tests/unit/test_manuscript.py

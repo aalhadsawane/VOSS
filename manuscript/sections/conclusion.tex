@@ -1,1 +1,14 @@
-% v2: rewritten in plan phase V14 following manuscript/WRITING_SPEC.md. v1 text is in git history (main b0f2fb2).
+% Outline (WRITING_SPEC.md §3 row 9). What was built, what was measured, where it stops working.
+\section{Conclusion}
+\label{sec:conclusion}
+
+\voss{} serves serverless functions with deadlines of seconds on machines that the provider neither owns nor trusts.
+Workers prove by remote attestation that they run a measured image before a tenant's key service releases a
+function's key to them, and the tenant bounds how many workers hold it. Within that bound, provisioning chooses the
+key holders that maximise the expected rate of invocations served on time, using a prediction of each function's
+execution time on each machine and of each machine's probability of staying; the choice is within a constant factor
+of the best under the model. Invocations are placed by their probability of meeting the deadline, and run a second
+time on another owner's machine when the first does not answer when predicted.
+\critical{What was measured: the headline results, and the pool size and load below which the approach stops
+working (held-out experiments).} One scheduler places \VDecCapLargeLo{}--\VDecCapLargeHi{} invocations per second
+with \VDecPoolLarge{} workers, which sets the size of pool it can serve.
