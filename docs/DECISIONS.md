@@ -110,6 +110,17 @@ log per invocation is checked against 10 GB before its sweep. *Rejected:* 1,000 
 700 workers (fits on time only without margin for slower systems, and its memory was not measured to the end);
 shortening the measured window or the warm-up (G9).
 
+**D-98 After a probe shows progress, the result watchdog waits for the deadline (doc 07 §2, plan V7.2).** When a
+worker answers a probe with "running", the attempt is checked again at its deadline, and never sooner than one probe
+timeout (`Detector.after_progress_s`); a banned worker is dropped by the scheduler at once (never eligible, in-flight
+and audit attempts cancelled and failed). *Why:* re-arming at the completion quantile, which had already passed,
+probed every late attempt once per network round trip: 2.7 M probes in 20 simulated seconds at 10,000 workers, and
+hours of wall time per run. The answer is progress evidence and a backup has already been requested at the first
+expiry, so further probes add no information before the deadline. The storm had also been what stopped a banned
+worker's queued attempts. *Rejected:* a fixed re-probe interval (a new constant to sweep, and still one probe per
+interval per late attempt); no re-arm after "running" (an attempt that later stops would go unnoticed until the
+router's give-up).
+
 ## v1 decisions (D-01 to D-80)
 
 **D-01 Custom Python discrete-event simulator.** FaaS physics is small; solver wall time must enter simulated time;
