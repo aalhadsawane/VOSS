@@ -23,4 +23,5 @@ def test_preset_runs_clean(group: str, name: str) -> None:
     ev = r.recorder.frame(Table.EVENTS)
     bad = ev[ev.kind == "invariant_violation"] if "kind" in ev else ev
     assert bad.empty, list(bad.detail)[:5]
-    assert len(r.recorder.frame(Table.INVOCATIONS)) > 0
+    inv = r.recorder.frame(Table.INVOCATIONS)
+    assert (inv.outcome == "ok").mean() > 0.5  # hosts join and serve (trusted hosts once never got a certificate)

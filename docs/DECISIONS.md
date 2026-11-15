@@ -121,6 +121,18 @@ worker's queued attempts. *Rejected:* a fixed re-probe interval (a new constant 
 interval per late attempt); no re-arm after "running" (an attempt that later stops would go unnoticed until the
 router's give-up).
 
+**D-99 Development load levels in place of pool utilisation 30/60/85% (plan V11.1; provisional, for the owner).**
+`D01` sets its load axis to `scenario.load.rate_mult` ∈ {10.5, 21, 30}: the plan's 30:60:85 in proportion, with the top
+level at the D-97 run size (rate_mult 30 gives about 130 M events in 28 h, as SIZING4). *Why:* with the traced Azure load
+and measured run times the mean busy time is 0.25 s per invocation, so on 500 workers (about 1,710 slots of attested
+workers) pool utilisation is 0.24% at rate_mult 10 and 0.72% at 30 (measured, `samples` table); 60% would need about
+rate_mult 2,500, some 80 times the events one run can simulate within a job. The load still matters at the level of a
+function's holders: at rate_mult 30 the busiest function keeps 3.1 slots busy, about 30% of two holders. *Open:*
+whether R01's utilisation axis should be defined per function against its `K` holders, or reached by another load
+(longer measured functions, fewer slots per host); the owner decides before R01. *Rejected:* rate multipliers that
+reach 30-85% of the pool (do not fit a job by one to two orders of magnitude); fewer workers (capacity falls, but the
+event budget limits arrivals, not workers).
+
 ## v1 decisions (D-01 to D-80)
 
 **D-01 Custom Python discrete-event simulator.** FaaS physics is small; solver wall time must enter simulated time;
