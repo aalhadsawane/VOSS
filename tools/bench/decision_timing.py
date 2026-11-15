@@ -43,6 +43,8 @@ WORK = {
     "verify": "receipts whose signature is checked",
 }
 RATE_PER_WORKER = 0.1  # invocations per second per worker, the load of the sizing runs (D-97)
+# load cap of the timing runs: one scheduler places about 900 invocations/s (1.1 ms each at 10,000 workers), so a
+MAX_RATE = 300.0  # pool loaded at 0.1/s per worker beyond that saturates and its views are those of a backlog
 
 
 def catalog(n: int, tmp: Path) -> Path:
@@ -58,7 +60,7 @@ def simulate(workers: int, n_fns: int, horizon: float, tmp: Path) -> pd.DataFram
     """Decision samples of one short run: kind, work, wall seconds."""
     sets = [
         f"scenario.workers={workers}",
-        f"scenario.load.rate={RATE_PER_WORKER * workers}",
+        f"scenario.load.rate={min(RATE_PER_WORKER * workers, MAX_RATE)}",
         f"horizon_s={horizon}",
         "scenario.warmup_s=0",
         "voss.planner.name=hetero",
@@ -158,10 +160,16 @@ def limit(sim: pd.DataFrame) -> dict[str, Any]:
         by_pool = g.groupby("workers").wall_s.median().sort_index()
         bound = 0.1 * float(g.sync_deadline_s.median())
         over = [int(w) for w, s in by_pool.items() if s > bound]
+        # one scheduler places one decision at a time: its capacity is 1 / placement time; at the load of D-97
+        # (0.1 invocations/s per worker) a pool whose load exceeds it saturates whatever the latency bound says
+        cap = {int(w): 1.0 / float(s) for w, s in by_pool.items()}
+        sat = [w for w, c in cap.items() if RATE_PER_WORKER * w > c]
         out[str(n_fns)] = {
             "median_place_s": {int(w): float(s) for w, s in by_pool.items()},
             "bound_s": bound,
             "first_pool_over": over[0] if over else None,
+            "capacity_per_s": cap,
+            "first_pool_saturated_at_0.1_per_worker": sat[0] if sat else None,
         }
     return out
 
@@ -170,6 +178,9 @@ def cmd_fit(a: argparse.Namespace) -> None:
     dirs = [Path(d) for d in a.dirs]
     sim = pd.concat([pd.read_parquet(p) for d in dirs for p in sorted(d.glob("w*-f*.parquet"))], ignore_index=True)
     micro = pd.concat([pd.read_parquet(p) for d in dirs for p in sorted(d.glob("micro.parquet"))], ignore_index=True)
+    cpus = {cpu_label(f.read_text()) for d in dirs for f in [d / "lscpu.txt"] if f.exists()}
+    if len(cpus) != 1:  # runners differ: one fit must come from one CPU model
+        raise SystemExit(f"timings from {len(cpus)} CPU models {sorted(cpus)}: run every pool in one job")
     lscpu = next(d / "lscpu.txt" for d in dirs if (d / "lscpu.txt").exists()).read_text()
     allk = pd.concat([sim[["kind", "work", "wall_s"]], micro], ignore_index=True)
     fits = {k: fit_kind(allk[allk.kind == k]) for k in DECISION_KINDS}

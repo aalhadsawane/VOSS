@@ -36,26 +36,24 @@ jobs:
           print("functions=" + ",".join(str(x) for x in r["functions"]))
           print(f"horizon={r.get('horizon', 300)}")
           PY
-  time:
+  time:  # every pool in one job: GitHub runners differ in CPU model, and one fit must come from one CPU
     needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 340
-    strategy:
-      fail-fast: false
-      matrix: {workers: '${{ fromJSON(needs.plan.outputs.workers) }}'}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
         with: {python-version: "3.11"}
       - run: nproc; free -m; lscpu
       - run: uv sync --frozen
-      - name: time decisions (one thread)
-        run: >-
-          uv run python -m tools.bench.decision_timing run --workers ${{ matrix.workers }}
-          --functions ${{ needs.plan.outputs.functions }} --horizon ${{ needs.plan.outputs.horizon }}
-          --out bench/w${{ matrix.workers }} --micro
+      - name: time decisions (one thread, pools in sequence)
+        run: |
+          for w in $(python3 -c "import json,sys;print(' '.join(map(str,json.loads(sys.argv[1]))))" '${{ needs.plan.outputs.workers }}'); do
+            uv run python -m tools.bench.decision_timing run --workers "$w" \
+              --functions ${{ needs.plan.outputs.functions }} --horizon ${{ needs.plan.outputs.horizon }} --out "bench/w$w" --micro
+          done
       - uses: actions/upload-artifact@v4
-        with: {name: 'bench-w${{ matrix.workers }}', path: 'bench/w${{ matrix.workers }}', retention-days: 14}
+        with: {name: 'bench', path: 'bench', retention-days: 14}
   fit:
     needs: [plan, time]
     if: always() && needs.plan.result == 'success'  # fit the pools that finished; the file lists which they are
@@ -66,7 +64,7 @@ jobs:
         with: {python-version: "3.11"}
       - run: uv sync --frozen
       - uses: actions/download-artifact@v4
-        with: {pattern: 'bench-*', path: bench}
+        with: {name: 'bench', path: bench}
       - name: fit and commit
         run: |
           uv run python -m tools.bench.decision_timing fit bench/* --out configs/calibration/provider \
