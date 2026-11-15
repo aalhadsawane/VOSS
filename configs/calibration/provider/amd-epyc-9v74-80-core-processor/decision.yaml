@@ -1,0 +1,144 @@
+provenance:
+  default: measured
+  source: https://github.com/aalhadsawane/VOSS/actions/runs/43671084451
+  note: tools/bench/decision_timing.py (plan V10)
+cpu:
+  label: amd-epyc-9v74-80-core-processor
+  lscpu:
+  - 'Architecture:                            x86_64'
+  - 'CPU op-mode(s):                          32-bit, 64-bit'
+  - 'Address sizes:                           48 bits physical, 48 bits virtual'
+  - 'Byte Order:                              Little Endian'
+  - 'CPU(s):                                  4'
+  - 'On-line CPU(s) list:                     0-3'
+  - 'Vendor ID:                               AuthenticAMD'
+  - 'Model name:                              AMD EPYC 9V74 80-Core Processor'
+  - 'CPU family:                              25'
+  - 'Model:                                   17'
+  - 'Thread(s) per core:                      2'
+  - 'Core(s) per socket:                      2'
+  - 'Socket(s):                               1'
+  - 'Stepping:                                1'
+  - 'BogoMIPS:                                5192.29'
+  - 'Flags:                                   fpu vme de pse tsc msr pae mce cx8 apic
+    sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext
+    fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology tsc_reliable nonstop_tsc
+    cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid
+    sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy
+    svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase
+    bmi1 avx2 smep bmi2 erms invpcid avx512f avx512dq rdseed adx smap avx512ifma clflushopt
+    clwb avx512cd sha_ni avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves user_shstk
+    avx512_bf16 clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid
+    decodeassists pausefilter pfthreshold v_vmsave_vmload avx512vbmi umip avx512_vbmi2
+    gfni vaes vpclmulqdq avx512_vnni avx512_bitalg avx512_vpopcntdq rdpid fsrm'
+  - 'Virtualization:                          AMD-V'
+  - 'Hypervisor vendor:                       Microsoft'
+  - 'Virtualization type:                     full'
+  - 'L1d cache:                               64 KiB (2 instances)'
+  - 'L1i cache:                               64 KiB (2 instances)'
+  - 'L2 cache:                                2 MiB (2 instances)'
+  - 'L3 cache:                                32 MiB (1 instance)'
+  - 'NUMA node(s):                            1'
+  - 'NUMA node0 CPU(s):                       0-3'
+  - 'Vulnerability Gather data sampling:      Not affected'
+  - 'Vulnerability Ghostwrite:                Not affected'
+  - 'Vulnerability Indirect target selection: Not affected'
+  - 'Vulnerability Itlb multihit:             Not affected'
+  - 'Vulnerability L1tf:                      Not affected'
+  - 'Vulnerability Mds:                       Not affected'
+  - 'Vulnerability Meltdown:                  Not affected'
+  - 'Vulnerability Mmio stale data:           Not affected'
+  - 'Vulnerability Old microcode:             Not affected'
+  - 'Vulnerability Reg file data sampling:    Not affected'
+  - 'Vulnerability Retbleed:                  Not affected'
+  - 'Vulnerability Spec rstack overflow:      Vulnerable: Safe RET, no microcode'
+  - 'Vulnerability Spec store bypass:         Vulnerable'
+  - 'Vulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers
+    and __user pointer sanitization'
+  - 'Vulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled;
+    RSB filling; PBRSB-eIBRS Not affected; BHI Not affected'
+  - 'Vulnerability Srbds:                     Not affected'
+  - 'Vulnerability Tsa:                       Vulnerable: No microcode'
+  - 'Vulnerability Tsx async abort:           Not affected'
+  - 'Vulnerability Vmscape:                   Not affected'
+work_units:
+  plan: decision variables of the provisioning round (functions x candidate workers)
+  place: candidate (invocation, worker) pairs scored by request placement
+  route: schedulers the router knows
+  verify: receipts whose signature is checked
+coeffs:
+  plan:
+  - 0.0
+  - 6.271560035236012e-05
+  place:
+  - 0.0005079057266837483
+  - 3.2246458351955e-07
+  route:
+  - 1.5006086903707438e-07
+  - 8.730452978140766e-09
+  verify:
+  - 0.0
+  - 0.00011316142645761068
+fit:
+  plan:
+    a: 0.0
+    b: 6.271560035236012e-05
+    r2: 0.5091
+    samples: 495
+    work_max: 4800.0
+  place:
+    a: 0.0005079057266837483
+    b: 3.2246458351955e-07
+    r2: 0.5063
+    samples: 1030315
+    work_max: 529356.0
+  route:
+    a: 1.5006086903707438e-07
+    b: 8.730452978140766e-09
+    r2: 0.4118
+    samples: 40000
+    work_max: 8.0
+  verify:
+    a: 0.0
+    b: 0.00011316142645761068
+    r2: 0.9946
+    samples: 400
+    work_max: 1000.0
+pools:
+- 50
+- 200
+- 1000
+- 3000
+- 10000
+functions:
+- 12
+- 100
+- 500
+placement_limit:
+  '12':
+    median_place_s:
+      50: 0.0006226414999979113
+      200: 0.000629656500001019
+      1000: 0.00048439699999391905
+      3000: 0.0007905744999980868
+      10000: 0.0011029930001313915
+    bound_s: 0.1516022943614065
+    first_pool_over: null
+  '100':
+    median_place_s:
+      50: 0.000608153000001721
+      200: 0.0006116110000036201
+      1000: 0.0004978869999945346
+      3000: 0.0008229990000074849
+      10000: 0.0013197404996390105
+    bound_s: 0.09550171233666359
+    first_pool_over: null
+  '500':
+    median_place_s:
+      50: 0.0006185985000044525
+      200: 0.0006299970000043231
+      1000: 0.000538868000006687
+      3000: 0.0008733434999896872
+      10000: 0.0019260509998275666
+    bound_s: 0.10909868901873981
+    first_pool_over: null

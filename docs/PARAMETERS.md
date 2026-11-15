@@ -192,6 +192,7 @@ for the file as a whole.
 | `configs/substrates/appliance_tpm.yaml` | pending V4 | substrate profile; ref_* become the trusted-host baseline in V8 |
 | `configs/substrates/none.yaml` | pending V4 | substrate profile; ref_* become the trusted-host baseline in V8 |
 | `configs/baselines.yaml` | D | systems compared: source, overrides, deviations (V8) |
+| `configs/calibration/provider/amd-epyc-9v74-80-core-processor/decision.yaml` | M | decision-time coefficients on the provider CPU (plan V10, run 43671084451) |
 | `configs/traces/wup2025/provenance.yaml` | T | trace wup2025, release data-wup2025-1085a0d3 (plan V9) |
 | `configs/traces/boinc-rosetta/provenance.yaml` | T | trace boinc-rosetta, release data-boinc-rosetta-1085a0d3 (plan V9) |
 | `configs/traces/boinc-milkyway/provenance.yaml` | T | trace boinc-milkyway, release data-boinc-milkyway-1085a0d3 (plan V9) |
