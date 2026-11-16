@@ -28,7 +28,7 @@ PATTERNS = {
     "sentence opening with And or So": r"(?:^|[.!]\s+)(?:And|So)\s",
     "'about' before a generated number": r"\babout\s+\\V[A-Za-z]+",
 }
-MARKERS = r"\\critical|\\potrem|\\todo\{|TODO"
+MARKERS = r"\\critical|\\potrem|\\todo\{|\\todoitem|TODO"
 
 
 def prose(path: Path) -> str:
@@ -55,7 +55,7 @@ def test_no_draft_markers_in_a_submission(path: Path) -> None:
 def test_numbers_in_the_abstract_are_macros() -> None:
     text = prose(MS / "main.tex")
     abstract = text[text.index("\\begin{abstract}") : text.index("\\end{abstract}")]
-    abstract = re.sub(r"\\critical\{[^}]*\}", "", abstract)
+    abstract = re.sub(r"\\todoitem\{T\d+\}\{[^}]*\}\{[^}]*\}", "", abstract)
     assert not re.search(r"\d", abstract), "type no number in the abstract: use a generated macro"
 
 
@@ -68,6 +68,13 @@ def test_every_figure_and_table_is_referenced() -> None:
 
 def test_generated_inputs_are_fresh() -> None:
     assert (MS / "generated" / "inputs.tex").read_text() == render(paper_inputs.build())
+    assert (MS / "generated" / "constants.tex").read_text() == paper_inputs.constants_table()
+    assert (MS / "TODO.md").read_text() == paper_inputs.todo_list()
+
+
+def test_todo_ids_are_unique() -> None:
+    ids = [m for p in FILES for m in re.findall(r"\\todoitem\{(T\d+)\}", p.read_text())]
+    assert len(ids) == len(set(ids)) and ids, "every to-do marker has its own id"
 
 
 def test_every_macro_used_is_defined() -> None:

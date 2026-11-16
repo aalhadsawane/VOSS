@@ -39,10 +39,10 @@ running a sample of invocations a second time on another owner's machine and com
 (Section~\ref{sec:trust}).
 
 Before a worker can run a tenant's function, three things must happen, and each takes time. The machine must boot the
-image and attest, which takes \critical{N--N s from power-on until the verifier accepts the worker, across our
+image and attest, which takes \todoitem{T03}{calibration bundles and trace statistics}{N--N s from power-on until the verifier accepts the worker, across our
 machines (Section~\ref{sec:method})}. The worker must obtain the function's key: code and sandbox snapshots are stored
 encrypted, so that the provider holds only ciphertext, and the tenant's key service releases the key to attested
-workers only. The worker must start a sandbox, which takes \critical{N ms from a snapshot and N ms from a kernel boot
+workers only. The worker must start a sandbox, which takes \todoitem{T04}{calibration bundles and trace statistics}{N ms from a snapshot and N ms from a kernel boot
 on the same machines}. All three are lost when the session ends. Each worker that holds a function's key is also one
 more machine from which a physical attack could extract it, so the tenant sets a \emph{holder budget}: the largest
 number of workers that may hold the key at one time. The workers that can serve a function are therefore a small set
@@ -73,9 +73,9 @@ workers that keep failing. The contributions are:
   estimate of how often each worker drops work, and a sampled audit of results.
 \item \textbf{An evaluation with measured costs and public traces} (Sections~\ref{sec:method}
   and~\ref{sec:results}): start-up, attestation and execution times measured with the real image on
-  \critical{N machines}; request arrivals, machine availability and home network links from public datasets; every
+  \todoitem{T05}{calibration bundles and trace statistics}{N machines}; request arrivals, machine availability and home network links from public datasets; every
   compared policy under the same holder budget; development and held-out data kept apart.
-  \critical{Main numbers from the held-out experiments.}
+  \todoitem{T06}{held-out experiments}{Main numbers from the held-out experiments.}
 \end{enumerate}
 
 The scheduler, the worker image and the cost measurements are real code and real measurements; the network, the
