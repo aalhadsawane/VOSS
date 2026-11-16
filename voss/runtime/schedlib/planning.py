@@ -13,6 +13,7 @@ import numpy as np
 from voss.core.config import VossConfig
 from voss.core.ids import FnId, TenantId, WorkerId
 from voss.core.registry import create
+from voss.core.rng import RngFactory
 from voss.core.types import ClusterView
 from voss.policy.cost.inputs import CostContext
 from voss.policy.keepalive_hist import HistParams
@@ -38,8 +39,11 @@ def _hot(rates: dict[str, float], k: int, min_rate: float) -> list[str]:
 
 
 class Planning:
-    def __init__(self, cfg: VossConfig, ctx: CostContext, models: SchedModels, start_utc_h: float) -> None:
+    def __init__(
+        self, cfg: VossConfig, ctx: CostContext, models: SchedModels, start_utc_h: float, rng: RngFactory
+    ) -> None:
         self.cfg, self.ctx, self.models, self.start_utc_h = cfg, ctx, models, start_utc_h
+        self.rng = rng  # the run's streams (doc 01 §3): failure scenarios follow the run seed
         pc = cfg.planner
         kw: dict[str, Any] = {}
         if pc.name == "milp":
@@ -72,7 +76,7 @@ class Planning:
         inp = survival_blind(inp) if self.params.survival_blind else inp
         if self.cfg.planner.name == "hetero":  # per-worker run times, deadline probabilities, failure scenarios (§11)
             pc = self.cfg.planner
-            het = hetero_inputs(inp, view, self.ctx, self.models, pc.scenarios, pc.domain_shock_p, pc.ablate)
+            het = hetero_inputs(inp, view, self.ctx, self.models, pc.scenarios, pc.domain_shock_p, self.rng, pc.ablate)
             inp = replace(inp, hetero=het)
         return inp
 
