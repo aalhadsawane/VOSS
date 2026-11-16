@@ -47,7 +47,9 @@ The trusted hosts lose 0.019 here: their misses are dominated by one function th
 does not include (it scores run time and deadline probability, not the distance to the router). Whether this holds
 over 24 h is for the `D01a` rerun to show.
 
-**Rerun.** `runs/requests/experiment/d01a-iter1.yaml` (9 runs, 9 shards). Result: pending.
+**Rerun.** `runs/requests/experiment/d01a-iter1.yaml` (9 runs, 9 shards, run 43823178136): shards 1-8 finished in
+0.8-1.7 h, shard 0 (`eviction_aware`) hit the job limit, so the run published nothing; the cause is the
+min-worker-set bug fixed in iteration 2. D01a is rerun after iteration 2.
 
 ## Bug fixes found in iteration 1 (apply to every system)
 
