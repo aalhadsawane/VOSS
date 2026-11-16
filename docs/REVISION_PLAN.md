@@ -637,7 +637,7 @@ queueing and the same failure handling. They differ only in **when keys are rele
 | Target-concurrency autoscaler | Knative pod autoscaler | desired warm sandboxes = ceil(observed concurrency / 1) over a 60 s stable window, 6 s panic window, 200% panic threshold, 30 s scale-to-zero grace (L: verify in Knative docs) |
 | Greedy-dual keep-alive | Fuerst and Sharma, ASPLOS 2021 | worker-side eviction by frequency × cold-start cost / size (check `policy/cache_value.py` against the paper's formula) |
 | Pre-released keys | isolates "how many holders" | key on the `K_f` workers with the lowest drop estimate; sandboxes by fixed keep-alive |
-| Eviction-aware placement | Zhang et al., SOSP 2021 (harvested resources) | prefer workers with the longest predicted remaining session; fixed keep-alive |
+| Eviction-aware placement | Zhang et al., SOSP 2021 (harvested resources) | as published: min-worker-set load balancing (§5.2, Algorithm 1), no new invocations after an eviction notice; fixed keep-alive (corrected in V11 iteration 1: the first implementation ranked workers by predicted failure, which the paper does not do) |
 | Trusted always-on hosts | upper bound | same workload on hosts that never leave and need no attestation; never called by a vendor's name |
 
 Each has a unit test against its published rule and a row in the paper's "systems compared" table with source and deviations.
@@ -743,7 +743,8 @@ memory flat at 3.4-3.5 GB from hour 3 to hour 28, but peak 15.3 GB: the end-of-r
 about ten times and the result hash joined each text column into one string. Both now read one chunk or one column at
 a time (`Recorder.frame_where`, streamed `result_hash`, same hashes on the traced smoke and a 6-hour run); the peak at
 150 workers over 6 h fell from 1,528 MB to 965 MB (against 735 MB while running), and the manifest's peak now includes
-writing the logs. SIZING4 is repeated with this fix.
+writing the logs. SIZING4 repeated with this fix (run 43598364623): 2 h 32 min on a slower runner, peak 8.7 GB, same
+result hash as the first run. D-97 holds: 500 workers, 4 h warm-up + 24 h measured, under 4 h and 10 GB.
 
 **Outcome (V9a: V9.1 and the pipeline).** `tools/traces/azure.py` derives `functions_<split>.parquet` and
 `arrivals_<split>.parquet` (200 functions per split, 20 per rate decile; licence CC-BY 4.0, checked) in about 2 minutes.
@@ -840,6 +841,58 @@ planner failed on a planning step with no candidate worker. Both are fixed, with
 - The result also gives the pool size at which placement latency exceeds 10% of the median synchronous deadline; that is the
   stated limit of one scheduler. Beyond it the paper says "regional scheduler shards on provider hardware", in one sentence,
   not evaluated.
+
+**Outcome (V10a, tooling).** `tools/bench/decision_timing.py run` simulates the real system briefly for each (pool, function
+count) on one thread, so Algorithms 1 and 2 are timed by the scheduler's own `time.perf_counter` around the policy call
+on real views, with the `work` the decision clock receives (`solver` table); function counts above the catalogue's are
+copies of its functions. `route` (the router's choice) and `verify` (Ed25519, one check per receipt, `cryptography`)
+are timed directly because the simulation does not execute them. `fit` fits `a + b·work` (non-negative least squares
+on 20 quantile-bin medians) and writes `configs/calibration/provider/<cpu-label>/decision.yaml` with the CPU's
+`lscpu` and the first pool at which a placement decision exceeds 10% of the median synchronous deadline.
+`bench-decision.yml` runs one job per pool size from `runs/requests/bench/decision-v10.yaml` (pools 50-10,000,
+functions 12-500). `decision_clock.coeffs_file` loads the coefficients into the config (and its hash) and rejects a
+file that misses a charged kind; the unused kinds `orchestrate` and `settle` are deleted. Local trial (50 and 300
+workers): plan 29 µs per decision variable, place 0.26 ms + 2.3 µs per candidate pair, verify 90 µs per receipt.
+The first workflow run (43639002694) was cancelled: the timing simulations charged the seed coefficients, which
+overload the one scheduler from about 2,000 workers (10x the events, a probe storm, timeouts), so the views timed
+were those of a collapsing system. The bench now runs with `decision_clock.mode=measured` (each decision delays the
+simulation by its own wall time); at 2,000 and 4,000 workers the runs stay healthy (0.6 M and 1.7 M events per
+simulated minute).
+The second run (43648849765) was cancelled too: its 10,000-worker job spent hours in a probe storm (2.7 M probes in
+20 simulated seconds). After a probe answered "running", the result watchdog re-armed at the attempt's completion
+quantile, already passed, and probed again at once, once per round trip, for every late attempt. The watchdog now
+waits until the deadline after such an answer, and never less than one probe timeout (D-98); 10,000 workers then run
+0.5 M events in 20 simulated seconds instead of 16 M. The probe storm had also hidden a gap: a banned worker's
+in-flight and audit attempts kept running (only its receipts were rejected); the scheduler now cancels them and stops
+using the worker at once. `fit` now runs over the pools that finished.
+The third run (43671084451) finished every pool, but its jobs ran on two runner CPUs (AMD EPYC 9V74 for 1,000 and
+10,000 workers, EPYC 7763 for 50, 200 and 3,000), so one fit over them is not valid and the file was not used. It
+also showed the limit of one scheduler: at 0.1 invocations/s per worker, 10,000 workers ask for 1,000 placements/s
+while one takes 1.1 ms, so the scheduler saturates (a third of the invocations timed out); throughput, not the
+10%-of-deadline latency bound, is the binding limit. The bench now runs every pool in one job, caps the load at
+300 invocations/s so that per-decision times come from healthy runs, refuses to fit timings from two CPU models,
+and reports each pool's capacity (1 / placement time) and the first pool that 0.1 invocations/s per worker
+saturates.
+
+**Outcome (V10).** Run 43684673754: every pool (50, 200, 1,000, 3,000, 10,000 workers × 12, 100, 500 functions) in one
+job on one CPU, Intel Xeon 6975P-C (GitHub-hosted runner), load capped at 300 invocations/s;
+`configs/calibration/provider/intel-xeon-6975p-c/decision.yaml`, which `configs/base.yaml` now charges
+(`decision_clock.coeffs_file`; test `test_the_base_config_charges_the_measured_provider_coefficients`).
+
+| Kind | a | b per unit of work | R² (bin medians) | samples |
+|---|---|---|---|---|
+| plan (provisioning round) | 0 | 40.7 µs per decision variable | 0.70 | 495 |
+| place (request placement) | 0.42 ms | 0.25 µs per candidate pair | 0.93 | 486,431 |
+| route | 0.11 µs | 0.007 µs per known scheduler | 0.98 | 40,000 |
+| verify (Ed25519 per receipt) | 0 | 88 µs per receipt | 1.00 | 400 |
+
+Median placement decision: 0.39-0.42 ms at 50 workers, 0.57-0.64 ms at 3,000 and 1.07-1.22 ms at 10,000 (12 to
+500 functions). It never reaches 10% of the median synchronous deadline (95-152 ms). The binding limit of one
+scheduler is throughput: it places one decision at a time, so its capacity is 1 / placement time, about 2,400 per
+second at 50 workers and 820-935 at 10,000; at the load of the sizing runs (0.1 invocations/s per worker) the first
+measured pool that saturates it is 10,000 workers (about 9,000 by interpolation). The reported runs (500 workers,
+50 invocations/s, D-97) use 2-3% of it. The paper states the limit in one sentence ("beyond about 9,000 workers at
+this load, regional scheduler shards on provider hardware") and does not evaluate shards.
 
 **Exit criteria V10:** coefficients committed with CPU label; a test checks the clock uses them.
 

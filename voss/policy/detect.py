@@ -52,6 +52,13 @@ class Detector:
             at = t_deadline
         return max(0.0, at - now)
 
+    def after_progress_s(self, expiry_s: float, t_deadline: float, now: float, probe_timeout_s: float) -> float:
+        """Seconds until the next check of an attempt whose worker just answered a probe as still running. The
+        answer is progress evidence and a backup has already been requested, so the attempt is left alone until its
+        deadline, and never for less than one probe timeout: re-arming at the passed completion quantile alone would
+        probe a late attempt once per round trip (a probe storm at 10,000 workers, plan V10)."""
+        return max(expiry_s, t_deadline - now, probe_timeout_s)
+
 
 def detector(name: str, dc: DetectionConfig, max_attempts: int) -> Detector:
     """The named detector with its parameters from ``voss.detection`` (doc 05 §6: chosen in config)."""

@@ -3,7 +3,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from typing import Protocol
 
 import numpy as np
@@ -25,6 +26,7 @@ class PlaceRequest:
     cm: CostMatrix | None = None
     scores: np.ndarray | None = None  # [I, K] scalarized costs over cm.candidates
     slot_step: np.ndarray | None = None  # [I, K] cost added per extra invocation on the same worker
+    fn_load: Mapping[str, float] = field(default_factory=dict)  # concurrency per function (rate × service time)
 
     def options(self, i: int) -> np.ndarray:
         """View indices of feasible candidates for invocation ``i`` (cost-matrix order when present)."""

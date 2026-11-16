@@ -8,17 +8,19 @@ the verifier. Audit attempts never reach the client: the router drops their resu
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from voss.core.ids import Addr, InvId, TenantId, WorkerId
-from voss.core.messages import Assigned, Ban, Dispatch
+from voss.core.messages import Assigned, Ban, Cancel, Dispatch
 from voss.core.types import Invocation, Outcome
 from voss.metrics.schema import Table
 from voss.policy.audit import minority, select, target
 from voss.runtime.actor import ActorContext
+from voss.runtime.schedlib.inflight import Copy, Inflight
 from voss.runtime.schedlib.provider_host import ProviderHost
 from voss.runtime.schedlib.viewcache import ViewCache
 
@@ -41,6 +43,8 @@ class AuditMixin:
     token: int
     addr: Addr
     hl: ProviderHost
+    inflight: dict[InvId, Inflight]
+    suspects: dict[WorkerId, float]
 
     if TYPE_CHECKING:
 
@@ -48,6 +52,7 @@ class AuditMixin:
         def now(self) -> float: ...
         def send(self, dst: Addr, msg: Any) -> bool: ...
         def eligible(self) -> set[WorkerId]: ...
+        def _copy_failed(self, rec: Inflight, c: Copy, status: str) -> None: ...
 
     def _maybe_audit(self, inv: Invocation, router: Addr, o: Outcome, next_attempt: int) -> None:
         if not select(inv.idempotent, self.gen, self.ctx.cfg.voss.audit.p):
@@ -95,4 +100,22 @@ class AuditMixin:
             s = self.views.store.states.get(w)
             self.ctx.rec.log(Table.EVENTS, t=self.now, kind="audit_mismatch", worker=w, inv=int(o.inv))
             self.send(self.ctx.directory.verifier, Ban(w, s.cert_id if s is not None else ""))
+            self._ban_local(w)
         return True
+
+    def _ban_local(self, w: WorkerId) -> None:
+        """The scheduler stops using a banned worker at once: never eligible again, and its in-flight attempts are
+        cancelled and failed (retried elsewhere if idempotent). The verifier's revocation alone only rejects its
+        receipts; an attempt accepted before the ban would still run on it."""
+        self.suspects[w] = math.inf
+        self.views.members_changed()
+        for rec in [self.inflight[i] for i in sorted(self.inflight)]:
+            for c in [c for _, c in sorted(rec.copies.items()) if c.worker == w]:
+                self.send(("agent", int(w)), Cancel(rec.inv.id, c.attempt))
+                self._copy_failed(rec, c, "banned")
+        for inv in sorted(self.audits):  # audit attempts are tracked apart from the invocations
+            arec = self.audits[inv]
+            for attempt in sorted(a for a, aw in arec.pending.items() if aw == w):
+                del arec.pending[attempt]
+                self.send(("agent", int(w)), Cancel(inv, attempt))
+                self._audit_dispatch(arec)  # another holder audits instead

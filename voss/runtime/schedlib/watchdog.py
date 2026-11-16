@@ -49,10 +49,13 @@ class WatchdogMixin:
         """Members that may get new work or trust: not suspected."""
         return self.members - self.suspects.keys() if self.suspects else self.members
 
-    def _arm(self, rec: Inflight, c: Copy) -> None:
-        """Result watchdog at the detector's timer: predicted completion quantile or the deadline (plan V7.2)."""
+    def _arm(self, rec: Inflight, c: Copy, progress: bool = False) -> None:
+        """Result watchdog at the detector's timer: predicted completion quantile or the deadline (plan V7.2). After a
+        probe answer showing progress, the next check waits for the deadline (``Detector.after_progress_s``)."""
         obs = self.lat_obs.get(str(rec.inv.fn), ())
         dt = self.det.expiry_s(c.t_dispatch, c.q_done, rec.t_deadline, self.now, obs)
+        if progress:
+            dt = self.det.after_progress_s(dt, rec.t_deadline, self.now, self.ctx.cfg.voss.detection.probe_timeout_s)
         self.after(dt, self._watch_fire, rec.inv.id, c.attempt, c.probes)
 
     def _arm_dispatch(self, rec: Inflight, c: Copy) -> None:
@@ -102,9 +105,9 @@ class WatchdogMixin:
         rec, c = live
         c.probes += 1  # this probe is answered
         if m.phase == "running":
-            self._arm(rec, c)
+            self._arm(rec, c, progress=True)
         elif m.phase == "done" and self.now - m.done_at < self.ctx.cfg.voss.detection.probe_timeout_s:
-            self._arm(rec, c)  # the outcome may still be in flight
+            self._arm(rec, c, progress=True)  # the outcome may still be in flight
         else:  # done long ago without an outcome (omitted on the way), or unknown to the agent
             self._evidence(c.worker, "omitted" if m.phase == "done" else "unknown", m.inv)
             self._copy_failed(rec, c, "watchdog")

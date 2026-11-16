@@ -1,1 +1,153 @@
-% v2: rewritten in plan phase V14 following manuscript/WRITING_SPEC.md. v1 text is in git history (main b0f2fb2).
+% Outline (WRITING_SPEC.md §3 row 5). What is real and what is modelled; machines and calibration; workload and
+% traces with splits; network data; systems compared with deviations; experiments table; metrics and estimators;
+% validation against the emulation. No results.
+\section{Methodology}
+\label{sec:method}
+
+\subsection{What is real and what is modelled}
+\label{sec:real}
+
+The scheduler, the run-time model, request placement, failure handling and every compared policy are the code that
+would run in a deployment; in the experiments they run inside a deterministic discrete-event simulator. The simulator
+models the network, the sessions of workers, and the execution of invocations. Every cost that a volunteer machine
+pays comes from measurements of the real image on real machines: boot and attestation, key release, sandbox boot and
+snapshot restore per disk type, each function's execution time per input size, and the slowdown of invocations that
+run together. Every decision of the scheduler delays the simulation by the time that decision took on a stated
+processor (Section~\ref{sec:res-scale}). Two runs with the same configuration and seed produce identical logs, and
+each reported run is identified by a hash of its logs.
+
+\subsection{Machines and calibration}
+\label{sec:calib}
+
+\todoitem{T13}{calibration bundles and trace statistics}{Machine table (processor, cores, memory, disk classes and models, TPM kind) and per-step cost table,
+generated from the calibration bundles; number of machines and classes. One machine (12th-generation Intel Core i7,
+64 GB, NVMe and SATA hard disk, firmware TPM) is measured and under review; at least two further processor classes
+are required before results are reported.} Each machine is measured by one script with fixed sample counts, on an
+idle machine with the performance governor, using the same Firecracker release and guest kernel on every machine. A
+machine with two disk classes yields two machine classes that share the processor. The functions are those of the
+SeBS benchmark suite~\cite{copik2021sebs}, each measured at three to five input sizes with repeated runs per size. \todoitem{T44}{calibration bundles and trace statistics}{Number of functions measured, of input sizes and of runs per size, from the bundles.}
+
+The share of each machine class among workers follows the hardware of machines that volunteer today. We take the
+hosts that recently contacted two volunteer-computing projects, from the projects' public host
+lists~\cite{boincstats}, \VBoincRosettaActive{} hosts of one and \VBoincMilkywayActive{} of the other, count them by
+processor count and memory, and assign each group to the nearest calibrated machine.
+\todoitem{T14}{calibration bundles and trace statistics}{The assignment and the share of hosts that no calibrated machine represents well.}
+
+\subsection{Workload, availability and network data}
+\label{sec:traces}
+
+\paragraph{Invocations.} Request arrivals come from the Azure Functions trace of 2019~\cite{shahrad2020wild}. For
+each of two disjoint sets of days we sample \VAzureFnPerSplit{} functions, stratified by invocation-rate decile, and
+replay their per-minute invocation counts as Poisson arrivals within each minute. A function is synchronous if its
+trigger in the trace is HTTP. The trace gives no code, so each trace function executes as the measured function whose
+execution time is nearest to the trace function's on a logarithmic scale; execution times always come from the
+calibration, never from the trace.
+
+\paragraph{Sessions.} Worker availability comes from the SETI@home trace of the Failure Trace
+Archive~\cite{javadi2013fta,javadi2009seti}, which records for each host the intervals in which its processor was
+available to the project. Each worker replays one host's week. We use two weeks of the trace six months apart,
+\VSetiHostsPerSplit{} hosts each. Three limits apply. The trace is from 2007--2009. It records that the processor was
+free, which is narrower than the machine being on. The archived copy of the trace that we could retrieve is truncated,
+and we use the hosts it contains in full. \todoitem{T15}{calibration bundles and trace statistics}{Table: interval-length distribution of the two weeks against the
+published fit.}
+
+\paragraph{Network.} A worker's download rate, upload rate and latency to its ISP are drawn together from the
+measurements of fixed broadband in Ookla's open dataset for the first quarter of 2024~\cite{ookla2024}, taken within
+\VOoklaRadiusKm{}~km of the worker's city. Workers and clients are distributed over cities in proportion to population
+in the United Nations' World Urbanization Prospects~\cite{wup2025}. Delay between cities is the great-circle distance
+at the speed of light in fibre multiplied by \VRouteFactor{}, the slope fitted to the median delay between pairs of
+servers in a public measurement of pings between cities~\cite{wonderproxy2020}.
+
+\paragraph{Development and held-out data.} The scheduler was developed on one set of trace days and one trace week.
+Every result in Section~\ref{sec:results} comes from the other set and the other week, on which each experiment ran
+once.
+
+\subsection{Systems compared}
+\label{sec:systems}
+
+Every system runs on the architecture of Section~\ref{sec:design} with the same holder budget, the same request
+placement inputs, the same timers and the same worker capacity; systems differ only in the policy named.
+Table~\ref{tab:systems} lists them with every deviation from the published form.
+
+\begin{table}[t]
+\caption{Systems compared. Each runs under the same holder budget $K$, timers and capacity.}
+\label{tab:systems}
+\small
+\begin{tabular}{@{}P{28mm}P{45mm}P{58mm}@{}}
+\toprule
+System & Source & Deviation from the source \\
+\midrule
+\multicolumn{3}{@{}l}{\emph{Provisioning}} \\
+On demand & lower bound: no preparation & none \\
+Fixed keep-alive & 10-minute timer~\cite{shahrad2020wild} & keys follow first use and are held until the session ends \\
+Hybrid histogram & Shahrad et al.~\cite{shahrad2020wild} & one histogram per function; idle times outside the
+  histogram use the fixed timer instead of a time-series forecast \\
+Autoscaler & Knative pod autoscaler, default settings~\cite{knativekpa} & one invocation per sandbox; sandboxes placed
+  on key holders first, then on the most reliable workers \\
+Greedy-dual keep-alive & FaaSCache~\cite{fuerst2021faascache} & cold-start cost is the measured initialisation time \\
+Eviction-aware placement & Zhang et al.~\cite{zhang2021harvest}: min-worker-set load balancing, no new
+  invocations after an eviction notice & the hash ring holds the candidates every system sees; occupied cores in place
+  of CPU and memory utilisation; a session's end notice in place of the eviction notice \\
+Keys on $K$ workers & keys released to $K$ workers chosen without the model & none; isolates how many holders from
+  which holders \\
+Exact program & the provisioning problem solved exactly & none; bounds the distance from the optimum \\
+Trusted hosts & hosts that never leave and need no attestation & none; upper bound \\
+\midrule
+\multicolumn{3}{@{}l}{\emph{Failure handling}} \\
+Fixed timeout & timeout at the deadline and one retry & none \\
+Consecutive failures & Envoy outlier detection, defaults~\cite{envoyoutlier} & a timeout counts as a failure \\
+Second request & Dean and Barroso~\cite{dean2013tail}: second request after the observed 95th-percentile latency,
+  to any worker & the deadline is the timer until 20 latencies of a function are observed \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Experiments and metrics}
+\label{sec:metrics}
+
+Every run simulates \VRunWorkers{} workers for \VRunHours{} hours, of which the first \VRunWarmupHours{} are
+warm-up and are not measured; the warm-up exceeds the longest learning window of any compared policy.
+Table~\ref{tab:experiments} lists the experiments.
+
+\begin{table}[t]
+\caption{Experiments. All use \VRunWorkers{} workers unless the pool size is varied, \VRunMeasuredHours{} measured
+hours after \VRunWarmupHours{} hours of warm-up, and the held-out data.}
+\label{tab:experiments}
+\small
+\begin{tabular}{@{}P{38mm}P{93mm}@{}}
+\toprule
+Section & Varied \\
+\midrule
+\ref{sec:res-main}, \ref{sec:res-mechanism} & provisioning system; holder budget $K \in \{2,4,8,16\}$ and none; three load levels \\
+\ref{sec:res-region} & pool size; load; share of sessions that end with notice \\
+\ref{sec:res-drop} & share of owners who drop results; failure-handling policy \\
+\ref{sec:res-forge} & share of class-P owners; fraction of results they forge; audit probability \\
+\ref{sec:res-ablation} & one element of provisioning removed at a time \\
+\ref{sec:res-sens} & deadline multiple; share of functions that may run twice; rotation period; swept constants; machine mix \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Load.} The trace's functions run for fractions of a second, so the pool as a whole is lightly used at
+any load that one run can simulate. \todoitem{T41}{held-out experiments}{Measured share of busy cores in the pool at
+each load level.} Load matters at the level of one function: its invocations can run only on its key holders. We
+therefore report, for each load level, the load of each function relative to the capacity of its key holders.
+\todoitem{T42}{held-out experiments}{Median and 95th percentile over functions of that ratio, per load level and
+$K$.} \todoitem{T43}{held-out experiments}{Seeds per experiment and the calibration bundles used, added to Table~\ref{tab:experiments}.}
+
+The primary metric is \emph{deadlines met}: the share of synchronous invocations whose correct result reaches the
+client within the deadline. An invocation that is lost and one that is late both count as missed. Latency percentiles
+include lost invocations at their deadline. Key holders are reported three ways: concurrent holders, distinct holders
+per key version, and key releases per hour. Comparisons between two systems are paired by seed; we report the mean
+difference with a 95\% bootstrap interval~\cite{efron1993bootstrap} and correct for the number of stated
+comparisons. The comparisons were written down before the held-out experiments ran: at equal $K$, \voss{} against
+every provisioning baseline in deadlines met; the holders needed to meet 95\% of deadlines; the failure-handling
+policies under owners who drop work; the audit's detection against its bound; and the pool size and load below which
+no system meets 95\%.
+
+\subsection{Validation on real machines}
+\label{sec:validation}
+
+\todoitem{T17}{emulation on real machines}{Emulation: several workers as process groups with pinned cores, memory limits and injected network delay
+on one machine, real sandboxes and real TPM quotes, the same scheduler code; agreement and disagreement with the
+simulator on deadlines met, key holders and latency. Runs after the scheduler is fixed.}

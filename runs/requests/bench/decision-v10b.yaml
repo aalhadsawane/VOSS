@@ -1,0 +1,5 @@
+# V10, second run: decisions delay the simulation by their own wall time (decision_clock.mode=measured); the first
+# run (43639002694, cancelled) used seed coefficients that overloaded the scheduler from about 2,000 workers
+workers: [50, 200, 1000, 3000, 10000]
+functions: [12, 100, 500]
+horizon: 300

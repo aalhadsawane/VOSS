@@ -7,6 +7,8 @@
 #   bash tools/calibrate/node_run.sh quick  <label> <tier>=<dir> ...   # 10% smoke pass (~20-60 min)
 #   bash tools/calibrate/node_run.sh full   <label> <tier>=<dir> ...   # Part B (~3-8 h, +30-60 min per extra disk)
 #   bash tools/calibrate/node_run.sh ingest <label> <tier> ...         # Part D: one bundle per disk tier (~15 min)
+#   bash tools/calibrate/node_run.sh ml     <label> <tier>=<dir> ...   # only for nodes measured before the ML image
+#                                         existed: builds it and measures image-recognition alone (~1-1.5 h)
 #
 # <tier> is nvme, sata or hdd: one scratch directory on EVERY disk class the node has (NODE_PLAN.md §2). quick and full
 # refuse to start if a disk class in the node's spec has no scratch directory.
@@ -17,7 +19,7 @@ set -Eeuo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO=$(cd "$HERE/../.." && pwd)
 cd "$REPO"
-STAGE=${1:?usage: node_run.sh <spec|setup|quick|full|ingest> <label> ...}
+STAGE=${1:?usage: node_run.sh <spec|setup|quick|full|ml|ingest> <label> ...}
 LABEL=${2:?label required (NODE_PLAN.md §3)}
 shift 2
 [[ "$LABEL" =~ ^node[0-9]{2}-[a-z0-9.-]+$ ]] || { echo "label must look like node03-i5-8250u-8g-ssd" >&2; exit 2; }
@@ -86,7 +88,8 @@ all_classes_covered() {  # every disk class in the spec has a scratch directory 
 
 suite_args() {  # common arguments: pinned assets and one scratch directory per disk tier
   ARGS=(--set "firecracker=$ASSETS/firecracker" --set "kernel=$ASSETS/vmlinux"
-        --set "rootfs=$ASSETS/voss-guest.ext4" --set "sebs_rootfs=$ASSETS/voss-guest.ext4")
+        --set "rootfs=$ASSETS/voss-guest.ext4" --set "sebs_rootfs=$ASSETS/voss-guest.ext4"
+        --set "sebs_ml_rootfs=$ASSETS/voss-guest-ml.ext4")
   local i
   for i in "${!TIERS[@]}"; do ARGS+=(--set "${TIERS[$i]}_dir=${DIRS[$i]}"); done
 }
@@ -101,11 +104,12 @@ measure() {  # measure <quick|full> <tier>=<dir> ...: every suite of Part B, one
   ( while sleep 60; do sudo -n true || exit; done ) &  # keep the sudo timestamp fresh for the hours of Part B
   local keep=$!
   trap 'kill $keep 2>/dev/null || true' RETURN
-  local extra=()
+  local extra=() suites=(caps disk tpm attest_local tls keys fc_boot fc_snapshot sebs)
   [ "$stage" = quick ] && extra=(--quick)
+  [ "$stage" = ml ] && extra=(--set functions=image-recognition) suites=(sebs)
   env_snapshot "$stage"
   local failed=0
-  for s in caps disk tpm attest_local tls keys fc_boot fc_snapshot sebs; do
+  for s in "${suites[@]}"; do
     # as root (cold page cache, loop devices), with the project's own interpreter so the harness is the locked one
     timed "$stage" "$s" sudo -n "$REPO/.venv/bin/python" -m tools.calibrate.run --suite "$s" --out calibration/raw \
       "${ARGS[@]}" "${extra[@]}" || failed=1
@@ -135,12 +139,22 @@ case "$STAGE" in
     env_snapshot setup
     timed setup fetch_assets sh tools/calibrate/guest/fetch_assets.sh "$ASSETS"
     timed setup build_rootfs sudo env DOCKER="sudo docker" SUDO="sudo" sh tools/calibrate/guest/build_rootfs.sh "$ASSETS"
+    timed setup build_rootfs_ml sudo env DOCKER="sudo docker" SUDO="sudo" sh tools/calibrate/guest/build_rootfs.sh \
+      "$ASSETS" --with-ml
     timed setup preflight bash tools/emu/preflight.sh
-    (cd "$ASSETS" && sha256sum firecracker jailer vmlinux voss-guest.ext4) > "$OUT/assets.sha256"
+    (cd "$ASSETS" && sha256sum firecracker jailer vmlinux voss-guest.ext4 voss-guest-ml.ext4) > "$OUT/assets.sha256"
     cat "$ASSETS/versions.txt" >> "$OUT/assets.sha256"
     ;;
   quick | full)
     measure "$STAGE" "$@"
+    ;;
+  ml)  # nodes measured with harness 570e04bc (no ML image): image-recognition alone, then ingest again
+    if [ ! -f "$ASSETS/voss-guest-ml.ext4" ]; then
+      timed ml build_rootfs_ml sudo env DOCKER="sudo docker" SUDO="sudo" sh tools/calibrate/guest/build_rootfs.sh \
+        "$ASSETS" --with-ml
+    fi
+    (cd "$ASSETS" && sha256sum voss-guest-ml.ext4) >> "$OUT/assets.sha256"
+    measure ml "$@"
     ;;
   ingest)
     [ "$#" -ge 1 ] || { echo "ingest needs the tiers measured: nvme, sata and/or hdd" >&2; exit 2; }

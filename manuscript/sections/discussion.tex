@@ -1,1 +1,40 @@
-% v2: rewritten in plan phase V14 following manuscript/WRITING_SPEC.md. v1 text is in git history (main b0f2fb2).
+% Outline (WRITING_SPEC.md §3 row 7, §9). When the results hold and what would change them (after the held-out
+% experiments); limitations as plain statements.
+\section{Discussion and Limitations}
+\label{sec:discussion}
+
+\todoitem{T25}{held-out experiments}{When the results hold, why, and what would change them: written after the held-out experiments.}
+
+\paragraph{The owner cannot use a lent machine.} Attestation covers the whole machine from boot, so a session
+excludes the owner's own use. The design applies to machines that are idle for whole periods, such as office machines
+at night, and not to machines with spare cores during use.
+
+\paragraph{Availability data.} The availability trace is from 2007--2009 and records when a host's processor was free
+for a volunteer project. Machines lent by booting an image may follow other patterns; in particular a restart into
+the owner's system ends a session, where the trace would show a short gap. The archived copy of the trace is
+truncated.
+
+\paragraph{Functions that may run twice.} Backup attempts and the audit apply only to functions that the tenant
+declares safe to run twice for one request. For other functions a dropped result becomes a missed deadline, and on
+class-P machines a forged result is not detected.
+
+\paragraph{Physical attacks.} For class-P owners the design gives no confidentiality. A tenant with confidential
+code or data restricts its functions to classes S and M, which shrinks the pool to the machines whose owners are not
+expected to attack them or whose memory is encrypted. We do not measure how many volunteer machines fall in each
+class.
+
+\paragraph{The provider.} The provider's verifier decides which machines are attested, and its routers and scheduler
+can refuse service. The design removes the provider's ability to read functions and their data, and does not remove
+its ability to deny them.
+
+\paragraph{One scheduler.} All decisions are made by one scheduler, whose measured capacity
+(Section~\ref{sec:res-scale}) bounds the pool at a given load. We state the bound and do not evaluate several
+schedulers.
+
+\paragraph{Guarantees hold for the model.} Propositions~\ref{prop:submodular} and~\ref{prop:shared} bound the greedy
+choice against the best choice under the model objective. The Erlang loss formula assumes Poisson arrivals and
+treats an invocation that finds no free core as lost, while the system queues it; the deadline probability treats the
+wait, start-up and transfer terms at their predicted values.
+
+\paragraph{What is simulated.} The network, the sessions and the scale are simulated. Costs on workers are measured
+on \todoitem{T26}{calibration bundles and trace statistics}{N machines of N processor classes}; machines unlike these are represented by the nearest measured one.

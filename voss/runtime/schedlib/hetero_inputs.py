@@ -3,6 +3,7 @@ scheduler's view and estimators only (information boundary, D-05).
 
 - ``et[f, j]``: mean of the run-time predictor's log-normal for ``f`` at its reference input on worker ``j``.
 - ``pi[f, j]``: probability that the run time plus warm dispatch fits the function's deadline on ``j``.
+- ``prep[f, j]``: seconds before a new holder serves (key release and start-up), for the swap rule.
 - ``alive[m, j]``: sampled failure scenarios: ``j`` stays for the horizon (session survival) and does not drop work
   (drop estimate), and its failure domain is not hit by a shock.
 """
@@ -15,6 +16,7 @@ import numpy as np
 
 from voss.core.rng import stream
 from voss.core.types import ClusterView
+from voss.policy.cost.arrays import ArrayCache
 from voss.policy.cost.inputs import CostContext
 from voss.policy.plan.hetero import HeteroInput, scenarios
 from voss.policy.plan.types import PlanInput
@@ -69,4 +71,22 @@ def hetero_inputs(
     prev = inp.y_prev[inp.fn_tenant] if n_f else np.zeros((0, n_j), bool)
     lam = inp.rate[inp.fn_tenant] if n_f else np.zeros(0)
     budget = inp.max_holders if inp.max_holders is not None else np.zeros(len(inp.tenants), np.int64)
-    return HeteroInput(lam, t_ref, et, pi, alive, inp.cap.astype(np.int64), budget[inp.fn_tenant], allowed, prev)
+    units, prep = inp.cap.astype(np.int64), preparation(inp, view, ctx, cols)
+    return HeteroInput(lam, t_ref, et, pi, alive, units, budget[inp.fn_tenant], allowed, prev, prep, inp.horizon_s)
+
+
+def preparation(inp: PlanInput, view: ClusterView, ctx: CostContext, cols: np.ndarray) -> np.ndarray:
+    """``[F, J]`` seconds from a key request until worker ``j`` can serve ``f``: attestation and key release (fixed
+    trust cost plus the round trip to the tenant's key broker) overlapping the code fetch, then the start-up from the
+    worker's cache level, as the cost model's time to start with no queue (doc 08 §5)."""
+    out = np.zeros((len(inp.fns), len(cols)))
+    if not len(cols):
+        return out
+    cache = ArrayCache()
+    a = cache.get(view, ctx)
+    for r, f in enumerate(inp.fns):
+        t = ctx.tenants[ctx.fns[f].tenant]
+        trust = np.where(a.trust_fixed == 0, 0.0, cache.rtt(ctx, t.kbs_lat, t.kbs_lon) + a.trust_fixed)
+        fetch, rest = cache.startup(view, ctx, f)
+        out[r] = (np.maximum(trust, fetch) + rest)[cols]
+    return out

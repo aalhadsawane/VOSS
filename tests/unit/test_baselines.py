@@ -35,8 +35,18 @@ def test_every_preset_is_a_valid_config(group: str, name: str) -> None:
     load_config(REPO / "configs/smoke.yaml", list(entry["overrides"]))
 
 
-def test_eviction_aware_prefers_the_worker_least_likely_to_fail() -> None:
-    from voss.core.registry import create
-    from voss.policy.place import registry  # noqa: F401
+def test_min_worker_set_is_algorithm_1_of_the_harvest_paper() -> None:
+    """Zhang et al. SOSP 2021 §5.2: the set grows clockwise from the home worker until its slots reach u_f, and the
+    invocation goes to the least loaded worker of the set."""
+    from voss.policy.place.baselines.eviction_aware import ring_position, worker_set
 
-    assert create("placer", "eviction_aware") is not None
+    workers = np.arange(10, 20)
+    slots = np.full(10, 2)
+    one = worker_set("f", workers, slots, 0.5)
+    assert len(one) == 1  # light function: its home worker only
+    pos = sorted((ring_position(f"worker:{w}"), i) for i, w in enumerate(workers))
+    after = [i for p, i in pos if p >= ring_position("fn:f")] + [i for p, i in pos if p < ring_position("fn:f")]
+    assert list(worker_set("f", workers, slots, 5.0)) == after[:3]  # 3 workers x 2 slots >= 5
+    assert len(worker_set("f", workers, slots, 100.0)) == 10  # more than the pool: every worker (JSQ)
+    rest = workers[workers != workers[one[0]]]
+    assert worker_set("f", rest, np.full(9, 2), 0.5)[0] == list(rest).index(workers[after[1]])  # consistent hashing

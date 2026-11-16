@@ -72,6 +72,11 @@ class TwoScaleForecaster:
             self.counts = {}
             self.bin_start += self.bin_s
 
+    def rate_of(self, key: str, now: float) -> float:
+        """The forecast rate of one key (as in ``forecast``) without the quantiles of every key."""
+        self._roll(now)
+        return max(self.short.get(key, 0.0), self.long.get(key, 0.0), self.home.get(key, 0.0))
+
     def forecast(self, now: float) -> Demand:
         self._roll(now)
         keys = sorted(set(self.short) | set(self.home))

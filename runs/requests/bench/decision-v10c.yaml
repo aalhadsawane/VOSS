@@ -1,0 +1,5 @@
+# V10, third run: after the watchdog fix (D-98); run 43648849765 was cancelled while its 10,000-worker job spent hours
+# in a probe storm (a late attempt was probed once per round trip)
+workers: [50, 200, 1000, 3000, 10000]
+functions: [12, 100, 500]
+horizon: 300
