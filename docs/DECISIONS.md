@@ -161,6 +161,30 @@ and used load only to break ties; the paper has no such rule, and the rule sent 
 Deviations are listed in `configs/baselines.yaml`. *Rejected:* keeping the failure ranking with a capacity check (not
 the paper's algorithm).
 
+**D-102 The calibration contract demands what the simulator reads, and every such entry has a probe (guardrails
+28, 29; rule 32).** node01 and node02 delivered bundles in which `dispatch`, `kbs_check_s`, `snapshot_touched_frac` and
+the TME factors still held placeholder values, while `check_bundle` demanded image-mode boot steps and idle image
+memory that no code reads. The required set is now derived, not listed: every `measured/<name>` in
+`configs/substrates/*.yaml` plus every bundle key read in `voss/` (`check_bundle.simulator_entries`), and a test fails if
+one has no probe in `mapping.yaml` or if a newly ingested complete bundle does not hold it as `measured`. Three
+contract probes the simulator does not read stay because the machine table reports them (`tpm2_unseal`, `key_release`,
+`decrypt_per_MB`). Removed: `drtm_launch` (no substrate uses it; the DRTM substrate was deleted in V0), `fn_corun_mixed`
+(never implemented, read nowhere), and as demands `image_mem_mb` and the image-mode `boot_*` steps: the substrates read
+`reboot_to_kernel` and `appliance_userspace`, which both boot modes measure, and the per-step stamps stay in the raw logs.
+The worker's own memory reserve is `voss.worker.m_base_mb` = 512 MB, class *pending V5* in `docs/PARAMETERS.md`; it
+stays unmeasured until a node boots the real image (none could: Ubuntu 22.04 has no `systemd-repart`), and V5 must
+either measure it or state it as a limit. New probes and their definitions: `dispatch_warm` is a new vsock connection
+through Firecracker's socket to the guest's `START` line written just before the handler (an upper bound by one
+guest-to-host message, whose round trip `vsock_rtt` reports); `kbs_check` is timed on the key service from request read
+to reply ready (certificate signature, policy, budget, RSA-OAEP wrap; TLS and network are the substrate's `rpc`);
+`snapshot_touched_frac` is `/proc/<pid>/io` `read_bytes` of a cold restore, input build and first invocation over the
+memory file size, readahead included, pooled over the ten functions per tier. The TME factors are written only when
+both phases ran on the node; on nodes with TME disabled in firmware they stay missing and `check_bundle` reports them,
+because a phase needs a BIOS change by the human. *Rejected:* keeping the placeholder values tagged `assumed` (guardrail
+29), estimating dispatch from `vsock_rtt / 2` (the clocks of host and guest cannot be compared, and a half round trip
+is not a measurement of the handler start), and rebuilding the guest images on measured nodes (it would change Python,
+packages and ffmpeg under the measured `sebs` results; `topup` copies only the new runner into the existing images).
+
 ## v1 decisions (D-01 to D-80)
 
 **D-01 Custom Python discrete-event simulator.** FaaS physics is small; solver wall time must enter simulated time;
