@@ -61,6 +61,16 @@ class Predictor(Protocol):
     def update(self, obs: ExecObs) -> None: ...
 
 
+def contention(busy: np.ndarray | float, queued: np.ndarray | float, slots: np.ndarray | float) -> np.ndarray:
+    """The run-time model's ``load`` covariate (doc 03 §6.1, doc 02 §4): the share of a worker's slots that run
+    beside a new invocation. Queued invocations count only up to the slots, since no more than ``slots`` run at once;
+    the length of the queue beyond that is the wait model's, not the run time's. Bounded in ``[0, 1]``, so the linear
+    load term is never evaluated far outside the range it was fitted on (development log, iteration 1)."""
+    s = np.maximum(np.asarray(slots, dtype=float), 1.0)
+    out: np.ndarray = np.minimum(np.asarray(busy, dtype=float) + np.asarray(queued, dtype=float), s) / s
+    return out
+
+
 def prior_mu(p: FnPrior, in_bytes: int, speed: np.ndarray) -> np.ndarray:
     base = math.log(p.work_ref_s) + p.size_exp * (math.log(max(in_bytes, 1)) - math.log(p.in_ref_bytes))
     out: np.ndarray = base - np.log(np.maximum(speed, 1e-9))

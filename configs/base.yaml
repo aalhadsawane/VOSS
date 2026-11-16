@@ -15,5 +15,5 @@ scenario:
   load: {regime: load_default, rate: 100}
   functions: functions.yaml
   tenants: tenants.yaml
-decision_clock: {mode: modeled}
+decision_clock: {mode: modeled, coeffs_file: calibration/provider/intel-xeon-6975p-c/decision.yaml}  # measured, plan V10
 calibration: configs/calibration/placeholder/c0

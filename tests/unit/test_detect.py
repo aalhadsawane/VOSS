@@ -32,3 +32,16 @@ def test_ejection_rules() -> None:
 
 def test_fit_rule() -> None:
     assert fits(0.5, 0.6) and not fits(0.7, 0.6)
+
+
+def test_after_progress_waits_for_the_deadline_and_at_least_one_probe_timeout() -> None:
+    """A late attempt that answers 'running' is not probed again at once (plan V10: probe storm at 10,000 workers)."""
+    from voss.core.config import DetectionConfig
+    from voss.policy.detect import detector
+
+    d = detector("voss", DetectionConfig(), 3)
+    expiry = d.expiry_s(t_dispatch=0.0, q_completion=1.0, t_deadline=5.0, now=3.0)
+    assert expiry == 0.0  # the completion quantile has passed
+    assert d.after_progress_s(expiry, t_deadline=5.0, now=3.0, probe_timeout_s=2.0) == 2.0
+    assert d.after_progress_s(expiry, t_deadline=30.0, now=3.0, probe_timeout_s=2.0) == 27.0
+    assert d.after_progress_s(expiry, t_deadline=2.0, now=3.0, probe_timeout_s=2.0) == 2.0  # past the deadline

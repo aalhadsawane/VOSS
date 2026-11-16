@@ -1,0 +1,61 @@
+# D01 development main (docs/REVISION_PLAN.md V11.1; grid of R01 in V12.2). DEVELOPMENT SPLIT, NOT A REPORTED RESULT:
+# its runs are for iterating on the scheduler (V11.3) and never appear in the paper (guardrail 31).
+#
+# Header (AGENTS.md rule 21):
+#   workers      500 (D-97)
+#   load         Azure Functions 2019, development split (days 1-4, minute 0 on), scenario.load.rate_mult x trace counts;
+#                200 sampled functions (65 invoked in the probed hour); run times from the calibration bundle
+#   utilisation  grid axis scenario.load.rate_mult in {10.5, 21, 30}, the plan's {30, 60, 85%} in proportion.
+#                Measured pool utilisation (busy slots / slots of attested workers, `samples` table, VOSS, K=8, 500
+#                workers, 1 h after a 1 h warm-up): rate_mult 10 -> 0.24%, 30 -> 0.72% (linear), so the three levels
+#                are about 0.25, 0.5 and 0.72%. 30, 60 and 85% of the pool are NOT reachable: mean busy time is 0.25 s
+#                per invocation (exec 0.235 s + start-up 0.011 s) on 1,713 slots, so 60% needs rate_mult ~2,500, about
+#                80x the event budget of one D-97 run. rate_mult 30 is the D-97 size (~130 M events, as SIZING4).
+#                At rate_mult 30 the busiest function (tr0168, 9 inv/s) keeps 3.1 slots busy: 30% of K=2 holders.
+#                Open question for the owner, see the PR: what "utilisation" means for the R01 axis.
+#   duration     horizon_s 100,800 (28 h): 4 h warm-up + 24 h measured (D-97)
+#   warm-up      scenario.warmup_s 14,400 (longest learning window of a compared policy: the histogram's 4 h range)
+#   calibration  provisional measured bundle i7_12700_64g_full-b4f89a4def (i7-12700, NVMe + HDD, measured session
+#                boot) for every class: a run takes one bundle, which overrides class C0; C1-C3 keep their
+#                literature ratios to C0 (scenario.hw_mix default). Two or three measured machine classes in one run
+#                need a mechanism that does not exist yet (plan V9.4).
+#   trace split  development: load azure2019 dev, sessions churn_seti dev (seti09, even hosts, first week),
+#                links ookla-fixed-2024q1, populations wup2025
+#   seeds        1-5
+#   K            voss.keys.max_holders in {2, 4, 8, 16, unbounded (null)}
+# Systems: every provisioning system of configs/baselines.yaml with its overrides, except
+#   exact_program (MILP): measured at 500 workers, rate_mult 10, K=8, 1 h with no warm-up: 620 s wall per simulated
+#   hour against 153 s for VOSS (4.1x; the solver adds ~470 s per simulated hour), so one 28 h run needs about 4.5 h
+#   more than VOSS on a runner and exceeds the 340-minute job limit. It remains an offline optimality check.
+# Runs: 9 systems x 5 K x 3 loads x 5 seeds = 675. Stage 1 (central cell, 1 seed) is D01a.
+# Cost (measured, 4-vCPU machine, 4 runs at a time, 500 workers, rate_mult 21, K=8, 1 h with a 10-minute warm-up):
+#   209-286 s wall and 2.8-3.8 M events per simulated hour (VOSS 286 s, 3.84 M); 28 h is about 108 M events for VOSS,
+#   1.5-2.5 h on a runner by the D-97 rate. Peak memory 0.7-0.8 GB at 1 h; rate_mult 30 is at the D-97 size, whose
+#   memory margin was 13% (8.7 GB): check peak_rss_mb of the stage-1 runs before requesting the top level.
+experiment: D01
+base: ../base.yaml
+overrides:
+  - horizon_s=100800
+  - scenario.warmup_s=14400
+  - scenario.workers=500
+  - scenario.regime=churn_seti
+  - scenario.load.trace=azure2019
+  - scenario.load.split=dev
+  - scenario.network.link.trace=ookla-fixed-2024q1
+  - scenario.geo.pop_trace=wup2025
+  - calibration=configs/calibration/measured/i7_12700_64g_full-b4f89a4def
+grid:
+  voss.keys.max_holders: [2, 4, 8, 16, null]
+  scenario.load.rate_mult: [10.5, 21, 30]
+systems:
+  voss: [voss.planner.name=hetero]
+  on_demand: [voss.planner.name=none, voss.worker.warm_ttl_s=0]
+  fixed_keepalive: [voss.planner.name=keepalive_ttl]
+  hybrid_histogram: [voss.planner.name=histogram_prewarm]
+  prereleased_keys: [voss.planner.name=provisioned_keys]
+  eviction_aware: [voss.planner.name=keepalive_ttl, voss.placer.sync=eviction_aware, voss.placer.async=eviction_aware]
+  kpa: [voss.planner.name=kpa, voss.planner.T_plan=2]
+  greedy_dual: [voss.planner.name=keepalive_ttl, voss.worker.warm_eviction=greedy_dual, voss.worker.warm_ttl_s=1e9]
+  trusted_hosts: [system=reference_cloud, voss.planner.name=hetero]
+left_out: [exact_program]  # see the header
+seeds: [1, 2, 3, 4, 5]

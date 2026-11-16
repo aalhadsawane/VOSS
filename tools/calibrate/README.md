@@ -26,7 +26,9 @@ python -m tools.calibrate.ingest --raw calibration/raw   →   configs/calibrati
 1. Packages: `python3 (≥ 3.10) rsync fio tpm2-tools openssl cryptsetup gcc docker.io e2fsprogs`
    (and `mkosi` for the appliance).
 2. Assets: `tools/calibrate/guest/fetch_assets.sh ~/voss-assets` (pinned Firecracker + jailer + CI kernel) and
-   `tools/calibrate/guest/build_rootfs.sh ~/voss-assets [--with-ml]` (guest ext4 with the SeBS-equivalent functions).
+   `tools/calibrate/guest/build_rootfs.sh ~/voss-assets` (guest ext4 with the SeBS-equivalent functions) and
+   `... --with-ml` (a second image, `voss-guest-ml.ext4`, with PyTorch + ResNet-50, used only by `image-recognition`).
+   `node_run.sh setup` builds both.
 3. Scratch directories on each disk, e.g. `/mnt/nvme/voss` (SSD) and `/mnt/hdd/voss` (HDD).
 
 ## Runs (from the local repo)

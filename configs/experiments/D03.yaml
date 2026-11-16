@@ -1,0 +1,46 @@
+# D03: pool size x load (docs/REVISION_PLAN.md V11.2; grid of R03 in V12.2, without the notice-fraction axis).
+# DEVELOPMENT SPLIT, NOT A REPORTED RESULT: where each system meets its deadlines, to guide V11.3; never appears in the
+# paper (guardrail 31).
+#
+# Header (AGENTS.md rule 21):
+#   workers      grid scenario.workers in {100, 300, 500} (plan R03: 100, 300, 1,000; 500 is the D-97 run size,
+#                1,000 does not fit one job)
+#   load         Azure Functions 2019, development split, scenario.load.rate_mult in {10.5, 21, 30} (D01's levels;
+#                arrivals do not scale with the pool, so a smaller pool carries the same load on fewer slots)
+#   utilisation  pool about 0.25 / 0.5 / 0.72% at 500 workers (D01 header, D-99), about 5x at 100 workers
+#   duration     horizon_s 100,800 (28 h): 4 h warm-up + 24 h measured (D-97)
+#   warm-up      scenario.warmup_s 14,400 (the longest learning window of a compared policy: the histogram's 4 h)
+#   calibration  provisional measured bundle i7_12700_64g_full-b4f89a4def (as D01)
+#   trace split  development: load azure2019 dev, sessions churn_seti dev, links ookla-fixed-2024q1, populations wup2025
+#   seeds        1 (first stage; 3 seeds after the plumbing is exercised)
+#   K            voss.keys.max_holders 8 (D01's central K)
+# Systems: D01's (every provisioning system of configs/baselines.yaml except exact_program, see the D01 header).
+# Runs: 9 systems x 3 pools x 3 loads x 1 seed = 81, one per shard. Events grow with arrivals, not workers, so
+# every run is at most the D-97 size (rate_mult 30 at 500 workers); the 500-worker cells have D01's config hashes.
+experiment: D03
+base: ../base.yaml
+overrides:
+  - horizon_s=100800
+  - scenario.warmup_s=14400
+  - scenario.regime=churn_seti
+  - scenario.load.trace=azure2019
+  - scenario.load.split=dev
+  - scenario.network.link.trace=ookla-fixed-2024q1
+  - scenario.geo.pop_trace=wup2025
+  - calibration=configs/calibration/measured/i7_12700_64g_full-b4f89a4def
+  - voss.keys.max_holders=8
+grid:
+  scenario.workers: [100, 300, 500]
+  scenario.load.rate_mult: [10.5, 21, 30]
+systems:
+  voss: [voss.planner.name=hetero]
+  on_demand: [voss.planner.name=none, voss.worker.warm_ttl_s=0]
+  fixed_keepalive: [voss.planner.name=keepalive_ttl]
+  hybrid_histogram: [voss.planner.name=histogram_prewarm]
+  prereleased_keys: [voss.planner.name=provisioned_keys]
+  eviction_aware: [voss.planner.name=keepalive_ttl, voss.placer.sync=eviction_aware, voss.placer.async=eviction_aware]
+  kpa: [voss.planner.name=kpa, voss.planner.T_plan=2]
+  greedy_dual: [voss.planner.name=keepalive_ttl, voss.worker.warm_eviction=greedy_dual, voss.worker.warm_ttl_s=1e9]
+  trusted_hosts: [system=reference_cloud, voss.planner.name=hetero]
+left_out: [exact_program]  # see the D01 header
+seeds: [1]

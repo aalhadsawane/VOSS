@@ -102,9 +102,55 @@ workers 75 M events in 65 min, 500 workers 130 M events in 114 min (about 19.5 k
 arrivals), so 28 h at 500 workers is about 2.2 h. 700 workers lost its runner at 2.8 h in SIZING3 and at 4.3 h in
 SIZING2, before the memory fix of V9.5 and with the end-of-run checks doubling peak memory; 1,000 workers passed 5 h.
 The 24-hour measured window is kept and workers are reduced first, as V9.5 says. SIZING4 confirms the chosen size
-(wall time and peak memory) with the memory fix. *Rejected:* 1,000 workers (the plan's target; does not fit one job);
+(wall time and peak memory) with the memory fix: 1 h 55 min, running memory 3.5 GB; its first run peaked at 15.3 GB
+in the end-of-run checks, which now read one chunk or column at a time. Repeat (run 43598364623): 2 h 32 min on a slower
+runner (wall time varies about 30% between runners for the same events), peak 8.7 GB with writing the logs included,
+and the same result hash as the first run. Both limits hold; the memory margin is 13%, so a system with a heavier
+log per invocation is checked against 10 GB before its sweep. *Rejected:* 1,000 workers (the plan's target; does not fit one job);
 700 workers (fits on time only without margin for slower systems, and its memory was not measured to the end);
 shortening the measured window or the warm-up (G9).
+
+**D-98 After a probe shows progress, the result watchdog waits for the deadline (doc 07 §2, plan V7.2).** When a
+worker answers a probe with "running", the attempt is checked again at its deadline, and never sooner than one probe
+timeout (`Detector.after_progress_s`); a banned worker is dropped by the scheduler at once (never eligible, in-flight
+and audit attempts cancelled and failed). *Why:* re-arming at the completion quantile, which had already passed,
+probed every late attempt once per network round trip: 2.7 M probes in 20 simulated seconds at 10,000 workers, and
+hours of wall time per run. The answer is progress evidence and a backup has already been requested at the first
+expiry, so further probes add no information before the deadline. The storm had also been what stopped a banned
+worker's queued attempts. *Rejected:* a fixed re-probe interval (a new constant to sweep, and still one probe per
+interval per late attempt); no re-arm after "running" (an attempt that later stops would go unnoticed until the
+router's give-up).
+
+**D-99 Development load levels in place of pool utilisation 30/60/85% (plan V11.1; provisional, for the owner).**
+`D01` sets its load axis to `scenario.load.rate_mult` ∈ {10.5, 21, 30}: the plan's 30:60:85 in proportion, with the top
+level at the D-97 run size (rate_mult 30 gives about 130 M events in 28 h, as SIZING4). *Why:* with the traced Azure load
+and measured run times the mean busy time is 0.25 s per invocation, so on 500 workers (about 1,710 slots of attested
+workers) pool utilisation is 0.24% at rate_mult 10 and 0.72% at 30 (measured, `samples` table); 60% would need about
+rate_mult 2,500, some 80 times the events one run can simulate within a job. The load still matters at the level of a
+function's holders: at rate_mult 30 the busiest function keeps 3.1 slots busy, about 30% of two holders. *Open:*
+whether R01's utilisation axis should be defined per function against its `K` holders, or reached by another load
+(longer measured functions, fewer slots per host); the owner decides before R01. *Rejected:* rate multipliers that
+reach 30-85% of the pool (do not fit a job by one to two orders of magnitude); fewer workers (capacity falls, but the
+event budget limits arrivals, not workers).
+
+**D-100 Provisioning changes a holder only when the change pays for its preparation (plan V11.3, development log
+iteration 1).** Algorithm 1 runs its two greedy stages a second time from the current holders and keeps that
+allocation unless the plain greedy's on-time rate, less `gain × prep_fj / H` for every take on a new holder, is
+larger; `prep_fj` is the cost model's time to start on `j` with no queue (attestation and key release overlapping the
+code fetch, then start-up; measured startup model) and `H` the provisioning horizon. *Why:* scenarios are re-sampled
+every period, so near-equal workers ranked differently each round and holders changed almost every period (D01a:
+1,571 key releases per hour against 58 for pre-released keys). The greedy's gains sum to its value, so the result
+keeps `F ≥ (1 − max prep / H) · F(greedy)`: Corollary 1 and Proposition 2 hold with that factor. *Rejected:* common
+random numbers for the scenarios (measured: releases did not fall); a hysteresis margin (a new constant to sweep);
+removing holders only at session end (the budget `K` then fixes the first holders chosen).
+
+**D-101 `eviction_aware` is the published min-worker-set load balancer (guardrail 17).** Zhang et al. (SOSP 2021,
+§5.2 Algorithm 1): a consistent-hashing ring from the function's home worker, grown until its resources cover
+`u_f = RPS · E(CPU) · E(lat)`, then the least loaded worker of the set; no new invocations to a worker under an
+eviction notice (§4.1). *Why:* the first implementation chose the worker with the lowest predicted failure probability
+and used load only to break ties; the paper has no such rule, and the rule sent almost every invocation to one worker.
+Deviations are listed in `configs/baselines.yaml`. *Rejected:* keeping the failure ranking with a capacity check (not
+the paper's algorithm).
 
 ## v1 decisions (D-01 to D-80)
 

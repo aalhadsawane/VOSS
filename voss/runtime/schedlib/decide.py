@@ -6,7 +6,7 @@ The scheduler role calls this and applies the result after the decision latency 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import numpy as np
@@ -90,7 +90,10 @@ class Decider:
             scores=scores[keep],
             slot_step=self.ctx.eps * svc / np.maximum(view.slots[cm.candidates[keep]], 1),
         )
-        pl = (self.batch if windowed else self.sync).place(req)
+        placer = self.batch if windowed else self.sync
+        if getattr(placer, "uses_fn_load", False):
+            req = replace(req, fn_load=self.models.fn_load(sorted({inv.fn for inv in sub}), now))
+        pl = placer.place(req)
         idx = idx if idx is not None else view.index()
         for r, inv in enumerate(sub):
             w = pl.assign.get(inv.id)

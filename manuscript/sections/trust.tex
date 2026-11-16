@@ -1,1 +1,111 @@
-% v2: rewritten in plan phase V14 following manuscript/WRITING_SPEC.md. v1 text is in git history (main b0f2fb2).
+% Outline (WRITING_SPEC.md §3 row 3). Owner classes (table); attestation exchange (figure); keys, rotation, holder
+% budget; data path; receipts; sampled audit and its bound; what a tenant must trust; limits.
+\section{Trust Model}
+\label{sec:trust}
+
+\subsection{Owner classes}
+\label{sec:classes}
+
+What an owner can do depends on the machine and on the effort the owner spends. We distinguish three classes
+(Table~\ref{tab:classes}) and state every guarantee for a class. A tenant chooses, per function, which classes may
+hold the function's key.
+
+\begin{table}[t]
+\caption{Owner classes and what holds for each.}
+\label{tab:classes}
+\small
+\begin{tabular}{@{}P{31mm}P{50mm}P{50mm}@{}}
+\toprule
+Class & The owner can & Holds for this class \\
+\midrule
+S: software only & boot other software; drop or delay the machine's messages; switch it off &
+  code, inputs and results stay confidential and unchanged; the only faults are missing and late results \\
+P: physical access, memory not encrypted & additionally read the machine's memory with equipment &
+  no confidentiality; a forged result is accepted with the probability bounded in Section~\ref{sec:audit} \\
+M: memory-encrypted hardware & as S; physical reads of memory return ciphertext &
+  as S, up to side channels \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A class-S owner who boots other software fails attestation and receives no key. A class-S owner who boots the
+published image has no login on it: the image has no shell, its root file system is read-only and verified, and its
+data partition is encrypted with a key that the TPM releases only to the measured image. Such an owner controls power
+and network and nothing else.
+
+\subsection{Attestation and sessions}
+\label{sec:attest}
+
+Figure~\ref{fig:attest} shows the exchange. At boot the worker's agent generates a session key pair inside the image.
+The verifier sends a nonce (step~1); the TPM signs the boot measurements together with the nonce and a hash of the
+session public key (step~2); the agent sends the quote and the measurement log (step~3). The verifier checks the
+signature, the TPM manufacturer's certificate chain and the measurements, and returns a \emph{session certificate}
+that binds the worker's identity, which is the hash of its TPM endorsement key, to the session public key (step~4).
+Every later connection of the worker, to routers, to the scheduler and to key services, is authenticated with this
+certificate, so the other end knows that it speaks to the measured image on that TPM. The verifier asks for a fresh
+quote periodically; a certificate that is not renewed expires, and the verifier announces the expiry to the routers
+and the scheduler. One TPM gives one identity, so creating identities costs machines.
+
+\begin{figure}[t]
+\centering
+\input{diagrams/attest}
+\caption{Attestation of a worker and release of a function key. The key service belongs to the tenant.}
+\label{fig:attest}
+\end{figure}
+
+\subsection{Keys and the holder budget}
+\label{sec:keys}
+
+Each function has its own key. The tenant's root key stays in the tenant's key service, and a function key is
+released to a worker only by that service, only against a valid session certificate, and wrapped to the worker's
+session public key (step~5 of Figure~\ref{fig:attest}). The provider's services never hold a function key.
+A worker keeps a function key in memory until its session ends, the key is rotated, or the scheduler stops using the
+worker. The tenant rotates a function key with a period it chooses; code and snapshots encrypted under an old key
+version are discarded.
+
+The key service enforces the holder budget itself: it counts the workers that hold a function's current key and
+refuses a release beyond $K$. A worker's place is freed when the worker reports that it dropped the key, when the
+verifier revokes its session, or when its session certificate expires. A machine that disappears without notice
+therefore keeps its place until its certificate expires; the renewal period bounds how long a departed machine counts
+against the budget. The tenant does not depend on the provider's scheduler for the budget: a scheduler that asks for
+more releases than $K$ does not get them.
+
+\subsection{The invocation path}
+\label{sec:path}
+
+A client's encrypted connection ends inside the worker that runs the invocation: the router forwards the
+connection's bytes by function name and has no key to read them. The scheduler sees the function's
+name, the input's size and the deadline. A worker returns each result with a \emph{receipt}: the invocation's
+identifier, the attempt, the worker's identity, the execution time and a digest of the result, signed with the session
+key. The router checks the signature against the session certificate and discards a result whose certificate has been
+revoked. A machine cannot claim an invocation it did not run under an attested image.
+
+\subsection{Sampled audit}
+\label{sec:audit}
+
+A class-P owner who reads the session key from memory can sign a result that the function did not produce.
+Attestation does not prevent this, so the scheduler audits: with probability $p$, an invocation that may run twice is
+executed again on a key holder of a different owner, city and ISP, and the two result digests are compared. On a
+mismatch a third holder executes it and the worker in the minority is banned: the verifier revokes its session and
+refuses its TPM identity from then on, and the scheduler cancels its running invocations. A digest reveals nothing
+about the result to the scheduler beyond equality.
+
+An audited invocation exposes a forged result unless the auditing worker forges the same result. If owners do not
+coordinate, a worker that forges $n$ results is detected with probability $1-(1-p)^n$, and is banned after $1/p$
+forged results in expectation. The audit covers functions that are deterministic and may run twice; for other
+functions on class-P machines there is no integrity guarantee, and a tenant can exclude class~P for them.
+\todoitem{T10}{held-out experiments}{Measured: forged results accepted and results until the ban, per audit rate (held-out experiments).}
+
+\subsection{What a tenant must trust, and limits}
+\label{sec:limits-trust}
+
+A tenant trusts three things: the published image, which it can inspect and whose measurements its key service
+checks; the processor and TPM of each worker, to the extent of the worker's class; and the provider's verifier, which
+decides whether a quote matches the image. A verifier that accepts a false quote causes a key to be released to an
+unmeasured machine. A tenant that does not accept this can require a fresh quote in its own key service, at the cost
+of one TPM signature per release.
+
+The provider's routers and scheduler are trusted for availability only: they can refuse or delay invocations, and they
+cannot read or change them. Reference measurements for firmware differ per mainboard model and must be collected per
+model; a verifier that accepts unknown firmware on first use weakens class~S to that extent. Side channels between
+sandboxes on one worker, and traffic analysis of message sizes and timing, are outside this paper.

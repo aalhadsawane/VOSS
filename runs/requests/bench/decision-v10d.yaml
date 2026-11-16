@@ -1,0 +1,5 @@
+# V10, fourth run: every pool in one job (run 43671084451 mixed two runner CPUs, EPYC 9V74 and 7763, in one fit) and
+# load capped at 300 invocations/s (at 0.1/s per worker the 10,000-worker pool saturated the one scheduler)
+workers: [50, 200, 1000, 3000, 10000]
+functions: [12, 100, 500]
+horizon: 300

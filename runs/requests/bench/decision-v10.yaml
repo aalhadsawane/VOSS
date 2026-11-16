@@ -1,0 +1,4 @@
+# V10: Algorithm 1 (provisioning) and Algorithm 2 (placement) timed on the runner CPU, one job per pool size
+workers: [50, 200, 1000, 3000, 10000]
+functions: [12, 100, 500]
+horizon: 300

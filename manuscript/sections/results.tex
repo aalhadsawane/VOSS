@@ -1,1 +1,163 @@
-% v2: rewritten in plan phase V14 following manuscript/WRITING_SPEC.md. v1 text is in git history (main b0f2fb2).
+% Outline (WRITING_SPEC.md §3 row 6). One subsection per question; first sentence is the finding; then evidence; then
+% the figure. Every finding, number, figure and table that needs the held-out experiments is a \todoitem marker; the
+% sentences around the markers state only what is varied and measured, which is fixed by the design of the experiments.
+\section{Results}
+\label{sec:results}
+
+Every experiment uses the settings of Section~\ref{sec:metrics} unless stated. Differences are paired by seed and
+given with 95\% intervals.
+
+\subsection{Deadlines met against key holders}
+\label{sec:res-main}
+
+\todoitem{T29}{held-out experiments}{Finding sentence: deadlines met by \voss{} and by the best baseline at equal
+$K$, with the paired difference and its interval; the range of $K$ for which the difference holds.}
+Figure~\ref{fig:main} shows deadlines met for every provisioning system of Table~\ref{tab:systems} at holder budgets
+$K \in \{2, 4, 8, 16\}$ and without a budget, at three load levels. The systems run under the same budget, so a
+difference at equal $K$ comes from which workers hold the key and what they keep warm, and not from how many hold it.
+The line for keys on $K$ workers chosen without the model separates the two: it uses the whole budget at all times.
+Table~\ref{tab:holders} reports what each system spends: concurrent key holders, distinct holders per key version,
+key releases per hour, and memory in warm sandboxes.
+\todoitem{T30}{held-out experiments}{Second paragraph: holders needed to meet 95\% of deadlines, per system; latency
+and slowdown distributions (Figure~\ref{fig:latency}); comparison with the trusted hosts and with the exact program.}
+
+\begin{figure}[t]
+\centering
+\fbox{\parbox{0.9\linewidth}{\centering\small\textcolor{red}{Figure to be generated: deadlines met vs $K$, one panel per load level, one line per system, with intervals}}}
+\caption{Deadlines met against the holder budget $K$ for every provisioning system, at three load levels.}
+\label{fig:main}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\fbox{\parbox{0.9\linewidth}{\centering\small\textcolor{red}{Figure to be generated: two CDFs, one line per system; invocations that were lost are placed at their deadline}}}
+\caption{Distribution of response time and of slowdown (response time over execution time) of synchronous invocations at the central setting.}
+\label{fig:latency}
+\end{figure}
+
+\begin{table}[t]
+\caption{Key holders and warm memory per system at the central setting.}
+\label{tab:holders}
+\small
+\todoitem{T31}{held-out experiments}{Table: per system, concurrent holders (mean, peak), distinct holders per key
+version, key releases per hour, warm memory.}
+\end{table}
+
+\subsection{Why the baselines miss deadlines}
+\label{sec:res-mechanism}
+
+Figure~\ref{fig:episode} follows one function through a period in which several of its key holders leave. It shows,
+for \voss{} and for the best baseline, the number of key holders, the invocations waiting, and the invocations that
+miss their deadline over time. \todoitem{T32}{held-out experiments}{Finding sentence and the statistics of such
+periods over the whole run: how many, how long, what share of all missed deadlines falls inside them, per system.}
+
+\begin{figure}[t]
+\centering
+\fbox{\parbox{0.9\linewidth}{\centering\small\textcolor{red}{Figure to be generated: time series, two systems}}}
+\caption{Key holders, waiting invocations and missed deadlines of one function over time while key holders leave.}
+\label{fig:episode}
+\end{figure}
+
+\subsection{Where volunteer serverless works}
+\label{sec:res-region}
+
+Figure~\ref{fig:region} shows deadlines met over the size of the pool, the load, and the share of sessions that end
+with a notice from the owner. \todoitem{T33}{held-out experiments}{Finding sentence: the pool size and load below
+which no system meets 95\% of deadlines, and the region in which \voss{} does and the baselines do not.}
+
+\begin{figure}[t]
+\centering
+\fbox{\parbox{0.9\linewidth}{\centering\small\textcolor{red}{Figure to be generated: region map per system}}}
+\caption{Deadlines met by pool size and load, per system. The contour marks 95\%.}
+\label{fig:region}
+\end{figure}
+
+\subsection{Owners who drop work}
+\label{sec:res-drop}
+
+In this experiment 0, 10 or 20\% of owners drop the results of the invocations their machines run, while the machines
+stay attested and keep sending heartbeats. Figure~\ref{fig:drop} compares the failure-handling policies of
+Table~\ref{tab:systems} under the same provisioning. \todoitem{T34}{held-out experiments}{Finding sentence with
+paired differences; time until a dropping worker gets no more invocations; number of workers excluded although they
+did not drop work.}
+
+\begin{figure}[t]
+\centering
+\fbox{\parbox{0.9\linewidth}{\centering\small\textcolor{red}{Figure to be generated: grouped bars with intervals}}}
+\caption{Deadlines met when 0, 10 and 20\% of owners drop results, per failure-handling policy.}
+\label{fig:drop}
+\end{figure}
+
+\subsection{Owners who forge results}
+\label{sec:res-forge}
+
+Here a share of class-P owners return results that the function did not compute, for a stated fraction of the
+invocations they run. Table~\ref{tab:forge} gives the forged results that reached clients and the forged results a
+worker returned before it was banned, for each audit probability, next to the bound $1-(1-p)^n$ of
+Section~\ref{sec:audit}. \todoitem{T35}{held-out experiments}{Finding sentence; overhead of the audit in executions and
+in deadlines met.}
+
+\begin{table}[t]
+\caption{Forged results accepted and results until the ban, by audit probability $p$ and share of class-P owners.}
+\label{tab:forge}
+\small
+\todoitem{T36}{held-out experiments}{Table.}
+\end{table}
+
+\subsection{What each part of provisioning contributes}
+\label{sec:res-ablation}
+
+Figure~\ref{fig:ablation} removes one element of provisioning at a time: the per-function effect of the machine class
+(one speed number per machine remains); the deadline probability (a worker counts fully if its predicted time meets
+the deadline and not at all otherwise); the reliability model (every worker is assumed to stay); the expectation over
+scenarios (replaced by the worst case over a fixed number of lost holders); warm sandboxes; and backup attempts.
+\todoitem{T37}{held-out experiments}{Finding sentence per element with paired differences; prediction error and
+interval coverage of the run-time model for the four cases of Table~\ref{tab:cases}; distance of
+Algorithm~\ref{alg:prov} from the exact program on instances the exact program can solve.}
+
+\begin{figure}[t]
+\centering
+\fbox{\parbox{0.9\linewidth}{\centering\small\textcolor{red}{Figure to be generated: bars with intervals, one per variant}}}
+\caption{Deadlines met by \voss{} and by \voss{} without each element of provisioning.}
+\label{fig:ablation}
+\end{figure}
+
+\subsection{Sensitivity}
+\label{sec:res-sens}
+
+\todoitem{T38}{held-out experiments}{Table and one paragraph: deadlines met when the deadline's multiple of the
+execution time, the share of functions that may run twice, the key rotation period, each swept constant of
+Table~\ref{tab:constants} and the machine mix are varied one at a time.}
+
+\subsection{The limit of one scheduler}
+\label{sec:res-scale}
+
+One scheduler is limited by how many invocations it can place per second, and the limit lies far above the pools we
+evaluate. We timed the scheduler's own code on one core of an \VDecCpu{} processor, inside runs with
+\VDecPoolSmall{} to \VDecPoolLarge{} workers and \VDecFnLo{} to \VDecFnHi{} functions. A placement decision takes
+\VDecPlaceFixedMs{}~ms plus \VDecPlacePerPairUs{}~\textmu s for every candidate pair of invocation and worker
+(Table~\ref{tab:decision}). The median decision takes \VDecPlaceSmallLoMs{}--\VDecPlaceSmallHiMs{}~ms with
+\VDecPoolSmall{} workers and \VDecPlaceLargeLoMs{}--\VDecPlaceLargeHiMs{}~ms with \VDecPoolLarge{}, which is two
+orders of magnitude below a tenth of the median synchronous deadline (\VDecBoundLoMs{}--\VDecBoundHiMs{}~ms). The
+scheduler places one invocation at a time, so its capacity is the inverse of the decision time: \VDecCapSmall{}
+invocations per second with \VDecPoolSmall{} workers and \VDecCapLargeLo{}--\VDecCapLargeHi{} with
+\VDecPoolLarge{}. If every worker brought 0.1 invocations per second, the smallest measured pool whose load exceeds this capacity
+would have \VDecSaturatedPool{} workers. \todoitem{T40}{held-out experiments}{Share of this capacity that the
+\VRunWorkers{}-worker runs use at their highest load.} Beyond that size, workers would be divided among schedulers on the provider's machines; under a holder
+budget this costs holders (Section~\ref{sec:arch}), and we do not evaluate it.
+
+\begin{table}[t]
+\caption{Time per scheduler decision on one core of an \VDecCpu{} processor: fixed part and part per unit of work,
+fitted over pools of \VDecPoolSmall{} to \VDecPoolLarge{} workers.}
+\label{tab:decision}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+Decision & Fixed & Per unit of work \\
+\midrule
+Request placement & \VDecPlaceFixedMs{} ms & \VDecPlacePerPairUs{} \textmu s per candidate (invocation, worker) pair \\
+Provisioning & --- & \VDecPlanPerVarUs{} \textmu s per candidate (function, worker) pair \\
+Receipt check & --- & \VDecVerifyPerReceiptUs{} \textmu s per receipt (one signature verification) \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,3 @@
+spec: SIZING4
+shards: 1
+note: "V9.5: repeat of the D-97 confirmation after streaming the end-of-run checks and result hash (first run peaked at 15.3 GB)"

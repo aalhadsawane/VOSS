@@ -1,6 +1,7 @@
 #!/bin/sh
 # Build the guest ext4 image used by fc_boot, fc_snapshot, qemu_vm and sebs (doc 10 §3), with Docker, on the node
-# or any x86-64 build host. Usage: build_rootfs.sh <out_dir> [--with-ml]   (--with-ml adds PyTorch + ResNet-50)
+# or any x86-64 build host. Usage: build_rootfs.sh <out_dir> [--with-ml]   (--with-ml adds PyTorch + ResNet-50 and
+# writes voss-guest-ml.ext4, used only by image-recognition; without it: voss-guest.ext4, used by every other function)
 # Shared hosts without docker-group access: DOCKER="sudo docker" SUDO=sudo VOSS_GUEST_IMAGE=voss-e01-guest ...
 # (the image is removed again at the end; a base image that was already present is left alone).
 set -eu
@@ -11,6 +12,8 @@ HAD_BASE=$($DOCKER images -q python:3.11-slim-bookworm 2>/dev/null || true)
 OUT=$(realpath "${1:?usage: build_rootfs.sh <out_dir> [--with-ml]}")
 ML=${2:-}
 HERE=$(cd "$(dirname "$0")" && pwd)
+NAME=voss-guest
+if [ "$ML" = "--with-ml" ]; then NAME=voss-guest-ml; fi
 CTX="$OUT/ctx"
 rm -rf "$CTX" && mkdir -p "$CTX"
 cp -r "$HERE/voss-init" "$HERE/fnrunner.py" "$HERE/functions" "$CTX/"
@@ -32,9 +35,9 @@ $SUDO rm -rf "$OUT/rootdir" && mkdir -p "$OUT/rootdir"
 $DOCKER export "$cid" | $SUDO tar -x -C "$OUT/rootdir"
 $DOCKER rm "$cid" >/dev/null
 size_mb=$(( $($SUDO du -sm "$OUT/rootdir" | cut -f1) * 13 / 10 + 64 ))
-$SUDO mkfs.ext4 -q -F -L voss-root -d "$OUT/rootdir" "$OUT/voss-guest.ext4" "${size_mb}M"
-$SUDO chown "$(id -u):$(id -g)" "$OUT/voss-guest.ext4"
+$SUDO mkfs.ext4 -q -F -L voss-root -d "$OUT/rootdir" "$OUT/$NAME.ext4" "${size_mb}M"
+$SUDO chown "$(id -u):$(id -g)" "$OUT/$NAME.ext4"
 $SUDO rm -rf "$OUT/rootdir"
 $DOCKER rmi "$IMG" >/dev/null 2>&1 || true
 [ -n "$HAD_BASE" ] || $DOCKER rmi python:3.11-slim-bookworm >/dev/null 2>&1 || true
-sha256sum "$OUT/voss-guest.ext4" | tee "$OUT/voss-guest.ext4.sha256"
+sha256sum "$OUT/$NAME.ext4" | tee "$OUT/$NAME.ext4.sha256"

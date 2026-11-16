@@ -8,7 +8,7 @@ agent session. All sessions follow this file and `docs/handoff/CALIBRATION_HANDO
 | What | Where | When | Time per node |
 |---|---|---|---|
 | Part A: describe the node, check it is not a duplicate | every node | now | ~15 min |
-| Setup: pinned Firecracker, guest kernel and guest image | every node | now | 30-60 min |
+| Setup: pinned Firecracker, guest kernel, base and ML guest images | every node | now | 40-75 min |
 | Part B: start-up, attestation, keys, functions (no reboot) | every node | now | 3-8 h, mostly unattended |
 | Part C: boot the real image 10 times (reboots, human approval) | every node with a TPM 2.0 | now | 1.5-2.5 h, human present |
 | Part D: ingest, check, report, PR | every node | now | 30-60 min |
@@ -108,7 +108,7 @@ better (10 workers). It must have a TPM 2.0 and an NVMe or SATA SSD.
 | 2. Part A | `bash tools/calibrate/node_run.sh spec <label> nvme=<dir> sata=<dir> hdd=<dir>` (the classes it has) | 10-15 min | name a scratch dir on every disk |
 | 3. Fill gaps | add `manual` fields the script cannot see (contract §1) | 5 min | maybe |
 | 4. Push spec | commit `calibration/specs/<label>/`, push `calib/<label>` | 2 min | |
-| 5. Setup | `bash tools/calibrate/node_run.sh setup <label>` (asks before installing packages) | 30-60 min | approve installs |
+| 5. Setup | `bash tools/calibrate/node_run.sh setup <label>` (asks before installing packages; builds both guest images, the ML one with PyTorch) | 40-75 min | approve installs |
 | 6. Smoke | `bash tools/calibrate/node_run.sh quick <label> nvme=<dir> sata=<dir> hdd=<dir>` | 20-60 min | `sudo -v` |
 | 7. Read smoke output | errors, implausible values (`%.3g` formatting) | 15 min | |
 | 8. Part B | `bash tools/calibrate/node_run.sh full <label> nvme=<dir> sata=<dir> hdd=<dir>` | 3-8 h; +30-60 min per extra disk class | `sudo -v` once |
@@ -131,6 +131,18 @@ the next node's estimate is better.
 
 **Parallel nodes.** Nodes are independent; run them at the same time if you like. Only step 4 (push the spec before Part B)
 orders them. The builder session reviews and merges each node's PR.
+
+## 5a. Harness versions: what a node measured on an older harness re-runs
+
+`calibration/HARNESS.lock` names the harness every node must run. When a builder fix changes it, this table says what
+a node measured on the older harness runs again; everything else it measured stays valid.
+
+| Lock | Change | A node measured on the previous lock runs |
+|---|---|---|
+| `570e04bc` | node01's fixes: guest memory 4,096 MB for `dynamic-html` and `dna-visualisation`; 50 snapshot creates; `fn_rss` per co-run level; `snap_size` 3 times, also on NVMe-only nodes | everything (earlier locks were never used for a bundle) |
+| `1de5d147` | separate ML guest image (`voss-guest-ml.ext4`, PyTorch + ResNet-50) used only by `image-recognition`; `setup` builds both images | `git pull` (the lock check needs the new harness), then `bash tools/calibrate/node_run.sh ml <label> <tier>=<dir> ...` (builds the ML image, measures `image-recognition` alone, about 1-1.5 h), then `ingest` again. Nothing else. |
+
+The guest image is no longer a human choice: every node measures all ten functions.
 
 ## 6. When a session stops and asks
 
