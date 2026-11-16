@@ -30,3 +30,13 @@ ERROR boot_verify: missing or not measured
 ERROR image_mem_mb: missing or not measured
 ERROR function image-recognition: missing
 configs/calibration/measured/node01-i7-12700-64g-nvme_nvme: 8 errors, 1 warnings
+configs/calibration/measured/node01-i7-12700-64g-nvme_nvme
+WARNING handler times span 1.2e-05-3.6 s, not <1 ms to >10 s (plan F2a)
+ERROR boot_firmware: missing or not measured
+ERROR boot_first_tls: missing or not measured
+ERROR boot_loader: missing or not measured
+ERROR boot_quote: missing or not measured
+ERROR boot_total: missing or not measured
+ERROR boot_verify: missing or not measured
+ERROR image_mem_mb: missing or not measured
+configs/calibration/measured/node01-i7-12700-64g-nvme_nvme: 7 errors, 1 warnings

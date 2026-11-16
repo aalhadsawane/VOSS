@@ -1,0 +1,179 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 663B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.11-slim-bookworm
+#2 DONE 1.8s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [1/8] FROM docker.io/library/python:3.11-slim-bookworm@sha256:a83ba18aef0f865b1a4a611c2cf460fe446f2795673bbb9fe43be570439e3b39
+#4 DONE 0.0s
+
+#5 [2/8] RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg busybox-static && rm -rf /var/lib/apt/lists/*
+#5 CACHED
+
+#6 [3/8] RUN pip install --no-cache-dir jinja2==3.1.4 pillow==10.4.0 python-igraph==0.11.6 squiggle==0.3.1
+#6 CACHED
+
+#7 [internal] load build context
+#7 transferring context: 11.15kB done
+#7 DONE 0.0s
+
+#8 [4/8] RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.4.1 torchvision==0.19.1
+#8 0.442 Looking in indexes: https://download.pytorch.org/whl/cpu
+#8 0.947 Collecting torch==2.4.1
+#8 1.275   Downloading https://download-r2.pytorch.org/whl/cpu/torch-2.4.1%2Bcpu-cp311-cp311-linux_x86_64.whl (194.9 MB)
+#8 18.17      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 194.9/194.9 MB 11.7 MB/s eta 0:00:00
+#8 18.45 Collecting torchvision==0.19.1
+#8 18.75   Downloading https://download-r2.pytorch.org/whl/cpu/torchvision-0.19.1%2Bcpu-cp311-cp311-linux_x86_64.whl (1.6 MB)
+#8 18.89      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.6/1.6 MB 11.8 MB/s eta 0:00:00
+#8 18.97 Collecting filelock (from torch==2.4.1)
+#8 19.09   Downloading filelock-4.2.4-py3-none-any.whl.metadata (2.0 kB)
+#8 19.14 Collecting typing-extensions>=4.8.0 (from torch==2.4.1)
+#8 19.17   Downloading typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+#8 19.22 Collecting sympy (from torch==2.4.1)
+#8 19.25   Downloading sympy-1.14.0-py3-none-any.whl.metadata (12 kB)
+#8 19.32 Collecting networkx (from torch==2.4.1)
+#8 19.34   Downloading networkx-3.6.1-py3-none-any.whl.metadata (6.8 kB)
+#8 19.35 Requirement already satisfied: jinja2 in /usr/local/lib/python3.11/site-packages (from torch==2.4.1) (3.1.4)
+#8 19.41 Collecting fsspec (from torch==2.4.1)
+#8 19.43   Downloading fsspec-2026.9.0-py3-none-any.whl.metadata (10 kB)
+#8 19.43 Requirement already satisfied: numpy in /usr/local/lib/python3.11/site-packages (from torchvision==0.19.1) (2.4.6)
+#8 19.44 Requirement already satisfied: pillow!=8.3.*,>=5.3.0 in /usr/local/lib/python3.11/site-packages (from torchvision==0.19.1) (10.4.0)
+#8 19.48 Requirement already satisfied: MarkupSafe>=2.0 in /usr/local/lib/python3.11/site-packages (from jinja2->torch==2.4.1) (3.0.4)
+#8 19.54 Collecting mpmath<1.4,>=1.1.0 (from sympy->torch==2.4.1)
+#8 19.57   Downloading mpmath-1.3.0-py3-none-any.whl.metadata (8.6 kB)
+#8 19.60 Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+#8 19.62    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 45.6/45.6 kB 1.8 MB/s eta 0:00:00
+#8 19.64 Downloading filelock-4.2.4-py3-none-any.whl (162 kB)
+#8 19.67    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 162.5/162.5 kB 5.7 MB/s eta 0:00:00
+#8 19.70 Downloading fsspec-2026.9.0-py3-none-any.whl (221 kB)
+#8 19.71    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 221.7/221.7 kB 12.2 MB/s eta 0:00:00
+#8 19.74 Downloading networkx-3.6.1-py3-none-any.whl (2.1 MB)
+#8 19.92    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 11.8 MB/s eta 0:00:00
+#8 19.94 Downloading sympy-1.14.0-py3-none-any.whl (6.3 MB)
+#8 20.48    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.3/6.3 MB 11.8 MB/s eta 0:00:00
+#8 20.50 Downloading mpmath-1.3.0-py3-none-any.whl (536 kB)
+#8 20.55    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 536.2/536.2 kB 11.9 MB/s eta 0:00:00
+#8 20.71 Installing collected packages: mpmath, typing-extensions, sympy, networkx, fsspec, filelock, torch, torchvision
+#8 29.17 Successfully installed filelock-4.2.4 fsspec-2026.9.0 mpmath-1.3.0 networkx-3.6.1 sympy-1.14.0 torch-2.4.1+cpu torchvision-0.19.1+cpu typing-extensions-4.16.0
+#8 29.17 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+#8 DONE 29.8s
+
+#9 [5/8] RUN mkdir -p /USER/data && python3 -c "import torch, torchvision; torch.save(torchvision.models.resnet50(weights='IMAGENET1K_V1').state_dict(), '/USER/data/resnet50.pth')"
+#9 1.438 Downloading: "https://download.pytorch.org/models/resnet50-0676ba61.pth" to /root/.cache/torch/hub/checkpoints/resnet50-0676ba61.pth
+#9 1.802 
+  0%|          | 0.00/97.8M [00:00<?, ?B/s]
+  0%|          | 128k/97.8M [00:00<01:24, 1.22MB/s]
+  1%|          | 512k/97.8M [00:00<00:37, 2.73MB/s]
+  2%|▏         | 1.50M/97.8M [00:00<00:16, 6.12MB/s]
+  3%|▎         | 2.62M/97.8M [00:00<00:12, 8.20MB/s]
+  4%|▍         | 3.75M/97.8M [00:00<00:10, 9.44MB/s]
+  5%|▍         | 4.88M/97.8M [00:00<00:09, 10.2MB/s]
+  6%|▌         | 6.00M/97.8M [00:00<00:09, 10.6MB/s]
+  7%|▋         | 7.12M/97.8M [00:00<00:08, 10.8MB/s]
+  8%|▊         | 8.25M/97.8M [00:00<00:08, 10.8MB/s]
+ 10%|▉         | 9.38M/97.8M [00:01<00:08, 10.4MB/s]
+ 11%|█         | 10.5M/97.8M [00:01<00:08, 10.8MB/s]
+ 12%|█▏        | 11.6M/97.8M [00:01<00:08, 11.0MB/s]
+ 13%|█▎        | 12.8M/97.8M [00:01<00:08, 11.1MB/s]
+ 14%|█▍        | 14.0M/97.8M [00:01<00:07, 11.5MB/s]
+ 15%|█▌        | 15.1M/97.8M [00:01<00:07, 11.5MB/s]
+ 17%|█▋        | 16.2M/97.8M [00:01<00:07, 11.6MB/s]
+ 18%|█▊        | 17.4M/97.8M [00:01<00:07, 11.6MB/s]
+ 19%|█▉        | 18.5M/97.8M [00:01<00:07, 11.6MB/s]
+ 20%|██        | 19.6M/97.8M [00:01<00:07, 11.7MB/s]
+ 21%|██        | 20.8M/97.8M [00:02<00:06, 11.7MB/s]
+ 22%|██▏       | 21.9M/97.8M [00:02<00:06, 11.7MB/s]
+ 24%|██▎       | 23.0M/97.8M [00:02<00:06, 11.7MB/s]
+ 25%|██▍       | 24.1M/97.8M [00:02<00:06, 11.7MB/s]
+ 26%|██▌       | 25.2M/97.8M [00:02<00:06, 11.7MB/s]
+ 27%|██▋       | 26.4M/97.8M [00:02<00:06, 11.6MB/s]
+ 28%|██▊       | 27.5M/97.8M [00:02<00:06, 11.6MB/s]
+ 29%|██▉       | 28.6M/97.8M [00:02<00:06, 11.7MB/s]
+ 30%|███       | 29.8M/97.8M [00:02<00:06, 11.7MB/s]
+ 32%|███▏      | 30.9M/97.8M [00:02<00:05, 11.7MB/s]
+ 33%|███▎      | 32.0M/97.8M [00:03<00:05, 11.7MB/s]
+ 34%|███▍      | 33.1M/97.8M [00:03<00:05, 11.7MB/s]
+ 35%|███▌      | 34.2M/97.8M [00:03<00:05, 11.7MB/s]
+ 36%|███▌      | 35.4M/97.8M [00:03<00:05, 11.7MB/s]
+ 37%|███▋      | 36.6M/97.8M [00:03<00:05, 11.7MB/s]
+ 39%|███▊      | 37.9M/97.8M [00:03<00:05, 11.8MB/s]
+ 40%|███▉      | 39.0M/97.8M [00:03<00:05, 11.5MB/s]
+ 41%|████      | 40.1M/97.8M [00:03<00:05, 11.5MB/s]
+ 42%|████▏     | 41.2M/97.8M [00:03<00:05, 11.6MB/s]
+ 43%|████▎     | 42.4M/97.8M [00:04<00:05, 11.6MB/s]
+ 45%|████▍     | 43.6M/97.8M [00:04<00:04, 11.7MB/s]
+ 46%|████▌     | 44.9M/97.8M [00:04<00:04, 11.7MB/s]
+ 47%|████▋     | 46.0M/97.8M [00:04<00:04, 11.6MB/s]
+ 48%|████▊     | 47.1M/97.8M [00:04<00:04, 11.6MB/s]
+ 49%|████▉     | 48.2M/97.8M [00:04<00:04, 11.7MB/s]
+ 50%|█████     | 49.4M/97.8M [00:04<00:04, 11.7MB/s]
+ 52%|█████▏    | 50.6M/97.8M [00:04<00:04, 11.7MB/s]
+ 53%|█████▎    | 51.8M/97.8M [00:04<00:04, 11.7MB/s]
+ 54%|█████▍    | 52.9M/97.8M [00:04<00:04, 11.7MB/s]
+ 55%|█████▌    | 54.0M/97.8M [00:05<00:03, 11.7MB/s]
+ 56%|█████▋    | 55.1M/97.8M [00:05<00:03, 11.6MB/s]
+ 58%|█████▊    | 56.4M/97.8M [00:05<00:03, 11.6MB/s]
+ 59%|█████▉    | 57.5M/97.8M [00:05<00:03, 11.7MB/s]
+ 60%|█████▉    | 58.6M/97.8M [00:05<00:03, 11.6MB/s]
+ 61%|██████    | 59.8M/97.8M [00:05<00:03, 11.5MB/s]
+ 62%|██████▏   | 60.9M/97.8M [00:05<00:03, 11.6MB/s]
+ 63%|██████▎   | 62.0M/97.8M [00:05<00:03, 11.4MB/s]
+ 65%|██████▍   | 63.1M/97.8M [00:05<00:03, 11.5MB/s]
+ 66%|██████▌   | 64.4M/97.8M [00:06<00:03, 11.6MB/s]
+ 67%|██████▋   | 65.5M/97.8M [00:06<00:02, 11.6MB/s]
+ 68%|██████▊   | 66.8M/97.8M [00:06<00:02, 11.4MB/s]
+ 70%|██████▉   | 68.0M/97.8M [00:06<00:02, 11.7MB/s]
+ 71%|███████   | 69.1M/97.8M [00:06<00:02, 11.7MB/s]
+ 72%|███████▏  | 70.2M/97.8M [00:06<00:02, 11.7MB/s]
+ 73%|███████▎  | 71.5M/97.8M [00:06<00:02, 11.8MB/s]
+ 74%|███████▍  | 72.8M/97.8M [00:06<00:02, 11.7MB/s]
+ 76%|███████▌  | 73.9M/97.8M [00:06<00:02, 11.8MB/s]
+ 77%|███████▋  | 75.0M/97.8M [00:06<00:02, 11.8MB/s]
+ 78%|███████▊  | 76.1M/97.8M [00:07<00:01, 11.8MB/s]
+ 79%|███████▉  | 77.2M/97.8M [00:07<00:01, 11.7MB/s]
+ 80%|████████  | 78.4M/97.8M [00:07<00:01, 11.5MB/s]
+ 81%|████████▏ | 79.6M/97.8M [00:07<00:01, 11.8MB/s]
+ 83%|████████▎ | 80.9M/97.8M [00:07<00:01, 11.8MB/s]
+ 84%|████████▍ | 82.1M/97.8M [00:07<00:01, 11.7MB/s]
+ 85%|████████▌ | 83.2M/97.8M [00:07<00:01, 11.8MB/s]
+ 86%|████████▋ | 84.5M/97.8M [00:07<00:01, 11.8MB/s]
+ 88%|████████▊ | 85.6M/97.8M [00:07<00:01, 11.7MB/s]
+ 89%|████████▉ | 86.9M/97.8M [00:08<00:00, 11.8MB/s]
+ 90%|████████▉ | 88.0M/97.8M [00:08<00:00, 11.8MB/s]
+ 91%|█████████ | 89.1M/97.8M [00:08<00:00, 11.8MB/s]
+ 92%|█████████▏| 90.2M/97.8M [00:08<00:00, 11.7MB/s]
+ 93%|█████████▎| 91.4M/97.8M [00:08<00:00, 11.7MB/s]
+ 95%|█████████▍| 92.5M/97.8M [00:08<00:00, 11.7MB/s]
+ 96%|█████████▌| 93.6M/97.8M [00:08<00:00, 11.7MB/s]
+ 97%|█████████▋| 94.8M/97.8M [00:08<00:00, 11.6MB/s]
+ 98%|█████████▊| 95.9M/97.8M [00:08<00:00, 11.7MB/s]
+ 99%|█████████▉| 97.0M/97.8M [00:08<00:00, 11.7MB/s]
+100%|██████████| 97.8M/97.8M [00:08<00:00, 11.4MB/s]
+#9 DONE 11.2s
+
+#10 [6/8] COPY voss-init /voss-init
+#10 DONE 0.1s
+
+#11 [7/8] COPY fnrunner.py /USER/fnrunner.py
+#11 DONE 0.1s
+
+#12 [8/8] COPY functions /USER/functions
+#12 DONE 0.1s
+
+#13 exporting to image
+#13 exporting layers
+#13 exporting layers 1.7s done
+#13 writing image sha256:8edfd35d3456a97679f85beeaedce9421c920d94d60a896b3c8340190588e2a5 done
+#13 naming to docker.io/library/voss-guest 0.0s done
+#13 DONE 1.7s
+Creating regular file /home/USER/voss-calib/assets/voss-guest-ml.ext4
+14e4b0ee47702712be4ab2b7cd937fbc035e72923214b022f4c311c30514ae7d  /home/USER/voss-calib/assets/voss-guest-ml.ext4
+skip sebs fn=image-recognition concurrency=20: guests together over the RAM budget (needs 40960 MB)
+sebs: ok

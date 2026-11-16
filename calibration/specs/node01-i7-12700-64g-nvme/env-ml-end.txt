@@ -1,0 +1,8 @@
+stage=ml-end utc=2026-11-16T08:33:32Z commit=4d74303d7a7714c9a33635fc5cde233a0b36a5bf
+virt=none
+governor=performance
+intel_no_turbo=0
+boost=n/a
+on_mains=n/a
+loadavg=32.20 12.33 5.41 nproc=20
+thermal_msgs=0

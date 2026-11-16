@@ -196,7 +196,7 @@ System clock synchronized: yes
   default). Restored to `powersave` after the experiments.
 - **Stopped/disabled for the quiet measurement window:** cockroachdb, code-server@pfs, grafana-server, influxdb, netdata, node_exporter, prometheus, syncthing@root, telegraf, nvidia-persistenced, ModemManager, packagekit, udisks2, upower, wpa_supplicant, unattended-upgrades, snapd, cron; the Helix
   Docker containers (helixml-api-1, helixml-keycloak-1, helixml-typesense-1, helixml-postgres-1, helixml-tika-1, helixml-chrome-1, helixml-gptscript_runner-1) were killed. Not restored, per the human.
-- **Scratch:** `/home/voss/voss-calib-work/scratch/nvme0` on the LVM/ext4 NVMe root; the node has no SATA SSD or HDD.
+- **Scratch:** `/home/USER/voss-calib-work/scratch/nvme0` on the LVM/ext4 NVMe root; the node has no SATA SSD or HDD.
 - **Measured fio medians (5 reps, direct I/O, 2 GiB file, NVMe):** sequential read 6574.902 MB/s,
   sequential write 4924.225 MB/s, 4 KiB random read 508753 IOPS,
   4 KiB random write 331913 IOPS; dm-crypt seq read/write
