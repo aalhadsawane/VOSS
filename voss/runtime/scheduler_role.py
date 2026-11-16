@@ -28,7 +28,7 @@ from voss.core.types import Outcome, SloClass
 from voss.metrics.schema import Table
 from voss.policy.cost.inputs import CostContext
 from voss.policy.detect import detector
-from voss.policy.predict.base import ExecObs, FnPrior
+from voss.policy.predict.base import ExecObs, FnPrior, contention
 from voss.policy.retry import BasicRetry
 from voss.runtime.actor import Actor, ActorContext
 from voss.runtime.expiring import ExpiringSet
@@ -257,7 +257,7 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, AuditMixin, Plan
         rec.next_attempt += 1
         mu, var = pred or (0.0, 0.0)
         st = self.views.store.states.get(w)
-        load = (st.busy + st.queued) / max(1, st.slots) if st else 0.0
+        load = float(contention(st.busy, st.queued, st.slots)) if st else 0.0
         rec.copies[a] = Copy(a, w, self.now, backup, mu=mu, sigma=var, load=load, q_done=t.q if t else 0.0)
         self.views.dispatched(w, self.now)
         self._ka_dispatch(rec.inv.fn, w)

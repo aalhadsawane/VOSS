@@ -133,6 +133,25 @@ whether R01's utilisation axis should be defined per function against its `K` ho
 reach 30-85% of the pool (do not fit a job by one to two orders of magnitude); fewer workers (capacity falls, but the
 event budget limits arrivals, not workers).
 
+**D-100 Provisioning changes a holder only when the change pays for its preparation (plan V11.3, development log
+iteration 1).** Algorithm 1 runs its two greedy stages a second time from the current holders and keeps that
+allocation unless the plain greedy's on-time rate, less `gain × prep_fj / H` for every take on a new holder, is
+larger; `prep_fj` is the cost model's time to start on `j` with no queue (attestation and key release overlapping the
+code fetch, then start-up; measured startup model) and `H` the provisioning horizon. *Why:* scenarios are re-sampled
+every period, so near-equal workers ranked differently each round and holders changed almost every period (D01a:
+1,571 key releases per hour against 58 for pre-released keys). The greedy's gains sum to its value, so the result
+keeps `F ≥ (1 − max prep / H) · F(greedy)`: Corollary 1 and Proposition 2 hold with that factor. *Rejected:* common
+random numbers for the scenarios (measured: releases did not fall); a hysteresis margin (a new constant to sweep);
+removing holders only at session end (the budget `K` then fixes the first holders chosen).
+
+**D-101 `eviction_aware` is the published min-worker-set load balancer (guardrail 17).** Zhang et al. (SOSP 2021,
+§5.2 Algorithm 1): a consistent-hashing ring from the function's home worker, grown until its resources cover
+`u_f = RPS · E(CPU) · E(lat)`, then the least loaded worker of the set; no new invocations to a worker under an
+eviction notice (§4.1). *Why:* the first implementation chose the worker with the lowest predicted failure probability
+and used load only to break ties; the paper has no such rule, and the rule sent almost every invocation to one worker.
+Deviations are listed in `configs/baselines.yaml`. *Rejected:* keeping the failure ranking with a capacity check (not
+the paper's algorithm).
+
 ## v1 decisions (D-01 to D-80)
 
 **D-01 Custom Python discrete-event simulator.** FaaS physics is small; solver wall time must enter simulated time;

@@ -19,7 +19,7 @@ Knative autoscaler~\cite{knativekpa} & --- & --- & --- & --- \\
 Hybrid histogram~\cite{shahrad2020wild}, FaaSCache~\cite{fuerst2021faascache} & --- & --- & --- & --- \\
 Paragon, Quasar~\cite{delimitrou2013paragon,delimitrou2014quasar}; Gavel~\cite{narayanan2020gavel} &
   per application and machine type & --- & quality targets & --- \\
-Harvested resources~\cite{zhang2021harvest} & --- & eviction model & --- & --- \\
+Harvested resources~\cite{zhang2021harvest} & varying cores & eviction notice & --- & --- \\
 \voss{} & per function, machine class and worker & per worker, correlated by owner, city and ISP &
   probability of meeting it & budget per function \\
 \bottomrule
@@ -43,7 +43,8 @@ run-time model has the same aim for functions that run for milliseconds, adds a 
 machines of one model differ, and feeds a choice that also weighs whether each machine will still be there.
 
 \paragraph{Capacity that can be taken away.} Zhang et al.\ run serverless functions on harvested virtual machines
-that the provider can evict, with a placement policy aware of eviction~\cite{zhang2021harvest}. The machines belong to
+that the provider can evict, with a load balancer that packs each function onto a small set of machines and stops sending work to a machine
+warned of eviction~\cite{zhang2021harvest}. The machines belong to
 the provider, are trusted, and announce evictions. Volunteer machines belong to others, leave without notice, and
 must hold a key before they can serve.
 

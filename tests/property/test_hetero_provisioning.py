@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import itertools
 import math
+from dataclasses import replace
 
 import numpy as np
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from voss.core.rng import stream
-from voss.policy.plan.hetero import HeteroInput, _State, provision, scenarios, unit_value
+from voss.policy.plan.hetero import HeteroInput, _greedy, _State, provision, scenarios, unit_value
 from voss.policy.plan.loss import Carried, erlang_b_curve
 
 
@@ -107,3 +108,44 @@ def test_slower_or_less_reliable_workers_are_chosen_later() -> None:
     )
     a = provision(fast_reliable)
     assert a.holders[0].tolist() == [True, False, False]  # the fast worker that stays beats a slow or a leaving one
+
+
+def _two_workers(prep: float) -> HeteroInput:
+    """Worker 0 is slightly better in the sampled scenarios (alive in 10 of 10 against 9 of 10); worker 1 holds now."""
+    return HeteroInput(
+        lam=np.array([2.0]),
+        t_ref=np.ones(1),
+        et=np.ones((1, 2)),
+        pi=np.full((1, 2), 0.95),
+        alive=np.array([[True, True]] * 9 + [[True, False]]),
+        units=np.ones(2),
+        budget=np.ones(1),
+        allowed=np.ones((1, 2), bool),
+        prev=np.array([[False, True]]),
+        prep=np.full((1, 2), prep),
+        horizon_s=60.0,
+    )
+
+
+def test_a_holder_is_swapped_only_when_the_gain_exceeds_what_preparing_costs() -> None:
+    """Development log iteration 1: a swap that gains less than the new holder loses while it prepares is not made;
+    one that gains more is."""
+    assert provision(_two_workers(15.0)).holders[0].tolist() == [False, True]  # keep the current holder
+    assert provision(_two_workers(0.0)).holders[0].tolist() == [True, False]  # free swap, strictly better
+    inp = replace(_two_workers(15.0), alive=np.array([[True, False]] * 10))  # the holder is certain to leave
+    assert provision(inp).holders[0].tolist() == [True, False]
+
+
+@settings(max_examples=40, deadline=None)
+@given(st.integers(0, 2**31 - 1), st.integers(1, 4), st.integers(1, 3))
+def test_swap_rule_keeps_the_greedy_bound_up_to_the_preparation_share(seed: int, k: int, units: int) -> None:
+    """``F(result) ≥ (1 − max prep / H) · F(greedy)``, so Corollary 1 and Proposition 2 hold with that factor."""
+    g = stream(seed, "test.hetero.swap")
+    base = instance(seed, 4, 10, budget=k, units=units)
+    inp = replace(base, prev=g.random((4, 10)) < 0.3, prep=g.uniform(0.0, 30.0, (4, 10)), horizon_s=60.0)
+    a = provision(inp)
+    plain = _greedy(inp, unit_value(inp), [], 1e-9).st.value()
+    share = float(inp.prep[~inp.prev].max(initial=0.0)) / inp.horizon_s
+    assert a.value >= (1 - share) * plain - 1e-9
+    assert (a.holders.sum(axis=1) <= k).all() and (a.units.sum(axis=0) <= units).all()
+    assert abs(a.value - value_of(inp, a.holders, a.units)) < 1e-9
