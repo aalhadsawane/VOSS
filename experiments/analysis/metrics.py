@@ -1,6 +1,7 @@
 """Metrics of one run (docs/REVISION_PLAN.md V2, D-88). Every function takes logged tables as pandas frames.
 
 Invocation classes follow the router's terminal row: ``ok`` within the deadline is *met*; ``ok`` after it is *late*;
+an answer from a forged result is *wrong* (a miss);
 ``timeout``, ``unfinished`` and ``abandoned`` (no worker fits a retry, plan V7.1) are *lost*; ``rejected`` is
 *rejected*. Only synchronous invocations (``slo_class`` 0) that arrive after the warm-up count, unless a function says
 otherwise.
@@ -23,12 +24,25 @@ def sync_after(inv: pd.DataFrame, warmup_s: float) -> pd.DataFrame:
     return out
 
 
+def mark_wrong(inv: pd.DataFrame, events: pd.DataFrame) -> pd.DataFrame:
+    """``inv`` with a ``wrong`` column: the answer the client got came from a forged result (an ``adv_forge`` event of
+    the answering worker for that invocation, plan V7.3). The audit runs after the answer, so it bans the forger but
+    does not correct the answer."""
+    f = events[events.kind == "adv_forge"] if "kind" in events else events.iloc[0:0]
+    forged = set(zip(f.inv.astype(int), f.worker.astype(int), strict=True)) if len(f) else set()
+    wrong = [(int(i), int(w)) in forged for i, w in zip(inv.inv, inv.worker, strict=True)] if forged else False
+    return inv.assign(wrong=wrong)
+
+
 def classify(inv: pd.DataFrame) -> pd.Series:
-    """``met``, ``late``, ``lost`` or ``rejected`` per invocation."""
+    """``met``, ``wrong``, ``late``, ``lost`` or ``rejected`` per invocation; ``wrong`` (a forged answer, see
+    ``mark_wrong``) is a miss whatever its latency."""
     on_time = inv.e2e <= inv.deadline
+    ok = inv.outcome == "ok"
+    wrong = ok & inv.wrong.astype(bool) if "wrong" in inv else pd.Series(False, index=inv.index)
     out = np.select(
-        [(inv.outcome == "ok") & on_time, inv.outcome == "ok", inv.outcome.isin(LOST)],
-        ["met", "late", "lost"],
+        [wrong, ok & on_time, ok, inv.outcome.isin(LOST)],
+        ["wrong", "met", "late", "lost"],
         default="rejected",
     )
     return pd.Series(out, index=inv.index)
