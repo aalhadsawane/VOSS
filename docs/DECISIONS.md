@@ -162,13 +162,14 @@ Deviations are listed in `configs/baselines.yaml`. *Rejected:* keeping the failu
 the paper's algorithm).
 
 **D-102 The watchdog timer is the quantile of the attempt as the scheduler times it (doc 07 §2, plan V7.1,
-development log iteration 2).** The timer's completion quantile uses the scheduler-worker round trip, the one the
-scheduler last observed to that worker (dispatch to `ACCEPTED`), or its distance estimate before the first exchange;
-the deadline-fit check keeps the router's view. *Why:* the timer runs from the dispatch at the scheduler to the outcome
-there, but its quantile used the router-worker network estimate; 75% (sync) and 53% (async) of first attempts overran
-a q95 timer, and VOSS made 1.5 attempts per invocation. *Open:* the timer is still early (probably the wait for the
-input from the router, which the observed round trip omits) for 44% (sync) and 28% (async) of first attempts.
-*Rejected:* a margin on the timer (a constant fitted to the overrun).
+development log iteration 2).** The timer's network is the scheduler-worker round trip the scheduler last observed to
+that worker (dispatch to `ACCEPTED`), or its distance estimate before the first exchange; execution starts no earlier
+than the input arrives from the router (`(rtt(S, R) + rtt(R, W) − rtt(S, W)) / 2` after the dispatch is received, plus
+the transfer); the deadline-fit check keeps the router's view. *Why:* the timer runs from the dispatch at the scheduler
+to the outcome there, but its quantile used the router-worker network and left out the wait for the input; 75% (sync)
+and 53% (async) of first attempts overran a q95 timer, and VOSS made 1.45 attempts per invocation. Afterwards 12% and
+10% overran, and 1.10 attempts. *Consequence:* VOSS met fewer deadlines without dropping owners (development log): its
+early backups had been acting as hedges. *Rejected:* a margin on the timer (a constant fitted to the overrun).
 
 ## v1 decisions (D-01 to D-80)
 

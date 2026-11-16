@@ -92,46 +92,71 @@ attempts that answered, realised parts against the terms of the timer:
 
 | Part (mean, s) | sync realised | sync timer term | async realised | async timer term |
 |---|---|---|---|---|
-| dispatch + reply network | 0.085 + 0.058 = 0.143 | 0.057 | 0.106 + 0.058 = 0.164 | 0.083 |
+| dispatch (with input wait) + reply network | 0.085 + 0.058 = 0.143 | 0.057 | 0.106 + 0.058 = 0.164 | 0.083 |
 | queue wait on the worker | 0.000 | 0.001 | 0.087 | 0.079 |
 | key and start-up | 0.007 | 0.013 | 0.018 | 0.092 |
 | execution | 0.097 | 0.099 (5.1% above its q95) | 0.299 | 0.305 (5.2% above its q95) |
 | first attempts past the timer | 74.7% | | 53.0% | |
 | ... if the network term were exact | 6.3% | | 9.8% | |
 
-Only the network term is wrong. It is the cost model's router-to-worker round trip, estimated from distance
-(doc 03, "no jitter and no measurement"), but the timer runs from the dispatch at the scheduler (one node, Frankfurt)
-to the outcome back there. Asynchronous invocations are not all backed up: in the 2 h iteration-1 run 51% of them got a backup (38% of
-synchronous ones), about the share that overran.
+Only the network term is wrong (the router's `net_in` includes the wait for the input; see below). It is the cost
+model's router-to-worker round trip, estimated from distance (doc 03, "no jitter and no measurement"), but the timer
+runs from the dispatch at the scheduler (one node, Frankfurt) to the outcome back there. Asynchronous invocations are
+not all backed up: in the 2 h iteration-1 run 51% of them got a backup (38% of synchronous ones), about the share that
+overran.
 
-**Change.** The timer's quantile uses the scheduler-worker round trip: the one the scheduler last observed to that
-worker (dispatch to `ACCEPTED`, which the worker sends on receipt), or its distance estimate before the first
-exchange. The mean and the budget used for the deadline-fit check stay the router's. No new constant.
+**Change, step 1 (scheduler round trip).** The timer's network became the scheduler-worker round trip, the one the
+scheduler last observed to that worker (dispatch to `ACCEPTED`, sent on receipt), or its distance estimate before
+the first exchange. Overruns fell to 44.2% (sync) and 28.4% (async) only.
 
-**Result (local, 1 h, one seed each).** Timer overruns of first attempts fell from 74.7% to 44.2% (sync) and from
-53.0% to 28.4% (async). The network term is still short by 0.024 s (sync) and 0.044 s (async): with it exact the
-overruns would be 5.8% and 9.6%. The remainder is probably in the dispatch leg (0.084 s sync, 0.106 s async), which
-includes waiting for the input from the router; the observed round trip does not include that wait. Not measured
-separately and not fixed here.
+**The missing term.** A second local run (30 minutes, step 1 applied) logged the legs of every first attempt at the
+scheduler. The observed round trip matched the two network legs exactly (sync: dispatch 0.0543 s + outcome 0.0544 s
+= 0.1087 s against an observed 0.1090 s; async 0.1022 s against 0.1030 s), and the worker's time was wait 0.000 +
+trust 0.000 + start-up 0.007 + **input wait 0.038 (sync) / 0.052 (async)** + execution. The input reaches the worker
+from the router, which sends it when the scheduler's `ASSIGNED` arrives; 87% (sync) and 92% (async) of first attempts
+waited for it, 0.043 s and 0.056 s when they did. Without the input wait the overruns would have been 14.5% and 5.9%.
+The timer's model had no such term: its time to start is the worker's queue, key and start-up only.
+
+**Change, step 2 (D-102).** Execution starts no earlier than the input arrives: `(rtt(S, R) + rtt(R, W) − rtt(S, W)) /
+2` after the worker receives the dispatch, plus the input transfer, from the scheduler's distance estimates for the
+router legs. The timer's time to start is the larger of that and the cost model's time to start; its network is the
+scheduler round trip; the output transfer, which goes to the router, is not in the span. The mean and the budget of the
+deadline-fit check stay the router's. No new constant, no margin.
+
+**Result (local, 1 h, one seed each).** Overruns of first attempts that answered:
+
+| Dropping owners | Code | sync | async |
+|---|---|---|---|
+| 0 | `revision-v2` | 74.7% | 53.1% |
+| 0 | step 1 | 44.2% | 28.4% |
+| 0 | steps 1 + 2 | 11.7% | 10.3% |
+| 20% | `revision-v2` | 75.4% | 49.2% |
+| 20% | steps 1 + 2 | 13.4% | 11.5% |
+
+The remaining excess over 5% is not decomposed further; candidates are the router legs, which are still distance
+estimates, and network jitter, which the completion model does not include.
 
 | System | Dropping owners | Code | Deadlines met | Attempts per invocation | p99 (s) | Episodes |
 |---|---|---|---|---|---|---|
 | voss | 0 | `revision-v2` | 0.947 | 1.453 | 0.762 | 42 |
-| voss | 0 | iteration 2 | 0.939 | 1.247 | 0.782 | 59 |
+| voss | 0 | iteration 2 | 0.939 | 1.097 | 0.759 | 43 |
 | voss | 20% | `revision-v2` | 0.914 | 1.424 | 0.768 | 48 |
-| voss | 20% | iteration 2 | 0.962 | 1.250 | 0.759 | 26 |
+| voss | 20% | iteration 2 | 0.925 | 1.114 | 0.737 | 57 |
 | hedged | 0 | `revision-v2` | 0.948 | 1.052 | 0.768 | 32 |
 | hedged | 0 | iteration 2 | 0.948 | 1.052 | 0.768 | 32 |
 | hedged | 20% | `revision-v2` | 0.936 | 1.057 | 0.776 | 47 |
 | hedged | 20% | iteration 2 | 0.944 | 1.053 | 0.759 | 35 |
 
-**Does VOSS depend on early backups?** Without dropping owners the change costs 0.008 of deadlines met (0.947 →
-0.939) while backups fall by 45%: the early backups did save some on-time completions. Hedged requests meet 0.948 with
-5% extra attempts on the same scenario, so meeting that level does not need backups for half of all invocations;
-whether a fully calibrated VOSS timer recovers the 0.008 is not shown here, because the timer is still early for 44%
-of synchronous attempts. With 20% dropping owners the change gains 0.048 (0.914 → 0.962) and VOSS passes hedged
-(0.944). One seed and 1 h per cell: the D02_DROP rerun decides. Open for the owner: if a calibrated timer loses
-deadlines at alpha 0, VOSS's backups act as hedging, and the paper should say so.
+(With step 1 only, VOSS met 0.939 at alpha 0 and 0.962 at 20%, with 1.25 attempts per invocation.)
+
+**Does VOSS depend on early backups? Yes, in these runs.** With a nearly calibrated timer VOSS starts a backup for
+about 10% of invocations instead of 45% and meets 0.008 fewer deadlines without dropping owners (0.947 → 0.939); under
+20% dropping owners it gains 0.011 (0.914 → 0.925) but stays below hedged requests (0.944), which back up 5% of
+invocations after the function's observed 95th-percentile latency, to any worker and without a deadline-fit check. The
+early backups of `revision-v2` were acting as hedges: about half of all invocations ran twice. This is a design point
+for the owner, not something this iteration settles: VOSS restricts a backup to a key holder in another failure domain
+that fits the remaining deadline, and with K = 8 holders that restriction is what the timer change exposes. One seed and
+1 h per cell; the D02_DROP rerun measures it over 24 h.
 
 ## Bug fix found in iteration 2
 

@@ -47,9 +47,10 @@ def test_after_progress_waits_for_the_deadline_and_at_least_one_probe_timeout() 
     assert d.after_progress_s(expiry, t_deadline=2.0, now=3.0, probe_timeout_s=2.0) == 2.0  # past the deadline
 
 
-def test_watchdog_quantile_uses_the_scheduler_round_trip() -> None:
+def test_watchdog_quantile_uses_the_scheduler_round_trip_and_the_input_arrival() -> None:
     """Development log iteration 2: the timer runs from the dispatch at the scheduler to the outcome there, so its
-    quantile adds the scheduler-worker round trip in place of the router's; mean and budget stay the router's."""
+    network is the scheduler-worker round trip, and execution cannot start before the input arrives from the router;
+    mean and budget stay the router's."""
     import numpy as np
     from voss.policy.cost.components import CostMatrix, completion_of
     from voss.runtime.schedlib.decide import _timing
@@ -65,7 +66,9 @@ def test_watchdog_quantile_uses_the_scheduler_round_trip() -> None:
         np.zeros((1, 1)),
         np.full((1, 1), 1.0),
     )
-    same = _timing(cm, 0, 0, 0.95)
-    far = _timing(cm, 0, 0, 0.95, relay=0.12)
-    assert same.q == float(comp.quantile(0.95)[0, 0])
-    assert far.q > same.q + 0.1 and far.mean == same.mean and far.budget == same.budget
+    router = _timing(cm, 0, 0, 0.95)
+    assert router.q == float(comp.quantile(0.95)[0, 0])
+    far = _timing(cm, 0, 0, 0.95, span=(0.17, 0.0))  # scheduler round trip 0.17 s, input already there
+    late_input = _timing(cm, 0, 0, 0.95, span=(0.17, 0.06))  # input arrives 0.06 s after the dispatch is received
+    assert far.q > router.q + 0.1 and late_input.q > far.q + 0.03
+    assert far.mean == late_input.mean == router.mean and far.budget == router.budget

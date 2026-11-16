@@ -117,24 +117,29 @@ class Decider:
             out.assign[inv.id] = w
             j = idx[w]
             out.predicted[(inv.id, w)] = _pred(req.cm, r, j)
-            relay = self._relay(view, routers[r], j, rtt)
-            out.timing[inv.id] = _timing(req.cm, r, j, self.cfg.detection.quantile, relay)
+            span = self._span(view, routers[r], j, inv.in_bytes, rtt)
+            out.timing[inv.id] = _timing(req.cm, r, j, self.cfg.detection.quantile, span)
 
-    def _relay(self, view: ClusterView, router: str, j: int, rtt: Mapping[WorkerId, float]) -> float:
-        """Seconds the watchdog's span adds to the cost model's network time on view worker ``j`` (development log
-        iteration 2). The timer runs from the dispatch at the scheduler to the outcome back there, so its round trip is
-        scheduler-worker, not router-worker: the round trip the scheduler last observed to ``j`` (dispatch to
-        ``ACCEPTED``, sent on receipt), else its distance estimate. Input and output transfer stay in ``net``."""
+    def _span(
+        self, view: ClusterView, router: str, j: int, in_bytes: int, rtt: Mapping[WorkerId, float]
+    ) -> tuple[float, float] | None:
+        """The network of the watchdog's span on view worker ``j`` (development log iteration 2): ``(round trip
+        scheduler-worker, input lead)``. The timer runs from the dispatch at the scheduler to the outcome back there:
+        the round trip is the one the scheduler last observed to ``j`` (dispatch to ``ACCEPTED``, sent on receipt),
+        else its distance estimate. The input leaves the router when the scheduler's ``ASSIGNED`` reaches it, so it
+        arrives ``(rtt(S, R) + rtt(R, W) − rtt(S, W)) / 2`` plus its transfer after the dispatch: the worker cannot
+        start executing before then (``input_wait``)."""
+        if self.ctx.scheduler is None:
+            return None
         a = self.cache.get(view, self.ctx)
         lat, lon = a.lat[j : j + 1], a.lon[j : j + 1]
+        slat, slon = self.ctx.scheduler
         rlat, rlon = self.ctx.routers.get(router, (float(a.lat.mean()), float(a.lon.mean())))
-        to_router = float(self.ctx.geo.rtt(lat, lon, rlat, rlon)[0])
         seen = rtt.get(view.workers[j])
-        if seen is not None:
-            return seen - to_router
-        if self.ctx.scheduler is None:
-            return 0.0
-        return float(self.ctx.geo.rtt(lat, lon, *self.ctx.scheduler)[0]) - to_router
+        sw = float(self.ctx.geo.rtt(lat, lon, slat, slon)[0]) if seen is None else seen
+        rw = float(self.ctx.geo.rtt(lat, lon, rlat, rlon)[0])
+        sr = float(self.ctx.geo.rtt(np.array([slat]), np.array([slon]), rlat, rlon)[0])
+        return sw, max(0.0, (sr + rw - sw) / 2) + in_bytes * 8 / float(a.down[j])
 
     def _waits(
         self, view: ClusterView, jobs: Mapping[WorkerId, Sequence[JobEst]] | None, now: float, svc: float
@@ -172,15 +177,18 @@ def _pred(cm: CostMatrix | None, r: int, j: int) -> tuple[float, float]:
     return float(cm.components["exec"][r, k]), float(cm.components["exec_var"][r, k])
 
 
-def _timing(cm: CostMatrix | None, r: int, j: int, q: float, relay: float = 0.0) -> Timing:
-    """The detector quantile is of the attempt as the scheduler times it (network ``net + relay``); the mean and the
-    budget stay those of the invocation as its router sees it, for the deadline-fit check."""
+def _timing(cm: CostMatrix | None, r: int, j: int, q: float, span: tuple[float, float] | None = None) -> Timing:
+    """The detector quantile is of the attempt as the scheduler times it: with ``span = (rtt, input lead)`` its network
+    is the scheduler round trip, and execution starts no earlier than the input arrives (``Decider._span``). The mean
+    and the budget stay those of the invocation as its router sees it, for the deadline-fit check."""
     if cm is None or j not in cm.candidates[r]:
         return Timing(0.0, 0.0, float("inf"))
     k = int(np.flatnonzero(cm.candidates[r] == j)[0])
     c, x = cm.completion, cm.components
-    tts = x["tts"][r, k : k + 1]
-    watched = completion_of(tts, x["net"][r, k : k + 1] + relay, x["exec"][r, k : k + 1], x["exec_var"][r, k : k + 1])
+    if span is None:
+        return Timing(float(c.quantile(q)[r, k]), float(c.mean()[r, k]), float(cm.budget[r, k]))
+    start = np.maximum(x["tts"][r, k : k + 1], span[1])
+    watched = completion_of(start, np.array([span[0]]), x["exec"][r, k : k + 1], x["exec_var"][r, k : k + 1])
     return Timing(float(watched.quantile(q)[0]), float(c.mean()[r, k]), float(cm.budget[r, k]))
 
 
