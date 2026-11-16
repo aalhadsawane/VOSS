@@ -57,6 +57,38 @@ def test_holders_from_release_and_drop_events() -> None:
     assert h.releases_per_h == pytest.approx(3 / 100 * 3600)
 
 
+def test_function_utilisation_is_offered_load_over_holder_slots() -> None:
+    """D-99: λ_f · E[T_f] over the time-averaged slots of f's key holders; weighted quantiles over functions."""
+    ev = pd.DataFrame(
+        [
+            (0.0, "session_slots", 1, None, 4.0),
+            (0.0, "session_slots", 2, None, 2.0),
+            (0.0, "key_release", 1, "a", 1.0),
+            (50.0, "key_release", 2, "a", 1.0),
+            (0.0, "key_release", 2, "b", 1.0),
+        ],
+        columns=["t", "kind", "worker", "tenant", "value"],
+    )
+    inv = pd.DataFrame(
+        {
+            "tenant": ["a"] * 200 + ["b"] * 10 + ["c"],
+            "t_arrive": np.linspace(0, 99, 211),
+            "outcome": ["ok"] * 211,
+            "startup": [0.1] * 211,
+            "exec": [0.9] * 211,
+        }
+    )
+    fu = m.function_utilisation(inv, ev, 0.0, 100.0).set_index("key")
+    assert fu.loc["a", "cores"] == pytest.approx(4.0 + 2.0 * 0.5)  # worker 1 all along, worker 2 half the time
+    assert fu.loc["a", "util"] == pytest.approx(200 / 100 * 1.0 / 5.0)
+    assert fu.loc["b", "util"] == pytest.approx(10 / 100 * 1.0 / 2.0)
+    assert fu.loc["c", "util"] == float("inf")  # invoked, never held
+    w = fu.invocations.to_numpy(float)
+    assert m.weighted_quantile(fu.util.to_numpy(float), w, 0.5) == pytest.approx(0.4)
+    assert m.weighted_quantile(np.array([3.0, 1.0, 2.0]), np.array([1.0, 1.0, 2.0]), 0.5) == 2.0
+    assert np.isnan(m.weighted_quantile(np.zeros(0), np.zeros(0), 0.5))
+
+
 def test_utilisation_and_warm_memory() -> None:
     s = pd.DataFrame({"t": [0.0, 10.0, 20.0], "busy": [9, 2, 6], "capacity": [10, 10, 10]})
     assert m.utilisation(s, 10.0) == pytest.approx(0.4)
@@ -107,6 +139,7 @@ def test_a_smoke_run_produces_every_metric() -> None:
     s = summarize(r.recorder.frame, warmup_s=60.0, t_end=240.0)
     assert s["sync_invocations"] > 0 and 0.0 <= s["deadline_met"] <= 1.0
     assert s["p99_s"] > 0 and 0.0 < s["utilisation"] <= 1.0
+    assert 0.0 < s["fn_util_p50"] <= s["fn_util_p95"]
     assert s["holders_mean"] > 0 and s["releases_per_h"] > 0
     assert s["attempts_per_inv"] > 0.9  # rejected and unfinished invocations have no attempt
     assert all(not (isinstance(v, float) and np.isnan(v)) for v in s.values()), s
