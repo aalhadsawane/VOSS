@@ -39,6 +39,11 @@ class SchedModels:
         p: np.ndarray = self.omission.p_omit(workers)
         return p
 
+    def fn_load(self, fns: list[str], now: float) -> dict[str, float]:
+        """Forecast concurrency ``rate × service time`` per function (the ``u_f`` of min-worker-set placement)."""
+        fc = self.forecaster
+        return {f: fc.rate_of(f"fn:{f}", now) * float(fc.service.get(f"fn:{f}", self.svc)) for f in fns}
+
     def observe(self, obs: ExecObs) -> None:
         self.predictor.update(obs)
         self.svc = 0.98 * self.svc + 0.02 * obs.exec_s

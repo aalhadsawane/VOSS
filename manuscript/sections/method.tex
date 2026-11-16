@@ -85,8 +85,9 @@ Hybrid histogram & Shahrad et al.~\cite{shahrad2020wild} & one histogram per fun
 Autoscaler & Knative pod autoscaler, default settings~\cite{knativekpa} & one invocation per sandbox; sandboxes placed
   on key holders first, then on the most reliable workers \\
 Greedy-dual keep-alive & FaaSCache~\cite{fuerst2021faascache} & cold-start cost is the measured initialisation time \\
-Eviction-aware placement & Zhang et al.~\cite{zhang2021harvest} & survival model of volunteer sessions in place of
-  the eviction model of harvested virtual machines \\
+Eviction-aware placement & Zhang et al.~\cite{zhang2021harvest}: min-worker-set load balancing, no new
+  invocations after an eviction notice & the hash ring holds the candidates every system sees; occupied cores in place
+  of CPU and memory utilisation; a session's end notice in place of the eviction notice \\
 Keys on $K$ workers & keys released to $K$ workers chosen without the model & none; isolates how many holders from
   which holders \\
 Exact program & the provisioning problem solved exactly & none; bounds the distance from the optimum \\

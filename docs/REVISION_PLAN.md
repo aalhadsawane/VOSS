@@ -637,7 +637,7 @@ queueing and the same failure handling. They differ only in **when keys are rele
 | Target-concurrency autoscaler | Knative pod autoscaler | desired warm sandboxes = ceil(observed concurrency / 1) over a 60 s stable window, 6 s panic window, 200% panic threshold, 30 s scale-to-zero grace (L: verify in Knative docs) |
 | Greedy-dual keep-alive | Fuerst and Sharma, ASPLOS 2021 | worker-side eviction by frequency × cold-start cost / size (check `policy/cache_value.py` against the paper's formula) |
 | Pre-released keys | isolates "how many holders" | key on the `K_f` workers with the lowest drop estimate; sandboxes by fixed keep-alive |
-| Eviction-aware placement | Zhang et al., SOSP 2021 (harvested resources) | prefer workers with the longest predicted remaining session; fixed keep-alive |
+| Eviction-aware placement | Zhang et al., SOSP 2021 (harvested resources) | as published: min-worker-set load balancing (§5.2, Algorithm 1), no new invocations after an eviction notice; fixed keep-alive (corrected in V11 iteration 1: the first implementation ranked workers by predicted failure, which the paper does not do) |
 | Trusted always-on hosts | upper bound | same workload on hosts that never leave and need no attestation; never called by a vendor's name |
 
 Each has a unit test against its published rule and a row in the paper's "systems compared" table with source and deviations.
