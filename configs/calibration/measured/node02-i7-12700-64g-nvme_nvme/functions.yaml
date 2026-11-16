@@ -192,6 +192,33 @@ functions:
     snapshot_mb: 2048.0148944854736
     tag: measured
     work_ref_s: 0.013207
+  image-recognition:
+    exec_by_size:
+      50:
+        median_s: 0.084438
+        n: 30
+        sebs_class: '-'
+      100:
+        median_s: 0.085067
+        n: 30
+        sebs_class: '-'
+      400:
+        median_s: 0.337581
+        n: 30
+        sebs_class: '-'
+    init_s: 1.790521
+    interference:
+      1: 1.0
+      2: 1.0545641039626261
+      4: 1.1747381661765708
+      8: 1.3712196813051272
+      12: 1.7023984797835385
+    n: 90
+    rss_mb: 747.16015625
+    size_exp: 0.7132599861129535
+    snapshot_mb: 2048.0149002075195
+    tag: measured
+    work_ref_s: 0.08506699999999999
   thumbnailer:
     exec_by_size:
       50:

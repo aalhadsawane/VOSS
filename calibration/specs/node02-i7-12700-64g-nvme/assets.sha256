@@ -3,3 +3,4 @@
 49ba99a5299444ac59dda2efc3569cc2d58a5d72ea6475a6bfc37aa0bf322e54  vmlinux
 c8d652d2c2430cd188a9ee8127922615f469d67b03b0e13bf519b2c90d33023e  voss-guest.ext4
 firecracker v1.10.1, kernel firecracker-ci/v1.10/x86_64/vmlinux-6.1.102
+8e93ea0bfd71c125c0914577edbd88dd7c29d5cd693c09bc127c366a970b902a  voss-guest-ml.ext4
