@@ -17,7 +17,7 @@ from voss.core.registry import create
 from voss.core.types import ClusterView, Invocation
 from voss.policy.admission import admit
 from voss.policy.cost.arrays import ArrayCache
-from voss.policy.cost.components import CostMatrix, Waits, build_cost_matrix
+from voss.policy.cost.components import CostMatrix, Waits, build_cost_matrix, completion_of
 from voss.policy.cost.inputs import CostContext
 from voss.policy.cost.scalarize import SCALARIZERS
 from voss.policy.cost.wait import JobEst, worker_waits
@@ -67,6 +67,7 @@ class Decider:
         windowed: bool,
         idx: dict[WorkerId, int] | None = None,
         jobs: Mapping[WorkerId, Sequence[JobEst]] | None = None,
+        rtt: Mapping[WorkerId, float] | None = None,
     ) -> Decision:
         out = Decision(work=len(invs) * max(1, len(view)))
         if not len(view):
@@ -103,8 +104,25 @@ class Decider:
             out.assign[inv.id] = w
             j = idx[w]
             out.predicted[(inv.id, w)] = _pred(req.cm, r, j)
-            out.timing[inv.id] = _timing(req.cm, r, j, self.cfg.detection.quantile)
+            relay = self._relay(view, routers[keep[r]], j, rtt or {})
+            out.timing[inv.id] = _timing(req.cm, r, j, self.cfg.detection.quantile, relay)
         return out
+
+    def _relay(self, view: ClusterView, router: str, j: int, rtt: Mapping[WorkerId, float]) -> float:
+        """Seconds the watchdog's span adds to the cost model's network time on view worker ``j`` (development log
+        iteration 2). The timer runs from the dispatch at the scheduler to the outcome back there, so its round trip is
+        scheduler-worker, not router-worker: the round trip the scheduler last observed to ``j`` (dispatch to
+        ``ACCEPTED``, sent on receipt), else its distance estimate. Input and output transfer stay in ``net``."""
+        a = self.cache.get(view, self.ctx)
+        lat, lon = a.lat[j : j + 1], a.lon[j : j + 1]
+        rlat, rlon = self.ctx.routers.get(router, (float(a.lat.mean()), float(a.lon.mean())))
+        to_router = float(self.ctx.geo.rtt(lat, lon, rlat, rlon)[0])
+        seen = rtt.get(view.workers[j])
+        if seen is not None:
+            return seen - to_router
+        if self.ctx.scheduler is None:
+            return 0.0
+        return float(self.ctx.geo.rtt(lat, lon, *self.ctx.scheduler)[0]) - to_router
 
     def _waits(
         self, view: ClusterView, jobs: Mapping[WorkerId, Sequence[JobEst]] | None, now: float, svc: float
@@ -142,12 +160,16 @@ def _pred(cm: CostMatrix | None, r: int, j: int) -> tuple[float, float]:
     return float(cm.components["exec"][r, k]), float(cm.components["exec_var"][r, k])
 
 
-def _timing(cm: CostMatrix | None, r: int, j: int, q: float) -> Timing:
+def _timing(cm: CostMatrix | None, r: int, j: int, q: float, relay: float = 0.0) -> Timing:
+    """The detector quantile is of the attempt as the scheduler times it (network ``net + relay``); the mean and the
+    budget stay those of the invocation as its router sees it, for the deadline-fit check."""
     if cm is None or j not in cm.candidates[r]:
         return Timing(0.0, 0.0, float("inf"))
     k = int(np.flatnonzero(cm.candidates[r] == j)[0])
-    c = cm.completion
-    return Timing(float(c.quantile(q)[r, k]), float(c.mean()[r, k]), float(cm.budget[r, k]))
+    c, x = cm.completion, cm.components
+    tts = x["tts"][r, k : k + 1]
+    watched = completion_of(tts, x["net"][r, k : k + 1] + relay, x["exec"][r, k : k + 1], x["exec_var"][r, k : k + 1])
+    return Timing(float(watched.quantile(q)[0]), float(c.mean()[r, k]), float(cm.budget[r, k]))
 
 
 def _rows(cm: CostMatrix, keep: list[int]) -> CostMatrix:

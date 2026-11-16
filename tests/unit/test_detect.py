@@ -45,3 +45,27 @@ def test_after_progress_waits_for_the_deadline_and_at_least_one_probe_timeout() 
     assert d.after_progress_s(expiry, t_deadline=5.0, now=3.0, probe_timeout_s=2.0) == 2.0
     assert d.after_progress_s(expiry, t_deadline=30.0, now=3.0, probe_timeout_s=2.0) == 27.0
     assert d.after_progress_s(expiry, t_deadline=2.0, now=3.0, probe_timeout_s=2.0) == 2.0  # past the deadline
+
+
+def test_watchdog_quantile_uses_the_scheduler_round_trip() -> None:
+    """Development log iteration 2: the timer runs from the dispatch at the scheduler to the outcome there, so its
+    quantile adds the scheduler-worker round trip in place of the router's; mean and budget stay the router's."""
+    import numpy as np
+    from voss.policy.cost.components import CostMatrix, completion_of
+    from voss.runtime.schedlib.decide import _timing
+
+    one = np.ones((1, 1))
+    tts, net, ex, var = 0.02 * one, 0.05 * one, 0.10 * one, 0.001 * one
+    comp = completion_of(tts, net, ex, var)
+    cm = CostMatrix(
+        {"tts": tts, "net": net, "exec": ex, "exec_var": var},
+        np.array([[0]]),
+        np.ones((1, 1), bool),
+        comp,
+        np.zeros((1, 1)),
+        np.full((1, 1), 1.0),
+    )
+    same = _timing(cm, 0, 0, 0.95)
+    far = _timing(cm, 0, 0, 0.95, relay=0.12)
+    assert same.q == float(comp.quantile(0.95)[0, 0])
+    assert far.q > same.q + 0.1 and far.mean == same.mean and far.budget == same.budget
