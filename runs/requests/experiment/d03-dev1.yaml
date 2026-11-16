@@ -1,0 +1,3 @@
+spec: D03
+shards: 81
+note: "V11.2 development (not a reported result): pools {100, 300, 500} x rate_mult {10.5, 21, 30} x 9 systems, K=8, seed 1; one run per shard"
