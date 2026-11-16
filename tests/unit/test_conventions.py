@@ -30,3 +30,14 @@ def test_function_length() -> None:
 def test_module_docstrings() -> None:
     missing = [str(p.relative_to(REPO)) for p in SOURCES if ast.get_docstring(ast.parse(p.read_text())) is None]
     assert not missing, f"modules without docstrings: {missing}"
+
+
+def test_randomness_follows_the_run_seed() -> None:
+    """AGENTS.md rule 9: every stream in the simulator and the scheduler derives from the run seed; a literal master
+    seed (as provisioning's failure scenarios once used) would give every seed the same draws."""
+    import re
+
+    lit = re.compile(r"\bstream\(\s*\d+\s*,|RngFactory\(\s*\d+\s*\)")
+    sim = [p for p in SOURCES if p.relative_to(REPO).parts[0] == "voss" and p.relative_to(REPO).parts[1] != "core"]
+    bad = [str(p.relative_to(REPO)) for p in sim if lit.search(p.read_text())]
+    assert not bad, f"literal master seeds: {bad}"
