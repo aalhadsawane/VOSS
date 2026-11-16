@@ -14,7 +14,7 @@ import numpy as np
 from voss.core.config import VossConfig
 from voss.core.ids import InvId, WorkerId
 from voss.core.registry import create
-from voss.core.types import ClusterView, Invocation
+from voss.core.types import ClusterView, Invocation, Placement
 from voss.policy.admission import admit
 from voss.policy.cost.arrays import ArrayCache
 from voss.policy.cost.components import CostMatrix, Waits, build_cost_matrix, completion_of
@@ -73,10 +73,10 @@ class Decider:
         if not len(view):
             out.deferred = [i.id for i in invs]
             return out
-        preds = self.models.preds_fn(invs, view, now, self.start_utc_h)
-        svc = self.models.svc
-        waits = self._waits(view, jobs, now, svc)
-        cm = build_cost_matrix(invs, view, self.ctx, preds, now, routers, self.cache, svc_s=svc, waits=waits)
+        preds, svc = self.models.preds_fn(invs, view, now, self.start_utc_h), self.models.svc
+        cm = build_cost_matrix(
+            invs, view, self.ctx, preds, now, routers, self.cache, svc_s=svc, waits=self._waits(view, jobs, now, svc)
+        )
         scores = self.scalarize(cm, invs, self.ctx)
         keep = self._admission(invs, cm, out)
         if not keep:
@@ -94,9 +94,22 @@ class Decider:
         placer = self.batch if windowed else self.sync
         if getattr(placer, "uses_fn_load", False):
             req = replace(req, fn_load=self.models.fn_load(sorted({inv.fn for inv in sub}), now))
-        pl = placer.place(req)
+        self._record(out, req, placer.place(req), view, tuple(routers[k] for k in keep), idx, rtt or {})
+        return out
+
+    def _record(
+        self,
+        out: Decision,
+        req: PlaceRequest,
+        pl: Placement,
+        view: ClusterView,
+        routers: tuple[str, ...],
+        idx: dict[WorkerId, int] | None,
+        rtt: Mapping[WorkerId, float],
+    ) -> None:
+        """Assignments, predictions and watchdog timings of a placement; unplaced invocations are deferred."""
         idx = idx if idx is not None else view.index()
-        for r, inv in enumerate(sub):
+        for r, inv in enumerate(req.invs):
             w = pl.assign.get(inv.id)
             if w is None:
                 out.deferred.append(inv.id)
@@ -104,9 +117,8 @@ class Decider:
             out.assign[inv.id] = w
             j = idx[w]
             out.predicted[(inv.id, w)] = _pred(req.cm, r, j)
-            relay = self._relay(view, routers[keep[r]], j, rtt or {})
+            relay = self._relay(view, routers[r], j, rtt)
             out.timing[inv.id] = _timing(req.cm, r, j, self.cfg.detection.quantile, relay)
-        return out
 
     def _relay(self, view: ClusterView, router: str, j: int, rtt: Mapping[WorkerId, float]) -> float:
         """Seconds the watchdog's span adds to the cost model's network time on view worker ``j`` (development log
