@@ -94,7 +94,7 @@ An audited invocation exposes a forged result unless the auditing worker forges 
 coordinate, a worker that forges $n$ results is detected with probability $1-(1-p)^n$, and is banned after $1/p$
 forged results in expectation. The audit covers functions that are deterministic and may run twice; for other
 functions on class-P machines there is no integrity guarantee, and a tenant can exclude class~P for them.
-\critical{Measured: forged results accepted and results until the ban, per audit rate (held-out experiments).}
+\todoitem{T10}{held-out experiments}{Measured: forged results accepted and results until the ban, per audit rate (held-out experiments).}
 
 \subsection{What a tenant must trust, and limits}
 \label{sec:limits-trust}

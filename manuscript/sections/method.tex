@@ -19,19 +19,19 @@ each reported run is identified by a hash of its logs.
 \subsection{Machines and calibration}
 \label{sec:calib}
 
-\critical{Machine table (processor, cores, memory, disk classes and models, TPM kind) and per-step cost table,
+\todoitem{T13}{calibration bundles and trace statistics}{Machine table (processor, cores, memory, disk classes and models, TPM kind) and per-step cost table,
 generated from the calibration bundles; number of machines and classes. One machine (12th-generation Intel Core i7,
 64 GB, NVMe and SATA hard disk, firmware TPM) is measured and under review; at least two further processor classes
 are required before results are reported.} Each machine is measured by one script with fixed sample counts, on an
 idle machine with the performance governor, using the same Firecracker release and guest kernel on every machine. A
 machine with two disk classes yields two machine classes that share the processor. The functions are those of the
-SeBS benchmark suite~\cite{copik2021sebs}, each measured at three to five input sizes with 30 runs per size.
+SeBS benchmark suite~\cite{copik2021sebs}, each measured at three to five input sizes with repeated runs per size. \todoitem{T44}{calibration bundles and trace statistics}{Number of functions measured, of input sizes and of runs per size, from the bundles.}
 
 The share of each machine class among workers follows the hardware of machines that volunteer today. We take the
-hosts that contacted two volunteer-computing projects within 30 days from the projects' public host
+hosts that recently contacted two volunteer-computing projects, from the projects' public host
 lists~\cite{boincstats}, \VBoincRosettaActive{} hosts of one and \VBoincMilkywayActive{} of the other, count them by
 processor count and memory, and assign each group to the nearest calibrated machine.
-\critical{The assignment and the share of hosts that no calibrated machine represents well.}
+\todoitem{T14}{calibration bundles and trace statistics}{The assignment and the share of hosts that no calibrated machine represents well.}
 
 \subsection{Workload, availability and network data}
 \label{sec:traces}
@@ -48,7 +48,7 @@ Archive~\cite{javadi2013fta,javadi2009seti}, which records for each host the int
 available to the project. Each worker replays one host's week. We use two weeks of the trace six months apart,
 \VSetiHostsPerSplit{} hosts each. Three limits apply. The trace is from 2007--2009. It records that the processor was
 free, which is narrower than the machine being on. The archived copy of the trace that we could retrieve is truncated,
-and we use the hosts it contains in full. \critical{Table: interval-length distribution of the two weeks against the
+and we use the hosts it contains in full. \todoitem{T15}{calibration bundles and trace statistics}{Table: interval-length distribution of the two weeks against the
 published fit.}
 
 \paragraph{Network.} A worker's download rate, upload rate and latency to its ISP are drawn together from the
@@ -104,9 +104,35 @@ Second request & Dean and Barroso~\cite{dean2013tail}: second request after the 
 \subsection{Experiments and metrics}
 \label{sec:metrics}
 
-Every run simulates 500 workers for 28 hours, of which the first four are warm-up and are not measured; four hours
-exceed the longest learning window of any compared policy. \critical{Experiments table: per experiment the workers,
-load and utilisation, duration, warm-up, calibration bundles, data set and seeds.}
+Every run simulates \VRunWorkers{} workers for \VRunHours{} hours, of which the first \VRunWarmupHours{} are
+warm-up and are not measured; the warm-up exceeds the longest learning window of any compared policy.
+Table~\ref{tab:experiments} lists the experiments.
+
+\begin{table}[t]
+\caption{Experiments. All use \VRunWorkers{} workers unless the pool size is varied, \VRunMeasuredHours{} measured
+hours after \VRunWarmupHours{} hours of warm-up, and the held-out data.}
+\label{tab:experiments}
+\small
+\begin{tabular}{@{}P{38mm}P{93mm}@{}}
+\toprule
+Section & Varied \\
+\midrule
+\ref{sec:res-main}, \ref{sec:res-mechanism} & provisioning system; holder budget $K \in \{2,4,8,16\}$ and none; three load levels \\
+\ref{sec:res-region} & pool size; load; share of sessions that end with notice \\
+\ref{sec:res-drop} & share of owners who drop results; failure-handling policy \\
+\ref{sec:res-forge} & share of class-P owners; fraction of results they forge; audit probability \\
+\ref{sec:res-ablation} & one element of provisioning removed at a time \\
+\ref{sec:res-sens} & deadline multiple; share of functions that may run twice; rotation period; swept constants; machine mix \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Load.} The trace's functions run for fractions of a second, so the pool as a whole is lightly used at
+any load that one run can simulate. \todoitem{T41}{held-out experiments}{Measured share of busy cores in the pool at
+each load level.} Load matters at the level of one function: its invocations can run only on its key holders. We
+therefore report, for each load level, the load of each function relative to the capacity of its key holders.
+\todoitem{T42}{held-out experiments}{Median and 95th percentile over functions of that ratio, per load level and
+$K$.} \todoitem{T43}{held-out experiments}{Seeds per experiment and the calibration bundles used, added to Table~\ref{tab:experiments}.}
 
 The primary metric is \emph{deadlines met}: the share of synchronous invocations whose correct result reaches the
 client within the deadline. An invocation that is lost and one that is late both count as missed. Latency percentiles
@@ -121,6 +147,6 @@ no system meets 95\%.
 \subsection{Validation on real machines}
 \label{sec:validation}
 
-\critical{Emulation: several workers as process groups with pinned cores, memory limits and injected network delay
+\todoitem{T17}{emulation on real machines}{Emulation: several workers as process groups with pinned cores, memory limits and injected network delay
 on one machine, real sandboxes and real TPM quotes, the same scheduler code; agreement and disagreement with the
 simulator on deadlines met, key holders and latency. Runs after the scheduler is fixed.}

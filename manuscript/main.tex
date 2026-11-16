@@ -19,6 +19,7 @@
 \newcommand{\code}[1]{\texttt{#1}}
 \newcommand{\critical}[1]{\textcolor{red}{\textbf{[CRITICAL: #1]}}}
 \newcommand{\potrem}[1]{\textcolor{red}{[POTENTIAL REMOVAL: #1]}}
+\newcommand{\todoitem}[3]{\textcolor{red}{[TODO #1, waits for #2: #3]}}
 \newcommand{\ok}{\ensuremath{\bullet}}
 \newcommand{\partly}{\ensuremath{\circ}}
 
@@ -45,9 +46,9 @@ sets on how many machines may hold a function's key, the key holders and warm sa
 invocations on time when machines differ in speed per function and leave without notice; it places each invocation
 by its probability of meeting its deadline; and it runs an invocation on a second machine when the first does not
 answer in time.
-\critical{Headline result (held-out experiments): deadlines met at a stated holder limit, VOSS against the best of
+\todoitem{T01}{held-out experiments}{Headline result (held-out experiments): deadlines met at a stated holder limit, VOSS against the best of
 the keep-alive, histogram and autoscaling policies; failure result if supported.}
-\critical{Basis sentence: simulator driven by public traces, calibrated on N machines, checked against an N-worker
+\todoitem{T02}{calibration bundles and trace statistics}{Basis sentence: simulator driven by public traces, calibrated on N machines, checked against an N-worker
 emulation; N after calibration and validation.}
 \end{abstract}
 

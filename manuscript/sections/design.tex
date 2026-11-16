@@ -46,7 +46,7 @@ Provisioning runs periodically. For each function it chooses the key holders, th
 the function, and the number of sandboxes each keeps warm. Two properties of volunteer machines shape the choice.
 
 \paragraph{Machines differ per function, and history predicts.}
-\critical{Two measurements from the calibration data, regenerated from the merged bundles: (i) the coefficient of
+\todoitem{T11}{calibration bundles and trace statistics}{Two measurements from the calibration data, regenerated from the merged bundles: (i) the coefficient of
 variation of a function's execution time over repeated runs on one machine; (ii) the range, across functions, of the
 execution-time ratio between two machine classes at the same input size.} The first measurement means that earlier
 runs of a function on a machine predict later ones. The second means that one speed number per machine does not: a
@@ -106,8 +106,10 @@ $r_j = S(H \mid \mathit{age}_j)\,(1-p_j)$. $S$ is the survival function of sessi
 to observed session lengths including sessions still running, with a factor for the hour of the day; it is evaluated
 conditional on the session's current age, because a session that has lasted long is likely to last longer when the
 fitted shape is below one. $p_j$ is the estimated probability that $j$ drops an invocation it accepted
-(Section~\ref{sec:fail}). Workers of one owner, city or ISP form a \emph{failure domain}, and a domain fails as a
-whole with a probability estimated from how often several of its workers left together.
+(Section~\ref{sec:fail}). Workers of one owner, city or ISP form a \emph{failure domain}; in a scenario a domain fails as a
+whole with probability $\rho$. \todoitem{T45}{calibration bundles and trace statistics}{$\rho$ is not yet estimated
+(the code uses zero): estimate it from how often several hosts of one domain leave together in the availability
+trace, or remove domain failures from the model and from this paragraph.}
 
 \paragraph{Objective.}
 One reserved core on worker $j$ is worth $v_{fj} = (t_f / \mathrm{E}[T_{fj}])\,\pi_{fj}$ reference servers to
@@ -195,7 +197,7 @@ state of that worker: the invocations queued on it, the state the function is in
 assigns the invocation to the holder with the highest probability of meeting the deadline, and among equal
 probabilities to the one with the lowest expected completion time. There are no weights to tune. Synchronous
 invocations are placed as they arrive; invocations without a waiting client are placed in batches, after the
-synchronous ones. The time the scheduler itself takes is part of $W_j$; Section~\ref{sec:res-scale} measures it.
+synchronous ones. The time the scheduler itself takes is part of $W_j$.
 
 \subsection{Failure handling}
 \label{sec:fail}
@@ -226,6 +228,20 @@ holder budgets. Heartbeats are used only to learn that a worker is gone; they ar
 The sampled audit of Section~\ref{sec:audit} runs through the same mechanism as a backup attempt, with the audit
 probability in place of the timer. A banned worker's running invocations are cancelled and run elsewhere.
 
-\critical{Constants table (provisioning period, horizon, number of scenarios, timer quantile, probation period,
-audit probability, key rotation period, certificate renewal period), generated from the parameter ledger with each
-constant's class: measured, trace, literature, derived, axis or swept.}
+Table~\ref{tab:constants} lists the constants of the scheduler with the basis of each value.
+
+\begin{table}[t]
+\caption{Constants of the scheduler. ``Swept'': a design constant whose sensitivity Section~\ref{sec:res-sens}
+reports; ``varied'': an axis of the experiments; ``derived'': computed from other constants.}
+\label{tab:constants}
+\small
+\begin{tabular}{@{}P{92mm}ll@{}}
+\toprule
+Constant & Value & Basis \\
+\midrule
+\input{generated/constants}
+\end{tabular}
+\end{table}
+
+\todoitem{T46}{parameter ledger}{The provisioning period, the certificate renewal period and the keep-alive time of
+the fixed baseline are not in Table~\ref{tab:constants}: their class in the parameter ledger is not final.}

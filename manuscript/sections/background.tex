@@ -47,7 +47,7 @@ On one worker a function is therefore in one of four states, each faster to star
 nothing present; encrypted code on disk; an encrypted snapshot on disk; a warm sandbox. Starting from the first two
 states boots a sandbox and runs the function's initialisation. Starting from a snapshot restores the sandbox's memory
 and skips both. A warm sandbox runs the invocation at once. All states above ``code on disk'' need the function key
-in the worker's memory. \critical{Figure: per-step times, power-on to attested worker, sandbox boot and snapshot
+in the worker's memory. \todoitem{T07}{calibration bundles and trace statistics}{Figure: per-step times, power-on to attested worker, sandbox boot and snapshot
 restore, one bar group per calibrated machine and disk type; table of the four states with measured times per
 machine. Needs the merged calibration bundles.}
 
@@ -71,7 +71,7 @@ demonstrated~\cite{jacob2023faultpm}.
 
 A session ends when the owner restarts the machine or switches it off. The scheduler receives no warning unless the
 owner uses the image's shutdown request. Section~\ref{sec:method} describes the availability data we use: in it, a
-host is available \critical{for a median of N minutes at a time and for N\% of a week (trace statistic macros)}.
+host is available \todoitem{T08}{calibration bundles and trace statistics}{for a median of N minutes at a time and for N\% of a week (trace statistic macros)}.
 
 A worker can fail an invocation in three ways. In a \emph{crash}, the machine stops; its periodic liveness messages
 (heartbeats) stop as well. In a \emph{dropped result}, the machine stays attested and keeps sending heartbeats, and
@@ -94,7 +94,7 @@ A worker runs at most as many invocations at once as it has physical cores (its 
 sandbox has one virtual processor. Invocations that run together slow each other; the slowdown is measured per
 machine and function for every number of concurrent sandboxes up to the hardware thread count
 (Section~\ref{sec:method}). A sandbox is admitted only if its memory fits in the worker's memory minus what the image
-uses. \critical{Table: concurrency limit, memory and measured co-run slowdown per calibrated machine.}
+uses. \todoitem{T09}{calibration bundles and trace statistics}{Table: concurrency limit, memory and measured co-run slowdown per calibrated machine.}
 
 \subsection{Problem statement}
 \label{sec:bg-problem}
