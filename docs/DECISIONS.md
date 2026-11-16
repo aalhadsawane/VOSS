@@ -121,17 +121,26 @@ worker's queued attempts. *Rejected:* a fixed re-probe interval (a new constant 
 interval per late attempt); no re-arm after "running" (an attempt that later stops would go unnoticed until the
 router's give-up).
 
-**D-99 Development load levels in place of pool utilisation 30/60/85% (plan V11.1; provisional, for the owner).**
+**D-99 Load levels, and "utilisation" per function against its key holders (plan V11.1; the owner's decision).**
 `D01` sets its load axis to `scenario.load.rate_mult` ∈ {10.5, 21, 30}: the plan's 30:60:85 in proportion, with the top
-level at the D-97 run size (rate_mult 30 gives about 130 M events in 28 h, as SIZING4). *Why:* with the traced Azure load
-and measured run times the mean busy time is 0.25 s per invocation, so on 500 workers (about 1,710 slots of attested
-workers) pool utilisation is 0.24% at rate_mult 10 and 0.72% at 30 (measured, `samples` table); 60% would need about
-rate_mult 2,500, some 80 times the events one run can simulate within a job. The load still matters at the level of a
-function's holders: at rate_mult 30 the busiest function keeps 3.1 slots busy, about 30% of two holders. *Open:*
-whether R01's utilisation axis should be defined per function against its `K` holders, or reached by another load
-(longer measured functions, fewer slots per host); the owner decides before R01. *Rejected:* rate multipliers that
-reach 30-85% of the pool (do not fit a job by one to two orders of magnitude); fewer workers (capacity falls, but the
-event budget limits arrivals, not workers).
+level at the D-97 run size (rate_mult 30 gives about 130 M events in 28 h, as SIZING4). "Utilisation" in the main
+experiment means, per function, its offered load relative to the capacity of its `K` key holders: `util_f = λ_f ·
+E[T_f] / C_f`, with `λ_f` the function's arrival rate in the measured window, `E[T_f]` the mean start-up plus
+execution time of its completed invocations and `C_f` the time-averaged slots of the workers holding its key
+(`experiments.analysis.metrics.function_utilisation`). Every run reports its median and 95th percentile over
+functions weighted by invocations (`fn_util_p50`, `fn_util_p95`) next to the pool utilisation (`utilisation`), and
+the paper says that the pool as a whole stays under 1% busy. *Why:* with the traced Azure load and measured run times
+the mean busy time is 0.25 s per invocation, so on 500 workers (about 1,710 slots of attested workers) pool
+utilisation is 0.24% at rate_mult 10 and 0.72% at 30 (measured, `samples` table); 60% of the pool would need about
+rate_mult 2,500, some 80 times the events one run can simulate within a job. *Measured spread* (local, 500 workers,
+1 h after a 10-minute warm-up, seed 1, pre-released keys / VOSS at that time): `fn_util_p50` is 3.2-10.4% /
+2.8-5.8% at `K` = 2 and 0.4-1.3% / 0.4-1.1% at `K` = 16 over the three load levels; `fn_util_p95` reaches 39% / 53%
+only at `K` = 2 and rate_mult 30, and stays at or below 9% for `K` ≥ 8. The three levels therefore do not span the
+plan's 30-85% except for the busiest functions at `K` = 2; within the event budget the load cannot rise, so the axis
+is reported as measured per-function utilisation, and a wider spread (rate_mult {3.5, 10.5, 30}, a factor 8.6 instead
+of 2.9, same top level) is the owner's choice. *Rejected:* rate multipliers that reach 30-85% of the pool (do not fit
+a job by one to two orders of magnitude); fewer workers (capacity falls, but the event budget limits arrivals, not
+workers).
 
 **D-100 Provisioning changes a holder only when the change pays for its preparation (plan V11.3, development log
 iteration 1).** Algorithm 1 runs its two greedy stages a second time from the current holders and keeps that
