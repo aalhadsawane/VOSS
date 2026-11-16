@@ -37,6 +37,12 @@ class Ctx:
     def opt(self, key: str, default: str = "") -> str:
         return self.opts.get(key, default)
 
+    def part(self, name: str) -> bool:
+        """``--set only=a,b`` runs only those parts of a suite (``node_run.sh topup`` fills in probes added to a
+        suite after a node measured it, without repeating the rest; NODE_PLAN.md §5a). No ``only``: every part."""
+        only = self.opts.get("only")
+        return not only or name in only.split(",")
+
     def dirs(self) -> dict[str, Path]:
         """Scratch directories on each disk tier (``--set nvme_dir=... --set sata_dir=... --set hdd_dir=...``;
         ``ssd_dir`` is the older name of the solid-state tier). Every record of a disk-bound suite carries its tier."""
@@ -78,7 +84,10 @@ def registry() -> dict[str, Suite]:
         caps,
         disk,
         fc_boot,
+        fc_dispatch,
         fc_snapshot,
+        fc_touched,
+        fn_inputs,
         keys,
         sebs,
         tls,
@@ -86,5 +95,6 @@ def registry() -> dict[str, Suite]:
         tpm,
     )
 
-    mods = (caps, disk, fc_boot, fc_snapshot, sebs, tpm, attest_local, tls, keys, tme, appliance)
+    mods = (caps, disk, fc_boot, fc_snapshot, fc_dispatch, sebs, fn_inputs, fc_touched, tpm, attest_local, tls, keys,
+            tme, appliance)  # fmt: skip
     return {m.SUITE.name: m.SUITE for m in mods}

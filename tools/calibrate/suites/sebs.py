@@ -173,7 +173,8 @@ def run(ctx: Ctx) -> None:
                 ok = False
                 break
         # Contract §5 asks for n >= 3 snapshots; skip a function whose guest could not even start (e.g. no torch).
-        if ok and scratch is not None and not ctx.sh.dry_run:
+        # ``snapshots=0``: handler times only (the ``tme`` suite's subset).
+        if ok and scratch is not None and not ctx.sh.dry_run and ctx.opt("snapshots", "1") != "0":
             scratch.mkdir(parents=True, exist_ok=True)
             for rep in range(ctx.reps(3)):
                 size_mb = snapshot_size(ctx, a, fn, scratch)

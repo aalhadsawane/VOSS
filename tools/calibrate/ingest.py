@@ -5,7 +5,8 @@ Writes ``configs/calibration/measured/<fingerprint>/``:
   without data keep the placeholder's value and tag, so a partial calibration is still a complete bundle;
 - ``fits.yaml``: lognormal fit, sample size and KS distance of every measured entry;
 - ``hardware.yaml``: measured fields of hardware class C0 (disk speeds);
-- ``functions.yaml``: per-function ``init_s``, ``work_ref_s``, ``size_exp`` and interference from ``sebs``;
+- ``functions.yaml``: per-function ``init_s``, ``work_ref_s``, ``size_exp`` and interference from ``sebs``, input
+  generation time per size (``fn_inputs``) and the touched share of its snapshot on the bundle's tier (``fc_touched``);
 - ``meta.yaml``: host metadata and SHA-256 of every raw file used.
 Runs locally (needs the project environment); nothing here touches the calibration node.
 """
@@ -39,7 +40,7 @@ def load_raw(root: Path, host: str | None = None) -> tuple[pd.DataFrame, dict[st
         # sebs measures one function at a time and writes each when done, so the functions finished before a later
         # one broke are valid; any other suite that errored may hold half-finished series and is ignored
         failed = str(info.get("status")) == "error" and info.get("suite") != "sebs"
-        if (host and run.parents[1].name != host) or info.get("dry_run") or failed:
+        if (host and run.parents[1].name != host) or info.get("dry_run") or info.get("quick") or failed:
             continue
         meta = info
         digests[str(rec.relative_to(root))] = hashlib.sha256(rec.read_bytes()).hexdigest()
@@ -135,7 +136,26 @@ def hardware(df: pd.DataFrame, mapping: dict[str, Any]) -> dict[str, dict[str, f
     return out
 
 
-def functions(df: pd.DataFrame, ref_kb: dict[str, float]) -> dict[str, dict[str, Any]]:
+def functions(df: pd.DataFrame, ref_kb: dict[str, float], tier: str = "ssd") -> dict[str, dict[str, Any]]:
+    """Per-function profiles (``profiles``) plus input generation per size and the touched snapshot share."""
+    out = profiles(df, ref_kb)
+    gen = _config_rows(df, "fn_inputs", "fn_input_gen")
+    touched = _config_rows(df, "fc_touched", "snapshot_touched_frac")
+    for fn, prof in out.items():
+        g = gen[gen.fn == fn] if len(gen) else gen
+        med = g.groupby("size_kb").value.median().items() if len(g) else ()
+        prof["input_gen_by_size"] = {int(k): float(v) for k, v in med}
+        t = touched[(touched.fn == fn) & (touched.tier == tier)] if len(touched) else touched
+        prof["snapshot_touched_frac"] = float(t.value.median()) if len(t) else None
+    return out
+
+
+def _config_rows(df: pd.DataFrame, suite: str, probe: str) -> pd.DataFrame:
+    d = df[(df.suite == suite) & (df.probe == probe)]
+    return d.join(pd.DataFrame(list(d.config)).set_index(d.index)) if len(d) else d
+
+
+def profiles(df: pd.DataFrame, ref_kb: dict[str, float]) -> dict[str, dict[str, Any]]:
     """Per-function profile from ``sebs`` (concurrency 1): init, execution at the catalog's reference input size
     (log-log interpolation), size exponent (log-log slope), and slowdown at each concurrency."""
     sebs = df[df.suite == "sebs"]
@@ -195,10 +215,14 @@ def build(
     fp = host or str(df.host.iloc[0])
     name = label or fp  # a versioned bundle may reuse the same raw logs under a new name (e.g. after the appliance run)
     mapping = yaml.safe_load((HERE / "mapping.yaml").read_text())
-    if tier:  # a machine without an SSD (the stand-in laptop): its only tier plays the SSD role of the mapping
+    if tier:  # one bundle per disk tier (NODE_PLAN.md §2): that tier plays the SSD role of the mapping
         for spec in mapping["distributions"].values():
             if (spec.get("where") or {}).get("tier") == "ssd":
                 spec["where"]["tier"] = tier
+        for fields in mapping["hardware"].values():  # the disk suite names its probes by tier: nvme_seq_read_MBps
+            for spec in fields.values():
+                if spec["probe"].startswith("ssd_"):
+                    spec["probe"] = f"{tier}_" + spec["probe"].removeprefix("ssd_")
     measured, fits = distributions(df, mapping, meta)
     base = yaml.safe_load((placeholder / "distributions.yaml").read_text())
     merged = dict(base["distributions"]) | measured
@@ -215,7 +239,7 @@ def build(
         },
         "fits.yaml": fits,
         "hardware.yaml": {"classes": hardware(df, mapping)},
-        "functions.yaml": {"functions": functions(df, ref_kb)},
+        "functions.yaml": {"functions": functions(df, ref_kb, tier or "ssd")},
         "meta.yaml": {
             "host": meta,
             "bundle": name,
