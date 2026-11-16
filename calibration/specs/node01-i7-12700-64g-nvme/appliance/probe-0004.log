@@ -1,0 +1,11 @@
+VOSS_E arm 1794730355.358106370
+VOSS_E btime 1794816006
+VOSS_E prev_end 1794730355.652253
+VOSS_T agent_ready 7.10
+VOSS_T quote_done 14.41
+VOSS_T verifier_ok 14.44
+VOSS_ANALYZE_BEGIN
+Bootup is not yet finished (org.freedesktop.systemd1.Manager.FinishTimestampMonotonic=0).
+Please try again later.
+Hint: Use 'systemctl list-jobs' to see active jobs
+VOSS_ANALYZE_END
