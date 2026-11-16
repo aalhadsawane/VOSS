@@ -166,9 +166,9 @@ development log iteration 2).** The timer's completion quantile uses the schedul
 scheduler last observed to that worker (dispatch to `ACCEPTED`), or its distance estimate before the first exchange;
 the deadline-fit check keeps the router's view. *Why:* the timer runs from the dispatch at the scheduler to the outcome
 there, but its quantile used the router-worker network estimate; 75% (sync) and 53% (async) of first attempts overran
-a q95 timer, and VOSS made 1.5 attempts per invocation. *Open:* the observed round trip omits the wait for the input
-from the router, so the timer is still early for 44% (sync) and 28% (async) of first attempts. *Rejected:* a margin on
-the timer (a constant fitted to the overrun).
+a q95 timer, and VOSS made 1.5 attempts per invocation. *Open:* the timer is still early (probably the wait for the
+input from the router, which the observed round trip omits) for 44% (sync) and 28% (async) of first attempts.
+*Rejected:* a margin on the timer (a constant fitted to the overrun).
 
 ## v1 decisions (D-01 to D-80)
 

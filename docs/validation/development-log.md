@@ -65,3 +65,84 @@ attempts to one worker (11 workers in all), with a mean wait of 3.5 s, p99 wait 
 its misses are late completions (28.9% of invocations late, under 0.01% lost) on slower workers (mean run time
 0.159 s against 0.092 s for on demand), since the ring ignores speed. It stays below on demand (0.825, measured before
 the load fix) here; that is the policy's behaviour, not a defect.
+
+## Iteration 2: backups for half of all invocations; forged answers counted as correct
+
+**Observations (D02_DROP run 43824761074, D02_FORGE run 43824844566; 500 workers, K = 8, rate_mult 21, seed 1).**
+(1) VOSS made 1.48-1.50 attempts per invocation at every level of dropping owners, 1.50 even with none, against
+1.05 for hedged requests; under 20% dropping owners hedged met 0.976 of deadlines and VOSS 0.959. (2) Every audit
+p = 0 cell of D02_FORGE had deadline_met 0.979166 and p99 2.364 s, the values of the no-adversary run, for every
+class-P share and forge probability.
+
+**(2) Forging was applied; the metric did not see it.** A local run with the D02_FORGE override (100 workers, class-P
+share 0.2, 30 minutes) had 20 forging workers and 480 `adv_forge` events, and 462 invocations were answered with a
+forged result (47 of 1,486 synchronous, 415 of 4,573 asynchronous). The audit runs after the answer, so with p = 0
+nothing changes in timing, and `deadline_met` counted a forged answer as met. Change: `metrics.mark_wrong` marks an
+invocation whose answer came from a forged result (an `adv_forge` event of the answering worker for it); `classify`
+returns `wrong` for it, so it is a miss; the summary reports `forged_results` (forged results produced after the
+warm-up) and `wrong_answers` (forged answers returned, every class). `tests/integration/test_audit.py` fails if
+forgers have no effect on these or on deadlines met. D02_FORGE needs its summaries recomputed (the logs are in the
+release; no rerun is needed).
+
+**(1) Hypothesis.** The watchdog timer fires too early: VOSS requests a backup when an attempt passes the predicted
+q95 of its completion, so with a calibrated timer about 5% of first attempts should get one.
+
+**Evidence.** Local run (code of `revision-v2` at ff91045, 1 h after a 10-minute warm-up, no adversaries), first
+attempts that answered, realised parts against the terms of the timer:
+
+| Part (mean, s) | sync realised | sync timer term | async realised | async timer term |
+|---|---|---|---|---|
+| dispatch + reply network | 0.085 + 0.058 = 0.143 | 0.057 | 0.106 + 0.058 = 0.164 | 0.083 |
+| queue wait on the worker | 0.000 | 0.001 | 0.087 | 0.079 |
+| key and start-up | 0.007 | 0.013 | 0.018 | 0.092 |
+| execution | 0.097 | 0.099 (5.1% above its q95) | 0.299 | 0.305 (5.2% above its q95) |
+| first attempts past the timer | 74.7% | | 53.0% | |
+| ... if the network term were exact | 6.3% | | 9.8% | |
+
+Only the network term is wrong. It is the cost model's router-to-worker round trip, estimated from distance
+(doc 03, "no jitter and no measurement"), but the timer runs from the dispatch at the scheduler (one node, Frankfurt)
+to the outcome back there. Asynchronous invocations are not all backed up: in the 2 h iteration-1 run 51% of them got a backup (38% of
+synchronous ones), about the share that overran.
+
+**Change.** The timer's quantile uses the scheduler-worker round trip: the one the scheduler last observed to that
+worker (dispatch to `ACCEPTED`, which the worker sends on receipt), or its distance estimate before the first
+exchange. The mean and the budget used for the deadline-fit check stay the router's. No new constant.
+
+**Result (local, 1 h, one seed each).** Timer overruns of first attempts fell from 74.7% to 44.2% (sync) and from
+53.0% to 28.4% (async). The network term is still short by 0.024 s (sync) and 0.044 s (async): with it exact the
+overruns would be 5.8% and 9.6%. The remainder is probably in the dispatch leg (0.084 s sync, 0.106 s async), which
+includes waiting for the input from the router; the observed round trip does not include that wait. Not measured
+separately and not fixed here.
+
+| System | Dropping owners | Code | Deadlines met | Attempts per invocation | p99 (s) | Episodes |
+|---|---|---|---|---|---|---|
+| voss | 0 | `revision-v2` | 0.947 | 1.453 | 0.762 | 42 |
+| voss | 0 | iteration 2 | 0.939 | 1.247 | 0.782 | 59 |
+| voss | 20% | `revision-v2` | 0.914 | 1.424 | 0.768 | 48 |
+| voss | 20% | iteration 2 | 0.962 | 1.250 | 0.759 | 26 |
+| hedged | 0 | `revision-v2` | 0.948 | 1.052 | 0.768 | 32 |
+| hedged | 0 | iteration 2 | 0.948 | 1.052 | 0.768 | 32 |
+| hedged | 20% | `revision-v2` | 0.936 | 1.057 | 0.776 | 47 |
+| hedged | 20% | iteration 2 | 0.944 | 1.053 | 0.759 | 35 |
+
+**Does VOSS depend on early backups?** Without dropping owners the change costs 0.008 of deadlines met (0.947 →
+0.939) while backups fall by 45%: the early backups did save some on-time completions. Hedged requests meet 0.948 with
+5% extra attempts on the same scenario, so meeting that level does not need backups for half of all invocations;
+whether a fully calibrated VOSS timer recovers the 0.008 is not shown here, because the timer is still early for 44%
+of synchronous attempts. With 20% dropping owners the change gains 0.048 (0.914 → 0.962) and VOSS passes hedged
+(0.944). One seed and 1 h per cell: the D02_DROP rerun decides. Open for the owner: if a calibrated timer loses
+deadlines at alpha 0, VOSS's backups act as hedging, and the paper should say so.
+
+## Bug fix found in iteration 2
+
+**`eviction_aware` piled work onto full workers (D01a rerun, shard 0 slow).** The min-worker-set of #97 counted a
+worker's total slots as its usable resources, so a function's set stopped at its home worker even when that worker was
+full: locally, 874 invocations queued on one worker at t = 2,400 s (2,227 in all), and wall time per simulated hour
+grew from 238 s to 873 s over the first five hours. Usable resources are now the free slots (not busy, queued or
+dispatched), the paper's usable resources of a VM: queued work stayed at 0 in every 10-minute sample of 6 simulated
+hours, at 29-64 s of wall time per 10 simulated minutes. Deadlines met over those 6 hours: 0.680 (p99 1.02 s,
+1.39 attempts per invocation).
+
+**Known, not changed:** the holder budget invariant reports 9 holders for a budget of 8 in short runs (16 violations
+in a 2 h run of `revision-v2` before iteration 1, 41 for pre-released keys): a new holder is counted before the
+released one has dropped its key.
