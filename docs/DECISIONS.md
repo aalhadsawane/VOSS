@@ -161,6 +161,15 @@ and used load only to break ties; the paper has no such rule, and the rule sent 
 Deviations are listed in `configs/baselines.yaml`. *Rejected:* keeping the failure ranking with a capacity check (not
 the paper's algorithm).
 
+**D-102 The watchdog timer is the quantile of the attempt as the scheduler times it (doc 07 §2, plan V7.1,
+development log iteration 2).** The timer's completion quantile uses the scheduler-worker round trip, the one the
+scheduler last observed to that worker (dispatch to `ACCEPTED`), or its distance estimate before the first exchange;
+the deadline-fit check keeps the router's view. *Why:* the timer runs from the dispatch at the scheduler to the outcome
+there, but its quantile used the router-worker network estimate; 75% (sync) and 53% (async) of first attempts overran
+a q95 timer, and VOSS made 1.5 attempts per invocation. *Open:* the observed round trip omits the wait for the input
+from the router, so the timer is still early for 44% (sync) and 28% (async) of first attempts. *Rejected:* a margin on
+the timer (a constant fitted to the overrun).
+
 ## v1 decisions (D-01 to D-80)
 
 **D-01 Custom Python discrete-event simulator.** FaaS physics is small; solver wall time must enter simulated time;
