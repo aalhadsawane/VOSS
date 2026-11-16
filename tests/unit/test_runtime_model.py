@@ -55,3 +55,20 @@ def test_a_seen_pair_is_tighter_than_a_new_function() -> None:
     _, s_seen = _pred(p, "f", 1)
     t_new, s_new = _pred(p, "brand-new", 1)  # population prior: no profile, no runs
     assert s_new > 2 * s_seen and 0.1 < t_new < 1.0
+
+
+def test_load_covariate_is_bounded_so_a_long_queue_cannot_overflow_the_variance() -> None:
+    """Development log iteration 1: the load term was queue length per slot (up to 2,700 at 500 workers), so the
+    posterior variance ``x' Σ x`` reached σ ≈ 70 and ``exp(σ²)`` overflowed. Queued work counts up to the slots only."""
+    from voss.policy.predict.base import LogDist, contention
+
+    busy, queued, slots = np.array([0.0, 2.0, 4.0, 4.0]), np.array([0.0, 1.0, 0.0, 10_000.0]), np.array([4, 4, 4, 0])
+    assert contention(busy, queued, slots).tolist() == [0.0, 0.75, 1.0, 1.0]
+    p = BlrPredictor(PRIOR)
+    for i in range(200):  # a load effect learned on loads in [0, 1]
+        p.update(ExecObs("f", 1, 1024, 1.0, (i % 5) / 4, 0.1 * (1 + 0.1 * (i % 5) / 4), float(i), "fast"))
+    load = contention(np.full(3, 4.0), np.array([0.0, 2_700.0, 1e9]), np.full(3, 4))
+    d = p.predict("f", 1024, np.array([1, 1, 1]), np.ones(3), load)
+    with np.errstate(over="raise", invalid="raise"):
+        assert np.isfinite(LogDist(d.mu, d.sigma).var()).all()
+    assert d.sigma[1] == d.sigma[0] and d.sigma[2] == d.sigma[0]

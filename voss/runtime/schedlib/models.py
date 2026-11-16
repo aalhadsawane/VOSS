@@ -13,7 +13,7 @@ from voss.policy import omission as _omission  # noqa: F401  (registers models)
 from voss.policy import survival as _survival  # noqa: F401
 from voss.policy.cost.components import Preds, PredsFn
 from voss.policy.predict import arrivals as _arrivals  # noqa: F401
-from voss.policy.predict.base import ExecObs, FnPrior
+from voss.policy.predict.base import ExecObs, FnPrior, contention
 from voss.policy.predict.conformal import Conformal
 from voss.policy.predict.registry import make_predictor
 
@@ -47,7 +47,7 @@ class SchedModels:
         """Predictions for row ``i`` on view indices ``sub`` (evaluated lazily on pruned candidates only)."""
         workers = np.asarray(view.workers, dtype=np.int64)
         self.sync_classes(view)
-        load = (view.busy + view.queued + view.inflight) / np.maximum(view.slots, 1)
+        load = contention(view.busy, view.queued + view.inflight, view.slots)
         k, lam, start, tz, drain = self._static(view)
         hour = np.mod(start_utc_h + now / 3600 + tz, 24)
 
