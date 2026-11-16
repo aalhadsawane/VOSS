@@ -1,4 +1,8 @@
-"""One row of metrics per run (docs/REVISION_PLAN.md V2, V6): what the sweep writes to ``summary.parquet``."""
+"""One row of metrics per run (docs/REVISION_PLAN.md V2, V6): what the sweep writes to ``summary.parquet``.
+
+``utilisation`` is the pool's (busy slots over slots of attested workers); ``fn_util_p50`` and ``fn_util_p95`` are
+the median and 95th percentile over functions, weighted by invocations, of each function's offered load over the
+slots of its key holders (``metrics.function_utilisation``, D-99)."""
 
 from __future__ import annotations
 
@@ -21,6 +25,7 @@ def summarize(frame: Frame, warmup_s: float, t_end: float) -> dict[str, Any]:
     hold = [m.holders(ev, k, warmup_s, t_end) for k in keys]
     ep = m.episodes(inv, warmup_s)
     att = frame("attempts")
+    fu = m.function_utilisation(inv, ev, warmup_s, t_end)
     return {
         "deadline_met": m.deadline_met(inv, warmup_s),
         "p50_s": m.latency_censored(inv, 0.50, warmup_s).value,
@@ -28,6 +33,8 @@ def summarize(frame: Frame, warmup_s: float, t_end: float) -> dict[str, Any]:
         "p99_lower_bound": p99.lower_bound,
         "censored": p99.censored,
         "utilisation": m.utilisation(frame("samples"), warmup_s),
+        "fn_util_p50": m.weighted_quantile(fu.util.to_numpy(float), fu.invocations.to_numpy(float), 0.50),
+        "fn_util_p95": m.weighted_quantile(fu.util.to_numpy(float), fu.invocations.to_numpy(float), 0.95),
         "warm_mb": m.warm_memory_mb(frame("cache"), warmup_s),
         "holders_mean": float(np.mean([h.mean for h in hold])) if hold else 0.0,
         "holders_peak": max((h.peak for h in hold), default=0),

@@ -115,6 +115,35 @@ def utilisation(samples: pd.DataFrame, t0: float) -> float:
     return float(s.busy.sum() / cap) if cap > 0 else float("nan")
 
 
+def weighted_quantile(x: np.ndarray, w: np.ndarray, q: float) -> float:
+    """Smallest ``x`` whose cumulative weight reaches ``q`` of the total (``nan`` when there is no weight)."""
+    order = np.argsort(x, kind="stable")
+    cum = np.cumsum(w[order])
+    if not len(cum) or cum[-1] <= 0:
+        return float("nan")
+    return float(x[order][np.searchsorted(cum, q * cum[-1])])
+
+
+def function_utilisation(inv: pd.DataFrame, events: pd.DataFrame, t0: float, t1: float) -> pd.DataFrame:
+    """Per-function utilisation of its key holders over ``[t0, t1)`` (D-99): one row per function key with
+    ``rate`` (invocations per second, every class, arriving in the window), ``busy_s`` (mean start-up plus execution
+    time of its completed invocations), ``cores`` (time-averaged slots of the workers holding its key, from
+    ``session_slots`` events) and ``util = rate × busy_s / cores`` (offered load over holder capacity; ``inf`` when
+    the function is invoked but no worker held its key), weighted in summaries by ``invocations``."""
+    d = inv[(inv.t_arrive >= t0) & (inv.t_arrive < t1)]
+    slots = events[events.kind == "session_slots"].groupby("worker").value.last()
+    span, rows = max(t1 - t0, 1e-9), []
+    for key, g in d.groupby("tenant", sort=True):
+        done = g[g.outcome == "ok"]
+        busy = float((done.startup + done.exec).mean()) if len(done) else 0.0
+        iv = [(w, max(a, t0), min(b, t1)) for w, a, b in _intervals(events, str(key), t1) if b > t0 and a < t1]
+        cores = sum(float(slots.get(w, 0.0)) * (b - a) for w, a, b in iv) / span
+        load = len(g) / span * busy
+        util = load / cores if cores > 0 else (float("inf") if load > 0 else 0.0)
+        rows.append((key, len(g), len(g) / span, busy, cores, util))
+    return pd.DataFrame(rows, columns=["key", "invocations", "rate", "busy_s", "cores", "util"])
+
+
 def warm_memory_mb(cache: pd.DataFrame, t0: float) -> float:
     """Time-averaged MB held by warm sandboxes, from ``t0`` on."""
     c = cache[cache.t >= t0]
