@@ -166,7 +166,7 @@ grows~\cite{kleywegt2002saa}.
 \begin{algorithmic}[1]
 \State predict $\mathrm{E}[T_{fj}]$ and $\pi_{fj}$ for every function $f$ and eligible worker $j$; compute $v_{fj}$
 \State draw $M$ scenarios $\omega_1,\dots,\omega_M$ from the reliability model
-\State $S_f \gets \emptyset$, $u_{fj} \gets 0$ for all $f, j$
+\State $S_f \gets \emptyset$, $u_{fj} \gets 0$ for all $f, j$ \label{ln:init}
 \Repeat \Comment{choose key holders}
   \State $(f,j) \gets$ the pair with the largest gain in $\frac{1}{M}\sum_m \sum_f R_f(S_f,\omega_m)$ among pairs with
          $|S_f| < K_f$, a free core on $j$, and $j$ allowed for $f$; ties go to current holders
@@ -174,18 +174,25 @@ grows~\cite{kleywegt2002saa}.
 \Until{no pair has positive gain}
 \Repeat \Comment{reserve further cores on chosen holders}
   \State $(f,j) \gets$ the pair with $j \in S_f$, a free core on $j$ and the largest gain; $u_{fj} \gets u_{fj} + 1$
-\Until{no pair has positive gain}
+\Until{no pair has positive gain} \label{ln:units}
+\State repeat lines~\ref{ln:init}-\ref{ln:units} starting from the current holders; keep that result unless the
+       first one's on-time rate, less what its new holders lose while they prepare, is larger \label{ln:swap}
 \State on each holder, keep warm the sandboxes that save the most start-up time per megabyte, within its memory
+       \label{ln:warm}
 \State send each worker the keys to request, the sandboxes to start and the keys to drop
 \end{algorithmic}
 \end{algorithm}
 
 Algorithm~\ref{alg:prov} is this greedy selection. Line~5 evaluates gains lazily: by submodularity a gain computed
 earlier is an upper bound on the current one, so only the pair at the top of a priority queue is
-re-evaluated~\cite{minoux1978}. The second loop is greedy over one partition matroid. Line~10 is a knapsack on each
-worker's memory, for which we claim no bound. Ties go to workers that already hold the key, because a new holder
-costs a key release, a code fetch and a sandbox start, and the old holder keeps its place in the budget until its
-certificate expires. A worker whose session certificate expires inside the horizon is not eligible.
+re-evaluated~\cite{minoux1978}. The second loop is greedy over one partition matroid. Line~\ref{ln:warm} is a
+knapsack on each worker's memory, for which we claim no bound. A new holder costs a key release, a code fetch and a
+sandbox start, and the old holder keeps its place in the budget until its certificate expires, so
+line~\ref{ln:swap} changes holders only when the change pays for itself: a new holder of $f$ on $j$ serves nothing
+for its preparation time $\tau_{fj}$ of the horizon $H$, and each of its gains is charged $\tau_{fj}/H$ of its value.
+The gains of the first selection sum to its on-time rate, so the result keeps at least $1 - \max \tau / H$ of it, and
+Corollary~\ref{cor:greedy} and Proposition~\ref{prop:shared} hold for the result with that factor. A worker whose
+session certificate expires inside the horizon is not eligible.
 
 \subsection{Request placement}
 \label{sec:place}

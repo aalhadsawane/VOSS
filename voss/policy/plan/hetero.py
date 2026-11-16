@@ -13,6 +13,11 @@ second within their deadline, ``a_f = λ_f · t_f``. Provisioning maximises ``Σ
   workers are not shared (Propositions 1-2).
 - Stage B adds further units on chosen holders while workers have free units (one partition matroid).
 Both stages use lazy greedy (Minoux 1978): a stale gain is an upper bound by submodularity.
+- Swap rule (development log, iteration 1): the same two stages are run a second time starting from the current
+  holders, and that allocation is kept unless the plain greedy's value net of preparation is larger. A new holder of
+  ``f`` on ``j`` serves nothing for ``prep_fj`` seconds (key release and start-up) of the horizon ``H``, so its takes
+  are charged ``gain × prep_fj / H``. Because the greedy's gains sum to its value, the kept allocation has
+  ``F ≥ (1 − max prep / H) · F(greedy)``: the bounds above hold with that factor.
 """
 
 from __future__ import annotations
@@ -37,6 +42,8 @@ class HeteroInput:
     budget: np.ndarray  # [F] holder budget K (0 = none)
     allowed: np.ndarray  # [F, J] bool: may hold the key (owner class, certificate valid through the horizon)
     prev: np.ndarray  # [F, J] bool: holds the key now (ties go to them: no new release)
+    prep: np.ndarray | None = None  # [F, J] seconds before a new holder serves: key release and start-up (None: 0)
+    horizon_s: float = 0.0  # provisioning horizon H over which the on-time rate is averaged
 
 
 @dataclass(frozen=True)
@@ -76,9 +83,10 @@ class _State:
 
 
 Pred = Callable[[int, int], bool]
+Take = Callable[[int, int, float], bool]
 
 
-def _lazy(st: _State, pairs: list[tuple[int, int]], ok: Pred, on_take: Pred, eps: float) -> None:
+def _lazy(st: _State, pairs: list[tuple[int, int]], ok: Pred, on_take: Take, eps: float) -> None:
     """Lazy greedy over ``pairs``: pop the best stale gain, refresh it, take it if it is still the best."""
     heap = [(-st.gain(f, j), -int(st.inp.prev[f, j]), f, j) for f, j in pairs]
     heapq.heapify(heap)
@@ -93,41 +101,72 @@ def _lazy(st: _State, pairs: list[tuple[int, int]], ok: Pred, on_take: Pred, eps
         if fresh <= eps:
             return
         st.take(f, j)
-        if on_take(f, j):
+        if on_take(f, j, fresh):
             heapq.heappush(heap, (-st.gain(f, j), tie, f, j))  # stage B: the same pair may take another unit
 
 
-def provision(inp: HeteroInput, eps: float = 1e-9) -> Allocation:
-    """Two-stage lazy greedy (module docstring). Deterministic: ties go to current holders, then lower indices."""
+@dataclass
+class _Run:
+    st: _State
+    hold: np.ndarray
+    units: np.ndarray
+    lost: float = 0.0  # on-time rate lost while new holders prepare, averaged over the horizon
+
+
+def _delay(inp: HeteroInput) -> np.ndarray:
+    """``[F, J]`` share of the horizon a new holder spends preparing (0 for current holders)."""
+    if inp.prep is None or inp.horizon_s <= 0:
+        return np.zeros(inp.et.shape)
+    out: np.ndarray = np.where(inp.prev, 0.0, np.minimum(inp.prep / inp.horizon_s, 1.0))
+    return out
+
+
+def _greedy(inp: HeteroInput, v: np.ndarray, first: list[tuple[int, int]], eps: float) -> _Run:
+    """Stages A and B (module docstring); stage A takes from ``first`` before it considers every pair."""
     n_f, n_j = inp.et.shape
-    v = unit_value(inp)
-    st = _State(inp, v)
-    hold = np.zeros((n_f, n_j), bool)
-    units = np.zeros((n_f, n_j), np.int64)
-    left = inp.units.astype(np.int64).copy()
+    run = _Run(_State(inp, v), np.zeros((n_f, n_j), bool), np.zeros((n_f, n_j), np.int64))
+    left, delay = inp.units.astype(np.int64).copy(), _delay(inp)
     pairs = [(f, j) for f in range(n_f) for j in range(n_j) if v[f, j] > 0 and inp.lam[f] > 0]
 
     def can_add(f: int, j: int) -> bool:
         k = int(inp.budget[f])
-        return not hold[f, j] and left[j] > 0 and (k == 0 or int(hold[f].sum()) < k)
+        return not run.hold[f, j] and left[j] > 0 and (k == 0 or int(run.hold[f].sum()) < k)
 
-    def added(f: int, j: int) -> bool:
-        hold[f, j], units[f, j], left[j] = True, 1, left[j] - 1
+    def added(f: int, j: int, g: float) -> bool:
+        run.hold[f, j], run.units[f, j], left[j] = True, 1, left[j] - 1
+        run.lost += g * delay[f, j]
         return False
 
-    _lazy(st, pairs, can_add, added, eps)
+    for group in (first, pairs) if first else (pairs,):
+        _lazy(run.st, group, can_add, added, eps)
 
     def can_grow(f: int, j: int) -> bool:
-        return bool(hold[f, j]) and left[j] > 0
+        return bool(run.hold[f, j]) and left[j] > 0
 
-    def grew(f: int, j: int) -> bool:
-        units[f, j] += 1
+    def grew(f: int, j: int, g: float) -> bool:
+        run.units[f, j] += 1
         left[j] -= 1
+        run.lost += g * delay[f, j]
         return True
 
-    chosen = [(f, j) for f in range(n_f) for j in range(n_j) if hold[f, j]]
-    _lazy(st, chosen, can_grow, grew, eps)
-    return Allocation(hold, units, st.value())
+    chosen = [(f, j) for f in range(n_f) for j in range(n_j) if run.hold[f, j]]
+    _lazy(run.st, chosen, can_grow, grew, eps)
+    return run
+
+
+def provision(inp: HeteroInput, eps: float = 1e-9) -> Allocation:
+    """Two-stage lazy greedy (module docstring), then the swap rule: the same greedy started from the current holders
+    is kept unless the plain greedy's on-time rate, net of what its new holders lose while they prepare
+    (``Σ gain × prep / H`` over new pairs), is larger. Deterministic: ties go to current holders, then lower
+    indices. Since the greedy's gains sum to its value, the result keeps ``F ≥ (1 − max prep / H) · F(greedy)``."""
+    v = unit_value(inp)
+    run = _greedy(inp, v, [], eps)
+    kept = [(int(f), int(j)) for f, j in zip(*np.nonzero(inp.prev & (v > 0)), strict=True) if inp.lam[f] > 0]
+    if kept:
+        inc = _greedy(inp, v, kept, eps)
+        if inc.st.value() - inc.lost >= run.st.value() - run.lost:
+            run = inc
+    return Allocation(run.hold, run.units, run.st.value())
 
 
 def scenarios(
