@@ -85,6 +85,6 @@ def test_placeholder_entries_and_one_tme_phase_are_reported_missing(tmp_path: Pa
 
 
 def test_unused_entries_are_not_demanded() -> None:
-    """Rule 32: entries no substrate or simulator code reads are not part of the contract check (D-102)."""
+    """Rule 32: entries no substrate or simulator code reads are not part of the contract check (D-103)."""
     for gone in ("drtm_launch", "image_mem_mb", "boot_total", "boot_firmware", "fn_corun_mixed"):
         assert gone not in cb.REQUIRED and gone not in cb.simulator_entries()

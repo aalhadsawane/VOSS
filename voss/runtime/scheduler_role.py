@@ -65,6 +65,7 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, AuditMixin, Plan
         self.suspects: dict[WorkerId, float] = {}
         self.streak: dict[WorkerId, int] = {}
         self.decide_lat: deque[float] = deque(maxlen=256)
+        self.rtt_seen: dict[WorkerId, float] = {}  # last dispatch-to-ACCEPTED round trip per worker (observed)
         self.inflight: dict[InvId, Inflight] = {}
         self.done: ExpiringSet[InvId] = ExpiringSet(cfg.router.done_keep_s, lambda: self.now)
         self.audits: dict[InvId, AuditRec] = {}
@@ -95,6 +96,7 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, AuditMixin, Plan
             rec = self.inflight.get(msg.inv)
             if rec is not None and msg.attempt in rec.copies and not rec.copies[msg.attempt].accepted:
                 rec.copies[msg.attempt].accepted = True
+                self.rtt_seen[msg.worker] = self.now - rec.copies[msg.attempt].t_dispatch
                 self._arm(rec, rec.copies[msg.attempt])
         elif isinstance(msg, Pong):
             self._pong(msg)
@@ -212,7 +214,15 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, AuditMixin, Plan
         t0 = time.perf_counter()
         jobs = job_estimates(self.inflight) if self.ctx.cfg.voss.cost.wait_model == "per_worker" else None
         d = self.decider.decide(
-            tuple(self._variant(r) for r in recs), view, self.now, routers, self.gen, windowed, self.views.idx, jobs
+            tuple(self._variant(r) for r in recs),
+            view,
+            self.now,
+            routers,
+            self.gen,
+            windowed,
+            self.views.idx,
+            jobs,
+            self.rtt_seen,
         )
         wall = time.perf_counter() - t0
         delay = self.ctx.clock.charge("place", work=d.work, host_speed=self.hl.speed, wall_s=wall)

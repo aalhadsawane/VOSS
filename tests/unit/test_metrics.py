@@ -28,6 +28,15 @@ def test_classes_and_deadline_met() -> None:
     assert m.deadline_met(_inv(), 10.0) == pytest.approx(0.25)
 
 
+def test_a_forged_answer_is_wrong_and_not_met() -> None:
+    inv = _inv().assign(inv=range(len(_inv())), worker=[1] * len(_inv()))
+    ev = pd.DataFrame({"t": [1.0], "kind": ["adv_forge"], "inv": [0], "worker": [1]})
+    marked = m.mark_wrong(inv, ev)
+    assert m.classify(marked).iloc[0] == "wrong" and m.classify(inv).iloc[0] != "wrong"
+    assert m.deadline_met(marked, 0.0) == pytest.approx(m.deadline_met(inv, 0.0) - 1 / 5)  # 5 synchronous rows
+    assert not m.mark_wrong(inv, ev.iloc[0:0]).wrong.any()
+
+
 def test_censored_latency_flags_a_lower_bound() -> None:
     c = m.latency_censored(_inv(), 0.99, 10.0)
     assert c.censored == pytest.approx(0.5) and c.lower_bound

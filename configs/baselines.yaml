@@ -29,7 +29,7 @@ provisioning:
     overrides: [voss.planner.name=keepalive_ttl, voss.placer.sync=eviction_aware, voss.placer.async=eviction_aware]
     deviations:  # the paper's min-worker-set load balancer (§5.2, Algorithm 1); no new invocations under an eviction notice
       - "the consistent-hashing ring holds the candidates every system's placement sees, not every worker"
-      - "usable resources are concurrency slots and an invocation uses one slot; E(lat) is the observed execution time"
+      - "usable resources are free concurrency slots and an invocation uses one slot; E(lat) is the observed execution time"
       - "load is occupancy per slot (busy, queued and dispatched) in place of weighted CPU and memory utilisation"
       - "a volunteer session's end notice (draining) takes the role of the harvest VM's 30-second eviction notice"
   kpa:

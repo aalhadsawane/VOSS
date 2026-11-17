@@ -8,7 +8,7 @@ Every bundle entry the simulator reads (`measured/<name>` in `configs/substrates
 `voss/`) comes from a probe below; `check_bundle.simulator_entries` lists them and
 `tests/unit/test_calibrate_ingest.py` fails if one has no probe or a newly ingested bundle does not hold it as
 `measured` (guardrails 28, 29). Nothing is demanded that the simulator does not read, except the crypto and unseal
-probes of §2 that the paper's machine table reports (D-102).
+probes of §2 that the paper's machine table reports (D-103).
 
 Rules for every value:
 - tagged `measured`, with `n`, median, 5th and 95th percentile, and the raw samples kept in the raw archive;
@@ -61,7 +61,7 @@ entries: the real image (`appliance` suite, image mode) or the host-mode probe (
 kernel with wall-clock stamps. In image mode the suite also records each step (`boot_firmware`, `boot_loader`,
 `boot_quote`, `boot_verify`, `boot_first_tls`, `boot_total`) and, from inside the image, `image_mem` and
 `image_cache_bytes`; they are kept in the raw logs and may be reported, but no bundle entry and no check demands them,
-because the simulator reads none of them (D-102).
+because the simulator reads none of them (D-103).
 
 ## 4. Sandboxes (per storage tier; cold and warm page cache)
 

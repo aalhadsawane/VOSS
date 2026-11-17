@@ -161,7 +161,17 @@ and used load only to break ties; the paper has no such rule, and the rule sent 
 Deviations are listed in `configs/baselines.yaml`. *Rejected:* keeping the failure ranking with a capacity check (not
 the paper's algorithm).
 
-**D-102 The calibration contract demands what the simulator reads, and every such entry has a probe (guardrails
+**D-102 The watchdog timer is the quantile of the attempt as the scheduler times it (doc 07 §2, plan V7.1,
+development log iteration 2).** The timer's network is the scheduler-worker round trip the scheduler last observed to
+that worker (dispatch to `ACCEPTED`), or its distance estimate before the first exchange; execution starts no earlier
+than the input arrives from the router (`(rtt(S, R) + rtt(R, W) − rtt(S, W)) / 2` after the dispatch is received, plus
+the transfer); the deadline-fit check keeps the router's view. *Why:* the timer runs from the dispatch at the scheduler
+to the outcome there, but its quantile used the router-worker network and left out the wait for the input; 75% (sync)
+and 53% (async) of first attempts overran a q95 timer, and VOSS made 1.45 attempts per invocation. Afterwards 12% and
+10% overran, and 1.10 attempts. *Consequence:* VOSS met fewer deadlines without dropping owners (development log): its
+early backups had been acting as hedges. *Rejected:* a margin on the timer (a constant fitted to the overrun).
+
+**D-103 The calibration contract demands what the simulator reads, and every such entry has a probe (guardrails
 28, 29; rule 32).** node01 and node02 delivered bundles in which `dispatch`, `kbs_check_s`, `snapshot_touched_frac` and
 the TME factors still held placeholder values, while `check_bundle` demanded image-mode boot steps and idle image
 memory that no code reads. The required set is now derived, not listed: every `measured/<name>` in

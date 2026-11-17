@@ -50,3 +50,7 @@ def test_min_worker_set_is_algorithm_1_of_the_harvest_paper() -> None:
     assert len(worker_set("f", workers, slots, 100.0)) == 10  # more than the pool: every worker (JSQ)
     rest = workers[workers != workers[one[0]]]
     assert worker_set("f", rest, np.full(9, 2), 0.5)[0] == list(rest).index(workers[after[1]])  # consistent hashing
+    busy_home = slots.copy()
+    busy_home[after[0]] = 0  # the home worker has no usable resources left: the set grows past it
+    assert list(worker_set("f", workers, busy_home, 0.5)) == after[:2]
+    assert list(worker_set("f", workers, slots, 0.0)) == after[:1]
