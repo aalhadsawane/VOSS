@@ -68,7 +68,7 @@ def test_the_existing_spec_file_has_every_contract_field() -> None:
     assert cb.check_spec(REPO / "calibration" / "specs" / "i7-12700-64g") == []
 
 
-def test_placeholder_entries_and_one_tme_phase_are_reported_missing(tmp_path: Path, capsys) -> None:  # type: ignore[no-untyped-def]
+def test_placeholder_entries_are_reported_missing(tmp_path: Path, capsys) -> None:  # type: ignore[no-untyped-def]
     """A bundle entry the simulator reads that still holds the placeholder (tag assumed) is an error, by name."""
     b = _good(tmp_path)
     d = yaml.safe_load((b / "distributions.yaml").read_text())
@@ -76,11 +76,11 @@ def test_placeholder_entries_and_one_tme_phase_are_reported_missing(tmp_path: Pa
     del d["distributions"]["tme_cpu_factor"]
     (b / "distributions.yaml").write_text(yaml.safe_dump(d))
     (b / "hardware.yaml").write_text(yaml.safe_dump({"classes": {}}))
-    assert cb.unmeasured(d["distributions"]) == ["dispatch", "tme_cpu_factor"]
+    assert cb.unmeasured(d["distributions"]) == ["dispatch"]  # TME factors are not read (D-104)
     assert cb.main([str(b)]) == 1
     out = capsys.readouterr().out
     assert "dispatch: missing, not measured (the bundle holds the placeholder, tag assumed)" in out
-    assert "tme_cpu_factor: missing, not measured (absent from the bundle; needs tme --phase on" in out
+    assert "tme_cpu_factor" not in out
     assert "hardware C0 ssd_read_MBps: missing" in out
 
 

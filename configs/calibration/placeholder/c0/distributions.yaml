@@ -16,5 +16,3 @@ distributions:
   dispatch:             {dist: lognormal, median: 0.002,  sigma: 0.3, tag: assumed,    source: "agent → warm VM vsock dispatch"}
   verify_s_per_MB:      {dist: const,     value: 0.0007,              tag: literature, source: "SHA-256 ~1.4 GB/s per core; TODO verify"}
   snapshot_touched_frac: {dist: const,    value: 0.3,                 tag: literature, source: "lazy restore touches a fraction of guest memory (REAP, FaaSnap)"}
-  tme_cpu_factor:       {dist: const,     value: 1.0,                 tag: assumed,    source: "TME overhead; TODO verify (P9 tme)"}
-  tme_mem_factor:       {dist: const,     value: 1.02,                tag: assumed,    source: "TME memory-bound overhead; TODO verify (P9 tme)"}

@@ -195,6 +195,15 @@ because a phase needs a BIOS change by the human. *Rejected:* keeping the placeh
 is not a measurement of the handler start), and rebuilding the guest images on measured nodes (it would change Python,
 packages and ffmpeg under the measured `sebs` results; `topup` copies only the new runner into the existing images).
 
+**D-104 Memory encryption is not modelled (owner's decision).** Both calibrated machines (i7-12700) advertise Intel
+TME in CPUID, but the firmware has it disabled (node01: MSR 0x982 = 1, locked off; node02: `x86/tme: not enabled by
+BIOS`), so its on/off overhead was not measured. The substrates use slowdown 1.0: run times are those measured, with
+memory encryption off. No hardware class sets `mem_encryption`, so no simulated owner is of class M; class M stays in
+the trust analysis (doc 04, D-84) and the paper states that its cost is not measured. `check_bundle` no longer demands
+the TME factors; the `tme` suite stays, and ingest writes the factors when a node measures both phases (reported in
+the machine table). *Why:* guardrails 28 and 29 forbid the assumed 1.02 factor that applied to every worker, and a BIOS
+change was declined. *Rejected:* enabling TME on node02 for one measurement (owner's choice).
+
 ## v1 decisions (D-01 to D-80)
 
 **D-01 Custom Python discrete-event simulator.** FaaS physics is small; solver wall time must enter simulated time;
