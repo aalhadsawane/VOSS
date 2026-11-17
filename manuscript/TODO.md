@@ -65,6 +65,8 @@ generated macro or table.
 | Id | File | What is missing |
 |---|---|---|
 | T46 | `design.tex` | The provisioning period, the certificate renewal period and the keep-alive time of the fixed baseline are not in Table~\ref{tab:constants}: their class in the parameter ledger is not final. |
+| T47 | `design.tex` | $\epsilon = 0.05$ and the weight $0.3$ of invocations without a waiting client are class \emph{pending} in the parameter ledger: either list them in Table~\ref{tab:constants} with their basis and report their sensitivity, or replace~\eqref{eq:place} by the order ``lowest miss probability, then lowest expected completion'', which has no weight. |
+| T48 | `design.tex` | The prior $(a_0, b_0)$, the pessimistic prior and the drift $k$ of~\eqref{eq:drop}, and the limit of three attempts, are not in Table~\ref{tab:constants}; add them with their class from the parameter ledger. |
 
 ## Not tied to a marker
 
