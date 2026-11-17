@@ -1,0 +1,28 @@
+[sudo] password for USER: before 81dbeb4ef46a54c59c7fff01c8cb36a78576a7b0bd70423d266efeb70206563d  /home/USER/voss-calib/assets/voss-guest.ext4
+4f98d1d5897b8ef4e59756b0551e9db0e10682affb5d41831803ad046659b4c3  /home/USER/voss-calib/assets/voss-guest.ext4
+before 14e4b0ee47702712be4ab2b7cd937fbc035e72923214b022f4c311c30514ae7d  /home/USER/voss-calib/assets/voss-guest-ml.ext4
+e999d30bbfc250bbb7d9528549a952bdcb10a605d7c96e01023bb1b5db45003f  /home/USER/voss-calib/assets/voss-guest-ml.ext4
+waiting for load average < 0.5 (now 0.78)
+TME is off in the firmware: tme suite not run (tme_cpu_factor, tme_mem_factor stay missing)
+stage=topup utc=2026-11-17T15:57:24Z commit=6ee0fc68c0243288a8dad9767dc7b9adb6effb7b
+virt=none
+governor=performance 
+intel_no_turbo=0
+boost=n/a
+on_mains=n/a
+loadavg=0.38 0.30 0.17 nproc=20
+thermal_msgs=0
+tpm: ok
+disk: ok
+keys: ok
+fc_dispatch: ok
+fn_inputs: ok
+fc_touched: ok
+stage=topup-end utc=2026-11-17T16:39:30Z commit=6ee0fc68c0243288a8dad9767dc7b9adb6effb7b
+virt=none
+governor=performance 
+intel_no_turbo=0
+boost=n/a
+on_mains=n/a
+loadavg=1.66 1.58 1.47 nproc=20
+thermal_msgs=0

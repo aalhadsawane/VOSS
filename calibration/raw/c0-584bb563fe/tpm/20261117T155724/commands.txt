@@ -1,0 +1,54 @@
+tpm2_createprimary -C o -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/prim.ctx
+tpm2_createpolicy --policy-pcr -l sha256:7,11 -L calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/pcr.policy
+tpm2_create -C calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/prim.ctx -L calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/pcr.policy -i calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/secret.bin -u calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.pub -r calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.priv
+tpm2_load -C calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/prim.ctx -u calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.pub -r calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.priv -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin
+tpm2_unseal -c calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/seal.ctx -p pcr:sha256:7,11 -o calibration/raw/c0-584bb563fe/tpm/20261117T155724/tpm/unsealed.bin

@@ -1,47 +1,42 @@
 distributions:
   appliance_userspace:
-    dist: empirical
-    quantiles:
-    - 6.45
-    - 6.523
-    - 6.596
-    - 6.6690000000000005
-    - 6.742
-    - 6.8149999999999995
-    - 6.888
-    - 6.961
-    - 7.034
-    - 7.107
-    - 7.18
-    - 8.190000000000001
-    - 9.200000000000003
-    - 10.21
-    - 11.220000000000002
-    - 12.23
-    - 13.240000000000002
-    - 14.250000000000004
-    - 15.260000000000002
-    - 16.270000000000003
-    - 17.28
-    source: appliance/appliance_userspace; harness 0.1.0
-    tag: measured
+    dist: lognormal
+    median: 4.0
+    sigma: 0.2
+    source: systemd minimal userspace + dm-verity; TODO verify (P9 appliance)
+    tag: assumed
   decrypt_per_MB:
     dist: const
     source: keys/decrypt_per_MB; harness 0.1.0; AES-256-GCM, 1 MB blocks
     tag: measured
     value: 0.00012602237415345227
   dispatch:
-    dist: lognormal
-    median: 0.002
-    sigma: 0.3
-    source: "agent \u2192 warm VM vsock dispatch"
-    tag: assumed
-  drtm_launch:
-    dist: lognormal
-    median: 2.0
-    sigma: 0.3
-    source: DRTM late launch + measurement, no reboot
-    tag: assumed
+    dist: empirical
+    quantiles:
+    - 6.834900000285415e-05
+    - 7.168490014919371e-05
+    - 7.224169996788987e-05
+    - 7.257360005041846e-05
+    - 7.276019991877546e-05
+    - 7.292325005892053e-05
+    - 7.324290002088673e-05
+    - 7.346689999394584e-05
+    - 7.369320001089363e-05
+    - 7.422260008524973e-05
+    - 7.489100005386717e-05
+    - 7.554790007588963e-05
+    - 7.663919996048209e-05
+    - 7.786959998838938e-05
+    - 7.924879994334333e-05
+    - 8.083625004928763e-05
+    - 8.298319985442504e-05
+    - 8.453505012084861e-05
+    - 8.671400012190133e-05
+    - 9.099204997937704e-05
+    - 0.00023757200006002677
+    source: fc_dispatch/dispatch_warm; harness 0.1.0; new vsock connection to a warm sandbox until the handler starts, plus
+      one guest-to-host message
+    tag: measured
   fc_boot:
     dist: empirical
     quantiles:
@@ -93,7 +88,7 @@ distributions:
     - 0.002438804879784584
     - 0.002537946216762066
     source: fc_snapshot/fc_restore_api [cache=warm, mem_mb=512, tier=nvme]; harness 0.1.0; load API; page reads are modeled
-      separately
+      separately (snapshot_touched_frac)
     tag: measured
   fc_snapshot_create:
     dist: empirical
@@ -122,11 +117,31 @@ distributions:
     source: fc_snapshot/fc_snapshot_create [mem_mb=512, tier=nvme]; harness 0.1.0
     tag: measured
   kbs_check_s:
-    dist: lognormal
-    median: 0.002
-    sigma: 0.3
-    source: KBS policy check
-    tag: assumed
+    dist: empirical
+    quantiles:
+    - 0.0001420640001015272
+    - 0.00017432939999935116
+    - 0.0001866417999735859
+    - 0.00018847450004386702
+    - 0.0002029063999088976
+    - 0.00021424824996074676
+    - 0.0002885568999090538
+    - 0.00028984524999486894
+    - 0.0002906639998855098
+    - 0.00029129005007462184
+    - 0.00029185099992901087
+    - 0.00029242804996556517
+    - 0.0002933723999376525
+    - 0.00029432635006969575
+    - 0.000295581300088088
+    - 0.0002965417500604417
+    - 0.00029734399995504643
+    - 0.00029804665006167853
+    - 0.0002994124001133969
+    - 0.0003012331499917309
+    - 0.0005883619999167422
+    source: 'keys/kbs_check; harness 0.1.0; key service, server side: certificate signature, policy, budget, RSA-OAEP wrap'
+    tag: measured
   key_release:
     dist: empirical
     quantiles:
@@ -154,46 +169,38 @@ distributions:
     source: keys/key_request; harness 0.1.0; loopback TLS request + RSA-2048 unwrap
     tag: measured
   reboot_to_kernel:
+    dist: lognormal
+    median: 15.0
+    sigma: 0.2
+    source: consumer UEFI POST + shim + UKI; TODO verify (P9 appliance)
+    tag: assumed
+  snapshot_touched_frac:
     dist: empirical
     quantiles:
-    - 20.210187911987305
-    - 20.23326880931854
-    - 20.25634970664978
-    - 20.27943060398102
-    - 20.302511501312257
-    - 20.325592398643494
-    - 20.34867329597473
-    - 20.371754193305968
-    - 20.39483509063721
-    - 20.417915987968446
-    - 20.440996885299683
-    - 37.16593790054323
-    - 53.89087891578677
-    - 70.61581993103027
-    - 87.34076094627383
-    - 104.06570196151733
-    - 120.79064297676088
-    - 137.51558399200442
-    - 154.24052500724792
-    - 170.96546602249148
-    - 187.69040703773499
-    source: appliance/reboot_to_kernel; harness 0.1.0; firmware + loader + kernel (systemd-analyze)
+    - 0.006840705871582031
+    - 0.006840705871582031
+    - 0.024452304840087896
+    - 0.026409149169921875
+    - 0.029275512695312502
+    - 0.030701637268066406
+    - 0.03383283615112306
+    - 0.03458595275878906
+    - 0.034610748291015625
+    - 0.03461179733276367
+    - 0.03608512878417969
+    - 0.037525177001953125
+    - 0.037580108642578124
+    - 0.03758430480957031
+    - 0.057412338256836684
+    - 0.1038818359375
+    - 0.11132278442382823
+    - 0.14108657836914062
+    - 0.16703071594238503
+    - 0.40009708404541017
+    - 0.4001312255859375
+    source: fc_touched/snapshot_touched_frac [cache=cold, tier=nvme]; harness 0.1.0; read_bytes of a cold restore + first
+      invocation / memory file size, all functions
     tag: measured
-  snapshot_touched_frac:
-    dist: const
-    source: lazy restore touches a fraction of guest memory (REAP, FaaSnap)
-    tag: literature
-    value: 0.3
-  tme_cpu_factor:
-    dist: const
-    source: TME overhead; TODO verify (P9 tme)
-    tag: assumed
-    value: 1.0
-  tme_mem_factor:
-    dist: const
-    source: TME memory-bound overhead; TODO verify (P9 tme)
-    tag: assumed
-    value: 1.02
   tpm2_quote:
     dist: empirical
     quantiles:
@@ -219,6 +226,32 @@ distributions:
     - 0.19469714709557592
     - 0.19534935103729367
     source: tpm/tpm2_quote; harness 0.1.0; one tpm2_quote process (includes tool start-up, see probe baseline)
+    tag: measured
+  tpm2_unseal:
+    dist: empirical
+    quantiles:
+    - 0.09666211400008251
+    - 0.09691269190000185
+    - 0.09693259190000844
+    - 0.09694070840007499
+    - 0.0969475405999674
+    - 0.09695914000002404
+    - 0.09697391510001126
+    - 0.09725582030008581
+    - 0.09750362139989192
+    - 0.09769360795000921
+    - 0.09775832150000952
+    - 0.09781773779984633
+    - 0.09787789919992065
+    - 0.09794976520009868
+    - 0.09795579500002986
+    - 0.09797552649985164
+    - 0.09801999579985932
+    - 0.09812011520014038
+    - 0.09826520599995092
+    - 0.09891811185008237
+    - 0.09913158500012287
+    source: tpm/tpm2_unseal; harness 0.1.0; PCR-policy unseal, one tpm2_unseal process
     tag: measured
   verify_s:
     dist: empirical
@@ -248,9 +281,9 @@ distributions:
     tag: measured
   verify_s_per_MB:
     dist: const
-    source: disk/sha256_MBps; harness 0.1.0; single-core SHA-256
+    source: disk/hash_per_MB; harness 0.1.0; single-core SHA-256
     tag: measured
-    value: 0.00044222370343049994
+    value: 0.00045127756445317857
 harness_version: 0.1.0
 host: node01-i7-12700-64g-nvme_nvme
 measured: true
