@@ -16,7 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from voss.core.config import ScenarioConfig
 from voss.core.paths import load_data_yaml
 from voss.core.rng import RngFactory
-from voss.world.calibration import function_overrides
+from voss.world.calibration import function_overrides, function_sizes
 from voss.world.config_merge import merged
 from voss.world.geo import Metros, diurnal, local_hour
 
@@ -122,7 +122,7 @@ def load_catalog(sc: ScenarioConfig, calibration: str | None = None) -> Catalog:
     if reg.trace:  # the trace's functions and owners replace the catalog (plan V9.1)
         from voss.world.trace_load import trace_catalog  # noqa: PLC0415  (trace_load imports this module)
 
-        traced = trace_catalog(reg, Catalog(fns, ten))
+        traced = trace_catalog(reg, Catalog(fns, ten), function_sizes(calibration))
         fns, ten = traced.functions, traced.tenants
     known = {t.id for t in ten}
     for f in fns:

@@ -29,3 +29,14 @@ def function_overrides(calibration: str | None) -> dict[str, dict[str, float]]:
         name: {k: float(v) for k, v in prof.items() if k in FN_FIELDS and v is not None}
         for name, prof in sorted(fns.items())
     }
+
+
+def function_sizes(calibration: str | None) -> dict[str, dict[float, float]]:
+    """Measured median handler seconds per input size (``exec_by_size``) per function; empty for bundles without
+    them (plan V9.1: trace functions are mapped across every measured (function, input size) profile)."""
+    fns = bundle_file(calibration, "functions").get("functions") or {}
+    return {
+        name: {float(k): float(row["median_s"]) for k, row in sorted((prof.get("exec_by_size") or {}).items())}
+        for name, prof in sorted(fns.items())
+        if prof.get("exec_by_size")
+    }
