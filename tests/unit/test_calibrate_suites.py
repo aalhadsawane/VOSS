@@ -561,7 +561,8 @@ def test_node_run_plans_name_real_suites_and_parts() -> None:
 
     text = (HOST.parents[1] / "node_run.sh").read_text()
     plans = dict(re.findall(r"^\s*([a-z |]+)\) PLAN=\((.*)\) ;;$", text, re.M))
-    assert set(plans) == {"quick | full", "ml", "topup"}
+    assert set(plans) == {"quick | full", "ml", "topup", "inputs"}
+    assert plans["inputs"].split() == ["fn_inputs"]
     assert set(plans["quick | full"].split()) == set(harness.SAFE_DEFAULT)
     topup = [item.strip('"').split() for item in re.findall(r'"[^"]+"|\S+', plans["topup"])]
     assert {i[0] for i in topup} == {"tpm", "disk", "keys", "fc_dispatch", "fn_inputs", "fc_touched"}
@@ -643,3 +644,18 @@ def test_host_dispatch_speaks_firecrackers_vsock_handshake(tmp_path: Path) -> No
     assert seen == [f"CONNECT {fc_dispatch.PORT}\n".encode()]
     assert secs > 0 and handler_s == pytest.approx(0.004) and rtt > 0
     assert fc_dispatch.REPS >= 200
+
+
+def test_every_line_kind_the_guest_prints_reaches_the_host() -> None:
+    """node02's topup: ``fn_inputs`` ran 40 minutes and recorded nothing, because the console reader did not match the
+    guest's ``VOSS_GEN`` lines. Every ``VOSS_<KIND>`` the guest runner prints must match ``fc.MARK``."""
+    import re
+
+    from tools.calibrate import fc
+
+    src = (Path(fc.__file__).parent / "guest" / "fnrunner.py").read_text()
+    kinds = set(re.findall(r'print\(f?"VOSS_([A-Z]+) ', src))
+    assert {"GEN", "EXEC", "INIT", "MARK"} <= kinds
+    for kind in kinds:
+        m = fc.MARK.search(f"VOSS_{kind} compression 500 0 0.001")
+        assert m is not None and m.group(1) == kind

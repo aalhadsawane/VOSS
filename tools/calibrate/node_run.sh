@@ -9,11 +9,12 @@
 #   bash tools/calibrate/node_run.sh ingest <label> <tier> ...         # Part D: one bundle per disk tier (~15 min)
 #   bash tools/calibrate/node_run.sh ml     <label> <tier>=<dir> ...   # only for nodes measured before the ML image
 #                                         existed: builds it and measures image-recognition alone (~1-1.5 h)
+#   bash tools/calibrate/node_run.sh inputs <label> <tier>=<dir> ...   # only for nodes whose topup ran on 82e4f794
 #   bash tools/calibrate/node_run.sh topup  <label> <tier>=<dir> ...   # only for nodes measured on lock 1de5d147:
 #                                         the probes added since (NODE_PLAN.md §5a), nothing else (~1-2 h)
 #
 # <tier> is nvme, sata or hdd: one scratch directory on EVERY disk class the node has (NODE_PLAN.md §2). The measuring
-# stages (quick, full, ml, topup) refuse to start if a disk class in the node's spec has no scratch directory, if the
+# stages (quick, full, ml, topup, inputs) refuse to start if a disk class in the node's spec has no scratch directory, if the
 # CPU governor is not 'performance', or if the 1-minute load average does not fall below 0.5 within 30 minutes
 # (NODE_PLAN.md §4 rule 4; exit 6).
 #
@@ -26,7 +27,7 @@ set -Eeuo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO=$(cd "$HERE/../.." && pwd)
 cd "$REPO"
-STAGE=${1:?usage: node_run.sh <spec|setup|quick|full|ml|topup|ingest> <label> ...}
+STAGE=${1:?usage: node_run.sh <spec|setup|quick|full|ml|topup|inputs|ingest> <label> ...}
 LABEL=${2:?label required (NODE_PLAN.md §3)}
 shift 2
 [[ "$LABEL" =~ ^node[0-9]{2}-[a-z0-9.-]+$ ]] || { echo "label must look like node03-i5-8250u-8g-ssd" >&2; exit 2; }
@@ -127,8 +128,10 @@ plan_for() {  # the suites of a measuring stage, in the fixed order; "<suite> ke
     ml) PLAN=("sebs functions=image-recognition") ;;
     # what lock 1de5d147 did not measure (NODE_PLAN.md §5a); every other probe of that lock stays valid
     topup) PLAN=("tpm only=unseal" "disk only=hash" "keys only=kbs_check" fc_dispatch fn_inputs fc_touched) ;;
+    # nodes whose topup ran on lock 82e4f794: fn_inputs recorded nothing there (fc.MARK missed VOSS_GEN lines)
+    inputs) PLAN=(fn_inputs) ;;
   esac
-  [ "$1" = ml ] && return 0
+  [ "$1" = ml ] || [ "$1" = inputs ] && return 0
   TME=$(sudo -n "$PY" -m tools.calibrate.suites.tme state || echo unknown)
   if [ "$TME" = on ]; then
     PLAN+=("tme phase=on")  # the firmware's current phase: no BIOS change; the off phase is the human's (§5a)
@@ -210,6 +213,9 @@ case "$STAGE" in
     timed topup update_runner sudo sh tools/calibrate/guest/update_runner.sh "$ASSETS"
     (cd "$ASSETS" && sha256sum voss-guest.ext4 voss-guest-ml.ext4) | sed 's/^/topup /' >> "$OUT/assets.sha256"
     measure topup "$@"
+    ;;
+  inputs)  # nodes whose topup ran on lock 82e4f794: input generation times only (NODE_PLAN.md §5a)
+    measure inputs "$@"
     ;;
   ingest)
     [ "$#" -ge 1 ] || { echo "ingest needs the tiers measured: nvme, sata and/or hdd" >&2; exit 2; }
