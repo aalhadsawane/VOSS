@@ -19,7 +19,8 @@ Frame = Callable[[str], pd.DataFrame]
 
 def summarize(frame: Frame, warmup_s: float, t_end: float) -> dict[str, Any]:
     """Metrics of one run; ``frame(table)`` returns a logged table (``Recorder.frame`` or a Parquet reader)."""
-    inv, ev = frame("invocations"), frame("events")
+    ev = frame("events")
+    inv = m.mark_wrong(frame("invocations"), ev)
     p99 = m.latency_censored(inv, 0.99, warmup_s)
     keys = sorted(set(ev.tenant.dropna())) if "tenant" in ev else []
     hold = [m.holders(ev, k, warmup_s, t_end) for k in keys]
@@ -28,6 +29,8 @@ def summarize(frame: Frame, warmup_s: float, t_end: float) -> dict[str, Any]:
     fu = m.function_utilisation(inv, ev, warmup_s, t_end)
     return {
         "deadline_met": m.deadline_met(inv, warmup_s),
+        "forged_results": int(((ev.kind == "adv_forge") & (ev.t >= warmup_s)).sum()) if "kind" in ev else 0,
+        "wrong_answers": int(inv[inv.t_arrive >= warmup_s].wrong.sum()),  # every class: forged answers returned
         "p50_s": m.latency_censored(inv, 0.50, warmup_s).value,
         "p99_s": p99.value,
         "p99_lower_bound": p99.lower_bound,
