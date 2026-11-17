@@ -38,7 +38,10 @@ def raw(tmp_path: Path) -> Path:
     boot = [{"probe": "fc_boot", "value": 0.12, "config": {"mem_mb": 256, "tier": "ssd", "cache": "warm"}}]
     boot.append({"probe": "fc_boot", "value": 9.0, "config": {"mem_mb": 2048, "tier": "hdd", "cache": "cold"}})
     _run(root, "fc_boot", "r1", boot)
-    disk = [{"probe": "ssd_seq_read_MBps", "value": 5000.0, "unit": "MBps"}, {"probe": "sha256_MBps", "value": 2000.0}]
+    disk = [
+        {"probe": "ssd_seq_read_MBps", "value": 5000.0, "unit": "MBps"},
+        {"probe": "hash_per_MB", "value": 1 / 2000.0},
+    ]
     _run(root, "disk", "r1", disk)
     _run(root, "tme", "on", [{"probe": "stream_triad", "value": 90.0}], phase="on")
     _run(root, "tme", "off", [{"probe": "stream_triad", "value": 100.0}], phase="off")
@@ -114,7 +117,7 @@ def test_committed_measured_bundle_is_complete_and_its_hash_is_documented() -> N
 
     name = "laptop-b9212a4528"
     measured = load_bundle(f"calibration/measured/{name}")
-    assert set(measured) == set(load_bundle("calibration/placeholder/c0"))
+    assert set(measured) >= set(load_bundle("calibration/placeholder/c0"))  # drtm_launch left the placeholder later
     assert {d.tag for d in measured.values()} >= {"measured", "assumed"}
     digest = hash_dir(REPO / "configs" / "calibration" / "measured" / name)
     assert digest in (REPO / "docs" / "validation" / "README.md").read_text()
@@ -144,3 +147,84 @@ def test_ingest_label_versions_a_bundle_without_copying_raw(raw: Path) -> None:
     assert files["distributions.yaml"]["host"] == "c0-test-v2"
     assert files["meta.yaml"]["bundle"] == "c0-test-v2" and files["meta.yaml"]["raw_host"] == "c0-test"
     assert all(k.startswith("c0-test/") for k in files["meta.yaml"]["raw_files"])  # raw paths stay real
+
+
+def _rows(probe: str, scale: float, **cfg: Any) -> list[dict[str, Any]]:
+    """200 samples spread +-10% around ``scale``."""
+    return [
+        {"probe": probe, "value": float(v) * scale, "rep": i, "config": cfg}
+        for i, v in enumerate(np.linspace(0.9, 1.1, 200))
+    ]
+
+
+def _full_node(root: Path, tme_phases: tuple[str, ...] = ("on", "off")) -> Path:
+    """Raw logs as one node's measuring stages write them: every probe a bundle entry comes from, with the suites'
+    own probe names and config keys (NVMe tier)."""
+    raw, fn = root / "raw", {"fn": "thumbnailer", "size_kb": 50}
+    _run(raw, "tpm", "r1", _rows("tpm2_quote", 0.19) + _rows("tpm2_unseal", 0.1))
+    _run(raw, "attest_local", "r1", _rows("attest_verify", 0.006))
+    keys = _rows("key_request", 0.04) + _rows("kbs_check", 5e-4)
+    _run(raw, "keys", "r1", [*keys, {"probe": "key_unwrap", "value": 4e-4}, {"probe": "decrypt_per_MB", "value": 1e-4}])
+    disk = _rows("hash_per_MB", 4.4e-4) + _rows("nvme_seq_read_MBps", 6000.0) + _rows("nvme_seq_write_MBps", 4000.0)
+    _run(raw, "disk", "r1", disk)
+    _run(raw, "fc_boot", "r1", _rows("fc_boot", 0.045, mem_mb=256, tier="nvme", cache="warm"))
+    snap = _rows("fc_restore_api", 0.0023, mem_mb=512, tier="nvme", cache="warm")
+    _run(raw, "fc_snapshot", "r1", snap + _rows("fc_snapshot_create", 0.25, mem_mb=512, tier="nvme"))
+    _run(raw, "fc_dispatch", "r1", _rows("dispatch_warm", 0.001, **fn))
+    _run(raw, "fc_touched", "r1", _rows("snapshot_touched_frac", 0.2, tier="nvme", cache="cold", **fn))
+    _run(raw, "appliance", "r1", _rows("reboot_to_kernel", 20.0) + _rows("appliance_userspace", 7.0))
+    _run(raw, "fn_inputs", "r1", _rows("fn_input_gen", 0.01, **fn))
+    _run(raw, "sebs", "r1", _rows("sebs_exec", 0.002, concurrency=1, **fn))
+    for phase in tme_phases:
+        slow = 1.05 if phase == "on" else 1.0
+        tme = _rows("stream_triad", 100.0 / slow) + _rows("sebs_exec", 0.002 * slow, concurrency=1, **fn)
+        _run(raw, "tme", phase, tme, phase=phase)
+    _run(raw, "tpm", "quick", _rows("tpm2_quote", 9.0), quick=True)  # a smoke pass: never ingested
+    return raw
+
+
+def _write(files: dict[str, Any], out: Path) -> Path:
+    out.mkdir()
+    for name, data in files.items():
+        (out / name).write_text(yaml.safe_dump(data))
+    return out
+
+
+def test_every_simulator_entry_has_a_probe() -> None:
+    """Guardrails 28-29: each bundle entry a substrate or voss/ reads comes from a harness probe (mapping.yaml)."""
+    from tools.calibrate import check_bundle
+
+    mapping = yaml.safe_load((REPO / "tools/calibrate/mapping.yaml").read_text())
+    have = set(mapping["distributions"]) | set(mapping["ratios"])
+    entries = check_bundle.simulator_entries()
+    assert {"dispatch", "kbs_check_s", "snapshot_touched_frac", "tme_cpu_factor", "tpm2_quote"} <= entries
+    assert entries <= have, entries - have
+    assert entries <= set(check_bundle.REQUIRED) | set(check_bundle.RATIOS)
+
+
+def test_a_newly_ingested_bundle_has_every_simulator_entry_measured(tmp_path: Path) -> None:
+    from tools.calibrate import check_bundle
+
+    _, files = ingest.build(_full_node(tmp_path), "c0-test", PLACEHOLDER, tier="nvme")
+    dists = files["distributions.yaml"]["distributions"]
+    assert check_bundle.unmeasured(dists) == []
+    assert dists["tpm2_quote"]["quantiles"][-1] < 1.0  # the quick run is left out
+    assert dists["tme_cpu_factor"]["value"] == pytest.approx(1.05)
+    assert files["hardware.yaml"]["classes"]["C0"]["ssd_read_MBps"] == pytest.approx(6000.0)  # the tier's own disk
+    th = files["functions.yaml"]["functions"]["thumbnailer"]
+    assert th["input_gen_by_size"] == {50: pytest.approx(0.01)}
+    assert th["snapshot_touched_frac"] == pytest.approx(0.2)
+    errors = check_bundle.check_distributions(_write(files, tmp_path / "bundle"))
+    assert errors == [], errors
+
+
+def test_tme_factors_stay_missing_with_one_phase(tmp_path: Path) -> None:
+    """Both nodes so far had TME disabled in firmware: one phase gives no factor, and check_bundle says so."""
+    from tools.calibrate import check_bundle
+
+    _, files = ingest.build(_full_node(tmp_path, ("off",)), "c0-test", PLACEHOLDER, tier="nvme")
+    dists = files["distributions.yaml"]["distributions"]
+    assert check_bundle.unmeasured(dists) == ["tme_cpu_factor", "tme_mem_factor"]
+    assert {"tme_cpu_factor", "tme_mem_factor"} <= set(files["meta.yaml"]["missing"])
+    errors = check_bundle.check_distributions(_write(files, tmp_path / "bundle"))
+    assert len(errors) == 2 and all("missing, not measured" in e and "--phase on" in e for e in errors)

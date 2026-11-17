@@ -12,7 +12,7 @@ import pytest
 from tools.calibrate import run as harness
 from tools.calibrate.common import Records, Shell
 from tools.calibrate.fc import MARK, boot_args
-from tools.calibrate.suites import Ctx, appliance, caps, disk, fc_snapshot, sebs, tme
+from tools.calibrate.suites import Ctx, appliance, caps, disk, fc_snapshot, registry, sebs, tme
 
 GETCAP = (
     'TPM2_PT_FAMILY_INDICATOR:\n  raw: 0x322E3000\n  value: "2.0"\n'
@@ -97,7 +97,7 @@ def test_appliance_arm_needs_allow_reboot_even_inside_the_suite(tmp_path: Path) 
     assert ctx.sh.log == []
 
 
-@pytest.mark.parametrize("suite", ["caps", "disk", "fc_boot", "fc_snapshot", "sebs", "tpm", "attest_local", "keys"])
+@pytest.mark.parametrize("suite", sorted(harness.SAFE_DEFAULT))
 def test_dry_run_of_every_safe_suite(suite: str, tmp_path: Path) -> None:
     opts = ["kernel=/a/vmlinux", "rootfs=/a/r.ext4", "sebs_rootfs=/a/s.ext4", "ssd_dir=" + str(tmp_path / "ssd")]
     argv = ["--suite", suite, "--dry-run", "--quick", "--out", str(tmp_path)]
@@ -465,3 +465,181 @@ def test_only_image_recognition_uses_the_ml_guest_image(tmp_path: Path) -> None:
     ctx = _ctx(tmp_path, kernel="/a/k", firecracker="/a/fc", sebs_rootfs="/a/base.ext4", sebs_ml_rootfs="/a/ml.ext4")
     assert sebs.guest_assets(ctx, "image-recognition").rootfs == "/a/ml.ext4"
     assert {sebs.guest_assets(ctx, f).rootfs for f in sebs.SIZES if f not in sebs.ML_FUNCTIONS} == {"/a/base.ext4"}
+
+
+def _cmds(ctx) -> str:  # type: ignore[no-untyped-def]
+    return "\n".join(ctx.sh.log)
+
+
+def test_only_runs_the_named_parts_of_a_suite(tmp_path: Path) -> None:
+    """node_run.sh topup fills in probes added after a node measured, without repeating the rest (NODE_PLAN §5a)."""
+    from tools.calibrate.suites import tpm
+
+    ctx = _ctx(tmp_path, only="unseal")
+    tpm.run(ctx)
+    assert "tpm2_unseal" in _cmds(ctx) and "tpm2_quote" not in _cmds(ctx) and "tpm2_getrandom" not in _cmds(ctx)
+    assert tpm.UNSEAL_REPS >= 50
+    ctx = _ctx(tmp_path / "d", only="hash")  # no scratch directory needed, no fio
+    disk.run(ctx)
+    rows = [json.loads(x) for x in ctx.rec.path.read_text().splitlines()]
+    assert {r["probe"] for r in rows} == {"hash_per_MB"} and len(rows) == ctx.reps(disk.HASH_REPS) and _cmds(ctx) == ""
+    assert disk.HASH_REPS >= 20
+
+
+def test_key_service_check_releases_within_the_budget_only() -> None:
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import ed25519, padding, rsa
+    from tools.calibrate.suites import keys
+
+    verifier, session = (
+        ed25519.Ed25519PrivateKey.generate(),
+        rsa.generate_private_key(public_exponent=65537, key_size=2048),
+    )
+    pem = session.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
+    kbs = keys.Kbs(verifier.public_key(), k=2)
+    wrapped = kbs.check(keys.session_request(verifier, pem.decode(), "w1"))
+    oaep = padding.OAEP(mgf=padding.MGF1(hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+    assert session.decrypt(wrapped, oaep) == kbs.fn_key
+    kbs.check(keys.session_request(verifier, pem.decode(), "w2"))
+    assert kbs.check(keys.session_request(verifier, pem.decode(), "w3")) == b"refused: budget"
+    forged = ed25519.Ed25519PrivateKey.generate()
+    with pytest.raises(InvalidSignature):
+        kbs.check(keys.session_request(forged, pem.decode(), "w1"))
+
+
+def test_tme_state_and_phase_guard(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    assert tme.bios_enabled("x86/tme: not enabled by BIOS", None) is False
+    assert tme.bios_enabled("x86/tme: enabled by BIOS\nx86/mktme: ...", None) is True
+    assert tme.bios_enabled("", 0b11) is True and tme.bios_enabled("", 0b01) is False  # MSR 0x982: lock, enable
+    assert tme.bios_enabled("", None) is None
+    monkeypatch.setattr(tme, "state", lambda sh: {"phase": "off", "cpuid": True, "msr": 1, "dmesg": True})
+    ctx = Ctx(Shell(), Records(tmp_path / "r.jsonl", "tme"), tmp_path, {}, phase="on")
+    with pytest.raises(RuntimeError, match="firmware's TME state is off"):
+        tme.run(ctx)
+    rows = [json.loads(x) for x in ctx.rec.path.read_text().splitlines()]
+    assert [r["probe"] for r in rows] == ["tme_state"]  # the state is recorded, nothing else is measured
+
+
+def test_tme_subset_runs_alone_and_without_snapshots(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    opts = {"kernel": "/a/k", "sebs_rootfs": "/a/r", "firecracker": "/a/fc", "functions": "thumbnailer"}
+    ctx = Ctx(Shell(dry_run=True), Records(tmp_path / "r.jsonl", "tme"), tmp_path, opts, phase="off")
+    tme.run(ctx)
+    assert _ran(capsys.readouterr().out) == ["fn=thumbnailer concurrency=1"]
+
+
+def test_touched_share_uses_the_catalogue_reference_size() -> None:
+    from tools.calibrate.suites import fc_touched
+
+    cat = "  - {name: thumbnailer, tenant: t, in_kb: 200, x: 1}\n  - {name: compression, in_kb: 2000}\n"
+    assert fc_touched.ref_size("thumbnailer", cat) == 200
+    assert fc_touched.ref_size("compression", cat) == 2000
+    assert fc_touched.ref_size("graph-bfs", cat) == 1  # not listed: the first size
+    assert fc_touched.ref_size("video-processing", "  - {name: video-processing, in_kb: 9000}") == 5000
+
+
+def test_fnrunner_times_each_input_build_and_never_the_handler(capsys: pytest.CaptureFixture[str]) -> None:
+    runner = _runner()
+    built: list[int] = []
+
+    class Fn:
+        @staticmethod
+        def make_input(size: int) -> int:
+            built.append(size)
+            return size
+
+    assert runner.make_inputs(Fn, "f", 7, 0) == 7 and capsys.readouterr().out == ""  # the sebs suite: one build, silent
+    assert runner.make_inputs(Fn, "f", 7, 3) == 7 and built == [7, 7, 7, 7]
+    lines = capsys.readouterr().out.splitlines()
+    assert [ln.split()[:4] for ln in lines] == [["VOSS_GEN", "f", "7", str(r)] for r in range(3)]
+    assert sebs.parse([ln.removeprefix("VOSS_GEN ") for ln in lines], "GEN")[0][:3] == ("f", 7, 0)
+
+
+def test_node_run_plans_name_real_suites_and_parts() -> None:
+    """Every suite and ``only=`` part the measuring stages of node_run.sh run exists in the harness."""
+    import re
+
+    text = (HOST.parents[1] / "node_run.sh").read_text()
+    plans = dict(re.findall(r"^\s*([a-z |]+)\) PLAN=\((.*)\) ;;$", text, re.M))
+    assert set(plans) == {"quick | full", "ml", "topup"}
+    assert set(plans["quick | full"].split()) == set(harness.SAFE_DEFAULT)
+    topup = [item.strip('"').split() for item in re.findall(r'"[^"]+"|\S+', plans["topup"])]
+    assert {i[0] for i in topup} == {"tpm", "disk", "keys", "fc_dispatch", "fn_inputs", "fc_touched"}
+    assert {i[0] for i in topup} <= set(registry())
+    parts = {i[0]: i[1].removeprefix("only=") for i in topup if len(i) > 1}
+    assert parts == {"tpm": "unseal", "disk": "hash", "keys": "kbs_check"}
+    for suite, part in parts.items():  # each named part exists in its suite: the source tests ctx.part("<part>")
+        src = (HOST.parents[1] / "suites" / f"{suite}.py").read_text()
+        assert f'ctx.part("{part}")' in src, (suite, part)
+
+
+def _runner():  # type: ignore[no-untyped-def]
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("fnrunner", HOST.parents[1] / "guest" / "fnrunner.py")
+    assert spec is not None and spec.loader is not None
+    runner = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(runner)
+    return runner
+
+
+def test_guest_dispatch_listener_answers_start_before_the_handler() -> None:
+    """The guest side of dispatch_warm, over TCP instead of vsock: START comes before the handler runs."""
+    import socket
+    import threading
+
+    order: list[str] = []
+
+    class Fn:
+        @staticmethod
+        def make_input(size: int) -> int:
+            return size
+
+        @staticmethod
+        def handler(inp: int) -> None:
+            order.append("handler")
+
+    ls = socket.create_server(("127.0.0.1", 0))
+    threading.Thread(target=_runner().vsock_serve, args=("f", Fn, {}, ls), daemon=True).start()
+    c = socket.create_connection(ls.getsockname(), timeout=5)
+    f = c.makefile("rwb", buffering=0)
+    f.write(b"PREP 3 p\n")
+    assert f.readline() == b"ACK p\n"
+    f.write(b"RUN 3 t1\n")
+    assert f.readline() == b"START t1\n"
+    order.append("start seen")
+    assert f.readline().split()[:4] == [b"EXEC", b"f", b"3", b"t1"]
+    f.write(b"PING 0 x\n")
+    assert f.readline() == b"ACK x\n" and "handler" in order
+    c.close()
+
+
+def test_host_dispatch_speaks_firecrackers_vsock_handshake(tmp_path: Path) -> None:
+    """``CONNECT <port>`` / ``OK <port>`` on Firecracker's Unix socket, then RUN → START, EXEC, PING → ACK."""
+    import socket
+    import threading
+
+    from tools.calibrate.suites import fc_dispatch
+
+    uds = str(tmp_path / "v.sock")
+    ls = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    ls.bind(uds)
+    ls.listen(1)
+    seen: list[bytes] = []
+
+    def guest() -> None:
+        conn, _ = ls.accept()
+        f = conn.makefile("rwb", buffering=0)
+        seen.append(f.readline())
+        f.write(b"OK 1073741824\n")
+        tag = f.readline().split()[2]
+        f.write(b"START " + tag + b"\nEXEC f 50 " + tag + b" 0.004\n")
+        f.readline()
+        f.write(b"ACK " + tag + b"\n")
+        conn.close()
+
+    threading.Thread(target=guest, daemon=True).start()
+    secs, handler_s, rtt = fc_dispatch.dispatch_once(uds, 50, "d0")
+    assert seen == [f"CONNECT {fc_dispatch.PORT}\n".encode()]
+    assert secs > 0 and handler_s == pytest.approx(0.004) and rtt > 0
+    assert fc_dispatch.REPS >= 200

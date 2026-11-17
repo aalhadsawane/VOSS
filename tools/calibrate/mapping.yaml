@@ -1,28 +1,28 @@
 # Which raw probes become which calibration-bundle entries (doc 10 §1). Read by tools/calibrate/ingest.py.
 # `where` filters on a record's config; `phase` pairs the two runs of a manual on/off suite. Entries without data
-# keep the placeholder bundle's value and tag (literature/assumed), as doc 10 §2 requires.
+# keep the placeholder bundle's value and tag (literature/assumed) so the simulator can load the bundle, and are listed
+# as missing in meta.yaml; check_bundle reports every one the simulator reads as an error (guardrails 28, 29).
+# Every entry the simulator reads (configs/substrates/*.yaml `measured/<name>`, and voss/) has a probe here; the test
+# tests/unit/test_calibrate_ingest.py::test_every_simulator_entry_has_a_probe enforces it.
 distributions:
   tpm2_quote: {suite: tpm, probe: tpm2_quote, note: "one tpm2_quote process (includes tool start-up, see probe baseline)"}
   verify_s: {suite: attest_local, probe: attest_verify, note: "checkquote + Ed25519 certificate signature; no Keylime policy evaluation"}
+  kbs_check_s: {suite: keys, probe: kbs_check, note: "key service, server side: certificate signature, policy, budget, RSA-OAEP wrap"}
   fc_boot: {suite: fc_boot, probe: fc_boot, where: {mem_mb: 256, tier: ssd, cache: warm}}
-  fc_restore: {suite: fc_snapshot, probe: fc_restore_api, where: {mem_mb: 512, tier: ssd, cache: warm}, note: "load API; page reads are modeled separately"}
+  fc_restore: {suite: fc_snapshot, probe: fc_restore_api, where: {mem_mb: 512, tier: ssd, cache: warm}, note: "load API; page reads are modeled separately (snapshot_touched_frac)"}
   fc_snapshot_create: {suite: fc_snapshot, probe: fc_snapshot_create, where: {mem_mb: 512, tier: ssd}}
-  reboot_to_kernel: {suite: appliance, probe: reboot_to_kernel, note: "firmware + loader + kernel (systemd-analyze)"}
+  dispatch: {suite: fc_dispatch, probe: dispatch_warm, note: "new vsock connection to a warm sandbox until the handler starts, plus one guest-to-host message"}
+  snapshot_touched_frac: {suite: fc_touched, probe: snapshot_touched_frac, where: {tier: ssd, cache: cold}, note: "read_bytes of a cold restore + first invocation / memory file size, all functions"}
+  reboot_to_kernel: {suite: appliance, probe: reboot_to_kernel, note: "firmware + loader + kernel"}
   appliance_userspace: {suite: appliance, probe: appliance_userspace}
-  verify_s_per_MB: {suite: disk, probe: sha256_MBps, transform: inverse, as: const, note: "single-core SHA-256"}
-  # v2 contract (docs/handoff/CALIBRATION_DATA_CONTRACT.md §2-3)
+  verify_s_per_MB: {suite: disk, probe: hash_per_MB, as: const, note: "single-core SHA-256"}
+  # contract entries the simulator does not read (docs/handoff/CALIBRATION_DATA_CONTRACT.md §2)
+  tpm2_unseal: {suite: tpm, probe: tpm2_unseal, note: "PCR-policy unseal, one tpm2_unseal process"}
   key_release: {suite: keys, probe: key_request, plus: {suite: keys, probe: key_unwrap}, note: "loopback TLS request + RSA-2048 unwrap"}
   decrypt_per_MB: {suite: keys, probe: decrypt_per_MB, as: const, note: "AES-256-GCM, 1 MB blocks"}
-  boot_firmware: {suite: appliance, probe: boot_firmware, note: "EFI LoaderTimeInitUSec"}
-  boot_loader: {suite: appliance, probe: boot_loader, note: "EFI LoaderTimeExecUSec - LoaderTimeInitUSec"}
-  boot_quote: {suite: appliance, probe: boot_quote}
-  boot_verify: {suite: appliance, probe: boot_verify, note: "local verifier, network excluded"}
-  boot_first_tls: {suite: appliance, probe: boot_first_tls}
-  boot_total: {suite: appliance, probe: boot_total, note: "power-on to first mutual-TLS connection of the image"}
-  image_mem_mb: {suite: appliance, probe: image_mem, as: const}
-ratios:
+ratios:  # written only when both phases were measured on the node
   tme_mem_factor: {suite: tme, probe: stream_triad, num: {phase: "off"}, den: {phase: "on"}, note: "triad bandwidth off/on"}
-  tme_cpu_factor: {suite: tme, probe: sebs_exec, num: {phase: "on"}, den: {phase: "off"}, group: [fn, size_kb], note: "SeBS subset exec on/off, geometric mean"}
+  tme_cpu_factor: {suite: tme, probe: sebs_exec, where: {concurrency: 1}, num: {phase: "on"}, den: {phase: "off"}, group: [fn, size_kb], note: "SeBS subset exec on/off at concurrency 1, geometric mean"}
 hardware:
   C0:
     ssd_read_MBps: {suite: disk, probe: ssd_seq_read_MBps}

@@ -17,13 +17,27 @@ from pathlib import Path
 from tools.calibrate.common import Records, Shell, SuiteSkipped, fingerprint, host_meta
 from tools.calibrate.suites import Ctx, Suite, registry
 
-SAFE_DEFAULT = ("caps", "disk", "tpm", "attest_local", "tls", "keys", "fc_boot", "fc_snapshot", "sebs")
+SAFE_DEFAULT = (
+    "caps",
+    "disk",
+    "tpm",
+    "attest_local",
+    "tls",
+    "keys",
+    "fc_boot",
+    "fc_snapshot",
+    "fc_dispatch",
+    "sebs",
+    "fn_inputs",
+    "fc_touched",
+)
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(prog="tools.calibrate.run", description=__doc__)
     p.add_argument("--suite", action="append", help="suite name (repeatable); 'all' = every non-manual suite")
     p.add_argument("--list", action="store_true", help="list suites and exit")
+    p.add_argument("--fingerprint", action="store_true", help="print this host's raw-log fingerprint and exit")
     p.add_argument("--out", type=Path, default=Path("raw"))
     p.add_argument("--set", action="append", default=[], metavar="KEY=VALUE", help="suite option (assets, dirs)")
     p.add_argument("--quick", action="store_true", help="10%% of the repetitions (smoke check)")
@@ -64,6 +78,7 @@ def run_suite(s: Suite, a: argparse.Namespace, meta: dict[str, object], host: st
         (out / "error.txt").write_text(traceback.format_exc())
     finally:
         info = meta | {"suite": s.name, "run_id": run_id, "status": status, "options": opts, "phase": a.phase}
+        info["quick"] = a.quick  # a smoke pass: never part of a bundle (ingest skips it)
         (out / "meta.json").write_text(json.dumps(info, indent=2, sort_keys=True))
         (out / "commands.txt").write_text("\n".join(sh.log) + "\n")
     return status
@@ -72,6 +87,9 @@ def run_suite(s: Suite, a: argparse.Namespace, meta: dict[str, object], host: st
 def main(argv: list[str] | None = None) -> int:
     a = parse_args(sys.argv[1:] if argv is None else argv)
     suites = registry()
+    if a.fingerprint:  # node_run.sh ingest: the node's own raw logs, not every host's under calibration/raw
+        print(fingerprint(host_meta(Shell())))
+        return 0
     if a.list or not a.suite:
         for name, s in suites.items():
             print(f"{name:13s} {'[manual: ' + s.manual + '] ' if s.manual else ''}{s.summary}")

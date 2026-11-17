@@ -116,6 +116,14 @@ class FcVm:
             self.proc.wait(timeout=10)
         Path(self.sock).unlink(missing_ok=True)
 
+    def read_bytes(self) -> int:
+        """Bytes this Firecracker process (all its threads) caused to be read from storage (``/proc/<pid>/io``
+        ``read_bytes``): page faults on a snapshot's memory file count here, page-cache hits do not."""
+        if self.proc is None:
+            return -1
+        m = re.search(r"^read_bytes:\s*(\d+)", Path(f"/proc/{self.proc.pid}/io").read_text(), re.M)
+        return int(m.group(1)) if m else -1
+
     def rss_mb(self) -> float:
         """Resident memory of the Firecracker process in MB (the jailer execs Firecracker in the same process)."""
         if self.proc is None:
@@ -157,6 +165,14 @@ class FcVm:
             "is_read_only": True,
         }
         self.api("PUT", "/drives/rootfs", drive)
+
+    def vsock(self, guest_cid: int = 3) -> str:
+        """Attach a vsock device before ``start``; returns the host-side Unix socket of the device (Firecracker's
+        host-initiated connections: connect to it and write ``CONNECT <port>``)."""
+        uds = self.sock.removesuffix(".sock") + ".vsock"
+        Path(uds).unlink(missing_ok=True)
+        self.api("PUT", "/vsock", {"guest_cid": guest_cid, "uds_path": self._p(uds)})
+        return uds
 
     def start(self) -> float:
         """``InstanceStart``; returns the host monotonic time just before the call."""
@@ -221,6 +237,36 @@ class FcVm:
         self.proc.stdin.write(text + "\n")
         self.proc.stdin.flush()
         return t0
+
+
+class VsockLine:
+    """One host-initiated vsock connection to a guest port, read and written line by line."""
+
+    def __init__(self, uds: str, port: int, timeout: float = 30.0) -> None:
+        self.s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.s.settimeout(timeout)
+        self.s.connect(uds)
+        self.buf = b""
+        self.send(f"CONNECT {port}")
+        ok = self.line()
+        if not ok.startswith("OK "):
+            self.close()
+            raise RuntimeError(f"vsock CONNECT {port}: {ok!r}")
+
+    def send(self, text: str) -> None:
+        self.s.sendall(text.encode() + b"\n")
+
+    def line(self) -> str:
+        while b"\n" not in self.buf:
+            chunk = self.s.recv(4096)
+            if not chunk:
+                raise RuntimeError("vsock connection closed")
+            self.buf += chunk
+        head, self.buf = self.buf.split(b"\n", 1)
+        return head.decode(errors="replace")
+
+    def close(self) -> None:
+        self.s.close()
 
 
 def boot_args(mode: str, extra: str = "") -> str:

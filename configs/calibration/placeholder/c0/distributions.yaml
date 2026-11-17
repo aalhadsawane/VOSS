@@ -18,4 +18,3 @@ distributions:
   snapshot_touched_frac: {dist: const,    value: 0.3,                 tag: literature, source: "lazy restore touches a fraction of guest memory (REAP, FaaSnap)"}
   tme_cpu_factor:       {dist: const,     value: 1.0,                 tag: assumed,    source: "TME overhead; TODO verify (P9 tme)"}
   tme_mem_factor:       {dist: const,     value: 1.02,                tag: assumed,    source: "TME memory-bound overhead; TODO verify (P9 tme)"}
-  drtm_launch:          {dist: lognormal, median: 2.0,    sigma: 0.3, tag: assumed,    source: "DRTM late launch + measurement, no reboot"}
