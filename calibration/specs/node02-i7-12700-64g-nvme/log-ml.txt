@@ -1,0 +1,2 @@
+skip sebs fn=image-recognition concurrency=20: guests together over the RAM budget (needs 40960 MB)
+sebs: ok

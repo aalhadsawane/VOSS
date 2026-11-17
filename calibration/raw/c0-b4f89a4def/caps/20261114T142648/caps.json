@@ -1,0 +1,70 @@
+{
+  "cpu_flags": {
+    "aes": true,
+    "avx2": true,
+    "avx512f": false,
+    "sha_ni": true,
+    "svm": false,
+    "tme": true,
+    "vmx": true
+  },
+  "disks": [
+    {
+      "model": "HGST HUS722T2TAL",
+      "name": "sda",
+      "rotational": true,
+      "size_gb": 2000.4
+    },
+    {
+      "model": "HGST HUS722T2TAL",
+      "name": "sdb",
+      "rotational": true,
+      "size_gb": 2000.4
+    },
+    {
+      "model": "HGST HUS722T2TAL",
+      "name": "sdc",
+      "rotational": true,
+      "size_gb": 2000.4
+    },
+    {
+      "model": "HGST HUS722T2TAL",
+      "name": "sdd",
+      "rotational": true,
+      "size_gb": 2000.4
+    },
+    {
+      "model": "Samsung SSD 980 PRO 1TB",
+      "name": "nvme0n1",
+      "rotational": false,
+      "size_gb": 1000.2
+    },
+    {
+      "model": "Samsung SSD 980 PRO 1TB",
+      "name": "nvme2n1",
+      "rotational": false,
+      "size_gb": 1000.2
+    },
+    {
+      "model": "Samsung SSD 980 PRO 1TB",
+      "name": "nvme3n1",
+      "rotational": false,
+      "size_gb": 1000.2
+    },
+    {
+      "model": "Samsung SSD 980 PRO 1TB",
+      "name": "nvme1n1",
+      "rotational": false,
+      "size_gb": 1000.2
+    }
+  ],
+  "free": "Mounted on                                                                                                Avail\n/run                                                                                                 6704984064\n/                                                                                                  183209078784\n/dev/shm                                                                                            33537495040\n/run/lock                                                                                               5238784\n/run/qemu                                                                                           33537527808\n/boot                                                                                                1451851776\n/boot/efi                                                                                            1118617600\n/mnt/nvme1                                                                                         813904109568\n/mnt/nvme2                                                                                         788848885760\n/mnt/nvme3                                                                                         563132833792\n/mnt/hdd4                                                                                         1790273679360\n/mnt/hdd2                                                                                         1791451783168\n/mnt/hdd3                                                                                         1793992335360\n/mnt/hdd1                                                                                         1794946854912\n/var/lib/docker/overlay2/96f41c6950e9635653237c51ab03610b85b6e2d7127965b4d7a4084bf53c7976/merged   183209078784\n/var/lib/docker/overlay2/c07f0cdcc268982a4afb441addfe8df6ebe0800aa759c49f76ef36a16404d544/merged   183209078784\n/mnt/storage                                                                                     23123907837952\n/run/user/1014                                                                                       6707437568\n",
+  "iommu": true,
+  "kvm": true,
+  "secure_boot": false,
+  "tme_cpuid": true,
+  "tme_dmesg": true,
+  "tme_msr_0x982": "1",
+  "tpm_device": true,
+  "tpm_vendor": "INTC"
+}

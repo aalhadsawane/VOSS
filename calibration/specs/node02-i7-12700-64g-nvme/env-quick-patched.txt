@@ -1,0 +1,8 @@
+stage=quick utc=2026-11-14T12:41:25Z commit=781785157cc4d941c13eb2813dd89594f376f204
+virt=none
+governor=performance
+intel_no_turbo=0
+boost=n/a
+on_mains=n/a
+loadavg=0.19 0.24 0.31 nproc=20
+thermal_msgs=0

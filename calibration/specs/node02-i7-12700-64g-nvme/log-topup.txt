@@ -1,0 +1,10 @@
+before c8d652d2c2430cd188a9ee8127922615f469d67b03b0e13bf519b2c90d33023e  /home/USER/voss-calib/assets/voss-guest.ext4
+17d5d69fb5b55433391de9176183867cd550fe360d6f7b188329f53ec855f15d  /home/USER/voss-calib/assets/voss-guest.ext4
+before 8e93ea0bfd71c125c0914577edbd88dd7c29d5cd693c09bc127c366a970b902a  /home/USER/voss-calib/assets/voss-guest-ml.ext4
+1309eebb1ccd7abfa31ab76f56b0ab869b02e24ac3b91f5694d3e45a62e5906d  /home/USER/voss-calib/assets/voss-guest-ml.ext4
+tpm: ok
+disk: ok
+keys: ok
+fc_dispatch: ok
+fn_inputs: ok
+fc_touched: ok

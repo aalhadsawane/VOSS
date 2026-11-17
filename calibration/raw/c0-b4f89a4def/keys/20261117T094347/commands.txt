@@ -1,0 +1,1 @@
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout calibration/raw/c0-b4f89a4def/keys/20261117T094347/kbs/tls.key -out calibration/raw/c0-b4f89a4def/keys/20261117T094347/kbs/tls.crt -days 1 -subj /CN=localhost
