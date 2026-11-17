@@ -561,7 +561,8 @@ def test_node_run_plans_name_real_suites_and_parts() -> None:
 
     text = (HOST.parents[1] / "node_run.sh").read_text()
     plans = dict(re.findall(r"^\s*([a-z |]+)\) PLAN=\((.*)\) ;;$", text, re.M))
-    assert set(plans) == {"quick | full", "ml", "topup"}
+    assert set(plans) == {"quick | full", "ml", "topup", "inputs"}
+    assert plans["inputs"].split() == ["fn_inputs"]
     assert set(plans["quick | full"].split()) == set(harness.SAFE_DEFAULT)
     topup = [item.strip('"').split() for item in re.findall(r'"[^"]+"|\S+', plans["topup"])]
     assert {i[0] for i in topup} == {"tpm", "disk", "keys", "fc_dispatch", "fn_inputs", "fc_touched"}
