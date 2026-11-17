@@ -41,20 +41,20 @@ host:
   fio: fio-3.36
   firecracker: absent
   harness_version: 0.1.0
-  hostname: colva3
+  hostname: HOST
   iommu: false
   kernel: 5.15.0-203-generic
   mem_kb: 65502988
   microcode: '0x3e'
   options:
-    firecracker: /home/voss/voss-calib/assets/firecracker
+    firecracker: /home/USER/voss-calib/assets/firecracker
     hdd_dir: /mnt/hdd1/voss-calib-node02-r2
-    kernel: /home/voss/voss-calib/assets/vmlinux
+    kernel: /home/USER/voss-calib/assets/vmlinux
     nvme_dir: /mnt/nvme1/voss-calib-node02-r2
     only: unseal
-    rootfs: /home/voss/voss-calib/assets/voss-guest.ext4
-    sebs_ml_rootfs: /home/voss/voss-calib/assets/voss-guest-ml.ext4
-    sebs_rootfs: /home/voss/voss-calib/assets/voss-guest.ext4
+    rootfs: /home/USER/voss-calib/assets/voss-guest.ext4
+    sebs_ml_rootfs: /home/USER/voss-calib/assets/voss-guest-ml.ext4
+    sebs_rootfs: /home/USER/voss-calib/assets/voss-guest.ext4
   phase: null
   qemu: QEMU emulator version 6.2.0 (Debian 1:6.2+dfsg-2ubuntu6.31)
   quick: false
