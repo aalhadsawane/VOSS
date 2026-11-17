@@ -22,6 +22,7 @@ functions:
         n: 30
         sebs_class: '-'
     init_s: 0.003146
+    input_gen_by_size: {}
     interference:
       1: 1.0
       2: 1.0142123449855023
@@ -33,6 +34,7 @@ functions:
     rss_mb: 242.38671875
     size_exp: 0.9780991490554763
     snapshot_mb: 1024.0148916244507
+    snapshot_touched_frac: 0.03769683837890625
     tag: measured
     work_ref_s: 0.005317499999999999
   dna-visualisation:
@@ -54,6 +56,7 @@ functions:
         n: 30
         sebs_class: '-'
     init_s: 0.072386
+    input_gen_by_size: {}
     interference:
       1: 1.0
       2: 1.027340395139789
@@ -63,6 +66,7 @@ functions:
     rss_mb: 1585.5
     size_exp: 1.008607333242819
     snapshot_mb: 4096.01492023468
+    snapshot_touched_frac: 0.031095504760742188
     tag: measured
     work_ref_s: 0.073341
   dynamic-html:
@@ -88,6 +92,7 @@ functions:
         n: 30
         sebs_class: '-'
     init_s: 0.033901
+    input_gen_by_size: {}
     interference:
       1: 1.0
       2: 1.0296632372390604
@@ -97,6 +102,7 @@ functions:
     rss_mb: 1279.86328125
     size_exp: 0.945112742859087
     snapshot_mb: 4096.014915466309
+    snapshot_touched_frac: 0.0068607330322265625
     tag: measured
     work_ref_s: 2.5000000000000018e-05
   graph-bfs:
@@ -118,6 +124,7 @@ functions:
         n: 30
         sebs_class: '-'
     init_s: 0.028323
+    input_gen_by_size: {}
     interference:
       1: 1.0
       2: 1.1377435293535438
@@ -128,6 +135,7 @@ functions:
     rss_mb: 788.1171875
     size_exp: 1.3818901509225974
     snapshot_mb: 2048.014889717102
+    snapshot_touched_frac: 0.03466606140136719
     tag: measured
     work_ref_s: 0.0008464999999999997
   graph-mst:
@@ -149,6 +157,7 @@ functions:
         n: 30
         sebs_class: '-'
     init_s: 0.028065
+    input_gen_by_size: {}
     interference:
       1: 1.0
       2: 1.1460861561046887
@@ -159,6 +168,7 @@ functions:
     rss_mb: 788.15234375
     size_exp: 1.395811375949435
     snapshot_mb: 2048.014889717102
+    snapshot_touched_frac: 0.03446769714355469
     tag: measured
     work_ref_s: 0.0010049999999999996
   graph-pagerank:
@@ -180,6 +190,7 @@ functions:
         n: 30
         sebs_class: '-'
     init_s: 0.028011
+    input_gen_by_size: {}
     interference:
       1: 1.0
       2: 1.1209942973687494
@@ -190,35 +201,38 @@ functions:
     rss_mb: 1043.6640625
     size_exp: 1.2224435916519318
     snapshot_mb: 2048.0148944854736
+    snapshot_touched_frac: 0.03777885437011719
     tag: measured
     work_ref_s: 0.013207
   image-recognition:
     exec_by_size:
       50:
-        median_s: 0.084438
+        median_s: 0.075155
         n: 30
         sebs_class: '-'
       100:
-        median_s: 0.085067
+        median_s: 0.0752055
         n: 30
         sebs_class: '-'
       400:
-        median_s: 0.337581
+        median_s: 0.27917000000000003
         n: 30
         sebs_class: '-'
-    init_s: 1.790521
+    init_s: 1.489607
+    input_gen_by_size: {}
     interference:
       1: 1.0
-      2: 1.0545641039626261
-      4: 1.1747381661765708
-      8: 1.3712196813051272
-      12: 1.7023984797835385
+      2: 1.051824423681036
+      4: 1.1513932901837634
+      8: 1.3134809391042555
+      12: 1.4125030203280866
     n: 90
-    rss_mb: 747.16015625
-    size_exp: 0.7132599861129535
+    rss_mb: 741.734375
+    size_exp: 0.6760746803413195
     snapshot_mb: 2048.0149002075195
+    snapshot_touched_frac: 0.14055824279785156
     tag: measured
-    work_ref_s: 0.08506699999999999
+    work_ref_s: 0.07520549999999998
   thumbnailer:
     exec_by_size:
       50:
@@ -242,6 +256,7 @@ functions:
         n: 30
         sebs_class: '-'
     init_s: 0.061265
+    input_gen_by_size: {}
     interference:
       1: 1.0
       2: 1.0284166423510446
@@ -253,6 +268,7 @@ functions:
     rss_mb: 244.25
     size_exp: 0.7656633390479012
     snapshot_mb: 512.0148916244507
+    snapshot_touched_frac: 0.103515625
     tag: measured
     work_ref_s: 0.0035559999999999993
   uploader:
@@ -278,6 +294,7 @@ functions:
         n: 30
         sebs_class: large
     init_s: 0.001079
+    input_gen_by_size: {}
     interference:
       1: 1.0
       2: 1.1576048808657167
@@ -289,6 +306,7 @@ functions:
     rss_mb: 387.53515625
     size_exp: 1.13587318179855
     snapshot_mb: 1024.0148887634277
+    snapshot_touched_frac: 0.026248931884765625
     tag: measured
     work_ref_s: 4.8000000000000015e-05
   video-processing:
@@ -310,6 +328,7 @@ functions:
         n: 30
         sebs_class: '-'
     init_s: 0.004655
+    input_gen_by_size: {}
     interference:
       1: 1.0
       2: 1.0250633231402262
@@ -321,6 +340,7 @@ functions:
     rss_mb: 468.7578125
     size_exp: 0.06663797086937592
     snapshot_mb: 1024.0148963928223
+    snapshot_touched_frac: 0.4009208679199219
     tag: measured
     work_ref_s: 0.17209299999999997
 provenance:

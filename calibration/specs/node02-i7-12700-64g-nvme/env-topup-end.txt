@@ -1,0 +1,8 @@
+stage=topup-end utc=2026-11-17T10:31:11Z commit=46cc44f63ea771c3ffc7234bc42f68eb0ebce025
+virt=none
+governor=performance 
+intel_no_turbo=0
+boost=n/a
+on_mains=n/a
+loadavg=1.01 1.14 1.38 nproc=20
+thermal_msgs=0

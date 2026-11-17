@@ -31,17 +31,32 @@ distributions:
     tag: measured
     value: 0.00012706339566503176
   dispatch:
-    dist: lognormal
-    median: 0.002
-    sigma: 0.3
-    source: "agent \u2192 warm VM vsock dispatch"
-    tag: assumed
-  drtm_launch:
-    dist: lognormal
-    median: 2.0
-    sigma: 0.3
-    source: DRTM late launch + measurement, no reboot
-    tag: assumed
+    dist: empirical
+    quantiles:
+    - 6.836900138296187e-05
+    - 7.121684175217524e-05
+    - 7.179640815593302e-05
+    - 7.21998410881497e-05
+    - 7.243941072374583e-05
+    - 7.265149906743318e-05
+    - 7.286240288522095e-05
+    - 7.306296174647287e-05
+    - 7.320820586755871e-05
+    - 7.35768408048898e-05
+    - 7.377797737717628e-05
+    - 7.407103839796036e-05
+    - 7.42895994335413e-05
+    - 7.473288424080238e-05
+    - 7.542829553131014e-05
+    - 7.626949809491634e-05
+    - 7.706282194703817e-05
+    - 7.888339314376935e-05
+    - 8.194821421056986e-05
+    - 8.943441207520665e-05
+    - 0.00020271498942747712
+    source: fc_dispatch/dispatch_warm; harness 0.1.0; new vsock connection to a warm sandbox until the handler starts, plus
+      one guest-to-host message
+    tag: measured
   fc_boot:
     dist: empirical
     quantiles:
@@ -93,7 +108,7 @@ distributions:
     - 0.0022968473567743786
     - 0.0023697830038145185
     source: fc_snapshot/fc_restore_api [cache=warm, mem_mb=512, tier=hdd]; harness 0.1.0; load API; page reads are modeled
-      separately
+      separately (snapshot_touched_frac)
     tag: measured
   fc_snapshot_create:
     dist: empirical
@@ -122,11 +137,31 @@ distributions:
     source: fc_snapshot/fc_snapshot_create [mem_mb=512, tier=hdd]; harness 0.1.0
     tag: measured
   kbs_check_s:
-    dist: lognormal
-    median: 0.002
-    sigma: 0.3
-    source: KBS policy check
-    tag: assumed
+    dist: empirical
+    quantiles:
+    - 0.000142659991979599
+    - 0.00014362721412908286
+    - 0.00014395169855561108
+    - 0.0001441920452634804
+    - 0.00014448639703914523
+    - 0.00014469624147750437
+    - 0.00014492030604742467
+    - 0.00014514385402435436
+    - 0.00014524019206874073
+    - 0.00014555860834661872
+    - 0.0001460965140722692
+    - 0.0001464985078200698
+    - 0.00014770279522053898
+    - 0.00014829510764684527
+    - 0.00014969029871281236
+    - 0.00015154974244069308
+    - 0.00015495200641453267
+    - 0.00016536920156795532
+    - 0.00017773550935089587
+    - 0.00018623334326548502
+    - 0.0006010259967297316
+    source: 'keys/kbs_check; harness 0.1.0; key service, server side: certificate signature, policy, budget, RSA-OAEP wrap'
+    tag: measured
   key_release:
     dist: empirical
     quantiles:
@@ -177,23 +212,35 @@ distributions:
     - 25.435743355751036
     - 25.51710022687912
     - 25.598457098007202
-    source: appliance/reboot_to_kernel; harness 0.1.0; firmware + loader + kernel (systemd-analyze)
+    source: appliance/reboot_to_kernel; harness 0.1.0; firmware + loader + kernel
     tag: measured
   snapshot_touched_frac:
-    dist: const
-    source: lazy restore touches a fraction of guest memory (REAP, FaaSnap)
-    tag: literature
-    value: 0.3
-  tme_cpu_factor:
-    dist: const
-    source: TME overhead; TODO verify (P9 tme)
-    tag: assumed
-    value: 1.0
-  tme_mem_factor:
-    dist: const
-    source: TME memory-bound overhead; TODO verify (P9 tme)
-    tag: assumed
-    value: 1.02
+    dist: empirical
+    quantiles:
+    - 0.0068607330322265625
+    - 0.0068607330322265625
+    - 0.024140071868896492
+    - 0.026248931884765625
+    - 0.02906341552734375
+    - 0.031108379364013672
+    - 0.0336716651916504
+    - 0.03446769714355469
+    - 0.03458595275878906
+    - 0.034666824340820315
+    - 0.036212921142578125
+    - 0.03769683837890625
+    - 0.03777046203613281
+    - 0.03777885437011719
+    - 0.05772705078125074
+    - 0.103515625
+    - 0.11138420104980479
+    - 0.14055824279785156
+    - 0.16658267974853738
+    - 0.4009208679199219
+    - 0.4017906188964844
+    source: fc_touched/snapshot_touched_frac [cache=cold, tier=hdd]; harness 0.1.0; read_bytes of a cold restore + first invocation
+      / memory file size, all functions
+    tag: measured
   tpm2_quote:
     dist: empirical
     quantiles:
@@ -219,6 +266,32 @@ distributions:
     - 0.19480720424908213
     - 0.20278046999010257
     source: tpm/tpm2_quote; harness 0.1.0; one tpm2_quote process (includes tool start-up, see probe baseline)
+    tag: measured
+  tpm2_unseal:
+    dist: empirical
+    quantiles:
+    - 0.09699969601933844
+    - 0.09707261649309658
+    - 0.0973795416066423
+    - 0.09746347325417445
+    - 0.0976586933946237
+    - 0.09776836125092814
+    - 0.09778738968889229
+    - 0.09781215938273817
+    - 0.09785423220018856
+    - 0.09790110941539751
+    - 0.09791885198501404
+    - 0.09792910385585855
+    - 0.09793318879674189
+    - 0.09795036099094431
+    - 0.0979679846932413
+    - 0.09807321724656504
+    - 0.09808930981671438
+    - 0.09811737586132949
+    - 0.09815326428797562
+    - 0.09861446044815239
+    - 0.0991700779995881
+    source: tpm/tpm2_unseal; harness 0.1.0; PCR-policy unseal, one tpm2_unseal process
     tag: measured
   verify_s:
     dist: empirical
@@ -248,9 +321,9 @@ distributions:
     tag: measured
   verify_s_per_MB:
     dist: const
-    source: disk/sha256_MBps; harness 0.1.0; single-core SHA-256
+    source: disk/hash_per_MB; harness 0.1.0; single-core SHA-256
     tag: measured
-    value: 0.00044931095305855706
+    value: 0.0004499108808886376
 harness_version: 0.1.0
 host: node02-i7-12700-64g-nvme_hdd
 measured: true
