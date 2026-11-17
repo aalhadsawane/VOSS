@@ -1,5 +1,6 @@
 """Disk suite (doc 10 §3): SSD and HDD sequential/random read/write with ``fio``, dm-crypt and dm-verity overhead,
-and SHA-256 throughput (artifact verification cost). Feeds the cache tier speeds of doc 02 §6 and hardware ``C0``.
+and SHA-256 time per MB (``hash_per_MB``, artifact verification cost, contract §2). Feeds the cache tier speeds of
+doc 02 §6 and hardware ``C0``. Parts (``--set only=``): ``hash`` and ``fio`` (fio, dm-crypt, dm-verity).
 """
 
 from __future__ import annotations
@@ -115,13 +116,22 @@ def _verity(ctx: Ctx, d: Path) -> None:
         hashes.unlink(missing_ok=True)
 
 
+HASH_REPS = 20  # contract §2: hash_per_MB n >= 20 (harness 1de5d147 and earlier: 5 samples of ``sha256_MBps``)
+
+
 def run(ctx: Ctx) -> None:
+    if ctx.part("hash"):
+        for rep in range(ctx.reps(HASH_REPS)):
+            ctx.rec.add("hash_per_MB", 0.0 if ctx.sh.dry_run else 1.0 / sha256_MBps(), unit="s/MB", rep=rep)
+    if ctx.part("fio"):
+        _fio(ctx)
+
+
+def _fio(ctx: Ctx) -> None:
     ctx.sh.need("fio")
     dirs = ctx.dirs()
     if not dirs:
         raise SuiteSkipped("pass --set <tier>_dir=<scratch dir> for each disk class (nvme, sata, hdd)")
-    for rep in range(ctx.reps(5)):
-        ctx.rec.add("sha256_MBps", 0.0 if ctx.sh.dry_run else sha256_MBps(), unit="MBps", rep=rep)
     for tier, d in sorted(dirs.items()):
         d.mkdir(parents=True, exist_ok=True)
         need = size_mb(ctx.opt("fio_size", "2G"))

@@ -90,10 +90,15 @@ better (10 workers). It must have a TPM 2.0 and an NVMe or SATA SSD.
    checksums to `calibration/specs/<label>/assets.sha256`; Firecracker and kernel checksums must be equal on all nodes.
 3. **Same order and sample counts.** `node_run.sh` runs the suites of Part B one at a time in a fixed order with the sample
    counts of `CALIBRATION_DATA_CONTRACT.md`. Do not run suites by hand, change counts or skip suites.
-4. **Same machine state.** Ask the human for: performance CPU governor during Part B (restore afterwards), turbo left at the
-   firmware default, laptops on mains power, no other workload, no other agent session on the node. `node_run.sh` records
-   governor, turbo, power, load and throttling messages before and after every stage (`env-<stage>.txt`). If the human
-   refuses a setting, record that; do not work around it.
+4. **Same machine state, for every measuring stage.** `quick`, `full`, `ml` and `topup` all run under the Part B
+   conditions: performance CPU governor (restore afterwards), turbo left at the firmware default, laptops on mains power,
+   background services stopped, no other workload, no other agent session on the node, and a 1-minute load average below
+   0.5 when the stage starts. A stage that only re-measures a few probes is no exception: node02 measured its ML stage at
+   a load average of 10 to 17 (the image build's writeback and services left running), and its `image-recognition` came
+   out 13 to 19% slower than node01's, while every other function matched within about 4%. `node_run.sh` refuses to
+   start a measuring stage without the performance governor, and waits up to 30 minutes for the load average to fall
+   below 0.5 before it stops (exit 6). It records governor, turbo, power, load, TME state and throttling messages before
+   and after every stage (`env-<stage>.txt`). If the human refuses a setting, record that; do not work around it.
 5. **Same reference.** Relative machine speed is computed against one reference node, named in `calibration/REFERENCE`
    (the human chooses; default `node01`). Every node measures the same functions at the same sizes, so ratios are defined.
 6. **Same rules for gaps.** A value that cannot be measured stays missing, with the reason. Never copy a value from another
@@ -122,9 +127,13 @@ Where the time of Part B goes (rough, from the sample counts; the real durations
 |---|---|---|
 | `caps`, `disk` | capability probe; `fio` sequential and random read/write on every tier | 10-20 min per tier |
 | `tpm`, `attest_local` | 200 quotes, 50 unseals, 50 verifications (a discrete TPM is slower) | 5-20 min |
-| `tls`, `keys` | 1,000 handshakes, 200 key requests, `openssl speed` | 5 min |
+| `tls`, `keys` | 1,000 handshakes, 200 key requests, 200 key service checks, `openssl speed` | 5 min |
 | `fc_boot`, `fc_snapshot` | 100 boots per memory size, tier and page-cache state; 50 snapshots and restores per tier | 30-90 min per tier (HDD: upper end) |
+| `fc_dispatch` | 200 dispatches to one warm sandbox over vsock | 2-5 min |
 | `sebs` | 10 functions × 5 input sizes × 30 runs; co-run at 1…cores and threads × 30; memory and snapshot size | 2-6 h |
+| `fn_inputs` | 10 functions × every input size × 30 input builds, one guest alone | 10-30 min |
+| `fc_touched` | 10 functions × 10 cold restores and first invocations, per tier | 10-20 min per tier (HDD: up to 1 h) |
+| `tme --phase on` | only when the firmware has TME enabled: STREAM, 4 functions alone | 10 min |
 
 `timeline.csv` records the start, end and duration of every suite. Report the actual total in the validation report, so
 the next node's estimate is better.
@@ -142,14 +151,20 @@ a node measured on the older harness runs again; everything else it measured sta
 | `570e04bc` | node01's fixes: guest memory 4,096 MB for `dynamic-html` and `dna-visualisation`; 50 snapshot creates; `fn_rss` per co-run level; `snap_size` 3 times, also on NVMe-only nodes | everything (earlier locks were never used for a bundle) |
 | `1de5d147` | separate ML guest image (`voss-guest-ml.ext4`, PyTorch + ResNet-50) used only by `image-recognition`; `setup` builds both images | `git pull` (the lock check needs the new harness), then `bash tools/calibrate/node_run.sh ml <label> <tier>=<dir> ...` (builds the ML image, measures `image-recognition` alone, about 1-1.5 h), then `ingest` again. Nothing else. |
 
-The guest image is no longer a human choice: every node measures all ten functions.
+| `f1e2fb16` | every bundle entry the simulator reads now has a probe: `dispatch_warm` over vsock (`fc_dispatch`), `kbs_check` (`keys`), `snapshot_touched_frac` (`fc_touched`), `fn_input_gen` (`fn_inputs`), `tpm2_unseal` 50 times under its contract name, `hash_per_MB` 20 times, `tme_state` and `tme --phase on` when TME is enabled; guest runner with a vsock listener; `ingest` reads only this node's fingerprint and leaves out `quick` runs; measuring stages check governor and load | `git pull`, then `bash tools/calibrate/node_run.sh topup <label> <tier>=<dir> ...` (copies the new guest runner into the existing images, then runs only the probes above, about 30-90 min, HDD at the upper end), then `ingest` again. Nothing else: the fio, boot, snapshot, quote, key-request and `sebs` results of lock `1de5d147` stay valid, and `ingest` now also reads the node's fio speeds for its own tier, which were already measured. |
+| `82e4f794` | `check_bundle` no longer demands the TME on/off factors (D-104: memory encryption is not modelled); the placeholder bundle drops them | `git pull` only; nothing is re-measured. A node on `f1e2fb16` that already ran `topup` runs `ingest` again. |
+
+The guest image is no longer a human choice: every node measures all ten functions. A node that still has to run Part
+C boots (fewer than 10 completed) does that separately, with the human's approval; `topup` does not reboot.
 
 ## 6. When a session stops and asks
 
 The rules of `CALIBRATION_HANDOFF.md` §8, plus:
-- `node_run.sh` exits 3 (duplicate node), 4 (harness differs from the lock) or 5 (a suite failed): stop and tell the human.
+- `node_run.sh` exits 3 (duplicate node), 4 (harness differs from the lock), 5 (a suite failed) or 6 (governor not
+  `performance`, or load average not below 0.5): stop and tell the human.
 - `assets.sha256` shows a Firecracker or kernel checksum different from another node's: stop.
-- Load average above 0.5 during Part B, or throttling messages appear: tell the human, repeat the affected suite.
+- Load average above 0.5 during any measuring stage, or throttling messages appear: tell the human, repeat the
+  affected suite.
 
 ## 7. After all nodes are merged (builder session)
 
@@ -173,7 +188,8 @@ You are working on the VOSS research repository (GitHub: aalhadsawane/voss) on b
 Check out branch revision-v2. Read AGENTS.md, then docs/handoff/NODE_PLAN.md, docs/handoff/CALIBRATION_HANDOFF.md and
 docs/handoff/CALIBRATION_DATA_CONTRACT.md, in that order, and follow them exactly. This node's number is nodeNN; choose
 its label as NODE_PLAN.md §3 says. Run every measurement through tools/calibrate/node_run.sh, never suite by suite.
-Push the node spec (NODE_PLAN.md §5 step 4) before Part B. Stop and ask me if node_run.sh exits 3, 4 or 5. Never
-reboot, change BIOS settings, install packages or change system settings without my explicit approval in this
+Push the node spec (NODE_PLAN.md §5 step 4) before Part B. Every measuring stage (quick, full, ml, topup) runs under
+the Part B conditions of NODE_PLAN.md §4 rule 4: performance governor, background services stopped, load average below
+0.5; ask me to set them before each one. Stop and ask me if node_run.sh exits 3, 4, 5 or 6. Never reboot, change BIOS settings, install packages or change system settings without my explicit approval in this
 session. Do not reuse any number from earlier runs or other nodes. Record the time each step took.
 ```

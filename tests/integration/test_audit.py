@@ -38,3 +38,18 @@ def test_forging_needs_class_p_owners() -> None:
     r = run_system(load_config(REPO / "configs/smoke.yaml", [*FORGE[:4], *FORGE[5:]]))  # physical_frac = 0
     ev = r.recorder.frame(Table.EVENTS)
     assert ev[ev.kind == "adv_forge"].empty
+
+
+def test_forged_answers_count_as_misses() -> None:
+    """Development log iteration 2: with no audit, forging owners must change the result. Answers that came from a
+    forged result are counted (``wrong_answers``) and are not deadlines met; without class-P owners there are none."""
+    from experiments.analysis.summary import summarize
+
+    every_p = "scenario.adversary={regime: adversary_all, alpha: 1.0, mix: {forge: 1.0}, params: {forge_p: 1.0}}"
+    no_audit = [every_p if o.startswith("scenario.adversary") else o for o in FORGE if not o.startswith("voss.audit")]
+    forged = summarize(run_system(load_config(REPO / "configs/smoke.yaml", no_audit)).recorder.frame, 60.0, 240.0)
+    benign = [*no_audit[:4], *no_audit[5:]]  # physical_frac = 0: nobody can forge (every class-P owner forges above)
+    clean = summarize(run_system(load_config(REPO / "configs/smoke.yaml", benign)).recorder.frame, 60.0, 240.0)
+    assert forged["forged_results"] > 0 and forged["wrong_answers"] > 0
+    assert clean["forged_results"] == 0 and clean["wrong_answers"] == 0
+    assert forged["deadline_met"] < clean["deadline_met"]

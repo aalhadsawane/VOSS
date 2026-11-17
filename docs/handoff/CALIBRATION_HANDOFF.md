@@ -28,9 +28,8 @@ run that checks the simulator (Part E). The exact fields and acceptance checks a
    - `tools/calibrate/README.md`, `tools/calibrate/laptop/README.md`, `docs/architecture/10-calibration.md`;
    - `docs/validation/i7-12700-64g.md` (a worked example from an earlier session; its numbers are **not** reused, its method is).
 3. Check that the harness changes of plan phase V1 are merged on `revision-v2`:
-   `uv run python -m tools.calibrate.run --dry-run --suite all` must list the probes `image_mem`,
-   `fn_rss`, `snap_size` and the per-step boot probes. If it does not, stop and tell the human: the builder session has not
-   finished V1.
+   `uv run python -m tools.calibrate.run --list` must list the suites `fc_dispatch`, `fn_inputs` and `fc_touched`,
+   and `calibration/HARNESS.lock` must equal `git rev-parse HEAD:tools/calibrate`. If not, stop and tell the human.
 4. Ask the human, and write the answers at the top of your report:
    - which machine this is and whether an earlier session already measured it (then everything is re-measured; nothing old is kept);
    - which parts to run today (A-D calibration, or E emulation);
@@ -97,7 +96,9 @@ A="--set firecracker=$HOME/voss-calib/assets/firecracker --set kernel=$HOME/voss
 uv run python -m tools.calibrate.run --suite all --sudo $A --set ssd_dir=<scratch> [--set hdd_dir=<scratch>] --quick
 uv run python -m tools.calibrate.run --suite all --sudo $A --set ssd_dir=<scratch> [--set hdd_dir=<scratch>]
 ```
-Suites in `all`: `caps`, `disk`, `tpm`, `attest_local`, `tls`, `keys`, `fc_boot`, `fc_snapshot`, `sebs`. (`qemu_vm` is no longer run.)
+Suites in `all`: `caps`, `disk`, `tpm`, `attest_local`, `tls`, `keys`, `fc_boot`, `fc_snapshot`, `fc_dispatch`, `sebs`,
+`fn_inputs`, `fc_touched`. (`qemu_vm` is no longer run.) `node_run.sh` adds `tme --phase on` when the firmware has TME
+enabled.
 
 **Function measurements.**
 - Every function in `tools/calibrate/guest/functions/` is measured at every input size the `sebs` suite lists (SeBS's
@@ -127,8 +128,11 @@ installed system.
 5. Also from inside the booted image: resident memory when idle (`image_mem`) and the size of the cache partition.
 6. Remove the boot entry afterwards and confirm with the human that the machine boots its normal system.
 
-Optional, only if the human can change the BIOS setting: `--suite tme --phase off`, toggle, `--suite tme --phase on`. This tells
-whether the machine belongs to owner class M (memory encrypted) and what that costs.
+`tme_cpu_factor` and `tme_mem_factor` need the `tme` suite in both phases on the same node. `node_run.sh` runs the phase
+the firmware is in only when TME is enabled (no BIOS change). The other phase needs the human to change the BIOS
+setting, with explicit approval in the session: then `--suite tme --phase off` (or `on`), and `ingest` again. Until both
+phases exist the factors are missing, and `check_bundle` says so; they are never assumed. This tells whether the machine
+belongs to owner class M (memory encrypted) and what that costs.
 
 ## 6. Part D: ingest, check, report
 

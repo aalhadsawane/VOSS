@@ -95,6 +95,11 @@ def static_parts(
     return Static(ok, holder, trust, fetch, rest, net)
 
 
+def completion_of(tts: np.ndarray, net: np.ndarray, exec_mean: np.ndarray, exec_var: np.ndarray) -> Completion:
+    """Doc 03 §5.2: time to start plus network, with a 30% spread on the time to start, then execution."""
+    return moment_match(tts + net, (0.3 * tts) ** 2, exec_mean, exec_var)
+
+
 def _row(
     inv: Invocation,
     view: ClusterView,
@@ -112,7 +117,7 @@ def _row(
     tts = np.maximum(np.maximum(w, st.trust[sub]), st.fetch[sub]) + st.rest[sub]
     cpu = a.cpu_factor[sub]
     e_mean = p.exec_mean * cpu
-    comp = moment_match(tts + st.net[sub], (0.3 * tts) ** 2, e_mean, p.exec_var * cpu**2)
+    comp = completion_of(tts, st.net[sub], e_mean, p.exec_var * cpu**2)
     p_fail = 1 - p.p_alive * (1 - p.p_omit)
     budget = np.full(len(sub), inv.deadline - (now - inv.t_arrive))
     return {

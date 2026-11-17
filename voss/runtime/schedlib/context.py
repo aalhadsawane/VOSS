@@ -79,6 +79,7 @@ def cost_context(
         f"router:{c}": (float(metros.lat[metros.index(c)]), float(metros.lon[metros.index(c)]))
         for c in cfg.voss.infra.routers
     }
+    sch = metros.index(cfg.voss.infra.scheduler)
     c = cfg.voss.cost
     return CostContext(
         {n: startup_model(p, touched) for n, p in profiles.items()},
@@ -86,6 +87,7 @@ def cost_context(
         ten,
         (float(metros.lat[reg]), float(metros.lon[reg])),
         routers,
+        scheduler=(float(metros.lat[sch]), float(metros.lon[sch])),
         sync_weight=c.sync_weight,
         eps=c.eps,
         lambda_exposure=c.lambda_exposure,

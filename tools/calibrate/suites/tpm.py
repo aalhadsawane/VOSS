@@ -94,21 +94,27 @@ class Tpm:
         return self.run("tpm2_unseal", "-c", self.f("seal.ctx"), "-p", "pcr:sha256:7,11", "-o", self.f("unsealed.bin"))
 
 
+UNSEAL_REPS = 50  # contract §2: tpm2_unseal n >= 50
+
+
 def run(ctx: Ctx) -> None:
+    """Parts (``--set only=``): ``quote`` (baseline, AK, quotes, checkquote) and ``unseal``."""
     ctx.sh.need("tpm2_quote", "tpm2_createak", "tpm2_checkquote", "tpm2_unseal")
     t = Tpm(ctx.sh, ctx.out / "tpm", ctx.opt("tcti"))
     tcti = ctx.opt("tcti") or "device"
-    for rep in range(ctx.reps(20)):
-        ctx.rec.add("baseline", t.run("tpm2_getrandom", "--hex", "8"), rep=rep, tcti=tcti)
-    ctx.rec.add("ak_create", t.make_ak(), tcti=tcti)
-    for rep in range(ctx.reps(200)):
-        nonce = secrets.token_hex(16)
-        ctx.rec.add("tpm2_quote", t.quote(nonce), rep=rep, pcrs=PCRS, tcti=tcti)
-        if rep % 4 == 0:
-            ctx.rec.add("checkquote", t.checkquote(nonce), rep=rep, tcti=tcti)
-    t.seal()
-    for rep in range(ctx.reps(20)):
-        ctx.rec.add("unseal", t.unseal(), rep=rep, pcrs="sha256:7,11", tcti=tcti)
+    if ctx.part("quote"):
+        for rep in range(ctx.reps(20)):
+            ctx.rec.add("baseline", t.run("tpm2_getrandom", "--hex", "8"), rep=rep, tcti=tcti)
+        ctx.rec.add("ak_create", t.make_ak(), tcti=tcti)
+        for rep in range(ctx.reps(200)):
+            nonce = secrets.token_hex(16)
+            ctx.rec.add("tpm2_quote", t.quote(nonce), rep=rep, pcrs=PCRS, tcti=tcti)
+            if rep % 4 == 0:
+                ctx.rec.add("checkquote", t.checkquote(nonce), rep=rep, tcti=tcti)
+    if ctx.part("unseal"):
+        t.seal()
+        for rep in range(ctx.reps(UNSEAL_REPS)):  # the contract's name (harness 1de5d147 and earlier: ``unseal``)
+            ctx.rec.add("tpm2_unseal", t.unseal(), rep=rep, pcrs="sha256:7,11", tcti=tcti)
 
 
 SUITE = Suite("tpm", run, "tpm2_quote latency, AK creation, checkquote, PCR-policy unseal")

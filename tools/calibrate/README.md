@@ -54,18 +54,23 @@ Manual suites, only with approval: `--suite tme --phase on|off` (twice, around a
 | Suite | Measures | Feeds |
 |---|---|---|
 | `caps` | KVM, CPU flags, TPM vendor (INTC = PTT), TME (dmesg, CPUID, MSR), Secure Boot, IOMMU, disks | which suites can run |
-| `disk` | fio seq/rand read/write per tier, dm-crypt and dm-verity, SHA-256 | hardware C0, `verify_s_per_MB` |
+| `disk` | fio seq/rand read/write per tier, dm-crypt and dm-verity, SHA-256 s/MB (`hash_per_MB`) | hardware C0, `verify_s_per_MB` |
 | `fc_boot` | spawn → API, `InstanceStart` → guest init by memory, tier, page cache | `fc_boot` |
 | `fc_snapshot` | snapshot create, restore (load API and to first response) by memory, tier, page cache | `fc_snapshot_create`, `fc_restore` |
+| `fc_dispatch` | new vsock connection to a warm sandbox until the handler starts (`dispatch_warm`), vsock round trip | `dispatch` |
 | `sebs` | SeBS-equivalent functions: init, exec at every input size (SeBS classes and larger), co-run up to cores and threads, RSS, snapshot size | function profiles |
-| `tpm` | `tpm2_quote`, AK creation, `tpm2_checkquote`, PCR-policy unseal | `tpm2_quote` |
+| `fn_inputs` | input build time per function and size, one guest alone (`fn_input_gen`) | `input_gen_by_size` (reported) |
+| `fc_touched` | share of a function's snapshot read from disk by a cold restore and the first invocation, per tier | `snapshot_touched_frac` |
+| `tpm` | `tpm2_quote`, AK creation, `tpm2_checkquote`, PCR-policy unseal (`tpm2_unseal`) | `tpm2_quote`, `tpm2_unseal` |
 | `attest_local` | quote → checkquote → certificate signature | `verify_s` |
 | `tls` | TLS 1.3 handshake and per-message overhead | channel costs |
-| `keys` | key request over loopback TLS, RSA-2048 unwrap, AES-256-GCM decryption per MB | `key_release`, `decrypt_per_MB` |
-| `tme` (manual) | STREAM-style triad and a SeBS subset, TME on vs off | `tme_*_factor` |
-| `appliance` (manual) | per-step boot of the image: firmware, loader, initrd, verity, cache unseal, agent, quote, verify, first mutual TLS; idle memory | `boot_*`, `image_mem_mb` |
+| `keys` | key request over loopback TLS, RSA-2048 unwrap, AES-256-GCM decryption per MB, key service check (server side) | `key_release`, `decrypt_per_MB`, `kbs_check_s` |
+| `tme` (manual) | firmware TME state; STREAM-style triad and a SeBS subset at concurrency 1, TME on vs off | `tme_*_factor` (both phases only) |
+| `appliance` (manual) | boot to an attested worker; in image mode also per step (firmware, loader, initrd, verity, cache unseal, agent, quote, verify, first mutual TLS) and idle memory, kept raw | `reboot_to_kernel`, `appliance_userspace` |
 
-`mapping.yaml` says which probe becomes which bundle entry. Entries without data keep the placeholder value and tag.
+`mapping.yaml` says which probe becomes which bundle entry. Entries without data keep the placeholder value and tag,
+and `check_bundle.py` reports each one the simulator reads as missing. `--set only=<part>` runs part of `tpm`
+(`quote`, `unseal`), `disk` (`hash`, `fio`) or `keys` (`release`, `kbs_check`); `node_run.sh topup` uses it.
 Kata (`kata` in doc 10) and the Node.js function variants are not covered yet.
 
 ## Testing without the node

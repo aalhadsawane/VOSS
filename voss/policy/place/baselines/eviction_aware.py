@@ -7,8 +7,9 @@ reach ``u_f``; the invocation goes to the least loaded worker of that set. A wor
 new invocations (§4.1); here a draining worker is not eligible (``candidates.eligible``).
 
 Deviations (``configs/baselines.yaml``): the ring holds the shared candidates of the cost matrix (AGENTS.md rule 5)
-rather than every invoker; usable resources are a worker's concurrency slots and ``E(CPU_f)`` is one slot, because a
-sandbox runs one invocation on one slot; load is occupancy per slot (busy, queued and in flight) instead of the
+rather than every invoker; usable resources are a worker's free concurrency slots (slots not busy, queued or
+dispatched; the paper's usable resources of a harvest VM) and ``E(CPU_f)`` is one slot, because a sandbox runs one
+invocation on one slot; load is occupancy per slot (busy, queued and in flight) instead of the
 paper's weighted CPU and memory utilisation, which the scheduler does not observe.
 """
 
@@ -29,16 +30,17 @@ def ring_position(key: str) -> int:
     return int.from_bytes(hashlib.sha256(key.encode()).digest()[:8], "little")
 
 
-def worker_set(fn: str, workers: np.ndarray, slots: np.ndarray, usage: float) -> np.ndarray:
+def worker_set(fn: str, workers: np.ndarray, usable: np.ndarray, usage: float) -> np.ndarray:
     """Algorithm 1: positions into ``workers`` of the min worker set of ``fn``, from its home worker clockwise until
-    the summed slots reach ``usage`` (at least the home worker; every worker when they do not reach it)."""
+    the summed usable resources (free slots) reach ``usage`` and are not zero (every worker when they never do)."""
     if not len(workers):
         return np.zeros(0, np.int64)
     pos = np.array([ring_position(f"worker:{int(w)}") for w in workers], dtype=np.uint64)
     order = np.argsort(pos, kind="stable")
     start = int(np.searchsorted(pos[order], np.uint64(ring_position(f"fn:{fn}"))))
     ring = np.roll(order, -start)
-    reached = np.cumsum(slots[ring].astype(float)) >= usage
+    cum = np.cumsum(usable[ring].astype(float))
+    reached = (cum >= usage) & (cum > 0)
     n = int(np.argmax(reached)) + 1 if reached.any() else len(ring)
     out: np.ndarray = ring[:n]
     return out
@@ -56,7 +58,8 @@ class EvictionAwarePlacer:
             opts = req.options(i)
             if not len(opts):
                 continue
-            s = opts[worker_set(inv.fn, ids[opts], req.view.slots[opts], req.fn_load.get(inv.fn, 0.0))]
+            free = np.maximum(0.0, req.view.slots[opts] * (1.0 - occ[opts]))  # usable resources now (§5.2)
+            s = opts[worker_set(inv.fn, ids[opts], free, req.fn_load.get(inv.fn, 0.0))]
             j = int(s[np.lexsort((ids[s], occ[s]))[0]])
             assign[i] = j
             occ[j] += 1.0 / max(1, int(req.view.slots[j]))

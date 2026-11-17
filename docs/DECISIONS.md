@@ -121,17 +121,26 @@ worker's queued attempts. *Rejected:* a fixed re-probe interval (a new constant 
 interval per late attempt); no re-arm after "running" (an attempt that later stops would go unnoticed until the
 router's give-up).
 
-**D-99 Development load levels in place of pool utilisation 30/60/85% (plan V11.1; provisional, for the owner).**
+**D-99 Load levels, and "utilisation" per function against its key holders (plan V11.1; the owner's decision).**
 `D01` sets its load axis to `scenario.load.rate_mult` ∈ {10.5, 21, 30}: the plan's 30:60:85 in proportion, with the top
-level at the D-97 run size (rate_mult 30 gives about 130 M events in 28 h, as SIZING4). *Why:* with the traced Azure load
-and measured run times the mean busy time is 0.25 s per invocation, so on 500 workers (about 1,710 slots of attested
-workers) pool utilisation is 0.24% at rate_mult 10 and 0.72% at 30 (measured, `samples` table); 60% would need about
-rate_mult 2,500, some 80 times the events one run can simulate within a job. The load still matters at the level of a
-function's holders: at rate_mult 30 the busiest function keeps 3.1 slots busy, about 30% of two holders. *Open:*
-whether R01's utilisation axis should be defined per function against its `K` holders, or reached by another load
-(longer measured functions, fewer slots per host); the owner decides before R01. *Rejected:* rate multipliers that
-reach 30-85% of the pool (do not fit a job by one to two orders of magnitude); fewer workers (capacity falls, but the
-event budget limits arrivals, not workers).
+level at the D-97 run size (rate_mult 30 gives about 130 M events in 28 h, as SIZING4). "Utilisation" in the main
+experiment means, per function, its offered load relative to the capacity of its `K` key holders: `util_f = λ_f ·
+E[T_f] / C_f`, with `λ_f` the function's arrival rate in the measured window, `E[T_f]` the mean start-up plus
+execution time of its completed invocations and `C_f` the time-averaged slots of the workers holding its key
+(`experiments.analysis.metrics.function_utilisation`). Every run reports its median and 95th percentile over
+functions weighted by invocations (`fn_util_p50`, `fn_util_p95`) next to the pool utilisation (`utilisation`), and
+the paper says that the pool as a whole stays under 1% busy. *Why:* with the traced Azure load and measured run times
+the mean busy time is 0.25 s per invocation, so on 500 workers (about 1,710 slots of attested workers) pool
+utilisation is 0.24% at rate_mult 10 and 0.72% at 30 (measured, `samples` table); 60% of the pool would need about
+rate_mult 2,500, some 80 times the events one run can simulate within a job. *Measured spread* (local, 500 workers,
+1 h after a 10-minute warm-up, seed 1, pre-released keys / VOSS at that time): `fn_util_p50` is 3.2-10.4% /
+2.8-5.8% at `K` = 2 and 0.4-1.3% / 0.4-1.1% at `K` = 16 over the three load levels; `fn_util_p95` reaches 39% / 53%
+only at `K` = 2 and rate_mult 30, and stays at or below 9% for `K` ≥ 8. The three levels therefore do not span the
+plan's 30-85% except for the busiest functions at `K` = 2; within the event budget the load cannot rise, so the axis
+is reported as measured per-function utilisation, and a wider spread (rate_mult {3.5, 10.5, 30}, a factor 8.6 instead
+of 2.9, same top level) is the owner's choice. *Rejected:* rate multipliers that reach 30-85% of the pool (do not fit
+a job by one to two orders of magnitude); fewer workers (capacity falls, but the event budget limits arrivals, not
+workers).
 
 **D-100 Provisioning changes a holder only when the change pays for its preparation (plan V11.3, development log
 iteration 1).** Algorithm 1 runs its two greedy stages a second time from the current holders and keeps that
@@ -151,6 +160,49 @@ eviction notice (§4.1). *Why:* the first implementation chose the worker with t
 and used load only to break ties; the paper has no such rule, and the rule sent almost every invocation to one worker.
 Deviations are listed in `configs/baselines.yaml`. *Rejected:* keeping the failure ranking with a capacity check (not
 the paper's algorithm).
+
+**D-102 The watchdog timer is the quantile of the attempt as the scheduler times it (doc 07 §2, plan V7.1,
+development log iteration 2).** The timer's network is the scheduler-worker round trip the scheduler last observed to
+that worker (dispatch to `ACCEPTED`), or its distance estimate before the first exchange; execution starts no earlier
+than the input arrives from the router (`(rtt(S, R) + rtt(R, W) − rtt(S, W)) / 2` after the dispatch is received, plus
+the transfer); the deadline-fit check keeps the router's view. *Why:* the timer runs from the dispatch at the scheduler
+to the outcome there, but its quantile used the router-worker network and left out the wait for the input; 75% (sync)
+and 53% (async) of first attempts overran a q95 timer, and VOSS made 1.45 attempts per invocation. Afterwards 12% and
+10% overran, and 1.10 attempts. *Consequence:* VOSS met fewer deadlines without dropping owners (development log): its
+early backups had been acting as hedges. *Rejected:* a margin on the timer (a constant fitted to the overrun).
+
+**D-103 The calibration contract demands what the simulator reads, and every such entry has a probe (guardrails
+28, 29; rule 32).** node01 and node02 delivered bundles in which `dispatch`, `kbs_check_s`, `snapshot_touched_frac` and
+the TME factors still held placeholder values, while `check_bundle` demanded image-mode boot steps and idle image
+memory that no code reads. The required set is now derived, not listed: every `measured/<name>` in
+`configs/substrates/*.yaml` plus every bundle key read in `voss/` (`check_bundle.simulator_entries`), and a test fails if
+one has no probe in `mapping.yaml` or if a newly ingested complete bundle does not hold it as `measured`. Three
+contract probes the simulator does not read stay because the machine table reports them (`tpm2_unseal`, `key_release`,
+`decrypt_per_MB`). Removed: `drtm_launch` (no substrate uses it; the DRTM substrate was deleted in V0), `fn_corun_mixed`
+(never implemented, read nowhere), and as demands `image_mem_mb` and the image-mode `boot_*` steps: the substrates read
+`reboot_to_kernel` and `appliance_userspace`, which both boot modes measure, and the per-step stamps stay in the raw logs.
+The worker's own memory reserve is `voss.worker.m_base_mb` = 512 MB, class *pending V5* in `docs/PARAMETERS.md`; it
+stays unmeasured until a node boots the real image (none could: Ubuntu 22.04 has no `systemd-repart`), and V5 must
+either measure it or state it as a limit. New probes and their definitions: `dispatch_warm` is a new vsock connection
+through Firecracker's socket to the guest's `START` line written just before the handler (an upper bound by one
+guest-to-host message, whose round trip `vsock_rtt` reports); `kbs_check` is timed on the key service from request read
+to reply ready (certificate signature, policy, budget, RSA-OAEP wrap; TLS and network are the substrate's `rpc`);
+`snapshot_touched_frac` is `/proc/<pid>/io` `read_bytes` of a cold restore, input build and first invocation over the
+memory file size, readahead included, pooled over the ten functions per tier. The TME factors are written only when
+both phases ran on the node; on nodes with TME disabled in firmware they stay missing and `check_bundle` reports them,
+because a phase needs a BIOS change by the human. *Rejected:* keeping the placeholder values tagged `assumed` (guardrail
+29), estimating dispatch from `vsock_rtt / 2` (the clocks of host and guest cannot be compared, and a half round trip
+is not a measurement of the handler start), and rebuilding the guest images on measured nodes (it would change Python,
+packages and ffmpeg under the measured `sebs` results; `topup` copies only the new runner into the existing images).
+
+**D-104 Memory encryption is not modelled (owner's decision).** Both calibrated machines (i7-12700) advertise Intel
+TME in CPUID, but the firmware has it disabled (node01: MSR 0x982 = 1, locked off; node02: `x86/tme: not enabled by
+BIOS`), so its on/off overhead was not measured. The substrates use slowdown 1.0: run times are those measured, with
+memory encryption off. No hardware class sets `mem_encryption`, so no simulated owner is of class M; class M stays in
+the trust analysis (doc 04, D-84) and the paper states that its cost is not measured. `check_bundle` no longer demands
+the TME factors; the `tme` suite stays, and ingest writes the factors when a node measures both phases (reported in
+the machine table). *Why:* guardrails 28 and 29 forbid the assumed 1.02 factor that applied to every worker, and a BIOS
+change was declined. *Rejected:* enabling TME on node02 for one measurement (owner's choice).
 
 ## v1 decisions (D-01 to D-80)
 
