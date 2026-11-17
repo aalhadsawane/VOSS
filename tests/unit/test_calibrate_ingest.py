@@ -61,7 +61,7 @@ def test_bundle_is_complete_valid_and_tagged(raw: Path) -> None:
     assert fp == "c0-test"
     dists = files["distributions.yaml"]["distributions"]
     base = yaml.safe_load((PLACEHOLDER / "distributions.yaml").read_text())["distributions"]
-    assert set(dists) == set(base)  # every entry the substrates reference is present
+    assert set(base) <= set(dists) <= set(base) | {"tme_cpu_factor", "tme_mem_factor"}  # TME: reported when measured
     assert dists["tpm2_quote"]["tag"] == "measured" and dists["tpm2_quote"]["dist"] == "empirical"
     assert max(dists["tpm2_quote"]["quantiles"]) < 1.0  # the errored run is ignored
     assert dists["fc_boot"]["quantiles"][0] == pytest.approx(0.12)  # `where` filter applied
@@ -197,7 +197,8 @@ def test_every_simulator_entry_has_a_probe() -> None:
     mapping = yaml.safe_load((REPO / "tools/calibrate/mapping.yaml").read_text())
     have = set(mapping["distributions"]) | set(mapping["ratios"])
     entries = check_bundle.simulator_entries()
-    assert {"dispatch", "kbs_check_s", "snapshot_touched_frac", "tme_cpu_factor", "tpm2_quote"} <= entries
+    assert {"dispatch", "kbs_check_s", "snapshot_touched_frac", "tpm2_quote"} <= entries
+    assert not {"tme_cpu_factor", "tme_mem_factor"} & entries  # memory encryption is not modelled (D-104)
     assert entries <= have, entries - have
     assert entries <= set(check_bundle.REQUIRED) | set(check_bundle.RATIOS)
 
@@ -219,12 +220,12 @@ def test_a_newly_ingested_bundle_has_every_simulator_entry_measured(tmp_path: Pa
 
 
 def test_tme_factors_stay_missing_with_one_phase(tmp_path: Path) -> None:
-    """Both nodes so far had TME disabled in firmware: one phase gives no factor, and check_bundle says so."""
+    """Both nodes so far had TME disabled in firmware: one phase gives no factor. The simulator does not read the
+    factors (D-104), so the bundle is still complete; the machine table reports the TME state."""
     from tools.calibrate import check_bundle
 
     _, files = ingest.build(_full_node(tmp_path, ("off",)), "c0-test", PLACEHOLDER, tier="nvme")
     dists = files["distributions.yaml"]["distributions"]
-    assert check_bundle.unmeasured(dists) == ["tme_cpu_factor", "tme_mem_factor"]
-    assert {"tme_cpu_factor", "tme_mem_factor"} <= set(files["meta.yaml"]["missing"])
-    errors = check_bundle.check_distributions(_write(files, tmp_path / "bundle"))
-    assert len(errors) == 2 and all("missing, not measured" in e and "--phase on" in e for e in errors)
+    assert "tme_cpu_factor" not in dists and "tme_mem_factor" not in dists
+    assert check_bundle.unmeasured(dists) == []
+    assert check_bundle.check_distributions(_write(files, tmp_path / "bundle")) == []

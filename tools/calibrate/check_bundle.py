@@ -41,7 +41,8 @@ REQUIRED: dict[str, int] = {
     "key_release": 200,
     "decrypt_per_MB": 1,
 }
-# on/off ratios: measured only when both phases ran on the node (a BIOS change, human approval; contract §6)
+# on/off ratios: measured only when both phases ran on the node (a BIOS change, human approval; contract §6). The
+# simulator does not read them (D-104: memory encryption is not modelled), so they are reported, not demanded.
 RATIOS = ("tme_cpu_factor", "tme_mem_factor")
 HARDWARE = ("ssd_read_MBps", "ssd_write_MBps")  # the bundle tier's disk speeds (hardware class C0)
 _CODE_REF = re.compile(
@@ -103,7 +104,7 @@ def check_distributions(bundle: Path) -> list[str]:
     dists = _load(bundle / "distributions.yaml").get("distributions", {})
     fits = _load(bundle / "fits.yaml")
     errors = []
-    for key in sorted({*REQUIRED, *RATIOS, *simulator_entries()}):
+    for key in sorted({*REQUIRED, *simulator_entries()}):
         d = dists.get(key)
         if d is None or d.get("tag") != "measured":
             errors.append(_missing(key, d))
