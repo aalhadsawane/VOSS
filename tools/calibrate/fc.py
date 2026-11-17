@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-MARK = re.compile(r"VOSS_(MARK|ACK|EXEC|INIT|ERR)\s+(.*)")
+MARK = re.compile(r"VOSS_(MARK|ACK|EXEC|INIT|GEN|ERR)\s+(.*)")
 
 
 class UnixHTTPConnection(http.client.HTTPConnection):
