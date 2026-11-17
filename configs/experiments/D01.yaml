@@ -12,7 +12,11 @@
 #                per invocation (exec 0.235 s + start-up 0.011 s) on 1,713 slots, so 60% needs rate_mult ~2,500, about
 #                80x the event budget of one D-97 run. rate_mult 30 is the D-97 size (~130 M events, as SIZING4).
 #                At rate_mult 30 the busiest function (tr0168, 9 inv/s) keeps 3.1 slots busy: 30% of K=2 holders.
-#                Open question for the owner, see the PR: what "utilisation" means for the R01 axis.
+#                "Utilisation" of the R01 axis is per function (owner's decision, D-99): offered load lambda_f x
+#                E[T_f] over the time-averaged slots of f's key holders, reported per run as fn_util_p50 and
+#                fn_util_p95 (weighted by invocations) beside the pool utilisation, which stays under 1%. Measured
+#                (1 h, seed 1): fn_util_p50 3-10% at K=2 and 0.4-1.3% at K=16 over the three levels; fn_util_p95
+#                reaches 39-53% only at K=2, rate_mult 30 (D-99).
 #   duration     horizon_s 100,800 (28 h): 4 h warm-up + 24 h measured (D-97)
 #   warm-up      scenario.warmup_s 14,400 (longest learning window of a compared policy: the histogram's 4 h range)
 #   calibration  provisional measured bundle i7_12700_64g_full-b4f89a4def (i7-12700, NVMe + HDD, measured session

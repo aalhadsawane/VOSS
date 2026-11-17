@@ -29,4 +29,4 @@ ladder:                       # Firecracker ladder (doc 02 §5)
     L2->L3: [{op: disk_read, what: snapshot_touched}, {op: delay, dist: measured/fc_restore}]
     L3->L4: [{op: delay, dist: measured/dispatch}]
   after_init: [{op: delay, dist: measured/fc_snapshot_create}, {op: disk_write, what: snapshot}]
-slowdown: {cpu: measured/tme_cpu_factor, mem: measured/tme_mem_factor, io: 1.0}
+slowdown: {cpu: 1.0, mem: 1.0, io: 1.0}  # D-104: memory encryption is not modelled; run times are measured with it off

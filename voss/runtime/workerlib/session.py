@@ -104,6 +104,7 @@ class SessionMixin:
         self.ctx.rec.log(
             Table.EVENTS, t=self.now, kind="session_attested", worker=h.worker, cert=h.cert_id, value=h.cert_expiry
         )
+        self.ctx.rec.log(Table.EVENTS, t=self.now, kind="session_slots", worker=h.worker, value=float(h.n_slots))
         self.send(
             self.ctx.directory.orchestrator,
             Join(

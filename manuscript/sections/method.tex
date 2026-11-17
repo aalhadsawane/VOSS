@@ -25,7 +25,8 @@ generated from the calibration bundles; number of machines and classes. One mach
 are required before results are reported.} Each machine is measured by one script with fixed sample counts, on an
 idle machine with the performance governor, using the same Firecracker release and guest kernel on every machine. A
 machine with two disk classes yields two machine classes that share the processor. The functions are those of the
-SeBS benchmark suite~\cite{copik2021sebs}, each measured at three to five input sizes with repeated runs per size. \todoitem{T44}{calibration bundles and trace statistics}{Number of functions measured, of input sizes and of runs per size, from the bundles.}
+SeBS benchmark suite~\cite{copik2021sebs}, each measured at three to five input sizes with repeated runs per size. No calibrated machine had memory encryption enabled, so every worker runs at the measured speed without it and no
+simulated owner is of class M; the cost of memory encryption is not measured. \todoitem{T44}{calibration bundles and trace statistics}{Number of functions measured, of input sizes and of runs per size, from the bundles.}
 
 The share of each machine class among workers follows the hardware of machines that volunteer today. We take the
 hosts that recently contacted two volunteer-computing projects, from the projects' public host

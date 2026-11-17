@@ -14,7 +14,7 @@ REPO = Path(__file__).resolve().parents[2]
 def _good(root: Path) -> Path:
     b = root / "bundle"
     b.mkdir()
-    dists = {k: {"tag": "measured"} for k in [*cb.REQUIRED, *cb.CONSTANTS]}
+    dists = {k: {"tag": "measured"} for k in [*cb.REQUIRED, *cb.RATIOS, *cb.simulator_entries()]}
     fits = {k: {"n": float(n)} for k, n in cb.REQUIRED.items()}
     times = iter([5e-4, 20.0])
     fns = {
@@ -29,6 +29,8 @@ def _good(root: Path) -> Path:
     (b / "distributions.yaml").write_text(yaml.safe_dump({"distributions": dists}))
     (b / "fits.yaml").write_text(yaml.safe_dump(fits))
     (b / "functions.yaml").write_text(yaml.safe_dump({"functions": fns}))
+    hw = {"classes": {"C0": {"ssd_read_MBps": 6000.0, "ssd_write_MBps": 4000.0}}}
+    (b / "hardware.yaml").write_text(yaml.safe_dump(hw))
     return b
 
 
@@ -64,3 +66,25 @@ def test_narrow_span_is_a_warning_and_numbers_keep_their_exponent(tmp_path: Path
 
 def test_the_existing_spec_file_has_every_contract_field() -> None:
     assert cb.check_spec(REPO / "calibration" / "specs" / "i7-12700-64g") == []
+
+
+def test_placeholder_entries_are_reported_missing(tmp_path: Path, capsys) -> None:  # type: ignore[no-untyped-def]
+    """A bundle entry the simulator reads that still holds the placeholder (tag assumed) is an error, by name."""
+    b = _good(tmp_path)
+    d = yaml.safe_load((b / "distributions.yaml").read_text())
+    d["distributions"]["dispatch"] = {"tag": "assumed", "dist": "lognormal", "median": 0.002, "sigma": 0.3}
+    del d["distributions"]["tme_cpu_factor"]
+    (b / "distributions.yaml").write_text(yaml.safe_dump(d))
+    (b / "hardware.yaml").write_text(yaml.safe_dump({"classes": {}}))
+    assert cb.unmeasured(d["distributions"]) == ["dispatch"]  # TME factors are not read (D-104)
+    assert cb.main([str(b)]) == 1
+    out = capsys.readouterr().out
+    assert "dispatch: missing, not measured (the bundle holds the placeholder, tag assumed)" in out
+    assert "tme_cpu_factor" not in out
+    assert "hardware C0 ssd_read_MBps: missing" in out
+
+
+def test_unused_entries_are_not_demanded() -> None:
+    """Rule 32: entries no substrate or simulator code reads are not part of the contract check (D-103)."""
+    for gone in ("drtm_launch", "image_mem_mb", "boot_total", "boot_firmware", "fn_corun_mixed"):
+        assert gone not in cb.REQUIRED and gone not in cb.simulator_entries()

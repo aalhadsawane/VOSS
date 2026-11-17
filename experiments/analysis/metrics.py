@@ -1,6 +1,7 @@
 """Metrics of one run (docs/REVISION_PLAN.md V2, D-88). Every function takes logged tables as pandas frames.
 
 Invocation classes follow the router's terminal row: ``ok`` within the deadline is *met*; ``ok`` after it is *late*;
+an answer from a forged result is *wrong* (a miss);
 ``timeout``, ``unfinished`` and ``abandoned`` (no worker fits a retry, plan V7.1) are *lost*; ``rejected`` is
 *rejected*. Only synchronous invocations (``slo_class`` 0) that arrive after the warm-up count, unless a function says
 otherwise.
@@ -23,12 +24,25 @@ def sync_after(inv: pd.DataFrame, warmup_s: float) -> pd.DataFrame:
     return out
 
 
+def mark_wrong(inv: pd.DataFrame, events: pd.DataFrame) -> pd.DataFrame:
+    """``inv`` with a ``wrong`` column: the answer the client got came from a forged result (an ``adv_forge`` event of
+    the answering worker for that invocation, plan V7.3). The audit runs after the answer, so it bans the forger but
+    does not correct the answer."""
+    f = events[events.kind == "adv_forge"] if "kind" in events else events.iloc[0:0]
+    forged = set(zip(f.inv.astype(int), f.worker.astype(int), strict=True)) if len(f) else set()
+    wrong = [(int(i), int(w)) in forged for i, w in zip(inv.inv, inv.worker, strict=True)] if forged else False
+    return inv.assign(wrong=wrong)
+
+
 def classify(inv: pd.DataFrame) -> pd.Series:
-    """``met``, ``late``, ``lost`` or ``rejected`` per invocation."""
+    """``met``, ``wrong``, ``late``, ``lost`` or ``rejected`` per invocation; ``wrong`` (a forged answer, see
+    ``mark_wrong``) is a miss whatever its latency."""
     on_time = inv.e2e <= inv.deadline
+    ok = inv.outcome == "ok"
+    wrong = ok & inv.wrong.astype(bool) if "wrong" in inv else pd.Series(False, index=inv.index)
     out = np.select(
-        [(inv.outcome == "ok") & on_time, inv.outcome == "ok", inv.outcome.isin(LOST)],
-        ["met", "late", "lost"],
+        [wrong, ok & on_time, ok, inv.outcome.isin(LOST)],
+        ["wrong", "met", "late", "lost"],
         default="rejected",
     )
     return pd.Series(out, index=inv.index)
@@ -113,6 +127,35 @@ def utilisation(samples: pd.DataFrame, t0: float) -> float:
     s = samples[samples.t >= t0]
     cap = float(s.capacity.sum())
     return float(s.busy.sum() / cap) if cap > 0 else float("nan")
+
+
+def weighted_quantile(x: np.ndarray, w: np.ndarray, q: float) -> float:
+    """Smallest ``x`` whose cumulative weight reaches ``q`` of the total (``nan`` when there is no weight)."""
+    order = np.argsort(x, kind="stable")
+    cum = np.cumsum(w[order])
+    if not len(cum) or cum[-1] <= 0:
+        return float("nan")
+    return float(x[order][np.searchsorted(cum, q * cum[-1])])
+
+
+def function_utilisation(inv: pd.DataFrame, events: pd.DataFrame, t0: float, t1: float) -> pd.DataFrame:
+    """Per-function utilisation of its key holders over ``[t0, t1)`` (D-99): one row per function key with
+    ``rate`` (invocations per second, every class, arriving in the window), ``busy_s`` (mean start-up plus execution
+    time of its completed invocations), ``cores`` (time-averaged slots of the workers holding its key, from
+    ``session_slots`` events) and ``util = rate × busy_s / cores`` (offered load over holder capacity; ``inf`` when
+    the function is invoked but no worker held its key), weighted in summaries by ``invocations``."""
+    d = inv[(inv.t_arrive >= t0) & (inv.t_arrive < t1)]
+    slots = events[events.kind == "session_slots"].groupby("worker").value.last()
+    span, rows = max(t1 - t0, 1e-9), []
+    for key, g in d.groupby("tenant", sort=True):
+        done = g[g.outcome == "ok"]
+        busy = float((done.startup + done.exec).mean()) if len(done) else 0.0
+        iv = [(w, max(a, t0), min(b, t1)) for w, a, b in _intervals(events, str(key), t1) if b > t0 and a < t1]
+        cores = sum(float(slots.get(w, 0.0)) * (b - a) for w, a, b in iv) / span
+        load = len(g) / span * busy
+        util = load / cores if cores > 0 else (float("inf") if load > 0 else 0.0)
+        rows.append((key, len(g), len(g) / span, busy, cores, util))
+    return pd.DataFrame(rows, columns=["key", "invocations", "rate", "busy_s", "cores", "util"])
 
 
 def warm_memory_mb(cache: pd.DataFrame, t0: float) -> float:

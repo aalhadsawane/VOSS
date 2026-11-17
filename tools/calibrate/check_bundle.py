@@ -2,8 +2,11 @@
 
 ``python -m tools.calibrate.check_bundle configs/calibration/measured/<bundle> [--spec calibration/specs/<host>]``
 
-Errors (exit 1): a required entry is missing, not tagged ``measured``, or has fewer samples than the contract asks for;
-a workload function is missing or lacks an input size of the ``sebs`` suite; the machine specification lacks a field.
+Errors (exit 1): an entry the simulator reads (``simulator_entries``: every ``measured/<name>`` of
+``configs/substrates/*.yaml`` and every bundle key read in ``voss/``) or a contract entry is missing, not tagged
+``measured`` (the bundle then holds the placeholder's literature/assumed value, guardrails 28-29), or has fewer
+samples than the contract asks for; a measured disk speed of the bundle's tier is missing; a workload function is
+missing or lacks an input size of the ``sebs`` suite; the machine specification lacks a field.
 Warnings (exit 0, each needs a sentence in the session report): handler times do not span under 1 ms to over 10 s
 across all functions, or a handler time is more than 10x away from a published SeBS value where one is listed.
 Numbers are printed with ``%.3g``: a value such as ``2.5e-05`` is never shown as ``2.5``.
@@ -12,6 +15,7 @@ Numbers are printed with ``%.3g``: a value such as ``2.5e-05`` is never shown as
 from __future__ import annotations
 
 import argparse
+import re
 from pathlib import Path
 from typing import Any
 
@@ -19,22 +23,48 @@ import yaml
 
 from tools.calibrate.suites.sebs import SIZES
 
-# entry -> minimum samples (contract §2-4); boot entries need the image boots of Part C
+REPO = Path(__file__).resolve().parents[2]
+# entry -> minimum samples (contract §2-4). Constants count the samples their median was taken over.
 REQUIRED: dict[str, int] = {
     "tpm2_quote": 200,
     "verify_s": 50,
-    "key_release": 200,
+    "kbs_check_s": 200,
     "fc_boot": 100,
     "fc_restore": 50,
     "fc_snapshot_create": 50,
-    "boot_firmware": 10,
-    "boot_loader": 10,
-    "boot_quote": 10,
-    "boot_verify": 10,
-    "boot_first_tls": 10,
-    "boot_total": 10,
+    "dispatch": 200,
+    "snapshot_touched_frac": 100,  # 10 restores of each of the ten functions on the bundle's tier
+    "reboot_to_kernel": 10,
+    "appliance_userspace": 10,
+    "verify_s_per_MB": 20,
+    "tpm2_unseal": 50,
+    "key_release": 200,
+    "decrypt_per_MB": 1,
 }
-CONSTANTS = ("decrypt_per_MB", "image_mem_mb", "verify_s_per_MB")
+# on/off ratios: measured only when both phases ran on the node (a BIOS change, human approval; contract §6). The
+# simulator does not read them (D-104: memory encryption is not modelled), so they are reported, not demanded.
+RATIOS = ("tme_cpu_factor", "tme_mem_factor")
+HARDWARE = ("ssd_read_MBps", "ssd_write_MBps")  # the bundle tier's disk speeds (hardware class C0)
+_CODE_REF = re.compile(
+    r"""bundle(?:\[|\.get\()\s*["']([A-Za-z0-9_]+)["']|["']([A-Za-z0-9_]+)["']\s+in\s+(?:self\.)?bundle"""
+)
+
+
+def simulator_entries(repo: Path = REPO) -> set[str]:
+    """Bundle entries the simulator reads: substrate ``measured/<name>`` references and keys read in ``voss/``."""
+    refs: set[str] = set()
+    for sub in sorted((repo / "configs" / "substrates").glob("*.yaml")):
+        refs |= set(re.findall(r"measured/([A-Za-z0-9_]+)", sub.read_text()))
+    for py in sorted((repo / "voss").rglob("*.py")):
+        refs |= {a or b for a, b in _CODE_REF.findall(py.read_text())}
+    return refs
+
+
+def unmeasured(dists: dict[str, Any], repo: Path = REPO) -> list[str]:
+    """Entries the simulator reads that the bundle does not hold as ``measured`` (guardrails 28, 29)."""
+    return sorted(k for k in simulator_entries(repo) if (dists.get(k) or {}).get("tag") != "measured")
+
+
 # contract §1, as written by tools/calibrate/spec.sh (dotted paths into spec.yaml)
 SPEC_FIELDS = (
     "cpu.model",
@@ -64,19 +94,24 @@ def _load(path: Path) -> dict[str, Any]:
     return yaml.safe_load(path.read_text()) if path.exists() else {}
 
 
+def _missing(key: str, d: dict[str, Any] | None) -> str:
+    held = f"the bundle holds the placeholder, tag {d.get('tag')}" if d else "absent from the bundle"
+    why = "; needs tme --phase on and --phase off on this node (BIOS change, human approval)" if key in RATIOS else ""
+    return f"{key}: missing, not measured ({held}{why})"
+
+
 def check_distributions(bundle: Path) -> list[str]:
     dists = _load(bundle / "distributions.yaml").get("distributions", {})
     fits = _load(bundle / "fits.yaml")
     errors = []
-    for key, need in sorted(REQUIRED.items()):
+    for key in sorted({*REQUIRED, *simulator_entries()}):
         d = dists.get(key)
         if d is None or d.get("tag") != "measured":
-            errors.append(f"{key}: missing or not measured")
-        elif float((fits.get(key) or {}).get("n", 0)) < need:
-            errors.append(f"{key}: n={(fits.get(key) or {}).get('n', 0)} < {need}")
-    errors += [
-        f"{key}: missing or not measured" for key in CONSTANTS if (dists.get(key) or {}).get("tag") != "measured"
-    ]
+            errors.append(_missing(key, d))
+        elif key in REQUIRED and float((fits.get(key) or {}).get("n", 0)) < REQUIRED[key]:
+            errors.append(f"{key}: n={(fits.get(key) or {}).get('n', 0)} < {REQUIRED[key]}")
+    hw = (_load(bundle / "hardware.yaml").get("classes") or {}).get("C0") or {}
+    errors += [f"hardware C0 {f}: missing, not measured" for f in HARDWARE if f not in hw]
     return errors
 
 
