@@ -64,6 +64,8 @@ def test_vm_and_guest_parsers() -> None:
     assert sebs.parse(lines, "EXEC") == [("thumbnailer", 200, 0, 0.15), ("thumbnailer", 200, 1, 0.149)]
     m = MARK.search("[    0.4] VOSS_ACK ping")
     assert m is not None and m.group(1) == "ACK" and m.group(2) == "ping"
+    g = MARK.search("VOSS_GEN thumbnailer 200 0 0.010")
+    assert g is not None and g.group(1) == "GEN" and g.group(2) == "thumbnailer 200 0 0.010"
     assert "voss.mode=serve" in boot_args("serve") and "console=ttyS0" in boot_args("boot")
 
 
