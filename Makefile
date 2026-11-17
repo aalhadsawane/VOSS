@@ -11,7 +11,7 @@ UV ?= uv
 RUN = $(UV) run
 CONFIG ?= configs/smoke.yaml
 
-.PHONY: check lint type imports test run repro-smoke sweep manuscript manuscript-check
+.PHONY: check lint type imports test run repro-smoke sweep manuscript manuscript-check manuscript-pdf
 
 check: lint type imports test
 
@@ -45,6 +45,10 @@ sweep:
 # Manuscript (plan V14). Generated inputs come from experiments.analysis (plan V2).
 manuscript: manuscript-check
 	cd manuscript && latexmk -pdf -interaction=nonstopmode main.tex
+
+# The working draft committed for reading (README link); rebuild it whenever the manuscript changes.
+manuscript-pdf: manuscript
+	mkdir -p manuscript/pdf && cp manuscript/main.pdf manuscript/pdf/VOSS-v2-draft.pdf
 
 # Regenerate the measured-input macros and run the text checks (WRITING_SPEC.md §2 step 5).
 manuscript-check:
