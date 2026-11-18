@@ -123,10 +123,19 @@ R_f(S,\omega) = \lambda_f \left[ 1 - B\!\left(X_f(S,\omega),\, \lambda_f t_f\rig
 \label{eq:rate}
 \end{equation}
 where $\lambda_f$ is $f$'s request rate and $B(c,a)$ is the Erlang loss probability of $c$ servers offered load $a$,
-extended to real $c$~\cite{jagers1986erlang}. Provisioning maximises the expected on-time rate
-$F(S) = \sum_f \mathrm{E}_\omega\!\left[R_f(S_f,\omega)\right]$, with scenarios drawn from the reliability model, subject
-to $|S_f| \le K_f$ for every function, the concurrency limit of every worker, and the owner classes each tenant
-allows.
+extended to real $c$~\cite{jagers1986erlang}. Provisioning chooses holder sets $S_f$ and reservations $u_{fj}$ to
+solve
+\begin{equation}
+\begin{aligned}
+\max_{S,\,u}\quad & F(S,u) = \sum_f \frac{1}{M} \sum_{m=1}^{M} R_f(S_f,\omega_m) \\
+\text{s.t.}\quad & |S_f| \le K_f && \text{for every function } f \text{ (holder budget)},\\
+& \textstyle\sum_f u_{fj} \le c_j && \text{for every worker } j \text{ (its concurrency limit)},\\
+& u_{fj} \ge 1 \iff j \in S_f, \quad S_f \subseteq A_f && \text{(}A_f\text{: workers of the owner classes the tenant allows)},
+\end{aligned}
+\label{eq:prov}
+\end{equation}
+where $\omega_1,\dots,\omega_M$ are scenarios drawn from the reliability model; the sample average estimates the
+expected on-time rate $\sum_f \mathrm{E}_\omega[R_f(S_f,\omega)]$.
 
 \begin{proposition}
 \label{prop:submodular}
@@ -179,55 +188,114 @@ grows~\cite{kleywegt2002saa}.
 \Until{no pair has positive gain} \label{ln:units}
 \State repeat lines~\ref{ln:init}-\ref{ln:units} starting from the current holders; keep that result unless the
        first one's on-time rate, less what its new holders lose while they prepare, is larger \label{ln:swap}
-\State on each holder, keep warm the sandboxes that save the most start-up time per megabyte, within its memory
-       \label{ln:warm}
+\State on each holder, keep warm one sandbox per reserved core and store a snapshot, in decreasing order of
+       request rate, within the holder's memory and disk (equation~\eqref{eq:warm}) \label{ln:warm}
 \State send each worker the keys to request, the sandboxes to start and the keys to drop
 \end{algorithmic}
 \end{algorithm}
 
 Algorithm~\ref{alg:prov} is this greedy selection. Line~5 evaluates gains lazily: by submodularity a gain computed
 earlier is an upper bound on the current one, so only the pair at the top of a priority queue is
-re-evaluated~\cite{minoux1978}. The second loop is greedy over one partition matroid. Line~\ref{ln:warm} is a
-knapsack on each worker's memory, for which we claim no bound. A new holder costs a key release, a code fetch and a
-sandbox start, and the old holder keeps its place in the budget until its certificate expires, so
-line~\ref{ln:swap} changes holders only when the change pays for itself: a new holder of $f$ on $j$ serves nothing
-for its preparation time $\tau_{fj}$ of the horizon $H$, and each of its gains is charged $\tau_{fj}/H$ of its value.
-The gains of the first selection sum to its on-time rate, so the result keeps at least $1 - \max \tau / H$ of it, and
-Corollary~\ref{cor:greedy} and Proposition~\ref{prop:shared} hold for the result with that factor. A worker whose
-session certificate expires inside the horizon is not eligible.
+re-evaluated~\cite{minoux1978}. The second loop is greedy over one partition matroid.
+
+\paragraph{Changing holders.} A new holder costs a key release, a code fetch and a sandbox start, and the old holder
+keeps its place in the budget until its certificate expires. Line~\ref{ln:swap} therefore changes holders only when
+the change pays for itself. Let $G$ be the result of the greedy selection from empty sets and $I$ the result of the
+same selection started from the current holders; each take $(f,j)$ of a selection has a gain $g_{fj}$, and the gains
+of a selection sum to its value. A new holder of $f$ on $j$ serves nothing for its preparation time $\tau_{fj}$ (key
+release and start-up, from the measured start-up model) out of the horizon $H$. Provisioning keeps $I$ unless
+\begin{equation}
+F(G) - \sum_{(f,j) \in G,\ j \notin S^{\mathrm{now}}_f} g_{fj}\,\frac{\tau_{fj}}{H} \;>\;
+F(I) - \sum_{(f,j) \in I,\ j \notin S^{\mathrm{now}}_f} g_{fj}\,\frac{\tau_{fj}}{H},
+\label{eq:swap}
+\end{equation}
+in which case it takes $G$. The kept result has $F \ge (1 - \max_{fj} \tau_{fj}/H)\,F(G)$, so
+Corollary~\ref{cor:greedy} and Proposition~\ref{prop:shared} hold for it with that factor. The rule adds no constant.
+A worker whose session certificate expires inside the horizon is not eligible.
+
+\paragraph{Sandbox reuse.} A function on a worker is in one of three states: a warm sandbox, a snapshot on the
+worker's disk, or neither; its start-up time $U_{fj}$ in~\eqref{eq:pi} is that of the state it is in (resume a warm
+sandbox, restore the snapshot, or boot a sandbox and initialise the function). Line~\ref{ln:warm} keeps warm, on each
+holder $j$ of $f$,
+\begin{equation}
+w_{fj} = \min\!\left(u_{fj},\; w_{\max},\; \left\lfloor \frac{m_j - m_0 - \sum_{f' \prec f} w_{f'j}\,m_{f'}}{m_f}
+\right\rfloor\right),
+\label{eq:warm}
+\end{equation}
+where functions are taken in decreasing order of request rate ($f' \prec f$: taken before $f$), $m_j$ is the worker's
+memory, $m_0$ the memory the worker keeps for itself and $m_f$ the memory of one sandbox of $f$. Each holder also
+stores a snapshot of $f$ if its disk has room, so that a lost warm sandbox restores instead of booting. A warm sandbox
+serves later invocations of $f$ on that worker without a start-up. Equation~\eqref{eq:warm} is a greedy rule for a knapsack on each worker's memory; we claim no bound for it.
 
 \subsection{Request placement}
 \label{sec:place}
 
-For each invocation the scheduler evaluates~\eqref{eq:pi} for every key holder of the function with the current
-state of that worker: the invocations queued on it, the state the function is in on it, and the input's size. It
-assigns the invocation to the holder with the highest probability of meeting the deadline, and among equal
-probabilities to the one with the lowest expected completion time. There are no weights to tune. Synchronous
-invocations are placed as they arrive; invocations without a waiting client are placed in batches, after the
-synchronous ones. The time the scheduler itself takes is part of $W_j$.
+For each invocation $i$ of $f$ the scheduler evaluates every key holder $j$ of the function with the current state
+of that worker: the invocations queued on it, the state the function is in on it, and the input's size. The predicted
+completion $C_{ij} = W_j + U_{fj} + N_j + T_{fj}$ is a shifted log-normal matched to the mean and variance of its
+parts, and with $q_j = 1 - r'_j(1-p_j)$ the probability that $j$ fails during the attempt ($r'_j$ its probability of
+serving until the attempt ends), the probability of a miss is
+\begin{equation}
+P^{\mathrm{miss}}_{ij} = q_j + (1 - q_j)\,\Pr\!\left(C_{ij} > b_i\right),
+\label{eq:pmiss}
+\end{equation}
+where $b_i$ is the time left until the deadline. The scheduler assigns
+\begin{equation}
+j^\star(i) = \arg\min_{j \in S_f}\; \kappa_i\, P^{\mathrm{miss}}_{ij} + \epsilon\, \mathrm{E}[C_{ij}],
+\label{eq:place}
+\end{equation}
+with $\kappa_i = 1$ for a synchronous invocation and $0.3$ for one without a waiting client, and $\epsilon$ per second
+small enough that it only orders holders of nearly equal miss probability. Synchronous invocations are placed as they
+arrive; invocations without a waiting client are placed in batches, after the synchronous ones and with the tightest
+remaining time first, and each placement in a batch adds its load to the worker before the next is placed. The time
+the scheduler itself takes is part of $W_j$. \todoitem{T47}{parameter ledger}{$\epsilon = 0.05$ and the weight $0.3$
+of invocations without a waiting client are class \emph{pending} in the parameter ledger: either list them in
+Table~\ref{tab:constants} with their basis and report their sensitivity, or replace~\eqref{eq:place} by the order
+``lowest miss probability, then lowest expected completion'', which has no weight.}
 
 \subsection{Failure handling}
 \label{sec:fail}
 
 \paragraph{Timers from predictions.}
-When the scheduler assigns an invocation it starts a timer at the 95th percentile of the attempt's predicted
-completion time, from the same prediction as~\eqref{eq:pi}. A fixed timeout must be as long as the slowest worker
-needs for the longest function; a predicted one expires within the deadline for most invocations, which leaves time
-for a second attempt.
+When the scheduler dispatches an invocation to worker $j$ at time $t_0$ it starts a timer that expires at
+\begin{equation}
+t_{\mathrm{exp}} = t_0 + Q_{0.95}\!\left[\max\!\left(U'_{fj},\, \iota_{j}\right) + \hat\rho_{j} + T_{fj}\right],
+\label{eq:timer}
+\end{equation}
+the 95th percentile of the attempt as the scheduler observes it. $U'_{fj}$ is the time until the worker can start
+(its queue, the key and the start-up), $\iota_j$ the time until the input reaches the worker from the client's router
+(the router sends it when the scheduler's assignment reaches it), $\hat\rho_j$ the round-trip time between the scheduler and
+$j$ that the scheduler last observed (dispatch to acknowledgement; its distance estimate before the first exchange),
+and $T_{fj}$ the predicted execution time of~\eqref{eq:runtime}. A fixed timeout must be as long as the slowest worker
+needs for the longest function; the predicted one expires within the deadline for most invocations, which leaves
+time for a second attempt.
 
 \paragraph{Backup attempts.}
 When the timer expires and the function may run twice, the scheduler starts a \emph{backup attempt}: the invocation
-also runs on a second key holder, and the first result to arrive is used. The second holder has a different owner,
-city and ISP from the first, so that one home network or one owner cannot fail both. A backup attempt starts only if
-its predicted completion fits the remaining time; otherwise the client is told at once that the invocation failed.
+also runs on a second key holder, and the first result to arrive is used. The second holder $j'$ has a different
+owner, city and ISP from the first, so that one home network or one owner cannot fail both, and its expected
+completion must fit the remaining time, $\mathrm{E}[C_{ij'}] \le b_i$. If no holder satisfies this,
+the client is told at once that the invocation failed. An invocation runs at most three times; a backup is chosen
+by~\eqref{eq:place} with the failed worker excluded.
 Restricting backup attempts to key holders keeps the holder budget intact under failures.
 
 \paragraph{Evidence from progress.}
-On expiry the scheduler also asks the first worker whether the invocation is still running. A worker that answers is
-slow, and the scheduler waits for the deadline before it asks again. A worker that does not answer, or that reports
-the invocation finished while no result arrived, has dropped work; this updates the estimate $p_j$ of
-Section~\ref{sec:prov}, a Beta posterior with a change-point test~\cite{page1954cusum} so that a worker that starts
-dropping work is noticed after few invocations. When the test fires, or after consecutive failures, the scheduler
+On expiry the scheduler also sends the first worker a probe, asking whether the invocation is still running. A
+worker that answers is slow: the scheduler checks the attempt again after
+$\max\!\left(t_{\mathrm{exp}} - t,\; t_{\mathrm{dl}} - t,\; \theta\right)$, where $t$ is the current time,
+$t_{\mathrm{dl}}$ the deadline and $\theta$ the probe timeout, so that a late attempt is not probed once per
+round-trip time. A worker that does not answer within $\theta$, or that reports the invocation finished while no result
+arrived, has dropped work. Each such outcome $x_n = 1$, and each attempt that returns a result $x_n = 0$, updates the
+estimate $p_j$ of Section~\ref{sec:prov} and a change-point statistic~\cite{page1954cusum}:
+\begin{equation}
+p_j = \frac{a_0 + \sum_n x_n}{a_0 + b_0 + n}, \qquad
+Z_n = \max\!\left(0,\; Z_{n-1} + x_n - k\right).
+\label{eq:drop}
+\end{equation}
+When $Z_n > h$ the worker has started dropping work: $p_j$ restarts from a pessimistic prior, so that a worker that
+alternates between serving and dropping does not keep the estimate of its good period. \todoitem{T48}{parameter ledger}{The prior $(a_0, b_0)$, the
+pessimistic prior and the drift $k$ of~\eqref{eq:drop}, and the limit of three attempts, are not in
+Table~\ref{tab:constants}; add them with their class from the parameter ledger.} When the test fires, or after consecutive failures, the scheduler
 stops assigning invocations to the worker for a period and tells it to drop its keys, which frees its places in the
 holder budgets. Heartbeats are used only to learn that a worker is gone; they are never evidence that it works.
 

@@ -1,0 +1,91 @@
+bundle: node02-i7-12700-64g-nvme_hdd
+host:
+  bios_version: A.90
+  board: PRO Z790-A WIFI (MS-7E07)
+  cores: 12
+  cpu_model: 12th Gen Intel(R) Core(TM) i7-12700
+  disks:
+  - model: HGST HUS722T2TAL
+    name: sda
+    rotational: true
+    size_gb: 2000.4
+  - model: HGST HUS722T2TAL
+    name: sdb
+    rotational: true
+    size_gb: 2000.4
+  - model: HGST HUS722T2TAL
+    name: sdc
+    rotational: true
+    size_gb: 2000.4
+  - model: HGST HUS722T2TAL
+    name: sdd
+    rotational: true
+    size_gb: 2000.4
+  - model: Samsung SSD 980 PRO 1TB
+    name: nvme1n1
+    rotational: false
+    size_gb: 1000.2
+  - model: Samsung SSD 980 PRO 1TB
+    name: nvme3n1
+    rotational: false
+    size_gb: 1000.2
+  - model: Samsung SSD 980 PRO 1TB
+    name: nvme0n1
+    rotational: false
+    size_gb: 1000.2
+  - model: Samsung SSD 980 PRO 1TB
+    name: nvme2n1
+    rotational: false
+    size_gb: 1000.2
+  dry_run: false
+  fio: fio-3.36
+  firecracker: absent
+  harness_version: 0.1.0
+  hostname: HOST
+  iommu: false
+  kernel: 5.15.0-203-generic
+  mem_kb: 65502988
+  microcode: '0x3e'
+  options:
+    firecracker: /home/USER/voss-calib/assets/firecracker
+    hdd_dir: /mnt/hdd1/voss-calib-node02-r2
+    kernel: /home/USER/voss-calib/assets/vmlinux
+    nvme_dir: /mnt/nvme1/voss-calib-node02-r2
+    only: unseal
+    rootfs: /home/USER/voss-calib/assets/voss-guest.ext4
+    sebs_ml_rootfs: /home/USER/voss-calib/assets/voss-guest-ml.ext4
+    sebs_rootfs: /home/USER/voss-calib/assets/voss-guest.ext4
+  phase: null
+  qemu: QEMU emulator version 6.2.0 (Debian 1:6.2+dfsg-2ubuntu6.31)
+  quick: false
+  run_id: 20261117T094336
+  secure_boot: false
+  status: ok
+  suite: tpm
+  t_utc: '2026-11-17T09:43:36Z'
+  threads: 20
+  tme: false
+  tpm2_tools: tool="tpm2_quote" version="5.2" tctis="libtss2-tctildr" tcti-default=tcti-device
+  tpm_vendor: INTC
+missing: []
+provenance:
+  default: measured
+  note: ingested from raw logs of host node02-i7-12700-64g-nvme_hdd (rule 13)
+raw_files:
+  c0-b4f89a4def/appliance/20261114T171203/records.jsonl: b315935e38d21a4fbb491ee123835842967b17e42a6b2e6afe24216da7dd15b7
+  c0-b4f89a4def/attest_local/20261114T144618/records.jsonl: ff1286131376a9ce4b75ef2e9078d0c9e0ba3c09423eeeac5a03cdf9b8236cc1
+  c0-b4f89a4def/caps/20261114T142648/records.jsonl: 5a94319ec9ec84920db72824bcb1d5cd92ad530b0dc22da0c259fee06b53a400
+  c0-b4f89a4def/disk/20261114T142649/records.jsonl: 4a4907383198aa18972e1654357526640a7f586149b94a643cdf9de5e62a01f0
+  c0-b4f89a4def/disk/20261117T094343/records.jsonl: 97bee46dfff22cb04deaa520282350ed9c824afa540ef9c243b8dd835573c6c5
+  c0-b4f89a4def/fc_boot/20261114T144648/records.jsonl: 50db0309e93a5f60875be76cb455c7bce885eeaf315a8046f22bb73f841e4bde
+  c0-b4f89a4def/fc_dispatch/20261117T094356/records.jsonl: c4b2693b407f1a0b9402022e7a8fbe9b05cbee746f987d9e6a6fa1b9de90da9a
+  c0-b4f89a4def/fc_snapshot/20261114T145151/records.jsonl: 7d06bc269828107b46274d591c3a0800c14dfd429794a3898f9d7ce0555b7400
+  c0-b4f89a4def/fc_touched/20261117T102418/records.jsonl: 79205b63c198ddd581145a98d8e37d8e6fa8400cf32c5671c0dca34aa0239817
+  c0-b4f89a4def/keys/20261114T144633/records.jsonl: 972dda1068658de4beae9fcf39bd4fcda44d2254d6cf15e9d9a59a008880e73f
+  c0-b4f89a4def/keys/20261117T094347/records.jsonl: 4562c07acfad9862b5db54cca524738fbea9e79274a0cfe2b0b40b82d43be975
+  c0-b4f89a4def/sebs/20261114T150635/records.jsonl: 8f36c8d37021b32d55ecb32c8b26aef76cd7b686418706694cf40e8678709aa9
+  c0-b4f89a4def/sebs/20261117T093919/records.jsonl: 636990d09930282a818f0e8994dd7c6db7760fc03128c80116121f386933d338
+  c0-b4f89a4def/tls/20261114T144632/records.jsonl: 6f697399e21d875687753ea785e9dc94d62af4d2aa91b4fcab0b6be03806784c
+  c0-b4f89a4def/tpm/20261114T144528/records.jsonl: 9568a5d3eeee5f50cd188e2b40bc2118bea45660928ed67dbdf03b03d8d049ba
+  c0-b4f89a4def/tpm/20261117T094336/records.jsonl: 627ff37de0cfab1c2f69ab764c764162dcd6734ed52ad7d6e921beae373d08bc
+raw_host: c0-b4f89a4def

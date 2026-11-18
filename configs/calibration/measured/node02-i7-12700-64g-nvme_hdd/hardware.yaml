@@ -1,0 +1,14 @@
+classes:
+  C0:
+    hdd_read_MBps: 201.381222
+    hdd_write_MBps: 205.025707
+    ssd_read_MBps: 201.381222
+    ssd_write_MBps: 205.025707
+  E0:
+    hdd_read_MBps: 201.381222
+    hdd_write_MBps: 205.025707
+    ssd_read_MBps: 201.381222
+    ssd_write_MBps: 205.025707
+provenance:
+  default: measured
+  note: ingested from raw logs of host node02-i7-12700-64g-nvme_hdd (rule 13)

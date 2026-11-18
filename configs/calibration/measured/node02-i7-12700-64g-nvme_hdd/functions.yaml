@@ -1,0 +1,348 @@
+functions:
+  compression:
+    exec_by_size:
+      500:
+        median_s: 0.0014025
+        n: 30
+        sebs_class: '-'
+      2000:
+        median_s: 0.0053175
+        n: 30
+        sebs_class: '-'
+      8000:
+        median_s: 0.020351
+        n: 30
+        sebs_class: '-'
+      32000:
+        median_s: 0.08188300000000001
+        n: 30
+        sebs_class: '-'
+      128000:
+        median_s: 0.3144355
+        n: 30
+        sebs_class: '-'
+    init_s: 0.003146
+    input_gen_by_size: {}
+    interference:
+      1: 1.0
+      2: 1.0142123449855023
+      4: 1.045890632609169
+      8: 1.0603403095038098
+      12: 1.1070225836492569
+      20: 1.979294054433801
+    n: 150
+    rss_mb: 242.38671875
+    size_exp: 0.9780991490554763
+    snapshot_mb: 1024.0148916244507
+    snapshot_touched_frac: 0.03769683837890625
+    tag: measured
+    work_ref_s: 0.005317499999999999
+  dna-visualisation:
+    exec_by_size:
+      100:
+        median_s: 0.0143035
+        n: 30
+        sebs_class: '-'
+      500:
+        median_s: 0.073341
+        n: 30
+        sebs_class: '-'
+      2000:
+        median_s: 0.2984945
+        n: 30
+        sebs_class: '-'
+      8000:
+        median_s: 1.1853115
+        n: 30
+        sebs_class: '-'
+    init_s: 0.072386
+    input_gen_by_size: {}
+    interference:
+      1: 1.0
+      2: 1.027340395139789
+      4: 1.071581444939682
+      8: 1.1045579062917454
+    n: 120
+    rss_mb: 1585.5
+    size_exp: 1.008607333242819
+    snapshot_mb: 4096.01492023468
+    snapshot_touched_frac: 0.031095504760742188
+    tag: measured
+    work_ref_s: 0.073341
+  dynamic-html:
+    exec_by_size:
+      1:
+        median_s: 2.5e-05
+        n: 30
+        sebs_class: '-'
+      10:
+        median_s: 9.9e-05
+        n: 30
+        sebs_class: small
+      1000:
+        median_s: 0.009082
+        n: 30
+        sebs_class: large
+      10000:
+        median_s: 0.1056455
+        n: 30
+        sebs_class: '-'
+      100000:
+        median_s: 1.0663255
+        n: 30
+        sebs_class: '-'
+    init_s: 0.033901
+    input_gen_by_size: {}
+    interference:
+      1: 1.0
+      2: 1.0296632372390604
+      4: 1.065344039849517
+      8: 1.1041243338818207
+    n: 150
+    rss_mb: 1279.86328125
+    size_exp: 0.945112742859087
+    snapshot_mb: 4096.014915466309
+    snapshot_touched_frac: 0.0068607330322265625
+    tag: measured
+    work_ref_s: 2.5000000000000018e-05
+  graph-bfs:
+    exec_by_size:
+      1:
+        median_s: 0.0008465
+        n: 30
+        sebs_class: small
+      10:
+        median_s: 0.022531500000000003
+        n: 30
+        sebs_class: large
+      30:
+        median_s: 0.107474
+        n: 30
+        sebs_class: '-'
+      100:
+        median_s: 0.4697765
+        n: 30
+        sebs_class: '-'
+    init_s: 0.028323
+    input_gen_by_size: {}
+    interference:
+      1: 1.0
+      2: 1.1377435293535438
+      4: 1.2909862655404405
+      8: 1.5311973556633418
+      12: 1.7647260011379085
+    n: 120
+    rss_mb: 788.1171875
+    size_exp: 1.3818901509225974
+    snapshot_mb: 2048.014889717102
+    snapshot_touched_frac: 0.03466606140136719
+    tag: measured
+    work_ref_s: 0.0008464999999999997
+  graph-mst:
+    exec_by_size:
+      1:
+        median_s: 0.0010049999999999998
+        n: 30
+        sebs_class: small
+      10:
+        median_s: 0.0270275
+        n: 30
+        sebs_class: large
+      30:
+        median_s: 0.139381
+        n: 30
+        sebs_class: '-'
+      100:
+        median_s: 0.583126
+        n: 30
+        sebs_class: '-'
+    init_s: 0.028065
+    input_gen_by_size: {}
+    interference:
+      1: 1.0
+      2: 1.1460861561046887
+      4: 1.3052785011096855
+      8: 1.5489048322769414
+      12: 1.7951106027357129
+    n: 120
+    rss_mb: 788.15234375
+    size_exp: 1.395811375949435
+    snapshot_mb: 2048.014889717102
+    snapshot_touched_frac: 0.03446769714355469
+    tag: measured
+    work_ref_s: 0.0010049999999999996
+  graph-pagerank:
+    exec_by_size:
+      1:
+        median_s: 0.013207
+        n: 30
+        sebs_class: small
+      10:
+        median_s: 0.1866845
+        n: 30
+        sebs_class: large
+      30:
+        median_s: 0.8366645
+        n: 30
+        sebs_class: '-'
+      100:
+        median_s: 3.6101574999999997
+        n: 30
+        sebs_class: '-'
+    init_s: 0.028011
+    input_gen_by_size: {}
+    interference:
+      1: 1.0
+      2: 1.1209942973687494
+      4: 1.3132918527313997
+      8: 1.7836687420249202
+      12: 2.1929588810142997
+    n: 120
+    rss_mb: 1043.6640625
+    size_exp: 1.2224435916519318
+    snapshot_mb: 2048.0148944854736
+    snapshot_touched_frac: 0.03777885437011719
+    tag: measured
+    work_ref_s: 0.013207
+  image-recognition:
+    exec_by_size:
+      50:
+        median_s: 0.075155
+        n: 30
+        sebs_class: '-'
+      100:
+        median_s: 0.0752055
+        n: 30
+        sebs_class: '-'
+      400:
+        median_s: 0.27917000000000003
+        n: 30
+        sebs_class: '-'
+    init_s: 1.489607
+    input_gen_by_size: {}
+    interference:
+      1: 1.0
+      2: 1.051824423681036
+      4: 1.1513932901837634
+      8: 1.3134809391042555
+      12: 1.4125030203280866
+    n: 90
+    rss_mb: 741.734375
+    size_exp: 0.6760746803413195
+    snapshot_mb: 2048.0149002075195
+    snapshot_touched_frac: 0.14055824279785156
+    tag: measured
+    work_ref_s: 0.07520549999999998
+  thumbnailer:
+    exec_by_size:
+      50:
+        median_s: 0.0012945
+        n: 30
+        sebs_class: '-'
+      200:
+        median_s: 0.003556
+        n: 30
+        sebs_class: '-'
+      1000:
+        median_s: 0.01038
+        n: 30
+        sebs_class: '-'
+      4000:
+        median_s: 0.034115
+        n: 30
+        sebs_class: '-'
+      16000:
+        median_s: 0.10965649999999999
+        n: 30
+        sebs_class: '-'
+    init_s: 0.061265
+    input_gen_by_size: {}
+    interference:
+      1: 1.0
+      2: 1.0284166423510446
+      4: 1.0570490052627535
+      8: 1.0792135695795044
+      12: 1.1212217707119951
+      20: 1.5648294283333213
+    n: 150
+    rss_mb: 244.25
+    size_exp: 0.7656633390479012
+    snapshot_mb: 512.0148916244507
+    snapshot_touched_frac: 0.103515625
+    tag: measured
+    work_ref_s: 0.0035559999999999993
+  uploader:
+    exec_by_size:
+      256:
+        median_s: 4.8e-05
+        n: 30
+        sebs_class: test
+      1000:
+        median_s: 0.00017050000000000002
+        n: 30
+        sebs_class: '-'
+      6700:
+        median_s: 0.0012615
+        n: 30
+        sebs_class: small
+      25000:
+        median_s: 0.006454
+        n: 30
+        sebs_class: '-'
+      100000:
+        median_s: 0.04365
+        n: 30
+        sebs_class: large
+    init_s: 0.001079
+    input_gen_by_size: {}
+    interference:
+      1: 1.0
+      2: 1.1576048808657167
+      4: 1.2522896005659523
+      8: 1.5313901166827044
+      12: 1.9115873929530391
+      20: 3.3110804808457313
+    n: 150
+    rss_mb: 387.53515625
+    size_exp: 1.13587318179855
+    snapshot_mb: 1024.0148887634277
+    snapshot_touched_frac: 0.026248931884765625
+    tag: measured
+    work_ref_s: 4.8000000000000015e-05
+  video-processing:
+    exec_by_size:
+      1000:
+        median_s: 0.125886
+        n: 30
+        sebs_class: '-'
+      5000:
+        median_s: 0.172093
+        n: 30
+        sebs_class: '-'
+      20000:
+        median_s: 0.171981
+        n: 30
+        sebs_class: '-'
+      80000:
+        median_s: 0.17230800000000002
+        n: 30
+        sebs_class: '-'
+    init_s: 0.004655
+    input_gen_by_size: {}
+    interference:
+      1: 1.0
+      2: 1.0250633231402262
+      4: 1.0903964442603529
+      8: 1.2305421975275075
+      12: 1.285127309288823
+      20: 2.3300264292207418
+    n: 120
+    rss_mb: 468.7578125
+    size_exp: 0.06663797086937592
+    snapshot_mb: 1024.0148963928223
+    snapshot_touched_frac: 0.4009208679199219
+    tag: measured
+    work_ref_s: 0.17209299999999997
+provenance:
+  default: measured
+  note: ingested from raw logs of host node02-i7-12700-64g-nvme_hdd (rule 13)

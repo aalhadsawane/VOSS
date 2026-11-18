@@ -10,6 +10,10 @@ calibration harness for real machines, and the experiments and manuscript.
 **Status:** v2 rebuild in progress on branch `revision-v2` (`docs/REVISION_PLAN.md`). v1 is archived at `main` commit
 `b0f2fb24`; its results are not reused.
 
+**Paper draft:** [`manuscript/pdf/VOSS-v2-draft.pdf`](manuscript/pdf/VOSS-v2-draft.pdf), the working draft of the v2
+manuscript. Red `[TODO …]` markers stand for results and checks that are not done yet; `manuscript/TODO.md` lists
+them. Rebuild with `make manuscript-pdf`.
+
 ## Read in this order
 
 | Doc | What it answers |
