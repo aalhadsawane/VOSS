@@ -1,0 +1,8 @@
+stage=setup utc=2026-11-18T14:45:07Z commit=e05dff1d9e5f565574d0de46cc937cb0fc52bcb7
+virt=none
+governor=performance 
+intel_no_turbo=0
+boost=n/a
+on_mains=n/a
+loadavg=0.16 0.10 0.03 nproc=8
+thermal_msgs=0
