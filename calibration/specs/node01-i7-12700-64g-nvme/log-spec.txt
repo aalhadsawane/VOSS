@@ -1,0 +1,6 @@
+Wrote /home/USER/USER/calibration/specs/node01-i7-12700-64g-nvme/SPEC.md and /home/USER/USER/calibration/specs/node01-i7-12700-64g-nvme/spec.yaml
+   Building USER @ file:///home/USER/USER
+      Built USER @ file:///home/USER/USER
+Uninstalled 1 package in 0.44ms
+Installed 3 packages in 1ms
+caps: ok

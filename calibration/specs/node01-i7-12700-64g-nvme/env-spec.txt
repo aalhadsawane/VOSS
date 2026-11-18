@@ -1,0 +1,8 @@
+stage=spec utc=2026-11-14T10:32:50Z commit=079f220e8794d8b7f6bf2abaed76ddf91f5c887b
+virt=none
+governor=powersave
+intel_no_turbo=0
+boost=n/a
+on_mains=n/a
+loadavg=0.25 0.54 1.92 nproc=20
+thermal_msgs=0

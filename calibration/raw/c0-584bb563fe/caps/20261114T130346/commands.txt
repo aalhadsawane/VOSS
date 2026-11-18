@@ -1,0 +1,7 @@
+tpm2_getcap properties-fixed
+dmesg
+mokutil --sb-state
+cpuid -1 -l 7 -r
+rdmsr 0x982
+lsblk -J -b -o NAME,ROTA,SIZE,TYPE,MODEL
+df -B1 --output=target,avail

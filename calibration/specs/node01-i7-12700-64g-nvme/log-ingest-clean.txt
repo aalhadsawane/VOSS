@@ -1,0 +1,7 @@
+ingesting calibration/raw/c0-584bb563fe
+configs/calibration/measured/node01-i7-12700-64g-nvme_nvme
+WARNING handler times span 2.4e-05-3.6 s, not <1 ms to >10 s (plan F2a)
+ERROR appliance_userspace: missing, not measured (the bundle holds the placeholder, tag assumed)
+ERROR reboot_to_kernel: missing, not measured (the bundle holds the placeholder, tag assumed)
+configs/calibration/measured/node01-i7-12700-64g-nvme_nvme: 2 errors, 1 warnings
+ingest or check_bundle reported errors: each goes into the report (NODE_PLAN.md §6)
