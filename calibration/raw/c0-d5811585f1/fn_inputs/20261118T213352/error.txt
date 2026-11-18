@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "/home/USER/voss/tools/calibrate/run.py", line 73, in run_suite
+    s.run(ctx)
+  File "/home/USER/voss/tools/calibrate/suites/fn_inputs.py", line 44, in run
+    for name, size, rep, secs in sebs.parse(one_guest(ctx, a, fn, reps), "GEN"):
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/USER/voss/tools/calibrate/suites/fn_inputs.py", line 28, in one_guest
+    return vm.collect("GEN", until="done", timeout=3600.0)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/USER/voss/tools/calibrate/fc.py", line 232, in collect
+    raise TimeoutError(f"no VOSS_MARK {until!r} within {timeout} s")
+TimeoutError: no VOSS_MARK 'done' within 3600.0 s

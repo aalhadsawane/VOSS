@@ -1,0 +1,125 @@
+{"config": {}, "probe": "hash_per_MB", "rep": 0, "suite": "disk", "unit": "s/MB", "value": 0.0020698545849882066}
+{"config": {}, "probe": "hash_per_MB", "rep": 1, "suite": "disk", "unit": "s/MB", "value": 0.0020685206109192222}
+{"config": {}, "probe": "hash_per_MB", "rep": 2, "suite": "disk", "unit": "s/MB", "value": 0.002068352827336639}
+{"config": {}, "probe": "hash_per_MB", "rep": 3, "suite": "disk", "unit": "s/MB", "value": 0.0020651230443036184}
+{"config": {}, "probe": "hash_per_MB", "rep": 4, "suite": "disk", "unit": "s/MB", "value": 0.0020710858225356787}
+{"config": {}, "probe": "hash_per_MB", "rep": 5, "suite": "disk", "unit": "s/MB", "value": 0.0020654043910326436}
+{"config": {}, "probe": "hash_per_MB", "rep": 6, "suite": "disk", "unit": "s/MB", "value": 0.0020636708941310644}
+{"config": {}, "probe": "hash_per_MB", "rep": 7, "suite": "disk", "unit": "s/MB", "value": 0.00206763410824351}
+{"config": {}, "probe": "hash_per_MB", "rep": 8, "suite": "disk", "unit": "s/MB", "value": 0.0020675277191912755}
+{"config": {}, "probe": "hash_per_MB", "rep": 9, "suite": "disk", "unit": "s/MB", "value": 0.002067948706098832}
+{"config": {}, "probe": "hash_per_MB", "rep": 10, "suite": "disk", "unit": "s/MB", "value": 0.002066032131551765}
+{"config": {}, "probe": "hash_per_MB", "rep": 11, "suite": "disk", "unit": "s/MB", "value": 0.002063339314190671}
+{"config": {}, "probe": "hash_per_MB", "rep": 12, "suite": "disk", "unit": "s/MB", "value": 0.0020626764599001035}
+{"config": {}, "probe": "hash_per_MB", "rep": 13, "suite": "disk", "unit": "s/MB", "value": 0.0020654012041632086}
+{"config": {}, "probe": "hash_per_MB", "rep": 14, "suite": "disk", "unit": "s/MB", "value": 0.00207506692095194}
+{"config": {}, "probe": "hash_per_MB", "rep": 15, "suite": "disk", "unit": "s/MB", "value": 0.002062029918306507}
+{"config": {}, "probe": "hash_per_MB", "rep": 16, "suite": "disk", "unit": "s/MB", "value": 0.002066966349957511}
+{"config": {}, "probe": "hash_per_MB", "rep": 17, "suite": "disk", "unit": "s/MB", "value": 0.002067352645099163}
+{"config": {}, "probe": "hash_per_MB", "rep": 18, "suite": "disk", "unit": "s/MB", "value": 0.002062151106656529}
+{"config": {}, "probe": "hash_per_MB", "rep": 19, "suite": "disk", "unit": "s/MB", "value": 0.002062501574982889}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_read_MBps", "rep": 0, "suite": "disk", "unit": "MBps", "value": 131.115519}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_read_iops", "rep": 0, "suite": "disk", "unit": "iops", "value": 125.041503}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_read_lat_p50_s", "rep": 0, "suite": "disk", "unit": "s", "value": 0.062652416}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_read_MBps", "rep": 1, "suite": "disk", "unit": "MBps", "value": 131.672568}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_read_iops", "rep": 1, "suite": "disk", "unit": "iops", "value": 125.572747}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_read_lat_p50_s", "rep": 1, "suite": "disk", "unit": "s", "value": 0.062652416}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_read_MBps", "rep": 2, "suite": "disk", "unit": "MBps", "value": 132.290464}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_read_iops", "rep": 2, "suite": "disk", "unit": "iops", "value": 126.162019}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_read_lat_p50_s", "rep": 2, "suite": "disk", "unit": "s", "value": 0.062128128}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_read_MBps", "rep": 3, "suite": "disk", "unit": "MBps", "value": 131.794327}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_read_iops", "rep": 3, "suite": "disk", "unit": "iops", "value": 125.688865}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_read_lat_p50_s", "rep": 3, "suite": "disk", "unit": "s", "value": 0.062128128}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_read_MBps", "rep": 4, "suite": "disk", "unit": "MBps", "value": 132.195101}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_read_iops", "rep": 4, "suite": "disk", "unit": "iops", "value": 126.071073}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_read_lat_p50_s", "rep": 4, "suite": "disk", "unit": "s", "value": 0.062128128}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_write_MBps", "rep": 0, "suite": "disk", "unit": "MBps", "value": 130.306311}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_write_iops", "rep": 0, "suite": "disk", "unit": "iops", "value": 124.269782}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_write_lat_p50_s", "rep": 0, "suite": "disk", "unit": "s", "value": 0.062652416}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_write_MBps", "rep": 1, "suite": "disk", "unit": "MBps", "value": 129.957679}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_write_iops", "rep": 1, "suite": "disk", "unit": "iops", "value": 123.937301}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_write_lat_p50_s", "rep": 1, "suite": "disk", "unit": "s", "value": 0.062652416}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_write_MBps", "rep": 2, "suite": "disk", "unit": "MBps", "value": 129.827011}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_write_iops", "rep": 2, "suite": "disk", "unit": "iops", "value": 123.812687}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_write_lat_p50_s", "rep": 2, "suite": "disk", "unit": "s", "value": 0.062652416}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_write_MBps", "rep": 3, "suite": "disk", "unit": "MBps", "value": 130.305904}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_write_iops", "rep": 3, "suite": "disk", "unit": "iops", "value": 124.269394}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_write_lat_p50_s", "rep": 3, "suite": "disk", "unit": "s", "value": 0.063700992}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_write_MBps", "rep": 4, "suite": "disk", "unit": "MBps", "value": 130.340921}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_write_iops", "rep": 4, "suite": "disk", "unit": "iops", "value": 124.302789}
+{"config": {"tier": "hdd"}, "probe": "hdd_seq_write_lat_p50_s", "rep": 4, "suite": "disk", "unit": "s", "value": 0.063700992}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_read_4k_MBps", "rep": 0, "suite": "disk", "unit": "MBps", "value": 1.380394}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_read_4k_iops", "rep": 0, "suite": "disk", "unit": "iops", "value": 337.010371}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_read_4k_lat_p50_s", "rep": 0, "suite": "disk", "unit": "s", "value": 0.047972352}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_read_4k_MBps", "rep": 1, "suite": "disk", "unit": "MBps", "value": 1.393171}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_read_4k_iops", "rep": 1, "suite": "disk", "unit": "iops", "value": 340.12975}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_read_4k_lat_p50_s", "rep": 1, "suite": "disk", "unit": "s", "value": 0.047448064}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_read_4k_MBps", "rep": 2, "suite": "disk", "unit": "MBps", "value": 1.439456}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_read_4k_iops", "rep": 2, "suite": "disk", "unit": "iops", "value": 351.429892}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_read_4k_lat_p50_s", "rep": 2, "suite": "disk", "unit": "s", "value": 0.044826624}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_read_4k_MBps", "rep": 3, "suite": "disk", "unit": "MBps", "value": 1.412171}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_read_4k_iops", "rep": 3, "suite": "disk", "unit": "iops", "value": 344.768552}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_read_4k_lat_p50_s", "rep": 3, "suite": "disk", "unit": "s", "value": 0.046923776}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_read_4k_MBps", "rep": 4, "suite": "disk", "unit": "MBps", "value": 1.427365}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_read_4k_iops", "rep": 4, "suite": "disk", "unit": "iops", "value": 348.477845}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_read_4k_lat_p50_s", "rep": 4, "suite": "disk", "unit": "s", "value": 0.049020928}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_write_4k_MBps", "rep": 0, "suite": "disk", "unit": "MBps", "value": 1.508054}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_write_4k_iops", "rep": 0, "suite": "disk", "unit": "iops", "value": 368.177372}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_write_4k_lat_p50_s", "rep": 0, "suite": "disk", "unit": "s", "value": 0.08126464}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_write_4k_MBps", "rep": 1, "suite": "disk", "unit": "MBps", "value": 1.492679}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_write_4k_iops", "rep": 1, "suite": "disk", "unit": "iops", "value": 364.423718}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_write_4k_lat_p50_s", "rep": 1, "suite": "disk", "unit": "s", "value": 0.082313216}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_write_4k_MBps", "rep": 2, "suite": "disk", "unit": "MBps", "value": 1.535185}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_write_4k_iops", "rep": 2, "suite": "disk", "unit": "iops", "value": 374.801061}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_write_4k_lat_p50_s", "rep": 2, "suite": "disk", "unit": "s", "value": 0.08126464}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_write_4k_MBps", "rep": 3, "suite": "disk", "unit": "MBps", "value": 1.513178}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_write_4k_iops", "rep": 3, "suite": "disk", "unit": "iops", "value": 369.428439}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_write_4k_lat_p50_s", "rep": 3, "suite": "disk", "unit": "s", "value": 0.082313216}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_write_4k_MBps", "rep": 4, "suite": "disk", "unit": "MBps", "value": 1.520867}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_write_4k_iops", "rep": 4, "suite": "disk", "unit": "iops", "value": 371.3055}
+{"config": {"tier": "hdd"}, "probe": "hdd_rand_write_4k_lat_p50_s", "rep": 4, "suite": "disk", "unit": "s", "value": 0.082313216}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_read_MBps", "rep": 0, "suite": "disk", "unit": "MBps", "value": 3089.675347}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_read_iops", "rep": 0, "suite": "disk", "unit": "iops", "value": 2946.544025}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_read_lat_p50_s", "rep": 0, "suite": "disk", "unit": "s", "value": 0.00253952}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_read_MBps", "rep": 1, "suite": "disk", "unit": "MBps", "value": 3071.643446}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_read_iops", "rep": 1, "suite": "disk", "unit": "iops", "value": 2929.347464}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_read_lat_p50_s", "rep": 1, "suite": "disk", "unit": "s", "value": 0.002637824}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_read_MBps", "rep": 2, "suite": "disk", "unit": "MBps", "value": 3076.116475}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_read_iops", "rep": 2, "suite": "disk", "unit": "iops", "value": 2933.613277}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_read_lat_p50_s", "rep": 2, "suite": "disk", "unit": "s", "value": 0.002637824}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_read_MBps", "rep": 3, "suite": "disk", "unit": "MBps", "value": 3212.613771}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_read_iops", "rep": 3, "suite": "disk", "unit": "iops", "value": 3063.787243}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_read_lat_p50_s", "rep": 3, "suite": "disk", "unit": "s", "value": 0.00253952}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_read_MBps", "rep": 4, "suite": "disk", "unit": "MBps", "value": 3039.213981}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_read_iops", "rep": 4, "suite": "disk", "unit": "iops", "value": 2898.420316}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_read_lat_p50_s", "rep": 4, "suite": "disk", "unit": "s", "value": 0.002670592}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_write_MBps", "rep": 0, "suite": "disk", "unit": "MBps", "value": 1662.737949}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_write_iops", "rep": 0, "suite": "disk", "unit": "iops", "value": 1585.710477}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_write_lat_p50_s", "rep": 0, "suite": "disk", "unit": "s", "value": 0.004882432}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_write_MBps", "rep": 1, "suite": "disk", "unit": "MBps", "value": 1645.026548}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_write_iops", "rep": 1, "suite": "disk", "unit": "iops", "value": 1568.819569}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_write_lat_p50_s", "rep": 1, "suite": "disk", "unit": "s", "value": 0.004816896}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_write_MBps", "rep": 2, "suite": "disk", "unit": "MBps", "value": 1746.019171}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_write_iops", "rep": 2, "suite": "disk", "unit": "iops", "value": 1665.13364}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_write_lat_p50_s", "rep": 2, "suite": "disk", "unit": "s", "value": 0.004620288}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_write_MBps", "rep": 3, "suite": "disk", "unit": "MBps", "value": 1698.563122}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_write_iops", "rep": 3, "suite": "disk", "unit": "iops", "value": 1619.876025}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_write_lat_p50_s", "rep": 3, "suite": "disk", "unit": "s", "value": 0.004685824}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_write_MBps", "rep": 4, "suite": "disk", "unit": "MBps", "value": 1679.16126}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_write_iops", "rep": 4, "suite": "disk", "unit": "iops", "value": 1601.372967}
+{"config": {"layer": "dm-crypt"}, "probe": "hdd_crypt_seq_write_lat_p50_s", "rep": 4, "suite": "disk", "unit": "s", "value": 0.004685824}
+{"config": {"layer": "dm-verity"}, "probe": "hdd_verity_seq_read_MBps", "rep": 0, "suite": "disk", "unit": "MBps", "value": 821.131895}
+{"config": {"layer": "dm-verity"}, "probe": "hdd_verity_seq_read_iops", "rep": 0, "suite": "disk", "unit": "iops", "value": 783.092399}
+{"config": {"layer": "dm-verity"}, "probe": "hdd_verity_seq_read_lat_p50_s", "rep": 0, "suite": "disk", "unit": "s", "value": 0.01015808}
+{"config": {"layer": "dm-verity"}, "probe": "hdd_verity_seq_read_MBps", "rep": 1, "suite": "disk", "unit": "MBps", "value": 824.554733}
+{"config": {"layer": "dm-verity"}, "probe": "hdd_verity_seq_read_iops", "rep": 1, "suite": "disk", "unit": "iops", "value": 786.356672}
+{"config": {"layer": "dm-verity"}, "probe": "hdd_verity_seq_read_lat_p50_s", "rep": 1, "suite": "disk", "unit": "s", "value": 0.01015808}
+{"config": {"layer": "dm-verity"}, "probe": "hdd_verity_seq_read_MBps", "rep": 2, "suite": "disk", "unit": "MBps", "value": 823.491931}
+{"config": {"layer": "dm-verity"}, "probe": "hdd_verity_seq_read_iops", "rep": 2, "suite": "disk", "unit": "iops", "value": 785.343105}
+{"config": {"layer": "dm-verity"}, "probe": "hdd_verity_seq_read_lat_p50_s", "rep": 2, "suite": "disk", "unit": "s", "value": 0.01015808}
+{"config": {"layer": "dm-verity"}, "probe": "hdd_verity_seq_read_MBps", "rep": 3, "suite": "disk", "unit": "MBps", "value": 842.07429}
+{"config": {"layer": "dm-verity"}, "probe": "hdd_verity_seq_read_iops", "rep": 3, "suite": "disk", "unit": "iops", "value": 803.064624}
+{"config": {"layer": "dm-verity"}, "probe": "hdd_verity_seq_read_lat_p50_s", "rep": 3, "suite": "disk", "unit": "s", "value": 0.009895936}
+{"config": {"layer": "dm-verity"}, "probe": "hdd_verity_seq_read_MBps", "rep": 4, "suite": "disk", "unit": "MBps", "value": 841.305847}
+{"config": {"layer": "dm-verity"}, "probe": "hdd_verity_seq_read_iops", "rep": 4, "suite": "disk", "unit": "iops", "value": 802.331779}
+{"config": {"layer": "dm-verity"}, "probe": "hdd_verity_seq_read_lat_p50_s", "rep": 4, "suite": "disk", "unit": "s", "value": 0.009895936}

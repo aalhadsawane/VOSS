@@ -1,0 +1,4 @@
+openssl speed -evp aes-256-gcm -decrypt -bytes 1048576 -seconds 2
+openssl speed -seconds 2 rsa2048
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout calibration/raw/c0-d5811585f1/keys/20261118T201937/keys/tls.key -out calibration/raw/c0-d5811585f1/keys/20261118T201937/keys/tls.crt -days 1 -subj /CN=localhost
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout calibration/raw/c0-d5811585f1/keys/20261118T201937/kbs/tls.key -out calibration/raw/c0-d5811585f1/keys/20261118T201937/kbs/tls.crt -days 1 -subj /CN=localhost

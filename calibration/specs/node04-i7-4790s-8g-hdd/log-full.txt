@@ -1,0 +1,29 @@
+caps: ok
+disk: ok
+tpm: skipped: no /dev/tpmrm0 or /dev/tpm0
+attest_local: skipped: no /dev/tpmrm0 or /dev/tpm0
+tls: ok
+keys: ok
+fc_boot: ok
+fc_snapshot: ok
+fc_dispatch: ok
+skip sebs fn=dynamic-html concurrency=2: guests together over the RAM budget (needs 8192 MB)
+skip sebs fn=dynamic-html concurrency=4: guests together over the RAM budget (needs 16384 MB)
+skip sebs fn=dynamic-html concurrency=8: guests together over the RAM budget (needs 32768 MB)
+skip sebs fn=uploader concurrency=8: guests together over the RAM budget (needs 8192 MB)
+skip sebs fn=video-processing concurrency=8: guests together over the RAM budget (needs 8192 MB)
+skip sebs fn=compression concurrency=8: guests together over the RAM budget (needs 8192 MB)
+skip sebs fn=image-recognition concurrency=4: guests together over the RAM budget (needs 8192 MB)
+skip sebs fn=image-recognition concurrency=8: guests together over the RAM budget (needs 16384 MB)
+skip sebs fn=graph-pagerank concurrency=4: guests together over the RAM budget (needs 8192 MB)
+skip sebs fn=graph-pagerank concurrency=8: guests together over the RAM budget (needs 16384 MB)
+skip sebs fn=graph-mst concurrency=4: guests together over the RAM budget (needs 8192 MB)
+skip sebs fn=graph-mst concurrency=8: guests together over the RAM budget (needs 16384 MB)
+skip sebs fn=graph-bfs concurrency=4: guests together over the RAM budget (needs 8192 MB)
+skip sebs fn=graph-bfs concurrency=8: guests together over the RAM budget (needs 16384 MB)
+skip sebs fn=dna-visualisation concurrency=2: guests together over the RAM budget (needs 8192 MB)
+skip sebs fn=dna-visualisation concurrency=4: guests together over the RAM budget (needs 16384 MB)
+skip sebs fn=dna-visualisation concurrency=8: guests together over the RAM budget (needs 32768 MB)
+sebs: ok
+fn_inputs: error
+fc_touched: ok
