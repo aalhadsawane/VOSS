@@ -118,15 +118,26 @@ installed system.
    encrypted cache partition sealed to the TPM, attestation agent, Firecracker).
 2. Show the human exactly what the next step changes (one extra UEFI boot entry; the installed system is untouched) and get a
    clear "yes".
-3. Arm and run at least 10 boots: `--suite appliance --set step=arm --allow-reboot --boots 10`, or the laptop helper
+3. Before arming, with the human (node01 lost three Part C attempts to a hung shutdown and a kernel panic that left no
+   trace):
+   - stop and disable, for the duration of the loop, every service that is not part of the operating system: other
+     users' processes and service managers, cluster, storage and filesystem clients, their watchdog daemons, container
+     runtimes, GPU jobs (NODE_PLAN.md §4 rule 7). Re-enable them after step 7;
+   - make a panic leave evidence: check that `/sys/fs/pstore` is mounted and that the kernel has a pstore backend
+     (`efi_pstore` or `ramoops`), or set up `netconsole` to another machine; record which;
+   - do one reboot by hand with the human watching, and confirm that the machine shuts down within 2 minutes and comes
+     back to the normal system;
+   - during the loop, stop at the first boot that is incomplete or takes more than twice the median; do not continue
+     the loop on a machine that hung or panicked. Report what pstore or netconsole captured.
+4. Arm and run at least 10 boots: `--suite appliance --set step=arm --allow-reboot --boots 10`, or the laptop helper
    `bash tools/calibrate/laptop/voss-calib.sh appliance run 10`. Then `--set step=collect`.
-4. Steps that must have their own timestamp (contract §3): firmware, boot loader, kernel start, initial RAM disk, dm-verity
+5. Steps that must have their own timestamp (contract §3): firmware, boot loader, kernel start, initial RAM disk, dm-verity
    setup, TPM unseal of the cache partition, services up to the agent, agent start, TPM quote, verifier round trip, certificate
    issued, first mutual-TLS connection. Firmware and loader times come from the EFI loader time variables, not from
    `systemd-analyze` (it raced on one machine before). A step that cannot be separated is reported as merged with its
    neighbour, by name; it is never estimated.
-5. Also from inside the booted image: resident memory when idle (`image_mem`) and the size of the cache partition.
-6. Remove the boot entry afterwards and confirm with the human that the machine boots its normal system.
+6. Also from inside the booted image: resident memory when idle (`image_mem`) and the size of the cache partition.
+7. Remove the boot entry afterwards and confirm with the human that the machine boots its normal system.
 
 `tme_cpu_factor` and `tme_mem_factor` need the `tme` suite in both phases on the same node. `node_run.sh` runs the phase
 the firmware is in only when TME is enabled (no BIOS change). The other phase needs the human to change the BIOS

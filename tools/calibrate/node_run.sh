@@ -63,6 +63,22 @@ env_snapshot() {  # what can make timings differ between nodes
   cat "$OUT/env-$1.txt"
 }
 
+other_users_check() {  # NODE_PLAN.md §4 rule 7: no process of another login user (node01: another user's daemon)
+  local me allow procs units
+  me=${SUDO_USER:-$(id -un)}
+  allow=" $me ${VOSS_ALLOW_USERS:-} "  # users the human approved in this session; recorded in env-<stage>.txt
+  procs=$(ps -eo uid=,user=,pid=,comm= | awk -v allow="$allow" '$1 >= 1000 && $1 < 60000 && index(allow, " " $2 " ") == 0')
+  units=$(systemctl list-units --type=service --state=active --no-legend 'user@*.service' 2>/dev/null \
+    | awk '{print $1}' | grep -v -E "^user@($(id -u "$me"))\.service$" || true)
+  if [ -n "$procs" ] || [ -n "$units" ]; then
+    echo "STOP: processes or service managers of other login users are running (NODE_PLAN.md §4 rule 7):" >&2
+    [ -n "$procs" ] && printf '%s\n' "$procs" | head -40 >&2
+    [ -n "$units" ] && printf '%s\n' "$units" >&2
+    echo "Ask the human to stop them (or to approve a user with VOSS_ALLOW_USERS=\"name ...\")." >&2
+    exit 6
+  fi
+}
+
 quiet_check() {  # NODE_PLAN.md §4 rule 4: every measuring stage runs on a quiet machine with the performance governor
   local gov waited=0
   gov=$(sort -u /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor 2>/dev/null | tr '\n' ' ')
@@ -70,6 +86,7 @@ quiet_check() {  # NODE_PLAN.md §4 rule 4: every measuring stage runs on a quie
     echo "STOP: CPU governor is '${gov:-unknown}', not performance. Ask the human to set it (NODE_PLAN.md §4)." >&2
     exit 6
   fi
+  other_users_check
   while awk '{ exit !($1 >= 0.5) }' /proc/loadavg; do  # e.g. the writeback of a guest image build just before
     if [ "$waited" -ge 1800 ]; then
       echo "STOP: load average $(cut -d' ' -f1-3 /proc/loadavg) did not fall below 0.5 in 30 min." >&2
@@ -156,6 +173,7 @@ measure() {  # measure <quick|full|ml|topup> <tier>=<dir> ...: the stage's suite
   plan_for "$stage"
   env_snapshot "$stage"
   echo "tme_state=${TME:-not checked}" >> "$OUT/env-$stage.txt"
+  echo "allowed_other_users=${VOSS_ALLOW_USERS:-none}" >> "$OUT/env-$stage.txt"
   for item in "${PLAN[@]}"; do
     read -r s rest <<< "$item"
     opts=()

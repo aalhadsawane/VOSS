@@ -59,13 +59,16 @@ better (10 workers). It must have a TPM 2.0 and an NVMe or SATA SSD.
 
 - Scratch directories: one per disk class, on a filesystem of that disk, with ≥ 20 GB free (benchmarks write only there;
   the handoff, §2, forbids touching raw devices).
-- The human gives each node a number, `node01`, `node02`, … (never the real hostname). Write the numbers down once, here:
+- The human gives each node a number, `node01`, `node02`, … and a codename (the owner's name for the machine). The
+  owner decided that the codename may go into the repository (2026-11-18); IP addresses, user accounts, cluster
+  services and real hostnames that differ from the codename do not. Every node is listed here:
 
-  | Number | What the human calls it (kept outside the repository) | Assigned |
-  |---|---|---|
-  | node01 | | |
+  | Number | Codename | Label(s) | Status |
+  |---|---|---|---|
+  | node01 | anjuna2 | `node01-i7-12700-64g-nvme` | retired (2026-11-18). Parts A, B, ML and topup merged (#101); Part C failed three times (a hung shutdown, then a kernel panic in interrupt context, with another user's filesystem watchdog daemon running on the node); no boot data, so its bundle lacks `reboot_to_kernel` and `appliance_userspace` and serves only the same-model comparison with node02 |
+  | node02 | colva3 | `node02-i7-12700-64g-nvme` (`_nvme`, `_hdd`) | complete (#86): all ten functions, 10 boots, topup; `fn_input_gen` only after `inputs` (optional) |
 
-  Only the number goes into the repository.
+  The next node takes the next free number. Add its row in the node's own PR.
 - The node's **label** is `nodeNN-<cpu>-<memory>g-<main storage>`, lower case, e.g. `node03-i5-8250u-8g-ssd`,
   `node01-i7-12700-64g-nvme`. `node_run.sh` refuses any other form. All files of the node live under
   `calibration/specs/<label>/`, `configs/calibration/measured/<label>[_hdd]/` and `docs/validation/<label>.md`.
@@ -90,7 +93,7 @@ better (10 workers). It must have a TPM 2.0 and an NVMe or SATA SSD.
    checksums to `calibration/specs/<label>/assets.sha256`; Firecracker and kernel checksums must be equal on all nodes.
 3. **Same order and sample counts.** `node_run.sh` runs the suites of Part B one at a time in a fixed order with the sample
    counts of `CALIBRATION_DATA_CONTRACT.md`. Do not run suites by hand, change counts or skip suites.
-4. **Same machine state, for every measuring stage.** `quick`, `full`, `ml` and `topup` all run under the Part B
+4. **Same machine state, for every measuring stage.** `quick`, `full`, `ml`, `topup` and `inputs` all run under the Part B
    conditions: performance CPU governor (restore afterwards), turbo left at the firmware default, laptops on mains power,
    background services stopped, no other workload, no other agent session on the node, and a 1-minute load average below
    0.5 when the stage starts. A stage that only re-measures a few probes is no exception: node02 measured its ML stage at
@@ -100,9 +103,19 @@ better (10 workers). It must have a TPM 2.0 and an NVMe or SATA SSD.
    below 0.5 before it stops (exit 6). It records governor, turbo, power, load, TME state and throttling messages before
    and after every stage (`env-<stage>.txt`). If the human refuses a setting, record that; do not work around it.
 5. **Same reference.** Relative machine speed is computed against one reference node, named in `calibration/REFERENCE`
-   (the human chooses; default `node01`). Every node measures the same functions at the same sizes, so ratios are defined.
+   (the human chooses; `node02` since node01 retired, because node02 is complete). Every node measures the same functions at the same sizes, so ratios are defined.
 6. **Same rules for gaps.** A value that cannot be measured stays missing, with the reason. Never copy a value from another
    node, an earlier run or the literature.
+7. **No other users' work on the node.** node01 was a shared machine: another user's filesystem watchdog daemon and
+   workload processes ran there, and its reboots (Part C) hung or panicked. Before the first measuring stage, and again
+   before Part C, list every process and service that does not belong to the operating system or to this session:
+   `ps -eo uid,user,pid,etime,comm --sort=uid | awk '$1 >= 1000'`, `loginctl list-users`, `systemctl list-units
+   --type=service --state=running` (look for cluster, storage, filesystem and watchdog daemons, container runtimes and
+   GPU jobs), `crontab -l` for each user and `ls /etc/cron.d`. Show the list to the human and stop what they approve;
+   record each in the report and restore it afterwards. `node_run.sh` refuses a measuring stage (exit 6) while any
+   process or service manager of another login user (UID 1000 or above) runs; a user the human approves is passed as
+   `VOSS_ALLOW_USERS="name ..."` and is recorded in `env-<stage>.txt`. A node that other people need while it is measured
+   is not suitable; tell the human.
 
 ## 5. The session on one node, step by step, with times
 
