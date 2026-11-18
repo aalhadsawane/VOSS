@@ -14,6 +14,7 @@ from pathlib import Path
 from tools.calibrate.common import Records, Shell, free_mb, mem_available_mb
 
 RESERVE_MB = 2048  # space always left free on a scratch filesystem
+HOST_MEM_RESERVE_MB = 1024  # minimum host RAM left above a single 4,096 MB guest on an 8 GB node
 MEM_SHARE = 0.6  # share of the available RAM that guests may use together
 
 
@@ -54,10 +55,12 @@ class Ctx:
         return out
 
     def mem_budget_mb(self) -> int:
-        """RAM the guests of one measurement may use together: ``--set mem_budget_mb=N`` or 60% of what is free."""
+        """RAM the guests of one measurement may use together: ``--set mem_budget_mb=N`` or 60% of what is free
+        (at least 4,096 MB when ``MemAvailable >= 5,120 MB`` so one 4,096 MB guest can run on an 8 GB host)."""
         if "mem_budget_mb" in self.opts:
             return int(self.opts["mem_budget_mb"])
-        return int(MEM_SHARE * mem_available_mb())
+        avail = mem_available_mb()
+        return max(int(MEM_SHARE * avail), 4096 if avail >= 4096 + HOST_MEM_RESERVE_MB else 0)
 
     def has_room(self, d: Path, need_mb: float) -> bool:
         """``need_mb`` plus a 2 GB reserve is free on ``d``'s filesystem (scratch files never fill a disk)."""

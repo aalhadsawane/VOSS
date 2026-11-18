@@ -166,7 +166,7 @@ measure() {  # measure <quick|full|ml|topup> <tier>=<dir> ...: the stage's suite
   sudo -v || { echo "sudo needed (run 'sudo -v' first, with the human's approval)" >&2; exit 2; }
   ( while sleep 60; do sudo -n true || exit; done ) &  # keep the sudo timestamp fresh for the hours of Part B
   local keep=$!
-  trap 'kill $keep 2>/dev/null || true' RETURN
+  trap "kill $keep 2>/dev/null || true" RETURN EXIT
   quiet_check
   local scale=() item s rest kv opts failed=0
   [ "$stage" = quick ] && scale=(--quick)

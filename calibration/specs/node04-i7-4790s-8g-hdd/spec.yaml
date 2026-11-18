@@ -145,18 +145,17 @@ firmware:
   boot_mode: UEFI
   secure_boot: SecureBoot disabled
   efibootmgr_redacted: ' UEFI boot entries present; MAC addresses and part UUIDs removed (no identifiers in repository) '
-tpm: {}
-tpm_absence:
-  reason: 'No TPM device on this node: /dev/tpm0 and /dev/tpmrm0 absent; tpm2_getcap cannot open TCTI device'
-  measured_utc: '2026-11-18T08:44:00Z'
-  manufacturer: null
-  vendor_string: null
-  type: null
-  family: null
-  firmware_version: null
+tpm:
+  present: false
+  present_manual: true
+  type: none
+  manufacturer: 'none (no /dev/tpm0 or /dev/tpmrm0; dmesg: ima: No TPM chip found)'
+  vendor_string: none
+  family: none
+  firmware_version: none
   sysfs: null
   active_pcr_banks: []
-  pcr_count: null
+  pcr_count: 0
 network:
   redacted: 'one onboard gigabit Ethernet interface; MAC, IP and hostnames withheld'
 software:
@@ -166,8 +165,8 @@ software:
   python_system: Python 3.13.7
   python_venv: Python 3.11.18
   gcc: gcc (Ubuntu 15.2.0-4ubuntu4) 15.2.0
-  firecracker: absent
-  firecracker_guest_assets: ''
+  firecracker: Firecracker v1.10.1
+  firecracker_guest_assets: 'firecracker v1.10.1, kernel firecracker-ci/v1.10/x86_64/vmlinux-6.1.102'
   docker: Docker version 29.1.3, build 29.1.3-0ubuntu3~25.10.1
   fio: fio-3.39
   tpm2_tools: tool="tpm2_quote" version="5.7" tctis="libtss2-tctildr" tcti-default=tcti-device

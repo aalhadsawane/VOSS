@@ -11,8 +11,9 @@ from __future__ import annotations
 import secrets
 import time
 
+from tools.calibrate.common import SuiteSkipped
 from tools.calibrate.suites import Ctx, Suite
-from tools.calibrate.suites.tpm import Tpm
+from tools.calibrate.suites.tpm import Tpm, has_tpm
 
 
 def _sign(ctx: Ctx, key: str, msg: str) -> float:
@@ -22,6 +23,8 @@ def _sign(ctx: Ctx, key: str, msg: str) -> float:
 
 
 def run(ctx: Ctx) -> None:
+    if not has_tpm(ctx):
+        raise SuiteSkipped("no /dev/tpmrm0 or /dev/tpm0")
     ctx.sh.need("tpm2_quote", "tpm2_checkquote", "openssl")
     work = ctx.out / "attest"
     t = Tpm(ctx.sh, work, ctx.opt("tcti"))

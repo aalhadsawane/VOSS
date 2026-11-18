@@ -659,3 +659,26 @@ def test_every_line_kind_the_guest_prints_reaches_the_host() -> None:
     for kind in kinds:
         m = fc.MARK.search(f"VOSS_{kind} compression 500 0 0.001")
         assert m is not None and m.group(1) == kind
+
+
+def test_tpm_and_attest_local_skip_when_no_tpm_device(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Nodes without a TPM chip (e.g. Haswell i7-4790S) skip tpm and attest_local cleanly instead of failing."""
+    from tools.calibrate.common import SuiteSkipped
+    from tools.calibrate.suites import attest_local, tpm
+
+    monkeypatch.setattr(tpm, "has_tpm", lambda ctx: False)
+    monkeypatch.setattr(attest_local, "has_tpm", lambda ctx: False)
+    ctx = Ctx(Shell(dry_run=False), Records(tmp_path / "r.jsonl", "tpm"), tmp_path, {})
+    with pytest.raises(SuiteSkipped, match="no /dev/tpmrm0"):
+        tpm.run(ctx)
+    with pytest.raises(SuiteSkipped, match="no /dev/tpmrm0"):
+        attest_local.run(ctx)
+
+
+def test_mem_budget_allows_single_4096mb_guest_on_8gb_node(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An 8 GB host with ~6,000 MB available RAM can run one 4,096 MB guest (n=1), while still skipping n>=2."""
+    monkeypatch.setattr("tools.calibrate.suites.mem_available_mb", lambda: 6000)
+    ctx = Ctx(Shell(dry_run=True), Records(tmp_path / "r.jsonl", "sebs"), tmp_path, {})
+    assert ctx.mem_budget_mb() == 4096
+    monkeypatch.setattr("tools.calibrate.suites.mem_available_mb", lambda: 3200)
+    assert ctx.mem_budget_mb() == int(0.6 * 3200)
