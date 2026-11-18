@@ -1,0 +1,2 @@
+Wrote /home/USER/voss/calibration/specs/node04-i7-4790s-8g-hdd/SPEC.md and /home/USER/voss/calibration/specs/node04-i7-4790s-8g-hdd/spec.yaml
+caps: ok

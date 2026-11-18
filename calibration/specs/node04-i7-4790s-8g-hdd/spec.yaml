@@ -1,0 +1,182 @@
+# Spec for node04-i7-4790s-8g-hdd, corrected by hand from on-machine probes.
+# tools/calibrate/spec.sh on lock b50f5dad hard-codes another node's values
+# (i7-12700 / 64 GB DDR5 / MSI board / Intel PTT / NVMe+HGST). None of those
+# values were copied into this file: every value below was measured on THIS
+# node (lscpu, dmidecode, cpuid, smartctl, /sys, tpm2_getcap, findmnt, df).
+# Fields taken by hand are marked `manual: true`.
+host_label: node04-i7-4790s-8g-hdd
+generated_utc: '2026-11-18T09:00:52Z'
+corrected_utc: '2026-11-18T09:12:00Z'
+correction_reason: 'harness bug: spec.sh hard-codes another host; see manual fields and docs/validation/node04-i7-4790s-8g-hdd.md'
+hostname_redacted: HOST
+virtualisation:
+  systemd_detect_virt: none
+  dev_kvm_exists: true
+  dev_kvm_accessible: false
+  nested:
+    /sys/module/kvm_intel/parameters/nested: Y
+cpu:
+  model: Intel(R) Core(TM) i7-4790S CPU @ 3.20GHz
+  microarchitecture: 'Intel Haswell-S (manual: family 6, model 60, stepping 3)'
+  microarchitecture_manual: true
+  family: 6
+  model_id: 60
+  stepping: 3
+  sockets: 1
+  cores_total: 4
+  threads_total: 8
+  hybrid_topology:
+    note: 'manual: uniform topology; 4 physical cores x 2 SMT threads, no P/E cores'
+    hybrid_manual: true
+    p_cores: 4
+    p_threads: 8
+    p_cpus: 0-7
+    p_max_mhz: 4000.0
+    e_cores: 0
+    e_threads: 0
+    e_cpus: ''
+    e_max_mhz: null
+  base_min_mhz: 800.0
+  max_mhz: 4000.0
+  caches:
+    l1d: 128 KiB (4 instances)
+    l1i: 128 KiB (4 instances)
+    l2: 1 MiB (4 instances)
+    l3: 8 MiB (1 instance)
+  microcode: '0x28'
+  flags:
+    vmx: true
+    svm: false
+    ept: true
+    vpid: true
+    aes: true
+    vaes: false
+    pclmulqdq: true
+    vpclmulqdq: false
+    sha_ni: false
+    rdrand: true
+    rdseed: false
+    avx: true
+    avx2: true
+    avx512f: false
+    tme: false
+    smep: true
+    smap: false
+    umip: false
+    pku: false
+  smt_control: 'on'
+  smt_active: true
+  governor: schedutil
+  no_turbo: 0
+  numa: 'available: 1 nodes (0); node 0 cpus: 0 1 2 3 4 5 6 7; node 0 size: 7339 MB'
+  tme_cpuid_supported: false
+  tme_cpuid_manual: true
+  tme_cpuid_evidence: 'cpuid -1 -l 7 -r: leaf 7 subleaf 0 ECX = 0x00000000 (TME bit 13 clear)'
+  tme_msr_0x982: unreadable
+  tme_bios_enabled: false
+  iommu_dmar_acpi: true
+  iommu_enabled: true
+  iommu_manual: true
+  iommu_evidence: 'dmesg: DMAR DRHD present; iommu: Default domain type: Translated'
+  dmesg_tme_iommu: []
+memory:
+  total_kb: 7515656
+  total_gib: 7.17
+  nominal_gb: 8
+  nominal_manual: true
+  type: DDR3
+  type_manual: true
+  speed_mts: 1600
+  speed_manual: true
+  channels_populated: 1
+  slots_total: 2
+  dimms:
+  - locator: ChannelA-DIMM0
+    size_gb: 8
+    type: DDR3
+    speed_mts: 1600
+    manufacturer: Samsung
+    serial_sha256: withheld
+  empty_slots:
+  - ChannelB-DIMM0
+  swap_kb: 4194300
+  swap_gib: 4.0
+  thp_enabled: 'always [madvise] never'
+  thp_defrag: 'always defer defer+madvise [madvise] never'
+storage:
+  devices:
+  - device: /dev/sda
+    model: WD5003ABYX-23
+    firmware: WC36
+    firmware_manual: true
+    serial_sha256: 'sha256:161eac7e1d'
+    serial_manual: true
+    capacity_gb: 500.1
+    interface: SATA
+    rotational: true
+    rotation_rpm: 7200
+    rotation_manual: true
+    logical_sector_bytes: 512
+    physical_sector_bytes: 512
+    nr_requests: 64
+    scheduler: 'none [mq-deadline]'
+    smart_passed: true
+    smart_manual: true
+    temperature_c: 39
+    power_on_hours: 51661
+    reallocated_sectors: 0
+  scratch_directories:
+  - path: /home/USER/voss-calib-scratch/hdd
+    target_mount: /
+    source_device: /dev/mapper/ubuntu--vg-ubuntu--lv
+    fstype: ext4
+    mount_options: rw,relatime
+    encryption_layer: none (LVM2 on raw partition)
+    total_gb: 105.1
+    free_gb: 76.7
+    free_gib: 71.5
+firmware:
+  bios_vendor: LENOVO
+  bios_version: FCKT65AUS
+  bios_date: 01/12/2015
+  board_vendor: LENOVO
+  board_model: ''
+  board_version: NOK
+  boot_mode: UEFI
+  secure_boot: SecureBoot disabled
+  efibootmgr_redacted: ' UEFI boot entries present; MAC addresses and part UUIDs removed (no identifiers in repository) '
+tpm: {}
+tpm_absence:
+  reason: 'No TPM device on this node: /dev/tpm0 and /dev/tpmrm0 absent; tpm2_getcap cannot open TCTI device'
+  measured_utc: '2026-11-18T08:44:00Z'
+  manufacturer: null
+  vendor_string: null
+  type: null
+  family: null
+  firmware_version: null
+  sysfs: null
+  active_pcr_banks: []
+  pcr_count: null
+network:
+  redacted: 'one onboard gigabit Ethernet interface; MAC, IP and hostnames withheld'
+software:
+  distro: Ubuntu 25.10
+  kernel: 6.17.0-5-generic
+  kernel_version: '#5-Ubuntu SMP PREEMPT_DYNAMIC Mon Sep 22 10:00:33 UTC 2025'
+  python_system: Python 3.13.7
+  python_venv: Python 3.11.18
+  gcc: gcc (Ubuntu 15.2.0-4ubuntu4) 15.2.0
+  firecracker: absent
+  firecracker_guest_assets: ''
+  docker: Docker version 29.1.3, build 29.1.3-0ubuntu3~25.10.1
+  fio: fio-3.39
+  tpm2_tools: tool="tpm2_quote" version="5.7" tctis="libtss2-tctildr" tcti-default=tcti-device
+  openssl: 'OpenSSL 3.5.3 16 Sep 2025 (Library: OpenSSL 3.5.3 16 Sep 2025)'
+power:
+  power_source: AC mains (desktop PSU; no battery in /sys/class/power_supply)
+  power_supplies: []
+  cpu_scaling_governor: schedutil
+  intel_pstate_no_turbo: 0
+time_sync:
+  ntp_service: active
+  note: 'system clock synchronized: no (as observed at spec time)'

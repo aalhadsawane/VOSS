@@ -1,0 +1,14 @@
+label: node04-i7-4790s-8g-hdd
+cpu: Intel(R) Core(TM) i7-4790S CPU @ 3.20GHz
+vendor: intel
+cores: 4
+threads: 8
+mem_gib: 7.2
+storage:
+- hdd
+disks:
+- hdd:WD5003ABYX-23
+tpm: none
+tpm_maker: ''
+mem_encryption: false
+
