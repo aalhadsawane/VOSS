@@ -46,12 +46,18 @@ Provisioning runs periodically. For each function it chooses the key holders, th
 the function, and the number of sandboxes each keeps warm. Two properties of volunteer machines shape the choice.
 
 \paragraph{Machines differ per function, and history predicts.}
-\todoitem{T11}{calibration bundles and trace statistics}{Two measurements from the calibration data, regenerated from the merged bundles: (i) the coefficient of
-variation of a function's execution time over repeated runs on one machine; (ii) the range, across functions, of the
-execution-time ratio between two machine classes at the same input size.} The first measurement means that earlier
-runs of a function on a machine predict later ones. The second means that one speed number per machine does not: a
-machine that is twice as slow as another for one function can be several times as slow for a different one, because
-functions stress processor, memory and disk differently.
+On one machine, the execution time of a function at a given input size repeats closely: over
+\VMachCovPairs{} (function, input size) pairs measured 30 times each, the median coefficient of variation is
+\VMachCovMedianPct\%, and it is below 10\% for \VMachCovUnderTenPct\% of the pairs. The exceptions are functions
+dominated by short file writes, up to \VMachCovMaxPct\% for the smallest uploads. Earlier runs of a function on a machine
+therefore predict later ones, with a spread that the model must carry. Across machines, one speed number per machine
+does not suffice. A machine with a fourth-generation desktop processor takes \VMachRatioLo{} times as long as the
+reference machine for \texttt{\VMachRatioLoFn{}} and \VMachRatioHi{} times as long for \texttt{\VMachRatioHiFn{}}
+(geometric means over input sizes); across all (function, input size) pairs the ratio ranges from
+\VMachRatioPairLo{} to \VMachRatioPairHi. Functions stress processor, caches, memory and disk differently, so the
+slowdown of a machine depends on the function. \todoitem{T49}{calibration bundles and trace statistics}{These two
+machines are the only processor classes measured so far; regenerate the numbers when further calibrated machines are
+merged, and state their number.}
 
 \paragraph{Run-time model.}
 For function $f$ with input size $x$ on worker $j$ of machine class $m(j)$, the execution time $T_{fj}$ follows

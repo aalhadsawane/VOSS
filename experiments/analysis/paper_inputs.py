@@ -15,7 +15,8 @@ from voss.core.config import load_config
 from voss.core.paths import REPO_ROOT, config_path
 from voss.world.network import NetworkParams
 
-from experiments.analysis import machines
+from experiments.analysis import fleet_mix
+from experiments.analysis.machines import machines
 from experiments.analysis.macros import write
 
 OUT = REPO_ROOT / "manuscript" / "generated" / "inputs.tex"
@@ -169,13 +170,14 @@ def build() -> dict[str, float | int | str]:
     decision(values)
     traces(values)
     run_size(values)
-    machines.values(values)  # survey mapping of the calibrated fleet (T14, D-107)
+    machines(values)
+    fleet_mix.values(values)  # survey mapping of the calibrated fleet (T14, D-107)
     return values
 
 
 if __name__ == "__main__":
     write(build(), OUT)
     (OUT.parent / "constants.tex").write_text(constants_table())
-    (OUT.parent / "machines.tex").write_text(machines.table())
+    (OUT.parent / "fleet.tex").write_text(fleet_mix.table())
     (REPO_ROOT / "manuscript" / "TODO.md").write_text(todo_list())
-    print(f"wrote {OUT}, constants.tex, machines.tex and TODO.md")
+    print(f"wrote {OUT}, constants.tex, fleet.tex and TODO.md")

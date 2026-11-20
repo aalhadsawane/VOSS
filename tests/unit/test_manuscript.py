@@ -10,7 +10,7 @@ import re
 from pathlib import Path
 
 import pytest
-from experiments.analysis import machines, paper_inputs
+from experiments.analysis import fleet_mix, paper_inputs
 from experiments.analysis.macros import render
 
 MS = Path(__file__).resolve().parents[2] / "manuscript"
@@ -69,7 +69,7 @@ def test_every_figure_and_table_is_referenced() -> None:
 def test_generated_inputs_are_fresh() -> None:
     assert (MS / "generated" / "inputs.tex").read_text() == render(paper_inputs.build())
     assert (MS / "generated" / "constants.tex").read_text() == paper_inputs.constants_table()
-    assert (MS / "generated" / "machines.tex").read_text() == machines.table()
+    assert (MS / "generated" / "fleet.tex").read_text() == fleet_mix.table()
     assert (MS / "TODO.md").read_text() == paper_inputs.todo_list()
 
 
