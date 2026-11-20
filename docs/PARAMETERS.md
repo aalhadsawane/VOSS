@@ -165,6 +165,7 @@ for the file as a whole.
 | `configs/e01/s3_omit.yaml` | pending V13 | v1 emulation scenario |
 | `configs/e01/s3_omit_load.yaml` | pending V13 | v1 emulation scenario |
 | `configs/e01/s4_load.yaml` | pending V13 | v1 emulation scenario |
+| `configs/request_bytes.yaml` | D | bytes a client sends per measured input size of each guest function (D-106) |
 | `configs/functions.yaml` | pending V1/V9 | literature placeholders (F2); replaced by measured profiles of every function |
 | `configs/functions_e01.yaml` | pending V13 | v1 emulation catalogue |
 | `configs/hardware/C0.yaml` | pending V9 | machine class; v2 classes are the calibrated machines |

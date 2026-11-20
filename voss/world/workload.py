@@ -16,9 +16,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from voss.core.config import ScenarioConfig
 from voss.core.paths import load_data_yaml
 from voss.core.rng import RngFactory
-from voss.world.calibration import function_overrides
+from voss.world.calibration import function_overrides, function_sizes
 from voss.world.config_merge import merged
 from voss.world.geo import Metros, diurnal, local_hour
+from voss.world.workers import LinkParams, median_down_bps
 
 SLO_CLASSES: tuple[str, ...] = ("sync", "async")
 
@@ -93,6 +94,10 @@ class LoadRegime(_M):
 class Catalog:
     functions: tuple[FunctionSpec, ...]
     tenants: tuple[TenantSpec, ...]
+    # trace functions mapped to measured input sizes (plan V9.1, D-106): a synchronous deadline also covers moving
+    # the input over the network's median downlink. Not part of the scenario hash's catalogue (the arrivals'
+    # deadlines are), so catalogues without it hash as before.
+    transfer_deadline: bool = False
 
     def fn_index(self, name: str) -> int:
         return [f.name for f in self.functions].index(name)
@@ -119,16 +124,17 @@ def load_catalog(sc: ScenarioConfig, calibration: str | None = None) -> Catalog:
     )
     ten = tuple(TenantSpec.model_validate(t) for t in load_data_yaml(sc.tenants)["tenants"])
     reg = load_load_regime(sc)
+    transfer = False
     if reg.trace:  # the trace's functions and owners replace the catalog (plan V9.1)
         from voss.world.trace_load import trace_catalog  # noqa: PLC0415  (trace_load imports this module)
 
-        traced = trace_catalog(reg, Catalog(fns, ten))
-        fns, ten = traced.functions, traced.tenants
+        traced = trace_catalog(reg, Catalog(fns, ten), function_sizes(calibration))
+        fns, ten, transfer = traced.functions, traced.tenants, traced.transfer_deadline
     known = {t.id for t in ten}
     for f in fns:
         if f.tenant not in known:
             raise ValueError(f"function {f.name}: unknown tenant {f.tenant}")
-    return key_domains(Catalog(fns, ten))
+    return key_domains(Catalog(fns, ten, transfer))
 
 
 def key_domain(tenant: str, fn: str) -> str:
@@ -145,7 +151,7 @@ def key_domains(cat: Catalog) -> Catalog:
         for f in cat.functions
     )
     fns = tuple(f.model_copy(update={"tenant": key_domain(f.tenant, f.name), "owner": f.tenant}) for f in cat.functions)
-    return Catalog(fns, doms)
+    return Catalog(fns, doms, cat.transfer_deadline)
 
 
 def load_load_regime(sc: ScenarioConfig) -> LoadRegime:
@@ -208,7 +214,9 @@ def generate_arrivals(
     if reg.trace:
         from voss.world.trace_load import trace_arrivals  # noqa: PLC0415
 
-        return ArrivalTrace(trace_arrivals(reg, catalog, metros, horizon, rng))
+        link = LinkParams.model_validate(sc.network.get("link", {}))
+        down = median_down_bps(link) if catalog.transfer_deadline else None
+        return ArrivalTrace(trace_arrivals(reg, catalog, metros, horizon, rng, down))
     fns = catalog.functions
     share = popularity(len(fns), reg.zipf_s, rng.stream("workload.popularity"))
     top = int(np.argmax(share))
@@ -232,10 +240,20 @@ def warm_estimate_s(f: FunctionSpec, in_bytes: np.ndarray) -> np.ndarray:
 
 
 def _frame(
-    f: FunctionSpec, fi: int, ti: int, t: np.ndarray, origin: np.ndarray, size: np.ndarray, reg: LoadRegime
+    f: FunctionSpec,
+    fi: int,
+    ti: int,
+    t: np.ndarray,
+    origin: np.ndarray,
+    size: np.ndarray,
+    reg: LoadRegime,
+    down_bps: float | None = None,
 ) -> pd.DataFrame:
+    """Arrival rows of one function. A synchronous deadline is ``slo_k`` × (warm run time + sync overhead), plus
+    the input's transfer at ``down_bps`` when given (trace functions on measured input sizes, D-106)."""
     if f.slo_class == "sync":
-        deadline = f.slo_k * (warm_estimate_s(f, size) + reg.sync_overhead_s)
+        transfer = size * 8.0 / down_bps if down_bps else 0.0
+        deadline = f.slo_k * (warm_estimate_s(f, size) + transfer + reg.sync_overhead_s)
     else:
         deadline = np.full(len(t), reg.async_deadline_s)
     return pd.DataFrame(

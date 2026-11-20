@@ -758,6 +758,26 @@ verify jobs the files with hashes checked. Smoke: dev split, `rate_mult` 5, 600 
 owners, 7.2 invocations/s, no invariant violation. The archive of V9.2 refuses this sandbox and `web.archive.org` is
 blocked here; `tools/traces/fta.py --discover` lists archived SETI@home files from an Actions runner.
 
+**Outcome (V9.1, per-size mapping).** With a bundle that carries `exec_by_size`, `voss/world/trace_load.py` maps each
+trace function to the (function, input size) profile with the nearest median run time on a log scale, across all 43
+measured profiles of the bundle; the function's copy runs for that measured median (`work_ref_s`, `in_sigma` 0,
+D-105), its request carries what a client sends at that size, and its synchronous deadline adds the transfer at the
+links trace's median downlink (D-106). A bundle without `exec_by_size` keeps the reference-input mapping, request
+sizes and deadlines, so the D01 specs on `i7_12700_64g_full-b4f89a4def` are unchanged.
+`python -m tools.traces.mapping --calibration <bundle>` prints the mapping with each request's kB. On node02's NVMe
+bundle (development split): 187 functions mapped (13 without a duration left out), all ten functions used, 30
+distinct profiles; **21.9%** (41) have a median duration above the longest measured profile (graph-pagerank at size
+100, 3.61 s; trace medians of those 41: 3.7 s to 456 s, median 18 s) and none below the shortest; they map to that
+profile. Held-out split: 18.6% outside. node01's NVMe bundle gives the same profile for 175 of 187 functions and the
+same 21.9% outside. Measured effect, D01 central cell (VOSS, 500 workers, K=8, `rate_mult` 21, 1 h after a 10-minute
+warm-up, seed 1, node02 NVMe bundle; reference-input mapping vs per-size mapping with D-106; 106,454 invocations in
+both): input bytes per invocation (mean) 4.60 MB → 9.87 MB (synchronous 0.32 → 9.00 MB); mean busy time per
+completed invocation 0.179 → 0.662 s (execution 0.167 → 0.567 s, start-up 0.012 → 0.095 s); pool utilisation 2.18%
+→ 3.09%; `fn_util_p50` 0.30% → 0.73%; `fn_util_p95` 4.0% → 21.1%; deadline met 93.4% → 96.7% (late 2.7%, lost
+0.6%); P99 1.02 → 12.8 s. Synchronous invocations whose input transfer alone, at the serving worker's downlink,
+exceeds the deadline: 0 of 19,723 → 0 of 19,611 (the first per-size run, without D-106: 3 of 19,585, deadline met
+57.8%). The load levels of the experiments are the owner's choice from these numbers.
+
 **Outcome (V9.3, home links).** `tools/traces/ookla.py` derives `links.parquet` from Ookla Open Data fixed-broadband
 tiles, Q1 2024 (CC BY-NC-SA 4.0, checked; attribution in the provenance): per metro, 500 (download, upload, latency)
 triples drawn from tiles within 30 km, weighted by tests. All 105 metros have tiles (the fewest: 77). Workers draw

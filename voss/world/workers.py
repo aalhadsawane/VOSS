@@ -136,6 +136,15 @@ def _traced_links(gen: np.random.Generator, lp: LinkParams, cities: list[str]) -
     return {"down_bps": down, "up_bps": up, "last_mile_s": last}
 
 
+def median_down_bps(lp: LinkParams) -> float:
+    """Median downlink of the network in use, in bit/s (D-106): over every row of the measured links trace (each
+    metro contributes the same number of rows), or the median of the seed lognormal without a trace."""
+    if not lp.trace:
+        return lp.down_mbps_median * 1e6
+    d = Path(lp.trace_root) / lp.trace / "links.parquet"
+    return float(pd.read_parquet(d if d.is_absolute() else REPO_ROOT / d).down_kbps.median()) * 1e3
+
+
 def _links(gen: np.random.Generator, lp: LinkParams, n: int, cities: list[str] | None = None) -> dict[str, np.ndarray]:
     if lp.trace and cities is not None:
         return _traced_links(gen, lp, cities)
