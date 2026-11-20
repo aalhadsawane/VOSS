@@ -1,0 +1,31 @@
+# Which CPUs can a free Actions runner offer, and can it run Firecracker? (docs/REVISION_PLAN.md V9.4, node diversity)
+# Records, per job: CPU model, architecture, hypervisor, /dev/kvm, TPM device, memory. It measures nothing else, so
+# nothing here is calibration (calibration runs on bare metal, AGENTS.md rule 14).
+# Start it by committing runs/requests/probe/<name>.yaml on revision-v2 ({note: "..."}).
+name: runner-probe
+on:
+  push:
+    branches: [revision-v2]
+    paths: ['runs/requests/probe/*.yaml']
+permissions:
+  contents: read
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-22.04, ubuntu-24.04-arm]
+        n: [1, 2, 3, 4, 5, 6]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - name: Record the machine
+        run: |
+          echo "PROBE os=${{ matrix.os }} n=${{ matrix.n }} arch=$(uname -m) kernel=$(uname -r)"
+          echo "PROBE cpu=$(lscpu | sed -n 's/^Model name:[[:space:]]*//p' | head -1)"
+          echo "PROBE vcpus=$(nproc) mem_mb=$(free -m | awk '/^Mem:/ {print $2}')"
+          echo "PROBE hypervisor=$(lscpu | sed -n 's/^Hypervisor vendor:[[:space:]]*//p' | head -1)"
+          echo "PROBE virt_flags=$(grep -c -w -E 'vmx|svm' /proc/cpuinfo || true)"
+          if [ -e /dev/kvm ]; then echo "PROBE kvm=present $(ls -l /dev/kvm)"; else echo "PROBE kvm=absent"; fi
+          if ls /dev/tpm* >/dev/null 2>&1; then echo "PROBE tpm=present"; else echo "PROBE tpm=absent"; fi
+          echo "PROBE l3=$(lscpu | sed -n 's/^L3 cache:[[:space:]]*//p' | head -1)"
