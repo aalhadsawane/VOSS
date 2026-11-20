@@ -204,6 +204,15 @@ the TME factors; the `tme` suite stays, and ingest writes the factors when a nod
 the machine table). *Why:* guardrails 28 and 29 forbid the assumed 1.02 factor that applied to every worker, and a BIOS
 change was declined. *Rejected:* enabling TME on node02 for one measurement (owner's choice).
 
+**D-105 A trace function mapped to a measured input size runs at exactly that size (plan V9.1).** Each copy of a
+workload function that stands for a trace function takes the input size of its mapped profile as `in_kb`, the
+measured median handler time at that size as `work_ref_s`, and `in_sigma` 0, so its invocations use that input size,
+as V9.1 asks. *Why:* `in_sigma` of `configs/functions.yaml` is a seed (not measured), and a spread around the
+mapped size would move run times away from the measured profile the mapping chose. The measured `size_exp` stays,
+unused at the nominal size. A bundle without `exec_by_size` keeps the reference-input mapping and the catalogue's
+`in_sigma` (the D01 specs' bundle; their result hashes do not change). *Rejected:* keeping the catalogue spread (an
+unmeasured input distribution); a per-trace-function spread from the trace (the trace has no input sizes).
+
 ## v1 decisions (D-01 to D-80)
 
 **D-01 Custom Python discrete-event simulator.** FaaS physics is small; solver wall time must enter simulated time;
