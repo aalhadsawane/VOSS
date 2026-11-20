@@ -205,13 +205,32 @@ the machine table). *Why:* guardrails 28 and 29 forbid the assumed 1.02 factor t
 change was declined. *Rejected:* enabling TME on node02 for one measurement (owner's choice).
 
 **D-105 A trace function mapped to a measured input size runs at exactly that size (plan V9.1).** Each copy of a
-workload function that stands for a trace function takes the input size of its mapped profile as `in_kb`, the
-measured median handler time at that size as `work_ref_s`, and `in_sigma` 0, so its invocations use that input size,
-as V9.1 asks. *Why:* `in_sigma` of `configs/functions.yaml` is a seed (not measured), and a spread around the
+workload function that stands for a trace function runs for the measured median handler time of its mapped
+(function, input size) profile (`work_ref_s`), carries the bytes a client sends at that size (`in_kb`, D-106), and has
+`in_sigma` 0, so every invocation is one at that input size, as V9.1 asks. *Why:* `in_sigma` of `configs/functions.yaml` is a seed (not measured), and a spread around the
 mapped size would move run times away from the measured profile the mapping chose. The measured `size_exp` stays,
 unused at the nominal size. A bundle without `exec_by_size` keeps the reference-input mapping and the catalogue's
 `in_sigma` (the D01 specs' bundle; their result hashes do not change). *Rejected:* keeping the catalogue spread (an
 unmeasured input distribution); a per-trace-function spread from the trace (the trace has no input sizes).
+
+**D-106 A mapped trace function's request carries what a client sends, and its deadline covers that transfer (plan
+V9.1; owner's decision, option A).** A profile's size is the argument of the guest's `make_input`, not network bytes:
+the first per-size run sent a 16 MB input for a thumbnailer copy whose guest only needs kB of data, and its deadlines
+ignored the transfer (deadline met 57.8%). Now (`configs/request_bytes.yaml`, `trace_load.request_kb`): for
+compression, dna-visualisation, thumbnailer, uploader and video-processing the size is kB of data and the request
+carries it; for graph-bfs, graph-mst, graph-pagerank (the guest builds a graph of 10,000 x size vertices) and
+dynamic-html (100 x size random numbers) the request carries only parameters, sized as the catalogue's smallest input
+(`min in_kb` of `configs/functions.yaml`, 1 kB, read at load time); for image-recognition the request is the image the
+guest's tensor stands for, encoded as `thumbnailer.py` encodes (JPEG quality 90, Pillow defaults) from 8-bit uniform
+random pixels: 45,606 B at 224x224 (size <= 100) and 180,505 B at 448x448 (median over 5 seeds; computed once
+locally with Pillow 12.3, the guest pins 10.4; the raw float32 tensor would be 602,112 / 2,408,448 B). The synchronous
+deadline of these functions is `slo_k x (measured run time + in_bytes x 8 / median downlink + sync_overhead_s)`; the
+median downlink is the median `down_kbps` over all rows of the network's links trace (`ookla-fixed-2024q1`: 190 Mbps;
+every metro has 500 rows), or the seed lognormal's median without a trace (`workers.median_down_bps`), so no new
+constant. Bundles without `exec_by_size` keep the old request sizes and deadlines (`Catalog.transfer_deadline`
+false, not part of the scenario hash): the D01 specs' result hashes do not change (checked: the reference-mapping run
+reproduces its result hash). *Rejected:* the transfer at each worker's own downlink (a deadline is the tenant's
+promise, fixed before placement); the raw tensor bytes for images (no client sends a float tensor).
 
 ## v1 decisions (D-01 to D-80)
 
