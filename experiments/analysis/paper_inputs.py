@@ -15,6 +15,7 @@ from voss.core.config import load_config
 from voss.core.paths import REPO_ROOT, config_path
 from voss.world.network import NetworkParams
 
+from experiments.analysis.machines import machines
 from experiments.analysis.macros import write
 
 OUT = REPO_ROOT / "manuscript" / "generated" / "inputs.tex"
@@ -168,6 +169,7 @@ def build() -> dict[str, float | int | str]:
     decision(values)
     traces(values)
     run_size(values)
+    machines(values)
     return values
 
 

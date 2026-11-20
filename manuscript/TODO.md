@@ -16,13 +16,13 @@ generated macro or table.
 | T07 | `background.tex` | Figure: per-step times, power-on to attested worker, sandbox boot and snapshot restore, one bar group per calibrated machine and disk type; table of the four states with measured times per machine. Needs the merged calibration bundles. |
 | T08 | `background.tex` | for a median of N minutes at a time and for N\% of a week (trace statistic macros) |
 | T09 | `background.tex` | Table: concurrency limit, memory and measured co-run slowdown per calibrated machine. |
-| T11 | `design.tex` | Two measurements from the calibration data, regenerated from the merged bundles: (i) the coefficient of variation of a function's execution time over repeated runs on one machine; (ii) the range, across functions, of the execution-time ratio between two machine classes at the same input size. |
 | T13 | `method.tex` | Machine table (processor, cores, memory, disk classes and models, TPM kind) and per-step cost table, generated from the calibration bundles; number of machines and classes. One machine (12th-generation Intel Core i7, 64 GB, NVMe and SATA hard disk, firmware TPM) is measured and under review; at least two further processor classes are required before results are reported. |
 | T14 | `method.tex` | The assignment and the share of hosts that no calibrated machine represents well. |
 | T15 | `method.tex` | Table: interval-length distribution of the two weeks against the published fit. |
 | T26 | `discussion.tex` | N machines of N processor classes |
 | T44 | `method.tex` | Number of functions measured, of input sizes and of runs per size, from the bundles. |
 | T45 | `design.tex` | $\rho$ is not yet estimated (the code uses zero): estimate it from how often several hosts of one domain leave together in the availability trace, or remove domain failures from the model and from this paragraph. |
+| T49 | `design.tex` | These two machines are the only processor classes measured so far; regenerate the numbers when further calibrated machines are merged, and state their number. |
 
 ## Waits for: code revision of the results
 
