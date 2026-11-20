@@ -1,0 +1,58 @@
+bundle: node04-i7-4790s-8g-hdd_hdd
+host:
+  bios_version: FCKT65AUS
+  board: unknown
+  cores: 4
+  cpu_model: Intel(R) Core(TM) i7-4790S CPU @ 3.20GHz
+  disks:
+  - model: WD5003ABYX-23
+    name: sda
+    rotational: true
+    size_gb: 500.1
+  dry_run: false
+  fio: fio-3.39
+  firecracker: absent
+  harness_version: 0.1.0
+  hostname: calangute1
+  iommu: true
+  kernel: 6.17.0-5-generic
+  mem_kb: 7515656
+  microcode: '0x28'
+  options:
+    firecracker: /home/USER/voss-calib/assets/firecracker
+    hdd_dir: /home/USER/voss-calib-scratch/hdd
+    kernel: /home/USER/voss-calib/assets/vmlinux
+    rootfs: /home/USER/voss-calib/assets/voss-guest.ext4
+    sebs_ml_rootfs: /home/USER/voss-calib/assets/voss-guest-ml.ext4
+    sebs_rootfs: /home/USER/voss-calib/assets/voss-guest.ext4
+  phase: null
+  qemu: QEMU emulator version 10.1.0 (Debian 1:10.1.0+ds-5ubuntu2.7)
+  quick: false
+  run_id: 20261118T201935
+  secure_boot: false
+  status: ok
+  suite: tls
+  t_utc: '2026-11-18T20:19:35Z'
+  threads: 8
+  tme: false
+  tpm2_tools: tool="tpm2_quote" version="5.7" tctis="libtss2-tctildr" tcti-default=tcti-device
+  tpm_vendor: ''
+missing:
+- tpm2_quote
+- verify_s
+provenance:
+  default: measured
+  note: ingested from raw logs of host node04-i7-4790s-8g-hdd_hdd (rule 13)
+raw_files:
+  c0-d5811585f1/appliance/20261120T161905/records.jsonl: 9fb5e0ffab8e4ab9f9ad67eeb050da69c4891013bb1fde1bfd3c16a7c0f1efac
+  c0-d5811585f1/caps/20261118T090052/records.jsonl: 3b2285ef9614aecf38d77b8bf18bd8221dd2ae4fd847563aadddd43488b340d9
+  c0-d5811585f1/caps/20261118T200928/records.jsonl: 748defbc48b1108c33857acfd010be8e8293f8680ddfb49ecce9a11f56b958b6
+  c0-d5811585f1/disk/20261118T200928/records.jsonl: 8586a27b7e2f49b8c4d3f27dbe2934defd0a08af0a0898b5c01bcc069846e79e
+  c0-d5811585f1/fc_boot/20261118T202016/records.jsonl: 14972a5efea87129699f3fe3e06f2f18edfb4077042d6a5bfdd6ea5af81cd4f9
+  c0-d5811585f1/fc_dispatch/20261118T204553/records.jsonl: cef3591870bf65472f37011e0448b927f4a94921ab7359efd180b75e1b267f7d
+  c0-d5811585f1/fc_snapshot/20261118T202457/records.jsonl: 5693e465a0856e33db7f632762a278d9432a9253dab5c75c011b571dd15b9119
+  c0-d5811585f1/fc_touched/20261118T223418/records.jsonl: 41ea8b9e9d541e4187324613b2d3381444afdd4334b4320605cde61e487a9fd5
+  c0-d5811585f1/keys/20261118T201937/records.jsonl: 122e553e53a89658389c25d641d0d5be88cb773581fcd1ab7347a3172b7358ee
+  c0-d5811585f1/sebs/20261118T204554/records.jsonl: f46b160cd247d04f33a4f66852a56d151645830bf56a74caa763690b0ba5ad70
+  c0-d5811585f1/tls/20261118T201935/records.jsonl: ed0bba5243124b6b1539bd985707fed694080ea87e91276f962e0ceee5bb6d49
+raw_host: c0-d5811585f1

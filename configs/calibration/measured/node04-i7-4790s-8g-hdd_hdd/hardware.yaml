@@ -1,0 +1,14 @@
+classes:
+  C0:
+    hdd_read_MBps: 131.794327
+    hdd_write_MBps: 130.305904
+    ssd_read_MBps: 131.794327
+    ssd_write_MBps: 130.305904
+  E0:
+    hdd_read_MBps: 131.794327
+    hdd_write_MBps: 130.305904
+    ssd_read_MBps: 131.794327
+    ssd_write_MBps: 130.305904
+provenance:
+  default: measured
+  note: ingested from raw logs of host node04-i7-4790s-8g-hdd_hdd (rule 13)

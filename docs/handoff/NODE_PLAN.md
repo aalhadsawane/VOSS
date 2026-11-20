@@ -67,7 +67,7 @@ better (10 workers). It must have a TPM 2.0 and an NVMe or SATA SSD.
   |---|---|---|---|
   | node01 | anjuna2 | `node01-i7-12700-64g-nvme` | retired (2026-11-18). Parts A, B, ML and topup merged (#101); Part C failed three times (a hung shutdown, then a kernel panic in interrupt context, with another user's filesystem watchdog daemon running on the node); no boot data, so its bundle lacks `reboot_to_kernel` and `appliance_userspace` and serves only the same-model comparison with node02 |
   | node02 | colva3 | `node02-i7-12700-64g-nvme` (`_nvme`, `_hdd`) | complete (#86): all ten functions, 10 boots, topup; `fn_input_gen` only after `inputs` (optional) |
-  | node04 | calangute1 | `node04-i7-4790s-8g-hdd` | in progress: Part A complete; Haswell i7-4790S (4c/8t), 8 GB DDR3, one 500 GB SATA HDD, no TPM; distinct CPU class from node01/node02 |
+  | node04 | calangute1 | `node04-i7-4790s-8g-hdd` (`_hdd`) | complete: Haswell i7-4790S (4c/8t), 8 GB DDR3, one 500 GB SATA HDD, no TPM; all ten functions, 10 host-mode boots (`reboot_to_kernel`, `appliance_userspace`), `fc_dispatch`, `fc_touched`, `keys`/`tls`/`disk`; TPM entries (`tpm2_quote`, `tpm2_unseal`, `verify_s`) missing with reason (no TPM chip) |
 
   The next node takes the next free number. Add its row in the node's own PR.
 - The node's **label** is `nodeNN-<cpu>-<memory>g-<main storage>`, lower case, e.g. `node03-i5-8250u-8g-ssd`,
