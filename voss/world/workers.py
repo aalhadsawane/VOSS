@@ -178,9 +178,14 @@ def _envelope(hw: list[HwClass], ep: EnvelopeParams) -> dict[str, np.ndarray]:
 
 
 def generate_workers(
-    sc: ScenarioConfig, metros: Metros, hw_classes: dict[str, HwClass], rng: RngFactory
+    sc: ScenarioConfig,
+    metros: Metros,
+    hw_classes: dict[str, HwClass],
+    rng: RngFactory,
+    hw_mix: dict[str, float] | None = None,
 ) -> WorkerTable:
-    """Doc 02 §1. Each attribute family draws from its own stream."""
+    """Doc 02 §1. Each attribute family draws from its own stream; ``hw_mix`` (the calibrated fleet's survey weights,
+    plan V9.4) replaces ``scenario.hw_mix``."""
     n = sc.workers
     gp = GeoParams.model_validate(sc.geo)
     g_loc = rng.stream("workers.location")
@@ -188,7 +193,7 @@ def generate_workers(
     lat, lon = jitter_location(metros.lat[city], metros.lon[city], gp.jitter_km, g_loc)
     hw_names = tuple(sorted(hw_classes))
     substrate_names = tuple(sorted(sc.substrate_mix))
-    hw = _pick(rng.stream("workers.hw"), sc.hw_mix, hw_names, n)
+    hw = _pick(rng.stream("workers.hw"), sc.hw_mix if hw_mix is None else hw_mix, hw_names, n)
     asn, domain = _domains(rng.stream("workers.asn"), city, gp)
     g_id = rng.stream("workers.identity")
     identity = tuple(hashlib.sha256(g_id.bytes(32)).hexdigest()[:16] for _ in range(n))
