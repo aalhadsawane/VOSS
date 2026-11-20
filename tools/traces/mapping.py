@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+import pandas as pd
 from voss.core.config import ScenarioConfig
 from voss.core.paths import load_data_yaml
 from voss.world.calibration import function_overrides, function_sizes
@@ -16,14 +17,14 @@ from voss.world.trace_load import load_trace_functions
 from voss.world.workload import Catalog, FunctionSpec, LoadRegime, TenantSpec
 
 
-def mapping(calibration: str, split: str, trace: str = "azure2019") -> tuple[str, object]:
+def mapping(calibration: str, split: str, trace: str = "azure2019") -> tuple[str, pd.DataFrame]:
     sc = ScenarioConfig()
     meas = function_overrides(calibration)
     fns = tuple(
         FunctionSpec.model_validate(f | meas.get(f["name"], {})) for f in load_data_yaml(sc.functions)["functions"]
     )
     ten = tuple(TenantSpec.model_validate(t) for t in load_data_yaml(sc.tenants)["tenants"])
-    reg = LoadRegime(regime="trace", rate=1, zipf_s=0, trace=trace, split=split)  # type: ignore[arg-type]
+    reg = LoadRegime(regime="trace", rate=1, zipf_s=0, trace=trace, split=split)
     tf = load_trace_functions(reg, Catalog(fns, ten), function_sizes(calibration))
     cols = ["fn", "dur_p50_ms", "base", "size_kb", "profile_s", "outside"]
     head = (
@@ -41,10 +42,10 @@ def main(argv: list[str] | None = None) -> int:
     a = p.parse_args(argv)
     head, table = mapping(a.calibration, a.split)
     print(head)
-    by = table.groupby(["base", "size_kb"]).size().rename("trace_functions")  # type: ignore[attr-defined]
+    by = table.groupby(["base", "size_kb"]).size().rename("trace_functions")
     print(by.to_string())
     if a.csv:
-        table.to_csv(a.csv, index=False)  # type: ignore[attr-defined]
+        table.to_csv(a.csv, index=False)
     return 0
 
 
