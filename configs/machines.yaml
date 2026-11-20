@@ -1,0 +1,12 @@
+# Calibrated fleet (docs/REVISION_PLAN.md V9.4, D-107): one machine class per complete calibration bundle, weighted
+# by the BOINC Rosetta@home host survey. Opt-in overlay: it replaces scenario.hw_mix and the C classes; base.yaml is
+# unchanged. The reference machine (calibration) is node02 (calibration/REFERENCE); its NVMe and HDD bundles are two
+# classes that share the processor, and they share node02's survey weight equally (the survey has no disk type).
+# node04 has no TPM: its TPM entries are node02's, labelled shared. node01 is the same model as node02 without boot
+# data: a cross-check, not a class.
+extends: base.yaml
+calibration: configs/calibration/measured/node02-i7-12700-64g-nvme_nvme
+scenario:
+  machines:
+    bundles: [node02-i7-12700-64g-nvme_nvme, node02-i7-12700-64g-nvme_hdd, node04-i7-4790s-8g-hdd_hdd]
+    survey: boinc-rosetta

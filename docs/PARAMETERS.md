@@ -23,7 +23,8 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `scenario.warmup_s` | `172800.0` | pending V9 | session warm-up of the parametric generator; replaced by trace alignment |
 | `scenario.substrate_mix` | `{'appliance_tpm': 1.0}` | A | owner classes S/P/M (V3.3) |
 | `scenario.tiers` | `{'nightly': 0.6, 'idle': 0.3, 'dedicated': 0.1}` | pending V9 | v1 assumed worker tiers; replaced by traced availability |
-| `scenario.hw_mix` | `{'C0': 0.1, 'C1': 0.35, 'C2': 0.35, 'C3': 0.2}` | pending V9 | v1 assumed classes; becomes calibrated machines weighted by a hardware survey (V9.4) |
+| `scenario.hw_mix` | `{'C0': 0.1, 'C1': 0.35, 'C2': 0.35, 'C3': 0.2}` | pending V9 | v1 assumed classes; superseded by `scenario.machines` (V9.4, D-107); delete at the freeze |
+| `scenario.machines` | `{}` | D | calibrated fleet (V9.4, D-107): one class per measured bundle (M), weights from the BOINC host survey (T), radius 1 = one power-of-two step of the survey; empty = `hw_mix` |
 | `scenario.tofu_frac` | `0.3` | pending V4 | v1 firmware trust-on-first-use share; removed with trust scores |
 | `scenario.physical_frac` | `0.0` | A | share of owners without memory encryption willing to attack physically (class P, V3.3) |
 | `scenario.regime` | `'churn_med'` | pending V9 | parametric churn regime; replaced by traced sessions |
@@ -168,10 +169,10 @@ for the file as a whole.
 | `configs/request_bytes.yaml` | D | bytes a client sends per measured input size of each guest function (D-106) |
 | `configs/functions.yaml` | pending V1/V9 | literature placeholders (F2); replaced by measured profiles of every function |
 | `configs/functions_e01.yaml` | pending V13 | v1 emulation catalogue |
-| `configs/hardware/C0.yaml` | pending V9 | machine class; v2 classes are the calibrated machines |
-| `configs/hardware/C1.yaml` | pending V9 | machine class; v2 classes are the calibrated machines |
-| `configs/hardware/C2.yaml` | pending V9 | machine class; v2 classes are the calibrated machines |
-| `configs/hardware/C3.yaml` | pending V9 | machine class; v2 classes are the calibrated machines |
+| `configs/hardware/C0.yaml` | pending V9 | v1 assumed machine class; superseded by `scenario.machines` (D-107); delete at the freeze |
+| `configs/hardware/C1.yaml` | pending V9 | v1 assumed machine class; superseded by `scenario.machines` (D-107); delete at the freeze |
+| `configs/hardware/C2.yaml` | pending V9 | v1 assumed machine class; superseded by `scenario.machines` (D-107); delete at the freeze |
+| `configs/hardware/C3.yaml` | pending V9 | v1 assumed machine class; superseded by `scenario.machines` (D-107); delete at the freeze |
 | `configs/hardware/DC.yaml` | pending V9 | machine class; v2 classes are the calibrated machines |
 | `configs/hardware/E0.yaml` | pending V9 | machine class; v2 classes are the calibrated machines |
 | `configs/hardware/E1.yaml` | pending V9 | machine class; v2 classes are the calibrated machines |
@@ -189,6 +190,7 @@ for the file as a whole.
 | `configs/regimes/churn_seti.yaml` | T | SETI@home host availability (FTA seti09), one host's week per worker (V9.2); `graceful_frac` axis |
 | `configs/regimes/load_default.yaml` | pending V9 | assumed parametric regime; replaced by traces or kept as a labelled sensitivity |
 | `configs/regimes/load_flash.yaml` | pending V9 | assumed parametric regime; replaced by traces or kept as a labelled sensitivity |
+| `configs/machines.yaml` | D | calibrated fleet overlay (V9.4, D-107): node02 (reference) and node04, Rosetta@home survey |
 | `configs/smoke.yaml` | A | test configuration |
 | `configs/substrates/appliance_tpm.yaml` | pending V4 | substrate profile; ref_* become the trusted-host baseline in V8 |
 | `configs/substrates/none.yaml` | pending V4 | substrate profile; ref_* become the trusted-host baseline in V8 |

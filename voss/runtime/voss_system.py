@@ -12,6 +12,7 @@ import numpy as np
 
 from voss.core.config import RunConfig
 from voss.core.decision_clock import DecisionClock
+from voss.core.dist import Dist
 from voss.core.ids import FnId, TenantId, WorkerId
 from voss.core.kernel import Kernel, run_chunked
 from voss.core.registry import register
@@ -41,7 +42,9 @@ from voss.world.network import Network, NetworkParams
 from voss.world.scenario import Scenario, generate
 from voss.world.substrate import SubstrateProfile, load_bundle, load_substrate
 from voss.world.workers import TIERS
-from voss.world.workload import SLO_CLASSES
+from voss.world.workload import SLO_CLASSES, FunctionSpec
+
+ClassInputs = tuple[dict[FnId, FunctionSpec], dict[str, Dist], dict[str, SubstrateProfile]]
 
 
 class VossSystem:
@@ -62,6 +65,7 @@ class VossSystem:
         self.ctx = ActorContext(self.kernel, self.net, self.rec, self.rng, clock, cfg, self.directory)
         self.cost = cost_context(cfg, scn.catalog, scn.metros, self.profiles, self.bundle)
         self.priors = fn_priors(scn.catalog)
+        self.by_class: dict[str, ClassInputs] = {}  # calibrated fleet (plan V9.4): per machine class
         self.agents: dict[WorkerId, WorkerAgent] = {}
         self.routers: list[Router] = []
         self._infra()
@@ -113,15 +117,17 @@ class VossSystem:
         self.routers = [self._attach(Router(f"router:{c}", self.ctx, c, origins)) for c in inf.routers]
 
     def _workers(self) -> None:
-        wt, hw = self.scn.workers, load_hw_classes(list(self.scn.workers.hw_names), self.cfg.calibration)
-        catalog = {FnId(f.name): f for f in self.scn.catalog.functions}
-        touched = self.bundle["snapshot_touched_frac"].mean() if "snapshot_touched_frac" in self.bundle else 0.3
+        wt, fleet = self.scn.workers, self.scn.fleet
+        hw = fleet.hw if fleet is not None else load_hw_classes(list(wt.hw_names), self.cfg.calibration)
         ep = ExecParams.model_validate(self.cfg.scenario.execution)
         noise = noise_matrix(self.rng.stream("inv.exec.noise"), len(self.scn.arrivals), 6, ep)
-        params = {"exec": ep, "touched_frac": touched, "noise": noise}
         for w in range(len(wt)):
             wid = WorkerId(w)
-            host = self._host(wid, hw[wt.hw_names[int(wt.hw[w])]])
+            hc = hw[wt.hw_names[int(wt.hw[w])]]
+            catalog, bundle, _ = self._class(hc)
+            touched = bundle["snapshot_touched_frac"].mean() if "snapshot_touched_frac" in bundle else 0.3
+            params = {"exec": ep, "touched_frac": touched, "noise": noise}
+            host = self._host(wid, hc)
             self.net.add_host(
                 wid,
                 float(wt.lat[w]),
@@ -136,9 +142,24 @@ class VossSystem:
                 self.rec.log(Table.EVENTS, t=0.0, kind="adversary", worker=w, value=0.0, reason=adv.name)
             self.agents[wid] = self._attach(WorkerAgent(host, self.ctx, catalog, params, adv))
 
+    def _class(self, hc: HwClass) -> ClassInputs:
+        """Catalogue, bundle and substrate profiles a worker of class ``hc`` runs with: its own calibrated machine's in
+        a fleet (plan V9.4, D-107), else the run's calibration bundle for every class."""
+        fleet = self.scn.fleet
+        if fleet is None or hc.name not in fleet.classes:
+            if "" not in self.by_class:
+                self.by_class[""] = ({FnId(f.name): f for f in self.scn.catalog.functions}, self.bundle, self.profiles)
+            return self.by_class[""]
+        if hc.name not in self.by_class:
+            d = fleet.classes[hc.name].dists
+            fns = {FnId(f.name): f for f in fleet.catalogs[hc.name]}
+            self.by_class[hc.name] = (fns, d, {n: load_substrate(n, d) for n in self.profiles})
+        return self.by_class[hc.name]
+
     def _host(self, w: WorkerId, hc: HwClass) -> HostLocal:
         wt = self.scn.workers
-        prof = self.profiles[wt.substrate_names[int(wt.substrate[w])]]
+        _, bundle, profiles = self._class(hc)
+        prof = profiles[wt.substrate_names[int(wt.substrate[w])]]
         caps = {k: float(getattr(wt, k)[w]) for k in ("slots", "speed", "mem_mb", "ssd_mb", "hdd_mb")}
         meta = (int(wt.domain[w]), bool(wt.known_good[w]), f"{hc.cpu_model}|k1|fc1")
         host = make_host(
@@ -149,7 +170,7 @@ class VossSystem:
             prof,
             hc.model_dump(),
             caps,
-            self.bundle.get("tpm2_quote"),
+            bundle.get("tpm2_quote"),
             meta,
             self.cfg.voss.cache.hdd_tier,
         )

@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from voss.core.config import RunConfig
-from voss.core.hashing import hash_dir
+from voss.core.hashing import hash_dir, hash_obj
 from voss.core.numerics import canary
 from voss.core.paths import config_path
 
@@ -71,7 +71,13 @@ def calibration_hash(cfg: RunConfig) -> str | None:
     if cfg.calibration is None:
         return None
     path = config_path(cfg.calibration)
-    return hash_dir(path) if path.is_dir() else None
+    own = hash_dir(path) if path.is_dir() else None
+    bundles = sorted(set(cfg.scenario.machines.get("bundles") or []))
+    if not bundles:
+        return own
+    # calibrated fleet (plan V9.4): every bundle of the fleet, beside the reference
+    dirs = {b: config_path(f"calibration/measured/{b}") for b in bundles}
+    return hash_obj({"calibration": own, **{b: hash_dir(d) for b, d in dirs.items()}})
 
 
 def build_manifest(cfg: RunConfig, scenario_hash: str | None, result_hash: str, repo: Path) -> Manifest:

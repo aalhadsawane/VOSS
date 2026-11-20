@@ -121,7 +121,7 @@ def trace_catalog(reg: LoadRegime, base: Catalog, sizes: dict[str, dict[float, f
     param_kb = min(f.in_kb for f in base.functions)
     by_name = {f.name: f for f in base.functions}
     tmpl = base.tenants[0]
-    fns = []
+    fns, prof = [], {}
     for r in tf.table.itertuples():
         upd: dict[str, object] = {"name": f"tr{int(r.fn):04d}", "tenant": str(r.owner)}
         upd["slo_class"] = "sync" if r.sync else "async"
@@ -129,9 +129,10 @@ def trace_catalog(reg: LoadRegime, base: Catalog, sizes: dict[str, dict[float, f
             kb = request_kb(str(r.base), float(r.size_kb), rules, param_kb)
             upd |= {"in_kb": kb, "in_sigma": 0.0, "work_ref_s": float(r.profile_s)}
         fns.append(by_name[str(r.base)].model_copy(update=upd))
+        prof[str(upd["name"])] = (str(r.base), float(r.size_kb) if tf.per_size else None)
     owners = sorted({f.tenant for f in fns})
     tenants = tuple(tmpl.model_copy(update={"id": o}) for o in owners)
-    return Catalog(tuple(fns), tenants, transfer_deadline=tf.per_size)
+    return Catalog(tuple(fns), tenants, transfer_deadline=tf.per_size, profiles=prof)
 
 
 def trace_arrivals(
