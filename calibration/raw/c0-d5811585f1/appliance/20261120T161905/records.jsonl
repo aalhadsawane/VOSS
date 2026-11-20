@@ -1,0 +1,20 @@
+{"config": {"firmware": 2.939, "kernel": 3.67, "loader": 2.985, "userspace": 8.751}, "probe": "reboot_to_kernel", "rep": 0, "suite": "appliance", "unit": "s", "value": 9.594}
+{"config": {}, "probe": "appliance_userspace", "rep": 0, "suite": "appliance", "unit": "s", "value": 10.88}
+{"config": {"firmware": 2.929, "kernel": 3.677, "loader": 3.004, "userspace": 8.266}, "probe": "reboot_to_kernel", "rep": 1, "suite": "appliance", "unit": "s", "value": 9.61}
+{"config": {}, "probe": "appliance_userspace", "rep": 1, "suite": "appliance", "unit": "s", "value": 10.303}
+{"config": {"firmware": 2.954, "kernel": 3.553, "loader": 2.968, "userspace": 9.052}, "probe": "reboot_to_kernel", "rep": 2, "suite": "appliance", "unit": "s", "value": 9.475000000000001}
+{"config": {}, "probe": "appliance_userspace", "rep": 2, "suite": "appliance", "unit": "s", "value": 10.786999999999999}
+{"config": {"firmware": 2.952, "kernel": 3.644, "loader": 3.002, "userspace": 8.693}, "probe": "reboot_to_kernel", "rep": 3, "suite": "appliance", "unit": "s", "value": 9.597999999999999}
+{"config": {}, "probe": "appliance_userspace", "rep": 3, "suite": "appliance", "unit": "s", "value": 10.876}
+{"config": {"firmware": 2.943, "kernel": 3.661, "loader": 2.987, "userspace": 8.203}, "probe": "reboot_to_kernel", "rep": 4, "suite": "appliance", "unit": "s", "value": 9.591}
+{"config": {}, "probe": "appliance_userspace", "rep": 4, "suite": "appliance", "unit": "s", "value": 10.809000000000001}
+{"config": {"firmware": 2.948, "kernel": 3.66, "loader": 3.001, "userspace": 8.015}, "probe": "reboot_to_kernel", "rep": 5, "suite": "appliance", "unit": "s", "value": 9.609}
+{"config": {}, "probe": "appliance_userspace", "rep": 5, "suite": "appliance", "unit": "s", "value": 10.83}
+{"config": {"firmware": 2.95, "kernel": 3.676, "loader": 2.986, "userspace": 8.462}, "probe": "reboot_to_kernel", "rep": 6, "suite": "appliance", "unit": "s", "value": 9.612}
+{"config": {}, "probe": "appliance_userspace", "rep": 6, "suite": "appliance", "unit": "s", "value": 10.974}
+{"config": {"firmware": 2.96, "kernel": 3.66, "loader": 2.995, "userspace": 8.941}, "probe": "reboot_to_kernel", "rep": 7, "suite": "appliance", "unit": "s", "value": 9.615}
+{"config": {}, "probe": "appliance_userspace", "rep": 7, "suite": "appliance", "unit": "s", "value": 11.12}
+{"config": {"firmware": 2.952, "kernel": 3.636, "loader": 2.994, "userspace": 9.085}, "probe": "reboot_to_kernel", "rep": 8, "suite": "appliance", "unit": "s", "value": 9.582}
+{"config": {}, "probe": "appliance_userspace", "rep": 8, "suite": "appliance", "unit": "s", "value": 10.914000000000001}
+{"config": {"firmware": 2.939, "kernel": 3.578, "loader": 2.993, "userspace": 9.827}, "probe": "reboot_to_kernel", "rep": 9, "suite": "appliance", "unit": "s", "value": 9.51}
+{"config": {}, "probe": "appliance_userspace", "rep": 9, "suite": "appliance", "unit": "s", "value": 11.312000000000001}

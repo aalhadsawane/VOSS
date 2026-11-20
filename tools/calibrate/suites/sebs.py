@@ -160,7 +160,7 @@ def run(ctx: Ctx) -> None:
         except SuiteSkipped as e:  # no ML image given: only the functions that need it are left out
             ctx.skip(f"sebs fn={fn}", 0, str(e))
             continue
-        ok = True
+        ok, ran = True, False
         for n in levels:
             need = n * MEM_MB.get(fn, 512)
             if need > ctx.mem_budget_mb():
@@ -172,9 +172,10 @@ def run(ctx: Ctx) -> None:
             if not _level(ctx, a, fn, n, reps):
                 ok = False
                 break
+            ran = True
         # Contract §5 asks for n >= 3 snapshots; skip a function whose guest could not even start (e.g. no torch).
         # ``snapshots=0``: handler times only (the ``tme`` suite's subset).
-        if ok and scratch is not None and not ctx.sh.dry_run and ctx.opt("snapshots", "1") != "0":
+        if ok and ran and scratch is not None and not ctx.sh.dry_run and ctx.opt("snapshots", "1") != "0":
             scratch.mkdir(parents=True, exist_ok=True)
             for rep in range(ctx.reps(3)):
                 size_mb = snapshot_size(ctx, a, fn, scratch)

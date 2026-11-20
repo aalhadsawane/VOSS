@@ -1,0 +1,402 @@
+{"config": {"cipher": "aes-256-gcm"}, "probe": "decrypt_per_MB", "rep": 0, "suite": "keys", "unit": "s/MB", "value": 0.0003228416782795509}
+{"config": {"alg": "rsa2048"}, "probe": "key_unwrap", "rep": 0, "suite": "keys", "unit": "s", "value": 0.000514}
+{"config": {}, "probe": "key_request", "rep": 0, "suite": "keys", "unit": "s", "value": 0.04379170015454292}
+{"config": {}, "probe": "key_request", "rep": 1, "suite": "keys", "unit": "s", "value": 0.04181738197803497}
+{"config": {}, "probe": "key_request", "rep": 2, "suite": "keys", "unit": "s", "value": 0.04179900139570236}
+{"config": {}, "probe": "key_request", "rep": 3, "suite": "keys", "unit": "s", "value": 0.041788484901189804}
+{"config": {}, "probe": "key_request", "rep": 4, "suite": "keys", "unit": "s", "value": 0.041788239032030106}
+{"config": {}, "probe": "key_request", "rep": 5, "suite": "keys", "unit": "s", "value": 0.04172930493950844}
+{"config": {}, "probe": "key_request", "rep": 6, "suite": "keys", "unit": "s", "value": 0.0417863093316555}
+{"config": {}, "probe": "key_request", "rep": 7, "suite": "keys", "unit": "s", "value": 0.041791222989559174}
+{"config": {}, "probe": "key_request", "rep": 8, "suite": "keys", "unit": "s", "value": 0.04172297939658165}
+{"config": {}, "probe": "key_request", "rep": 9, "suite": "keys", "unit": "s", "value": 0.0427192747592926}
+{"config": {}, "probe": "key_request", "rep": 10, "suite": "keys", "unit": "s", "value": 0.0417867973446846}
+{"config": {}, "probe": "key_request", "rep": 11, "suite": "keys", "unit": "s", "value": 0.04174816608428955}
+{"config": {}, "probe": "key_request", "rep": 12, "suite": "keys", "unit": "s", "value": 0.042721331119537354}
+{"config": {}, "probe": "key_request", "rep": 13, "suite": "keys", "unit": "s", "value": 0.04175334796309471}
+{"config": {}, "probe": "key_request", "rep": 14, "suite": "keys", "unit": "s", "value": 0.042670752853155136}
+{"config": {}, "probe": "key_request", "rep": 15, "suite": "keys", "unit": "s", "value": 0.04177037253975868}
+{"config": {}, "probe": "key_request", "rep": 16, "suite": "keys", "unit": "s", "value": 0.04271852225065231}
+{"config": {}, "probe": "key_request", "rep": 17, "suite": "keys", "unit": "s", "value": 0.041802845895290375}
+{"config": {}, "probe": "key_request", "rep": 18, "suite": "keys", "unit": "s", "value": 0.041794080287218094}
+{"config": {}, "probe": "key_request", "rep": 19, "suite": "keys", "unit": "s", "value": 0.041768141090869904}
+{"config": {}, "probe": "key_request", "rep": 20, "suite": "keys", "unit": "s", "value": 0.04183683171868324}
+{"config": {}, "probe": "key_request", "rep": 21, "suite": "keys", "unit": "s", "value": 0.04179253801703453}
+{"config": {}, "probe": "key_request", "rep": 22, "suite": "keys", "unit": "s", "value": 0.04180264472961426}
+{"config": {}, "probe": "key_request", "rep": 23, "suite": "keys", "unit": "s", "value": 0.042760640382766724}
+{"config": {}, "probe": "key_request", "rep": 24, "suite": "keys", "unit": "s", "value": 0.04175148531794548}
+{"config": {}, "probe": "key_request", "rep": 25, "suite": "keys", "unit": "s", "value": 0.04175766929984093}
+{"config": {}, "probe": "key_request", "rep": 26, "suite": "keys", "unit": "s", "value": 0.0417531356215477}
+{"config": {}, "probe": "key_request", "rep": 27, "suite": "keys", "unit": "s", "value": 0.04174783080816269}
+{"config": {}, "probe": "key_request", "rep": 28, "suite": "keys", "unit": "s", "value": 0.04275393858551979}
+{"config": {}, "probe": "key_request", "rep": 29, "suite": "keys", "unit": "s", "value": 0.04175089672207832}
+{"config": {}, "probe": "key_request", "rep": 30, "suite": "keys", "unit": "s", "value": 0.04174918681383133}
+{"config": {}, "probe": "key_request", "rep": 31, "suite": "keys", "unit": "s", "value": 0.04174809902906418}
+{"config": {}, "probe": "key_request", "rep": 32, "suite": "keys", "unit": "s", "value": 0.041756171733140945}
+{"config": {}, "probe": "key_request", "rep": 33, "suite": "keys", "unit": "s", "value": 0.04175279662013054}
+{"config": {}, "probe": "key_request", "rep": 34, "suite": "keys", "unit": "s", "value": 0.04175081104040146}
+{"config": {}, "probe": "key_request", "rep": 35, "suite": "keys", "unit": "s", "value": 0.041755251586437225}
+{"config": {}, "probe": "key_request", "rep": 36, "suite": "keys", "unit": "s", "value": 0.0417502336204052}
+{"config": {}, "probe": "key_request", "rep": 37, "suite": "keys", "unit": "s", "value": 0.041754089295864105}
+{"config": {}, "probe": "key_request", "rep": 38, "suite": "keys", "unit": "s", "value": 0.041755516082048416}
+{"config": {}, "probe": "key_request", "rep": 39, "suite": "keys", "unit": "s", "value": 0.04175758361816406}
+{"config": {}, "probe": "key_request", "rep": 40, "suite": "keys", "unit": "s", "value": 0.041751302778720856}
+{"config": {}, "probe": "key_request", "rep": 41, "suite": "keys", "unit": "s", "value": 0.041748177260160446}
+{"config": {}, "probe": "key_request", "rep": 42, "suite": "keys", "unit": "s", "value": 0.041738178580999374}
+{"config": {}, "probe": "key_request", "rep": 43, "suite": "keys", "unit": "s", "value": 0.04175447300076485}
+{"config": {}, "probe": "key_request", "rep": 44, "suite": "keys", "unit": "s", "value": 0.041754648089408875}
+{"config": {}, "probe": "key_request", "rep": 45, "suite": "keys", "unit": "s", "value": 0.04174951836466789}
+{"config": {}, "probe": "key_request", "rep": 46, "suite": "keys", "unit": "s", "value": 0.04175384342670441}
+{"config": {}, "probe": "key_request", "rep": 47, "suite": "keys", "unit": "s", "value": 0.04175209626555443}
+{"config": {}, "probe": "key_request", "rep": 48, "suite": "keys", "unit": "s", "value": 0.04175267368555069}
+{"config": {}, "probe": "key_request", "rep": 49, "suite": "keys", "unit": "s", "value": 0.04174976795911789}
+{"config": {}, "probe": "key_request", "rep": 50, "suite": "keys", "unit": "s", "value": 0.04178725928068161}
+{"config": {}, "probe": "key_request", "rep": 51, "suite": "keys", "unit": "s", "value": 0.041708461940288544}
+{"config": {}, "probe": "key_request", "rep": 52, "suite": "keys", "unit": "s", "value": 0.04172326251864433}
+{"config": {}, "probe": "key_request", "rep": 53, "suite": "keys", "unit": "s", "value": 0.041783709079027176}
+{"config": {}, "probe": "key_request", "rep": 54, "suite": "keys", "unit": "s", "value": 0.041755106300115585}
+{"config": {}, "probe": "key_request", "rep": 55, "suite": "keys", "unit": "s", "value": 0.041752494871616364}
+{"config": {}, "probe": "key_request", "rep": 56, "suite": "keys", "unit": "s", "value": 0.041752889752388}
+{"config": {}, "probe": "key_request", "rep": 57, "suite": "keys", "unit": "s", "value": 0.04175450652837753}
+{"config": {}, "probe": "key_request", "rep": 58, "suite": "keys", "unit": "s", "value": 0.04175935685634613}
+{"config": {}, "probe": "key_request", "rep": 59, "suite": "keys", "unit": "s", "value": 0.0417516715824604}
+{"config": {}, "probe": "key_request", "rep": 60, "suite": "keys", "unit": "s", "value": 0.041778646409511566}
+{"config": {}, "probe": "key_request", "rep": 61, "suite": "keys", "unit": "s", "value": 0.041715677827596664}
+{"config": {}, "probe": "key_request", "rep": 62, "suite": "keys", "unit": "s", "value": 0.04170578718185425}
+{"config": {}, "probe": "key_request", "rep": 63, "suite": "keys", "unit": "s", "value": 0.04179176688194275}
+{"config": {}, "probe": "key_request", "rep": 64, "suite": "keys", "unit": "s", "value": 0.04175285995006561}
+{"config": {}, "probe": "key_request", "rep": 65, "suite": "keys", "unit": "s", "value": 0.04175182431936264}
+{"config": {}, "probe": "key_request", "rep": 66, "suite": "keys", "unit": "s", "value": 0.041756369173526764}
+{"config": {}, "probe": "key_request", "rep": 67, "suite": "keys", "unit": "s", "value": 0.04175245016813278}
+{"config": {}, "probe": "key_request", "rep": 68, "suite": "keys", "unit": "s", "value": 0.041754573583602905}
+{"config": {}, "probe": "key_request", "rep": 69, "suite": "keys", "unit": "s", "value": 0.041779834777116776}
+{"config": {}, "probe": "key_request", "rep": 70, "suite": "keys", "unit": "s", "value": 0.04171590879559517}
+{"config": {}, "probe": "key_request", "rep": 71, "suite": "keys", "unit": "s", "value": 0.04175202548503876}
+{"config": {}, "probe": "key_request", "rep": 72, "suite": "keys", "unit": "s", "value": 0.04175247251987457}
+{"config": {}, "probe": "key_request", "rep": 73, "suite": "keys", "unit": "s", "value": 0.04175213351845741}
+{"config": {}, "probe": "key_request", "rep": 74, "suite": "keys", "unit": "s", "value": 0.04175368323922157}
+{"config": {}, "probe": "key_request", "rep": 75, "suite": "keys", "unit": "s", "value": 0.04174715653061867}
+{"config": {}, "probe": "key_request", "rep": 76, "suite": "keys", "unit": "s", "value": 0.04175647348165512}
+{"config": {}, "probe": "key_request", "rep": 77, "suite": "keys", "unit": "s", "value": 0.04175163805484772}
+{"config": {}, "probe": "key_request", "rep": 78, "suite": "keys", "unit": "s", "value": 0.041757743805646896}
+{"config": {}, "probe": "key_request", "rep": 79, "suite": "keys", "unit": "s", "value": 0.0417478084564209}
+{"config": {}, "probe": "key_request", "rep": 80, "suite": "keys", "unit": "s", "value": 0.04175223037600517}
+{"config": {}, "probe": "key_request", "rep": 81, "suite": "keys", "unit": "s", "value": 0.04175024852156639}
+{"config": {}, "probe": "key_request", "rep": 82, "suite": "keys", "unit": "s", "value": 0.041713897138834}
+{"config": {}, "probe": "key_request", "rep": 83, "suite": "keys", "unit": "s", "value": 0.04185684770345688}
+{"config": {}, "probe": "key_request", "rep": 84, "suite": "keys", "unit": "s", "value": 0.04180129989981651}
+{"config": {}, "probe": "key_request", "rep": 85, "suite": "keys", "unit": "s", "value": 0.041801732033491135}
+{"config": {}, "probe": "key_request", "rep": 86, "suite": "keys", "unit": "s", "value": 0.04179132357239723}
+{"config": {}, "probe": "key_request", "rep": 87, "suite": "keys", "unit": "s", "value": 0.041735757142305374}
+{"config": {}, "probe": "key_request", "rep": 88, "suite": "keys", "unit": "s", "value": 0.041789546608924866}
+{"config": {}, "probe": "key_request", "rep": 89, "suite": "keys", "unit": "s", "value": 0.04179200530052185}
+{"config": {}, "probe": "key_request", "rep": 90, "suite": "keys", "unit": "s", "value": 0.04368402436375618}
+{"config": {}, "probe": "key_request", "rep": 91, "suite": "keys", "unit": "s", "value": 0.04178939014673233}
+{"config": {}, "probe": "key_request", "rep": 92, "suite": "keys", "unit": "s", "value": 0.04263754561543465}
+{"config": {}, "probe": "key_request", "rep": 93, "suite": "keys", "unit": "s", "value": 0.041824422776699066}
+{"config": {}, "probe": "key_request", "rep": 94, "suite": "keys", "unit": "s", "value": 0.042723800987005234}
+{"config": {}, "probe": "key_request", "rep": 95, "suite": "keys", "unit": "s", "value": 0.04272850230336189}
+{"config": {}, "probe": "key_request", "rep": 96, "suite": "keys", "unit": "s", "value": 0.041802480816841125}
+{"config": {}, "probe": "key_request", "rep": 97, "suite": "keys", "unit": "s", "value": 0.04271894320845604}
+{"config": {}, "probe": "key_request", "rep": 98, "suite": "keys", "unit": "s", "value": 0.04180677980184555}
+{"config": {}, "probe": "key_request", "rep": 99, "suite": "keys", "unit": "s", "value": 0.041757021099328995}
+{"config": {}, "probe": "key_request", "rep": 100, "suite": "keys", "unit": "s", "value": 0.04177962243556976}
+{"config": {}, "probe": "key_request", "rep": 101, "suite": "keys", "unit": "s", "value": 0.041795894503593445}
+{"config": {}, "probe": "key_request", "rep": 102, "suite": "keys", "unit": "s", "value": 0.04273342713713646}
+{"config": {}, "probe": "key_request", "rep": 103, "suite": "keys", "unit": "s", "value": 0.04179311543703079}
+{"config": {}, "probe": "key_request", "rep": 104, "suite": "keys", "unit": "s", "value": 0.04179532080888748}
+{"config": {}, "probe": "key_request", "rep": 105, "suite": "keys", "unit": "s", "value": 0.04179630056023598}
+{"config": {}, "probe": "key_request", "rep": 106, "suite": "keys", "unit": "s", "value": 0.04179485887289047}
+{"config": {}, "probe": "key_request", "rep": 107, "suite": "keys", "unit": "s", "value": 0.041800182312726974}
+{"config": {}, "probe": "key_request", "rep": 108, "suite": "keys", "unit": "s", "value": 0.0418013371527195}
+{"config": {}, "probe": "key_request", "rep": 109, "suite": "keys", "unit": "s", "value": 0.04179370403289795}
+{"config": {}, "probe": "key_request", "rep": 110, "suite": "keys", "unit": "s", "value": 0.04179150611162186}
+{"config": {}, "probe": "key_request", "rep": 111, "suite": "keys", "unit": "s", "value": 0.041795480996370316}
+{"config": {}, "probe": "key_request", "rep": 112, "suite": "keys", "unit": "s", "value": 0.041800569742918015}
+{"config": {}, "probe": "key_request", "rep": 113, "suite": "keys", "unit": "s", "value": 0.04180138185620308}
+{"config": {}, "probe": "key_request", "rep": 114, "suite": "keys", "unit": "s", "value": 0.04179612919688225}
+{"config": {}, "probe": "key_request", "rep": 115, "suite": "keys", "unit": "s", "value": 0.04180118441581726}
+{"config": {}, "probe": "key_request", "rep": 116, "suite": "keys", "unit": "s", "value": 0.0417989119887352}
+{"config": {}, "probe": "key_request", "rep": 117, "suite": "keys", "unit": "s", "value": 0.0417935773730278}
+{"config": {}, "probe": "key_request", "rep": 118, "suite": "keys", "unit": "s", "value": 0.04180390387773514}
+{"config": {}, "probe": "key_request", "rep": 119, "suite": "keys", "unit": "s", "value": 0.04272426664829254}
+{"config": {}, "probe": "key_request", "rep": 120, "suite": "keys", "unit": "s", "value": 0.041809774935245514}
+{"config": {}, "probe": "key_request", "rep": 121, "suite": "keys", "unit": "s", "value": 0.041802458465099335}
+{"config": {}, "probe": "key_request", "rep": 122, "suite": "keys", "unit": "s", "value": 0.04179951548576355}
+{"config": {}, "probe": "key_request", "rep": 123, "suite": "keys", "unit": "s", "value": 0.04177478328347206}
+{"config": {}, "probe": "key_request", "rep": 124, "suite": "keys", "unit": "s", "value": 0.04174602031707764}
+{"config": {}, "probe": "key_request", "rep": 125, "suite": "keys", "unit": "s", "value": 0.04180255904793739}
+{"config": {}, "probe": "key_request", "rep": 126, "suite": "keys", "unit": "s", "value": 0.041795823723077774}
+{"config": {}, "probe": "key_request", "rep": 127, "suite": "keys", "unit": "s", "value": 0.042742401361465454}
+{"config": {}, "probe": "key_request", "rep": 128, "suite": "keys", "unit": "s", "value": 0.04180394858121872}
+{"config": {}, "probe": "key_request", "rep": 129, "suite": "keys", "unit": "s", "value": 0.04172172024846077}
+{"config": {}, "probe": "key_request", "rep": 130, "suite": "keys", "unit": "s", "value": 0.04180096462368965}
+{"config": {}, "probe": "key_request", "rep": 131, "suite": "keys", "unit": "s", "value": 0.04180074483156204}
+{"config": {}, "probe": "key_request", "rep": 132, "suite": "keys", "unit": "s", "value": 0.041797831654548645}
+{"config": {}, "probe": "key_request", "rep": 133, "suite": "keys", "unit": "s", "value": 0.0427870899438858}
+{"config": {}, "probe": "key_request", "rep": 134, "suite": "keys", "unit": "s", "value": 0.04180602729320526}
+{"config": {}, "probe": "key_request", "rep": 135, "suite": "keys", "unit": "s", "value": 0.04179117828607559}
+{"config": {}, "probe": "key_request", "rep": 136, "suite": "keys", "unit": "s", "value": 0.04172550141811371}
+{"config": {}, "probe": "key_request", "rep": 137, "suite": "keys", "unit": "s", "value": 0.04167988896369934}
+{"config": {}, "probe": "key_request", "rep": 138, "suite": "keys", "unit": "s", "value": 0.04184817895293236}
+{"config": {}, "probe": "key_request", "rep": 139, "suite": "keys", "unit": "s", "value": 0.04272012412548065}
+{"config": {}, "probe": "key_request", "rep": 140, "suite": "keys", "unit": "s", "value": 0.041806649416685104}
+{"config": {}, "probe": "key_request", "rep": 141, "suite": "keys", "unit": "s", "value": 0.04179657995700836}
+{"config": {}, "probe": "key_request", "rep": 142, "suite": "keys", "unit": "s", "value": 0.04176021367311478}
+{"config": {}, "probe": "key_request", "rep": 143, "suite": "keys", "unit": "s", "value": 0.04183216765522957}
+{"config": {}, "probe": "key_request", "rep": 144, "suite": "keys", "unit": "s", "value": 0.041797664016485214}
+{"config": {}, "probe": "key_request", "rep": 145, "suite": "keys", "unit": "s", "value": 0.04272567108273506}
+{"config": {}, "probe": "key_request", "rep": 146, "suite": "keys", "unit": "s", "value": 0.04173142835497856}
+{"config": {}, "probe": "key_request", "rep": 147, "suite": "keys", "unit": "s", "value": 0.04179094359278679}
+{"config": {}, "probe": "key_request", "rep": 148, "suite": "keys", "unit": "s", "value": 0.04178894683718681}
+{"config": {}, "probe": "key_request", "rep": 149, "suite": "keys", "unit": "s", "value": 0.04180528596043587}
+{"config": {}, "probe": "key_request", "rep": 150, "suite": "keys", "unit": "s", "value": 0.04180016741156578}
+{"config": {}, "probe": "key_request", "rep": 151, "suite": "keys", "unit": "s", "value": 0.04172880947589874}
+{"config": {}, "probe": "key_request", "rep": 152, "suite": "keys", "unit": "s", "value": 0.04179655387997627}
+{"config": {}, "probe": "key_request", "rep": 153, "suite": "keys", "unit": "s", "value": 0.041799359023571014}
+{"config": {}, "probe": "key_request", "rep": 154, "suite": "keys", "unit": "s", "value": 0.04180019721388817}
+{"config": {}, "probe": "key_request", "rep": 155, "suite": "keys", "unit": "s", "value": 0.04179650917649269}
+{"config": {}, "probe": "key_request", "rep": 156, "suite": "keys", "unit": "s", "value": 0.04172094166278839}
+{"config": {}, "probe": "key_request", "rep": 157, "suite": "keys", "unit": "s", "value": 0.041839323937892914}
+{"config": {}, "probe": "key_request", "rep": 158, "suite": "keys", "unit": "s", "value": 0.041715070605278015}
+{"config": {}, "probe": "key_request", "rep": 159, "suite": "keys", "unit": "s", "value": 0.04176528751850128}
+{"config": {}, "probe": "key_request", "rep": 160, "suite": "keys", "unit": "s", "value": 0.041758425533771515}
+{"config": {}, "probe": "key_request", "rep": 161, "suite": "keys", "unit": "s", "value": 0.04176580533385277}
+{"config": {}, "probe": "key_request", "rep": 162, "suite": "keys", "unit": "s", "value": 0.04174327850341797}
+{"config": {}, "probe": "key_request", "rep": 163, "suite": "keys", "unit": "s", "value": 0.041754063218832016}
+{"config": {}, "probe": "key_request", "rep": 164, "suite": "keys", "unit": "s", "value": 0.041758134961128235}
+{"config": {}, "probe": "key_request", "rep": 165, "suite": "keys", "unit": "s", "value": 0.04175054281949997}
+{"config": {}, "probe": "key_request", "rep": 166, "suite": "keys", "unit": "s", "value": 0.041758790612220764}
+{"config": {}, "probe": "key_request", "rep": 167, "suite": "keys", "unit": "s", "value": 0.04175713658332825}
+{"config": {}, "probe": "key_request", "rep": 168, "suite": "keys", "unit": "s", "value": 0.04177529737353325}
+{"config": {}, "probe": "key_request", "rep": 169, "suite": "keys", "unit": "s", "value": 0.04172554612159729}
+{"config": {}, "probe": "key_request", "rep": 170, "suite": "keys", "unit": "s", "value": 0.04175020381808281}
+{"config": {}, "probe": "key_request", "rep": 171, "suite": "keys", "unit": "s", "value": 0.0417461134493351}
+{"config": {}, "probe": "key_request", "rep": 172, "suite": "keys", "unit": "s", "value": 0.04175865650177002}
+{"config": {}, "probe": "key_request", "rep": 173, "suite": "keys", "unit": "s", "value": 0.04174639284610748}
+{"config": {}, "probe": "key_request", "rep": 174, "suite": "keys", "unit": "s", "value": 0.04175027459859848}
+{"config": {}, "probe": "key_request", "rep": 175, "suite": "keys", "unit": "s", "value": 0.04174446687102318}
+{"config": {}, "probe": "key_request", "rep": 176, "suite": "keys", "unit": "s", "value": 0.041734710335731506}
+{"config": {}, "probe": "key_request", "rep": 177, "suite": "keys", "unit": "s", "value": 0.04176800698041916}
+{"config": {}, "probe": "key_request", "rep": 178, "suite": "keys", "unit": "s", "value": 0.04175812378525734}
+{"config": {}, "probe": "key_request", "rep": 179, "suite": "keys", "unit": "s", "value": 0.04178699851036072}
+{"config": {}, "probe": "key_request", "rep": 180, "suite": "keys", "unit": "s", "value": 0.04174229875206947}
+{"config": {}, "probe": "key_request", "rep": 181, "suite": "keys", "unit": "s", "value": 0.04167540743947029}
+{"config": {}, "probe": "key_request", "rep": 182, "suite": "keys", "unit": "s", "value": 0.041797950863838196}
+{"config": {}, "probe": "key_request", "rep": 183, "suite": "keys", "unit": "s", "value": 0.04277520254254341}
+{"config": {}, "probe": "key_request", "rep": 184, "suite": "keys", "unit": "s", "value": 0.04180170223116875}
+{"config": {}, "probe": "key_request", "rep": 185, "suite": "keys", "unit": "s", "value": 0.041802871972322464}
+{"config": {}, "probe": "key_request", "rep": 186, "suite": "keys", "unit": "s", "value": 0.041797686368227005}
+{"config": {}, "probe": "key_request", "rep": 187, "suite": "keys", "unit": "s", "value": 0.041801389306783676}
+{"config": {}, "probe": "key_request", "rep": 188, "suite": "keys", "unit": "s", "value": 0.04180414602160454}
+{"config": {}, "probe": "key_request", "rep": 189, "suite": "keys", "unit": "s", "value": 0.04173083230853081}
+{"config": {}, "probe": "key_request", "rep": 190, "suite": "keys", "unit": "s", "value": 0.04172934964299202}
+{"config": {}, "probe": "key_request", "rep": 191, "suite": "keys", "unit": "s", "value": 0.041798513382673264}
+{"config": {}, "probe": "key_request", "rep": 192, "suite": "keys", "unit": "s", "value": 0.041798051446676254}
+{"config": {}, "probe": "key_request", "rep": 193, "suite": "keys", "unit": "s", "value": 0.04179801419377327}
+{"config": {}, "probe": "key_request", "rep": 194, "suite": "keys", "unit": "s", "value": 0.04179789870977402}
+{"config": {}, "probe": "key_request", "rep": 195, "suite": "keys", "unit": "s", "value": 0.04177065193653107}
+{"config": {}, "probe": "key_request", "rep": 196, "suite": "keys", "unit": "s", "value": 0.04179712012410164}
+{"config": {}, "probe": "key_request", "rep": 197, "suite": "keys", "unit": "s", "value": 0.04181080311536789}
+{"config": {}, "probe": "key_request", "rep": 198, "suite": "keys", "unit": "s", "value": 0.04179886355996132}
+{"config": {}, "probe": "key_request", "rep": 199, "suite": "keys", "unit": "s", "value": 0.04179447144269943}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 0, "suite": "keys", "unit": "s", "value": 0.00041032955050468445}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 1, "suite": "keys", "unit": "s", "value": 0.00032232701778411865}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 2, "suite": "keys", "unit": "s", "value": 0.0003222748637199402}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 3, "suite": "keys", "unit": "s", "value": 0.0003291107714176178}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 4, "suite": "keys", "unit": "s", "value": 0.00031873956322669983}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 5, "suite": "keys", "unit": "s", "value": 0.0003204531967639923}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 6, "suite": "keys", "unit": "s", "value": 0.0003252588212490082}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 7, "suite": "keys", "unit": "s", "value": 0.0003292597830295563}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 8, "suite": "keys", "unit": "s", "value": 0.00031890347599983215}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 9, "suite": "keys", "unit": "s", "value": 0.0003159716725349426}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 10, "suite": "keys", "unit": "s", "value": 0.0003137923777103424}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 11, "suite": "keys", "unit": "s", "value": 0.00031844526529312134}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 12, "suite": "keys", "unit": "s", "value": 0.00031507015228271484}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 13, "suite": "keys", "unit": "s", "value": 0.0003232099115848541}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 14, "suite": "keys", "unit": "s", "value": 0.0003174692392349243}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 15, "suite": "keys", "unit": "s", "value": 0.00031801313161849976}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 16, "suite": "keys", "unit": "s", "value": 0.00031659379601478577}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 17, "suite": "keys", "unit": "s", "value": 0.00031556934118270874}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 18, "suite": "keys", "unit": "s", "value": 0.00031586363911628723}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 19, "suite": "keys", "unit": "s", "value": 0.00031927600502967834}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 20, "suite": "keys", "unit": "s", "value": 0.000315248966217041}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 21, "suite": "keys", "unit": "s", "value": 0.0003155358135700226}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 22, "suite": "keys", "unit": "s", "value": 0.00031658634543418884}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 23, "suite": "keys", "unit": "s", "value": 0.00031881406903266907}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 24, "suite": "keys", "unit": "s", "value": 0.0003166124224662781}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 25, "suite": "keys", "unit": "s", "value": 0.00031369179487228394}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 26, "suite": "keys", "unit": "s", "value": 0.00031646713614463806}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 27, "suite": "keys", "unit": "s", "value": 0.00031800195574760437}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 28, "suite": "keys", "unit": "s", "value": 0.0003146715462207794}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 29, "suite": "keys", "unit": "s", "value": 0.00031505152583122253}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 30, "suite": "keys", "unit": "s", "value": 0.00031441450119018555}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 31, "suite": "keys", "unit": "s", "value": 0.0003171265125274658}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 32, "suite": "keys", "unit": "s", "value": 0.0003147497773170471}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 33, "suite": "keys", "unit": "s", "value": 0.0003169402480125427}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 34, "suite": "keys", "unit": "s", "value": 0.0003151148557662964}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 35, "suite": "keys", "unit": "s", "value": 0.000314418226480484}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 36, "suite": "keys", "unit": "s", "value": 0.0003133341670036316}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 37, "suite": "keys", "unit": "s", "value": 0.00031538307666778564}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 38, "suite": "keys", "unit": "s", "value": 0.0003157667815685272}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 39, "suite": "keys", "unit": "s", "value": 0.0003164820373058319}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 40, "suite": "keys", "unit": "s", "value": 0.0003157295286655426}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 41, "suite": "keys", "unit": "s", "value": 0.00031585246324539185}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 42, "suite": "keys", "unit": "s", "value": 0.0003146529197692871}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 43, "suite": "keys", "unit": "s", "value": 0.0003182217478752136}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 44, "suite": "keys", "unit": "s", "value": 0.0003162100911140442}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 45, "suite": "keys", "unit": "s", "value": 0.00031679868698120117}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 46, "suite": "keys", "unit": "s", "value": 0.0003150627017021179}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 47, "suite": "keys", "unit": "s", "value": 0.0003180690109729767}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 48, "suite": "keys", "unit": "s", "value": 0.00031813979148864746}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 49, "suite": "keys", "unit": "s", "value": 0.0003135092556476593}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 50, "suite": "keys", "unit": "s", "value": 0.0003143511712551117}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 51, "suite": "keys", "unit": "s", "value": 0.00031936541199684143}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 52, "suite": "keys", "unit": "s", "value": 0.0003135167062282562}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 53, "suite": "keys", "unit": "s", "value": 0.00031363219022750854}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 54, "suite": "keys", "unit": "s", "value": 0.00031565502285957336}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 55, "suite": "keys", "unit": "s", "value": 0.000319410115480423}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 56, "suite": "keys", "unit": "s", "value": 0.00031713396310806274}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 57, "suite": "keys", "unit": "s", "value": 0.00031711161136627197}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 58, "suite": "keys", "unit": "s", "value": 0.00031566619873046875}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 59, "suite": "keys", "unit": "s", "value": 0.00031644105911254883}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 60, "suite": "keys", "unit": "s", "value": 0.0003138892352581024}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 61, "suite": "keys", "unit": "s", "value": 0.0003166608512401581}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 62, "suite": "keys", "unit": "s", "value": 0.00031640008091926575}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 63, "suite": "keys", "unit": "s", "value": 0.0003179684281349182}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 64, "suite": "keys", "unit": "s", "value": 0.000319749116897583}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 65, "suite": "keys", "unit": "s", "value": 0.0003147199749946594}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 66, "suite": "keys", "unit": "s", "value": 0.0003161877393722534}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 67, "suite": "keys", "unit": "s", "value": 0.0003259144723415375}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 68, "suite": "keys", "unit": "s", "value": 0.00031455233693122864}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 69, "suite": "keys", "unit": "s", "value": 0.00031849369406700134}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 70, "suite": "keys", "unit": "s", "value": 0.00032149627804756165}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 71, "suite": "keys", "unit": "s", "value": 0.00031771138310432434}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 72, "suite": "keys", "unit": "s", "value": 0.0003167837858200073}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 73, "suite": "keys", "unit": "s", "value": 0.00031650811433792114}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 74, "suite": "keys", "unit": "s", "value": 0.00031939148902893066}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 75, "suite": "keys", "unit": "s", "value": 0.00031768903136253357}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 76, "suite": "keys", "unit": "s", "value": 0.0003167763352394104}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 77, "suite": "keys", "unit": "s", "value": 0.00031644105911254883}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 78, "suite": "keys", "unit": "s", "value": 0.0003149546682834625}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 79, "suite": "keys", "unit": "s", "value": 0.0003210678696632385}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 80, "suite": "keys", "unit": "s", "value": 0.00031827017664909363}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 81, "suite": "keys", "unit": "s", "value": 0.0003284476697444916}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 82, "suite": "keys", "unit": "s", "value": 0.0003168433904647827}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 83, "suite": "keys", "unit": "s", "value": 0.00026015564799308777}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 84, "suite": "keys", "unit": "s", "value": 0.0002641640603542328}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 85, "suite": "keys", "unit": "s", "value": 0.00027316808700561523}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 86, "suite": "keys", "unit": "s", "value": 0.00026614218950271606}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 87, "suite": "keys", "unit": "s", "value": 0.00026430562138557434}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 88, "suite": "keys", "unit": "s", "value": 0.00026351213455200195}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 89, "suite": "keys", "unit": "s", "value": 0.00026908889412879944}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 90, "suite": "keys", "unit": "s", "value": 0.00026321783661842346}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 91, "suite": "keys", "unit": "s", "value": 0.0002641044557094574}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 92, "suite": "keys", "unit": "s", "value": 0.0002655051648616791}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 93, "suite": "keys", "unit": "s", "value": 0.000263407826423645}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 94, "suite": "keys", "unit": "s", "value": 0.0002638883888721466}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 95, "suite": "keys", "unit": "s", "value": 0.00027522817254066467}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 96, "suite": "keys", "unit": "s", "value": 0.00026417896151542664}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 97, "suite": "keys", "unit": "s", "value": 0.00026278942823410034}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 98, "suite": "keys", "unit": "s", "value": 0.00026526302099227905}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 99, "suite": "keys", "unit": "s", "value": 0.0002715960144996643}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 100, "suite": "keys", "unit": "s", "value": 0.00027688220143318176}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 101, "suite": "keys", "unit": "s", "value": 0.00026313215494155884}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 102, "suite": "keys", "unit": "s", "value": 0.0002738870680332184}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 103, "suite": "keys", "unit": "s", "value": 0.0002634860575199127}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 104, "suite": "keys", "unit": "s", "value": 0.00027424097061157227}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 105, "suite": "keys", "unit": "s", "value": 0.00026370584964752197}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 106, "suite": "keys", "unit": "s", "value": 0.0002650842070579529}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 107, "suite": "keys", "unit": "s", "value": 0.0002667270600795746}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 108, "suite": "keys", "unit": "s", "value": 0.00026183947920799255}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 109, "suite": "keys", "unit": "s", "value": 0.000270061194896698}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 110, "suite": "keys", "unit": "s", "value": 0.0002633780241012573}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 111, "suite": "keys", "unit": "s", "value": 0.0002726316452026367}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 112, "suite": "keys", "unit": "s", "value": 0.00025978684425354004}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 113, "suite": "keys", "unit": "s", "value": 0.0002647899091243744}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 114, "suite": "keys", "unit": "s", "value": 0.00026321038603782654}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 115, "suite": "keys", "unit": "s", "value": 0.0002636648714542389}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 116, "suite": "keys", "unit": "s", "value": 0.0002633780241012573}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 117, "suite": "keys", "unit": "s", "value": 0.0002622157335281372}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 118, "suite": "keys", "unit": "s", "value": 0.00027934834361076355}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 119, "suite": "keys", "unit": "s", "value": 0.0002644769847393036}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 120, "suite": "keys", "unit": "s", "value": 0.00027677789330482483}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 121, "suite": "keys", "unit": "s", "value": 0.0002639777958393097}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 122, "suite": "keys", "unit": "s", "value": 0.00027334317564964294}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 123, "suite": "keys", "unit": "s", "value": 0.000260375440120697}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 124, "suite": "keys", "unit": "s", "value": 0.0002636946737766266}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 125, "suite": "keys", "unit": "s", "value": 0.0002727992832660675}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 126, "suite": "keys", "unit": "s", "value": 0.0002649351954460144}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 127, "suite": "keys", "unit": "s", "value": 0.00026604533195495605}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 128, "suite": "keys", "unit": "s", "value": 0.0002641938626766205}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 129, "suite": "keys", "unit": "s", "value": 0.0002646110951900482}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 130, "suite": "keys", "unit": "s", "value": 0.0002818256616592407}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 131, "suite": "keys", "unit": "s", "value": 0.000275980681180954}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 132, "suite": "keys", "unit": "s", "value": 0.00026733800768852234}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 133, "suite": "keys", "unit": "s", "value": 0.00028233602643013}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 134, "suite": "keys", "unit": "s", "value": 0.0002615824341773987}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 135, "suite": "keys", "unit": "s", "value": 0.00026387348771095276}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 136, "suite": "keys", "unit": "s", "value": 0.0002643950283527374}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 137, "suite": "keys", "unit": "s", "value": 0.000271674245595932}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 138, "suite": "keys", "unit": "s", "value": 0.000265512615442276}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 139, "suite": "keys", "unit": "s", "value": 0.000262528657913208}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 140, "suite": "keys", "unit": "s", "value": 0.00027742981910705566}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 141, "suite": "keys", "unit": "s", "value": 0.0002743937075138092}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 142, "suite": "keys", "unit": "s", "value": 0.0002621263265609741}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 143, "suite": "keys", "unit": "s", "value": 0.00026337429881095886}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 144, "suite": "keys", "unit": "s", "value": 0.00026496127247810364}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 145, "suite": "keys", "unit": "s", "value": 0.0002640150487422943}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 146, "suite": "keys", "unit": "s", "value": 0.00026306137442588806}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 147, "suite": "keys", "unit": "s", "value": 0.0002645030617713928}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 148, "suite": "keys", "unit": "s", "value": 0.0002704523503780365}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 149, "suite": "keys", "unit": "s", "value": 0.0002715699374675751}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 150, "suite": "keys", "unit": "s", "value": 0.00026329606771469116}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 151, "suite": "keys", "unit": "s", "value": 0.0003156624734401703}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 152, "suite": "keys", "unit": "s", "value": 0.0003158561885356903}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 153, "suite": "keys", "unit": "s", "value": 0.00031745433807373047}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 154, "suite": "keys", "unit": "s", "value": 0.00030674785375595093}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 155, "suite": "keys", "unit": "s", "value": 0.00031468644738197327}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 156, "suite": "keys", "unit": "s", "value": 0.000316619873046875}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 157, "suite": "keys", "unit": "s", "value": 0.0003161802887916565}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 158, "suite": "keys", "unit": "s", "value": 0.0003177225589752197}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 159, "suite": "keys", "unit": "s", "value": 0.0003175884485244751}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 160, "suite": "keys", "unit": "s", "value": 0.0003222562372684479}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 161, "suite": "keys", "unit": "s", "value": 0.0003188513219356537}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 162, "suite": "keys", "unit": "s", "value": 0.0003162659704685211}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 163, "suite": "keys", "unit": "s", "value": 0.00031975656747817993}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 164, "suite": "keys", "unit": "s", "value": 0.0003151893615722656}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 165, "suite": "keys", "unit": "s", "value": 0.0003156401216983795}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 166, "suite": "keys", "unit": "s", "value": 0.0003171563148498535}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 167, "suite": "keys", "unit": "s", "value": 0.0003179721534252167}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 168, "suite": "keys", "unit": "s", "value": 0.00031495094299316406}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 169, "suite": "keys", "unit": "s", "value": 0.00031715258955955505}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 170, "suite": "keys", "unit": "s", "value": 0.0003165900707244873}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 171, "suite": "keys", "unit": "s", "value": 0.00031928718090057373}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 172, "suite": "keys", "unit": "s", "value": 0.00031733885407447815}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 173, "suite": "keys", "unit": "s", "value": 0.00031746551394462585}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 174, "suite": "keys", "unit": "s", "value": 0.00031610578298568726}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 175, "suite": "keys", "unit": "s", "value": 0.0003168918192386627}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 176, "suite": "keys", "unit": "s", "value": 0.00031574442982673645}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 177, "suite": "keys", "unit": "s", "value": 0.0003180503845214844}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 178, "suite": "keys", "unit": "s", "value": 0.0003175660967826843}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 179, "suite": "keys", "unit": "s", "value": 0.0003167353570461273}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 180, "suite": "keys", "unit": "s", "value": 0.0003263726830482483}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 181, "suite": "keys", "unit": "s", "value": 0.00031604990363121033}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 182, "suite": "keys", "unit": "s", "value": 0.0003162361681461334}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 183, "suite": "keys", "unit": "s", "value": 0.00031785666942596436}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 184, "suite": "keys", "unit": "s", "value": 0.0003160238265991211}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 185, "suite": "keys", "unit": "s", "value": 0.00031875818967819214}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 186, "suite": "keys", "unit": "s", "value": 0.000315982848405838}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 187, "suite": "keys", "unit": "s", "value": 0.00031613558530807495}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 188, "suite": "keys", "unit": "s", "value": 0.0003179796040058136}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 189, "suite": "keys", "unit": "s", "value": 0.00031476840376853943}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 190, "suite": "keys", "unit": "s", "value": 0.0003145448863506317}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 191, "suite": "keys", "unit": "s", "value": 0.0003151819109916687}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 192, "suite": "keys", "unit": "s", "value": 0.0003187544643878937}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 193, "suite": "keys", "unit": "s", "value": 0.00031316280364990234}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 194, "suite": "keys", "unit": "s", "value": 0.00031617656350135803}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 195, "suite": "keys", "unit": "s", "value": 0.00032194703817367554}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 196, "suite": "keys", "unit": "s", "value": 0.0003160424530506134}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 197, "suite": "keys", "unit": "s", "value": 0.0003144852817058563}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 198, "suite": "keys", "unit": "s", "value": 0.00031319260597229004}
+{"config": {"budget": 8, "sig": "ed25519", "wrap": "rsa2048-oaep-sha256"}, "probe": "kbs_check", "rep": 199, "suite": "keys", "unit": "s", "value": 0.0003218837082386017}

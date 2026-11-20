@@ -1,0 +1,55 @@
+appliance_userspace:
+  ks: 0.16357795708482936
+  median: 10.877696905473224
+  n: 10.0
+  sigma: 0.023997023167195604
+decrypt_per_MB:
+  n: 1.0
+dispatch:
+  ks: 0.10467234126666139
+  median: 0.00027262976935328316
+  n: 200.0
+  sigma: 0.08012465986694275
+fc_boot:
+  ks: 0.09421762172798576
+  median: 0.07579286021529354
+  n: 100.0
+  sigma: 0.00913497104036543
+fc_restore:
+  ks: 0.13341730116497985
+  median: 0.0018877688080423405
+  n: 50.0
+  sigma: 0.04634409946615925
+fc_snapshot_create:
+  ks: 0.2960689458189014
+  median: 4.383140331100718
+  n: 50.0
+  sigma: 0.015377431278638594
+kbs_check_s:
+  ks: 0.34732017430828843
+  median: 0.000299569893985061
+  n: 200.0
+  sigma: 0.08588098374738558
+key_release:
+  ks: 0.44397047308207543
+  median: 0.04238517190831195
+  n: 200.0
+  sigma: 0.007642722730062637
+provenance:
+  default: measured
+  note: ingested from raw logs of host node04-i7-4790s-8g-hdd_hdd (rule 13)
+reboot_to_kernel:
+  ks: 0.22994249638079978
+  median: 9.57949220698571
+  n: 10.0
+  sigma: 0.00500624164947762
+snapshot_touched_frac:
+  ks: 0.2174830365003933
+  median: 0.1005045074703453
+  n: 100.0
+  sigma: 0.8374155394117953
+verify_s_per_MB:
+  ks: 0.11491243038775201
+  median: 0.002066429471891469
+  n: 20.0
+  sigma: 0.00160988184779194

@@ -26,7 +26,7 @@ MARK = re.compile(r"VOSS_(MARK|ACK|EXEC|INIT|GEN|ERR)\s+(.*)")
 
 
 class UnixHTTPConnection(http.client.HTTPConnection):
-    def __init__(self, path: str, timeout: float = 30.0) -> None:
+    def __init__(self, path: str, timeout: float = 120.0) -> None:
         super().__init__("localhost", timeout=timeout)
         self.unix_path = path
 

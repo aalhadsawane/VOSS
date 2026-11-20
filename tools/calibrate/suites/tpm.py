@@ -10,10 +10,15 @@ from __future__ import annotations
 import secrets
 from pathlib import Path
 
-from tools.calibrate.common import Shell
+from tools.calibrate.common import Shell, SuiteSkipped
 from tools.calibrate.suites import Ctx, Suite
 
 PCRS = "sha256:0,1,2,3,4,5,6,7,10,11"
+
+
+def has_tpm(ctx: Ctx) -> bool:
+    """True when a hardware TPM device node exists, an explicit TCTI is configured, or the run is a dry run."""
+    return bool(ctx.sh.dry_run or ctx.opt("tcti") or Path("/dev/tpmrm0").exists() or Path("/dev/tpm0").exists())
 
 
 class Tpm:
@@ -99,6 +104,8 @@ UNSEAL_REPS = 50  # contract §2: tpm2_unseal n >= 50
 
 def run(ctx: Ctx) -> None:
     """Parts (``--set only=``): ``quote`` (baseline, AK, quotes, checkquote) and ``unseal``."""
+    if not has_tpm(ctx):
+        raise SuiteSkipped("no /dev/tpmrm0 or /dev/tpm0")
     ctx.sh.need("tpm2_quote", "tpm2_createak", "tpm2_checkquote", "tpm2_unseal")
     t = Tpm(ctx.sh, ctx.out / "tpm", ctx.opt("tcti"))
     tcti = ctx.opt("tcti") or "device"

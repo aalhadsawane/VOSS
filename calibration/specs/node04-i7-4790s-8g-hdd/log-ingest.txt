@@ -1,0 +1,5 @@
+configs/calibration/measured/node04-i7-4790s-8g-hdd_hdd
+ERROR tpm2_quote: missing, not measured (the bundle holds the placeholder, tag literature)
+ERROR tpm2_unseal: missing, not measured (absent from the bundle)
+ERROR verify_s: missing, not measured (the bundle holds the placeholder, tag assumed)
+configs/calibration/measured/node04-i7-4790s-8g-hdd_hdd: 3 errors, 0 warnings

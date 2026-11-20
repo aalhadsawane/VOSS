@@ -1,0 +1,48 @@
+[sudo: authenticate] Password: caps: ok
+[sudo: authenticate] Password: disk: ok
+[sudo: authenticate] Password: tpm: error
+[sudo: authenticate] Password: attest_local: error
+[sudo: authenticate] Password: tls: ok
+[sudo: authenticate] Password: keys: ok
+[sudo: authenticate] Password: fc_boot: ok
+[sudo: authenticate] Password: fc_snapshot: ok
+[sudo: authenticate] Password: fc_dispatch: ok
+[sudo: authenticate] Password: skip sebs fn=dynamic-html concurrency=1: guests together over the RAM budget (needs 4096 MB)
+skip sebs fn=dynamic-html concurrency=2: guests together over the RAM budget (needs 8192 MB)
+skip sebs fn=dynamic-html concurrency=4: guests together over the RAM budget (needs 16384 MB)
+skip sebs fn=dynamic-html concurrency=8: guests together over the RAM budget (needs 32768 MB)
+sebs: error
+[sudo: authenticate] Password: fn_inputs: ok
+[sudo: authenticate] Password: skip fc_touched fn=dynamic-html tier=hdd: guest memory or snapshot over the RAM or disk budget (needs 4096 MB)
+skip fc_touched fn=dna-visualisation tier=hdd: guest memory or snapshot over the RAM or disk budget (needs 4096 MB)
+fc_touched: ok
+caps: ok
+caps: ok
+disk: ok
+tpm: skipped: no /dev/tpmrm0 or /dev/tpm0
+attest_local: skipped: no /dev/tpmrm0 or /dev/tpm0
+tls: ok
+keys: ok
+fc_boot: ok
+fc_snapshot: ok
+fc_dispatch: ok
+skip sebs fn=dynamic-html concurrency=2: guests together over the RAM budget (needs 8192 MB)
+skip sebs fn=dynamic-html concurrency=4: guests together over the RAM budget (needs 16384 MB)
+skip sebs fn=dynamic-html concurrency=8: guests together over the RAM budget (needs 32768 MB)
+skip sebs fn=uploader concurrency=8: guests together over the RAM budget (needs 8192 MB)
+skip sebs fn=video-processing concurrency=8: guests together over the RAM budget (needs 8192 MB)
+skip sebs fn=compression concurrency=8: guests together over the RAM budget (needs 8192 MB)
+skip sebs fn=image-recognition concurrency=4: guests together over the RAM budget (needs 8192 MB)
+skip sebs fn=image-recognition concurrency=8: guests together over the RAM budget (needs 16384 MB)
+skip sebs fn=graph-pagerank concurrency=4: guests together over the RAM budget (needs 8192 MB)
+skip sebs fn=graph-pagerank concurrency=8: guests together over the RAM budget (needs 16384 MB)
+skip sebs fn=graph-mst concurrency=4: guests together over the RAM budget (needs 8192 MB)
+skip sebs fn=graph-mst concurrency=8: guests together over the RAM budget (needs 16384 MB)
+skip sebs fn=graph-bfs concurrency=4: guests together over the RAM budget (needs 8192 MB)
+skip sebs fn=graph-bfs concurrency=8: guests together over the RAM budget (needs 16384 MB)
+skip sebs fn=dna-visualisation concurrency=2: guests together over the RAM budget (needs 8192 MB)
+skip sebs fn=dna-visualisation concurrency=4: guests together over the RAM budget (needs 16384 MB)
+skip sebs fn=dna-visualisation concurrency=8: guests together over the RAM budget (needs 32768 MB)
+sebs: ok
+fn_inputs: ok
+fc_touched: ok

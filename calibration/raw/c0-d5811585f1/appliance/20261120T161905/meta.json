@@ -1,0 +1,38 @@
+{
+  "bios_version": "FCKT65AUS",
+  "board": "unknown",
+  "cores": 4,
+  "cpu_model": "Intel(R) Core(TM) i7-4790S CPU @ 3.20GHz",
+  "disks": [
+    {
+      "model": "WD5003ABYX-23",
+      "name": "sda",
+      "rotational": true,
+      "size_gb": 500.1
+    }
+  ],
+  "dry_run": false,
+  "fio": "fio-3.39",
+  "firecracker": "absent",
+  "harness_version": "0.1.0",
+  "hostname": "calangute1",
+  "iommu": true,
+  "kernel": "6.17.0-5-generic",
+  "mem_kb": 7515656,
+  "microcode": "0x28",
+  "options": {
+    "step": "collect"
+  },
+  "phase": null,
+  "qemu": "QEMU emulator version 10.1.0 (Debian 1:10.1.0+ds-5ubuntu2.7)",
+  "quick": false,
+  "run_id": "20261120T161905",
+  "secure_boot": false,
+  "status": "ok",
+  "suite": "appliance",
+  "t_utc": "2026-11-20T16:19:05Z",
+  "threads": 8,
+  "tme": false,
+  "tpm2_tools": "tool=\"tpm2_quote\" version=\"5.7\" tctis=\"libtss2-tctildr\" tcti-default=tcti-device",
+  "tpm_vendor": ""
+}

@@ -58,9 +58,9 @@ def _storage(spec: dict[str, Any]) -> tuple[tuple[str, ...], tuple[str, ...]]:
 
 def _tpm(spec: dict[str, Any]) -> tuple[str, str]:
     t = spec.get("tpm") or {}
-    if not t:
+    kind = str(t.get("type") or "").lower()
+    if not t or kind in ("", "none", "absent"):
         return "none", ""
-    kind = str(t.get("type", "")).lower()
     maker = str(t.get("manufacturer", "")).split()[0] if t.get("manufacturer") else ""
     return ("firmware" if "firmware" in kind or "ftpm" in kind or "ptt" in kind else "discrete"), maker
 

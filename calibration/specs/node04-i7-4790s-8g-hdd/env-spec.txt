@@ -1,0 +1,8 @@
+stage=spec utc=2026-11-18T09:00:51Z commit=94ea4eb4f18e81966c000f899977f0834ec38ea1
+virt=none
+governor=schedutil 
+intel_no_turbo=0
+boost=n/a
+on_mains=n/a
+loadavg=1.02 1.12 0.59 nproc=8
+thermal_msgs=0

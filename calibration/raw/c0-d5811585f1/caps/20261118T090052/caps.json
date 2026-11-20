@@ -1,0 +1,28 @@
+{
+  "cpu_flags": {
+    "aes": true,
+    "avx2": true,
+    "avx512f": false,
+    "sha_ni": false,
+    "svm": false,
+    "tme": false,
+    "vmx": true
+  },
+  "disks": [
+    {
+      "model": "WD5003ABYX-23",
+      "name": "sda",
+      "rotational": true,
+      "size_gb": 500.1
+    }
+  ],
+  "free": "Mounted on                                      Avail\n/run                                        768204800\n/sys/firmware/efi/efivars                       63600\n/                                         76745658368\n/dev/shm                                   3848015872\n/run/lock                                     5242880\n/tmp                                       3826122752\n/boot                                      1789132800\n/boot/efi                                  1118412800\n/run/credentials/getty@tty1.service           1048576\n/run/user/1002                              769589248\n/run/credentials/systemd-networkd.service     1048576\n/run/credentials/systemd-journald.service     1048576\n/run/credentials/systemd-resolved.service     1048576\n",
+  "iommu": false,
+  "kvm": true,
+  "secure_boot": false,
+  "tme_cpuid": false,
+  "tme_dmesg": false,
+  "tme_msr_0x982": null,
+  "tpm_device": false,
+  "tpm_vendor": ""
+}
