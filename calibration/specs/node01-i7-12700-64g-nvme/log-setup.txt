@@ -129,8 +129,8 @@ os:   Ubuntu 22.04.5 LTS   kernel: 5.15.0-198-generic   arch: x86_64
      1279  0.1  0.0 dbus-daemon
      1311  0.1  0.0 systemd-logind
      1447  0.1  0.0 zerotier-one
-  logged in: marvell  pts/6        2026-11-04 06:41 (tmux(4099789).%0)
-  logged in: USER     pts/1        2026-11-14 15:43 (192.168.0.2)
+  logged in: OTHER    pts/6        2026-11-04 06:41 (tmux(4099789).%0)
+  logged in: USER     pts/1        2026-11-14 15:43 (<private-ip>)
   logged in: USER     pts/23       2026-11-12 18:57 (tmux(3180248).%0)
 
 == Outbound network (curl, not ping)

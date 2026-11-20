@@ -104,7 +104,8 @@ timed() {  # timed <stage> <suite> <command...>
   shift 2
   t0=$(date -u +%s)
   set +e
-  "$@" 2>&1 | tee -a "$OUT/log-$stage.txt"
+  # logs are committed: MAC, UUID, WWN, private IP addresses, hostname and user names are scrubbed (scrub.py)
+  "$@" 2>&1 | python3 -u -m tools.calibrate.scrub | tee -a "$OUT/log-$stage.txt"
   rc=${PIPESTATUS[0]}
   set -e
   t1=$(date -u +%s)

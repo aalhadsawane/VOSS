@@ -135,8 +135,8 @@ os:   Ubuntu 22.04.5 LTS   kernel: 5.15.0-203-generic   arch: x86_64
   2885148  1.5  0.3 opencode
      1861  1.4  0.3 netdata
      4967  1.2  0.0 apps.plugin
-  logged in: voss     pts/0        2026-11-14 16:00 (192.168.0.2)
-  logged in: voss     pts/1        2026-11-12 17:45 (tmux(84025).%0)
+  logged in: USER     pts/0        2026-11-14 16:00 (<private-ip>)
+  logged in: USER     pts/1        2026-11-12 17:45 (tmux(84025).%0)
 
 == Outbound network (curl, not ping)
   https://pypi.org -> 200

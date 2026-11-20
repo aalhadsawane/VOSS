@@ -50,7 +50,7 @@ ls /dev/tpm* /dev/tpmrm* 2>/dev/null | sed 's/^/  /' || true
 sec "Load now (is the machine idle? E01 timings need a quiet box)"
 uptime | sed 's/^/  /'
 ps -eo pid,pcpu,pmem,comm --sort=-pcpu | head -6 | sed 's/^/  /'
-who 2>/dev/null | sed 's/^/  logged in: /'
+echo "  logged-in sessions: $(who 2>/dev/null | wc -l) (names and addresses not printed: the log is committed)"
 
 sec "Outbound network (curl, not ping)"
 for u in https://pypi.org https://github.com https://files.pythonhosted.org https://github.com/firecracker-microvm/firecracker/releases; do
