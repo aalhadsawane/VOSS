@@ -22,7 +22,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from voss.core.paths import REPO_ROOT
+from voss.core.paths import REPO_ROOT, load_data_yaml
 from voss.core.rng import RngFactory
 from voss.world.geo import Metros
 from voss.world.workload import Catalog, LoadRegime, _frame
@@ -97,10 +97,28 @@ def load_trace_functions(
     return TraceFunctions(t, int((~keep).sum()), per_size)
 
 
+def request_kb(fn: str, size: float, rules: dict[str, object], param_kb: float) -> float:
+    """kB a client sends for one invocation of ``fn`` at the measured input ``size`` (``configs/request_bytes.yaml``,
+    D-106): the size itself for data functions, ``param_kb`` (the catalogue's smallest input) for functions whose
+    guest builds the input from parameters, the encoded image for image functions."""
+    images = dict(rules.get("images") or {})  # type: ignore[call-overload]
+    if fn in (rules.get("data") or []):  # type: ignore[operator]
+        return float(size)
+    if fn in (rules.get("parameters") or []):  # type: ignore[operator]
+        return float(param_kb)
+    if fn in images:
+        im = images[fn]
+        return float(im["small_bytes"] if size <= im["max_small_size"] else im["large_bytes"]) / 1024
+    raise ValueError(f"configs/request_bytes.yaml: no request size rule for {fn}")
+
+
 def trace_catalog(reg: LoadRegime, base: Catalog, sizes: dict[str, dict[float, float]] | None = None) -> Catalog:
     """Catalog of the trace's functions and owners (before per-function key domains, D-85). With per-size profiles a
-    function's copy takes the mapped input size (``in_kb``, no spread: ``in_sigma`` 0) and its measured run time."""
+    function's copy runs for the measured median at its mapped size (``work_ref_s``) and its invocations carry the
+    bytes a client sends at that size (``in_kb`` by ``request_kb``, no spread: ``in_sigma`` 0, D-105, D-106)."""
     tf = load_trace_functions(reg, base, sizes)
+    rules = load_data_yaml("request_bytes.yaml") if tf.per_size else {}
+    param_kb = min(f.in_kb for f in base.functions)
     by_name = {f.name: f for f in base.functions}
     tmpl = base.tenants[0]
     fns = []
@@ -108,15 +126,19 @@ def trace_catalog(reg: LoadRegime, base: Catalog, sizes: dict[str, dict[float, f
         upd: dict[str, object] = {"name": f"tr{int(r.fn):04d}", "tenant": str(r.owner)}
         upd["slo_class"] = "sync" if r.sync else "async"
         if tf.per_size:
-            upd |= {"in_kb": float(r.size_kb), "in_sigma": 0.0, "work_ref_s": float(r.profile_s)}
+            kb = request_kb(str(r.base), float(r.size_kb), rules, param_kb)
+            upd |= {"in_kb": kb, "in_sigma": 0.0, "work_ref_s": float(r.profile_s)}
         fns.append(by_name[str(r.base)].model_copy(update=upd))
     owners = sorted({f.tenant for f in fns})
     tenants = tuple(tmpl.model_copy(update={"id": o}) for o in owners)
-    return Catalog(tuple(fns), tenants)
+    return Catalog(tuple(fns), tenants, transfer_deadline=tf.per_size)
 
 
-def trace_arrivals(reg: LoadRegime, catalog: Catalog, metros: Metros, horizon: float, rng: RngFactory) -> pd.DataFrame:
-    """Arrival frame in the ``ArrivalTrace`` schema (``workload._frame``), sorted by time."""
+def trace_arrivals(
+    reg: LoadRegime, catalog: Catalog, metros: Metros, horizon: float, rng: RngFactory, down_bps: float | None = None
+) -> pd.DataFrame:
+    """Arrival frame in the ``ArrivalTrace`` schema (``workload._frame``), sorted by time; with ``down_bps`` the
+    synchronous deadlines include the input's transfer at that rate (D-106)."""
     counts = pd.read_parquet(trace_dir(reg) / f"arrivals_{reg.split}.parquet")
     lo, hi = reg.start_min, reg.start_min + int(np.ceil(horizon / 60))
     counts = counts[(counts.minute >= lo) & (counts.minute < hi)]
@@ -132,7 +154,7 @@ def trace_arrivals(reg: LoadRegime, catalog: Catalog, metros: Metros, horizon: f
         t = np.sort(t[t < horizon])
         origin = g.choice(len(metros), size=len(t), p=metros.weights())
         size = g.lognormal(np.log(f.in_kb * 1024), f.in_sigma, len(t))
-        parts.append(_frame(f, i, catalog.tenant_index(f.tenant), t, origin, size, reg))
+        parts.append(_frame(f, i, catalog.tenant_index(f.tenant), t, origin, size, reg, down_bps))
     df = (
         pd.concat(parts, ignore_index=True)
         if parts

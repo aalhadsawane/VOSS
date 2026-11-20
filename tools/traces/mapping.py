@@ -13,7 +13,7 @@ import pandas as pd
 from voss.core.config import ScenarioConfig
 from voss.core.paths import load_data_yaml
 from voss.world.calibration import function_overrides, function_sizes
-from voss.world.trace_load import load_trace_functions
+from voss.world.trace_load import load_trace_functions, request_kb
 from voss.world.workload import Catalog, FunctionSpec, LoadRegime, TenantSpec
 
 
@@ -26,7 +26,14 @@ def mapping(calibration: str, split: str, trace: str = "azure2019") -> tuple[str
     ten = tuple(TenantSpec.model_validate(t) for t in load_data_yaml(sc.tenants)["tenants"])
     reg = LoadRegime(regime="trace", rate=1, zipf_s=0, trace=trace, split=split)
     tf = load_trace_functions(reg, Catalog(fns, ten), function_sizes(calibration))
-    cols = ["fn", "dur_p50_ms", "base", "size_kb", "profile_s", "outside"]
+    rules = load_data_yaml("request_bytes.yaml")
+    param_kb = min(f.in_kb for f in fns)
+    req = [
+        request_kb(b, k, rules, param_kb) if tf.per_size else float("nan")
+        for b, k in zip(tf.table.base, tf.table.size_kb, strict=True)
+    ]
+    tf.table["request_kb"] = req
+    cols = ["fn", "dur_p50_ms", "base", "size_kb", "request_kb", "profile_s", "outside"]
     head = (
         f"{len(tf.table)} trace functions ({tf.dropped} without a duration left out); "
         f"profiles per input size: {tf.per_size}; outside the measured range: {tf.outside:.1%}"

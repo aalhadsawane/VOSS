@@ -1,0 +1,17 @@
+# What a client sends per invocation of a trace function mapped to a measured (function, input size) profile
+# (docs/REVISION_PLAN.md V9.1, D-106). A profile's size is the argument of the guest function's make_input
+# (tools/calibrate/guest/functions/*.py), which is not always a number of bytes on the network.
+provenance: {default: derived, note: "from the guest functions' make_input; image bytes computed once, see images"}
+# size = kB of data the client sends (each guest's make_input builds that many kB: random bytes, DNA letters,
+# a JPEG of about that size, a 4 Mbit/s video of size/500 s, files of 100 kB)
+data: [compression, dna-visualisation, thumbnailer, uploader, video-processing]
+# the guest builds the input from parameters (graph-*: a Barabasi graph of 10,000 x size vertices; dynamic-html:
+# 100 x size random numbers): the request carries only those parameters; its size is the smallest input of the
+# catalogue (configs/functions.yaml in_kb), taken at load time, not a number of this file
+parameters: [dynamic-html, graph-bfs, graph-mst, graph-pagerank]
+# the guest builds a uniform random 1x3xSxS tensor: S = small_side for size <= max_small_size, else large_side.
+# The client sends that image as a file: JPEG, quality 90, Pillow's defaults (4:2:0), as thumbnailer.py encodes,
+# of the same pixels in 8 bits. Bytes = median over 5 seeds of encoding a random RGB image with Pillow 12.3 (the guest image pins 10.4)
+# (224: 45,592-45,707 B; 448: 180,337-180,744 B). The raw float32 tensor would be 602,112 / 2,408,448 B.
+images:
+  image-recognition: {max_small_size: 100, small_side: 224, small_bytes: 45606, large_side: 448, large_bytes: 180505}
