@@ -181,12 +181,12 @@ warm-up, seeds 1 and 2, `voss` and `hedged` failure handling with VOSS provision
 owners. "Before" is `revision-v2` at 6a148c8 (iteration 2). 24 h evidence: D02_DROP run 44056777206 and D02_FORGE run
 44056798787 (seed 1), from their raw logs.
 
-### (1) The holder budget was exceeded (bug fix, D-107; guardrail 16)
+### (1) The holder budget was exceeded (bug fix, D-109; guardrail 16)
 
-The tenant key service freed a holder's place at the expiry the session certificate had when the key was released.
-Re-quotes (every 600 s) extend a certificate (900 s validity) while the worker keeps the key in RAM for the session
-(doc 04 §6), so every 15 minutes each holder's place was freed although it still held the key, and the budget admitted
-more holders. The violations are not message races: at each violation the holder the key service had already let go
+The tenant key service freed a holder's place once, at the expiry the session certificate had when the key was
+released (within 900 s of the release), and left it free while the worker kept the key: re-quotes (every 600 s)
+extend a certificate (900 s validity), and the key stays in RAM for the session (doc 04 §6). The budget then admitted
+more holders than K. The violations are not message races: at each violation the holder the key service had already let go
 dropped its key 25 s to 75 min later (34 violations in a 2 h VOSS run: 22 planned releases, 12 session ends). Now a
 place frees only on the worker's `KeyDrop` or the verifier's `RevokeSession` (also sent when a certificate expires
 without a re-quote). Every system uses this key service.
@@ -195,7 +195,8 @@ Hard test: `test_holder_budget_holds_across_certificate_requotes` runs each of t
 1,500 s with K = 2; on the old key service it fails for `prereleased_keys` and `exact_program`, now all pass. In 2 h
 local runs the violations fell to 0 (VOSS, pre-released keys, fixed keep-alive).
 
-Cost of the honest budget (1 h, mean of 2 seeds):
+Key service fix together with the run-seed scenarios of (2) (1 h, mean of 2 seeds; the two changes were not run
+apart):
 
 | System | Dropping owners | Deadlines met before → after | Mean holders | Keys with a violation per run | Key requests refused |
 |---|---|---|---|---|---|
@@ -204,10 +205,10 @@ Cost of the honest budget (1 h, mean of 2 seeds):
 | hedged | 0 | 0.918 → 0.909 | 5.18 → 4.30 | 22.5 → 0 | 355 → 1,293 |
 | hedged | 20% | 0.926 → 0.881 | 5.14 → 4.22 | 22.0 → 0 | 375 → 1,543 |
 
-Every system lost deadlines, because every system had been running with more holders than K. Mean holders stay
-below 8 because the key service now counts a worker that left without notice until its certificate is revoked (up to
-900 s); those requests are refused. The results of D01a, D02 and the earlier iterations were all run with the
-exceeded budget.
+Measured: mean holders fell by about one (5.1 → 4.1) and refused key requests tripled; every key that had exceeded
+its budget now stays within it. The per-system changes in deadlines met (−0.009 to −0.045) are within the 1.5-2 point
+swing that one arbitrary holder choice produces in these runs (see (3)), so 2 seeds of 1 h do not size the cost of the
+honest budget. The results of D01a, D02 and the earlier iterations were all run with the exceeded budget.
 
 ### (2) Failure scenarios from the run seed
 
@@ -241,9 +242,11 @@ per worker cannot say which region a holder is good for.
 
 The same mechanism, not audit load. Misses: 16,696 at 1%, 31,424 at 5%; tr0006 accounts for 13,723 of the 14,728
 difference (4,574 against 18,297). At 1% worker 193 held tr0006's key for 22.3 h, at 5% not at all. Forged answers were
-27 and 12, both negligible. Audit attempts do compete for holder slots, but the pool is under 1% busy and slot waits
-are near zero, so they did not cost deadlines here; the 1.5 points are which holders the run happened to keep. One seed
-per cell cannot separate the audit rate from that choice.
+27 and 12, both negligible. Audit attempts do compete for holder slots: 27,414 audit dispatches at 1% against 136,448
+at 5%. Synchronous slot wait barely moved: mean 0.023 s against 0.029 s, p99 0.295 s against 0.294 s, share with any
+wait 1.9% against 1.7%, and tr0006, whose misses make the difference, waited 0 s in both. So the 1.5 points are which
+holders the run happened to keep, not the audit's load. One seed per cell cannot separate the audit rate from that
+choice.
 
 ### (5) Network transfer under the per-size mapping (#117, now D-106)
 

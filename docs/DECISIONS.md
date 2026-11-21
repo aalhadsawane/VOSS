@@ -272,7 +272,7 @@ slots; node02 keeps 15 (its memory allows 37). The envelope stays as it is and r
 30 simulated minutes, 368,531 events, synchronous deadline met 90.7% (9,869 of 10,106 invocations met, 197 late,
 40 lost; not tuned). *Rejected:* lowering `cpu_frac` for every class (it would also cut node02's slots, and the
 envelope is not calibrated); raising `mem_frac` (it takes memory from the owner).
-**D-107 A key's place in the holder budget frees only when its drop is acknowledged or the session is revoked
+**D-109 A key's place in the holder budget frees only when its drop is acknowledged or the session is revoked
 (guardrail 16; doc 04 §6; development log iteration 3).** The tenant key service no longer frees a place at the
 expiry the certificate had when the key was released: re-quotes extend the certificate while the key stays in RAM for
 the session. A place frees on the worker's `KeyDrop` or on the verifier's `RevokeSession`, which the verifier also
