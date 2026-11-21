@@ -260,6 +260,18 @@ from `manuscript/generated/fleet.tex` (T14). *Found, not changed:* at the defaul
 ran with `cpu_frac` 0.5 (H17's value). The envelope is an open owner decision. *Rejected:* a per-class speed scalar
 (a geometric mean of function ratios hides the per-function differences the run-time model learns); literature TPM costs for a TPM-less class (guardrail 28); a fixed split between node02's two disk bundles.
 
+**D-108 A calibrated-fleet worker's concurrency limit is also bounded by its donated memory (plan V9.4; owner's
+decision).** D-107 found that at the default envelope (`cpu_frac` 0.75, `mem_frac` 0.6) node04 (8 threads, 7.2 GiB)
+breaks the memory invariant (D-80): 6 slots x 1,024 MB (the catalogue's largest `mem_mb`) > 4,424 MB donated, so the
+fleet scenario was refused. For every class of a calibrated fleet, `slots = min(cpu-based slots, floor(donated memory /
+memory per slot))`, at least 1, with memory per slot the catalogue's largest `mem_mb`, the invariant's own worst case
+(`workers.cap_slots_by_memory`, applied in `scenario.generate` only when `scenario.machines` is set). node04 gets 4
+slots; node02 keeps 15 (its memory allows 37). The envelope stays as it is and runs without a fleet are unchanged
+(their scenario and result hashes do not change). The V9.4 check now runs at the default envelope: 100 workers,
+30 simulated minutes, 368,531 events, synchronous deadline met 90.7% (9,869 of 10,106 invocations met, 197 late,
+40 lost; not tuned). *Rejected:* lowering `cpu_frac` for every class (it would also cut node02's slots, and the
+envelope is not calibrated); raising `mem_frac` (it takes memory from the owner).
+
 ## v1 decisions (D-01 to D-80)
 
 **D-01 Custom Python discrete-event simulator.** FaaS physics is small; solver wall time must enter simulated time;
