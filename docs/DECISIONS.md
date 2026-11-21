@@ -233,7 +233,7 @@ reproduces its result hash). *Rejected:* the transfer at each worker's own downl
 promise, fixed before placement); the raw tensor bytes for images (no client sends a float tensor).
 
 **D-107 The calibrated fleet: one machine class per bundle, TPM costs of TPM-less classes from the reference, survey
-buckets to the nearest machine (plan V9.4; owner's assumption).** *TPM costs of TPM-less classes are taken from the
+buckets to the nearest machine (plan V9.4; owner's assumption, approved).** *TPM costs of TPM-less classes are taken from the
 reference machine; a machine without a TPM cannot attest, so such a class is a compute reference.* With
 `scenario.machines: {bundles, survey}` (opt-in; empty keeps `hw_mix` and the C classes, and is left out of the config
 hash, so no existing hash changes) every listed bundle under `configs/calibration/measured` is one class
@@ -254,10 +254,11 @@ doubling) from every class is not represented well; hosts whose vendor is neithe
 machine represents them; both still count in the weights. Rosetta@home (11,553 hosts; `configs/machines.yaml`):
 node02 NVMe 17.7%, node02 HDD 17.7%, node04 64.6%; 57% of hosts beyond the radius (the common 8-16 thread, 16-32 GB
 hosts lie between the two machines), 11% not x86. MilkyWay@home: node02 38.7% (two classes), node04 61.3%, 60%
-beyond, 2.4% not x86. The paper reads the shares as `\VFleetUnrepresentedPct` and `\VFleetNonXPct` and the weights
-from `manuscript/generated/fleet.tex` (T14). *Found, not changed:* at the default envelope (`cpu_frac` 0.75,
-`mem_frac` 0.6) node04 breaks the memory invariant (D-80: 6 slots x 1,024 MB > 4,424 MB donated); the V9.4 check
-ran with `cpu_frac` 0.5 (H17's value). The envelope is an open owner decision. *Rejected:* a per-class speed scalar
+beyond, 2.4% not x86. The survey is gitignored data, so `experiments.analysis.fleet_mix` writes the mapping to the
+committed `configs/machines_mix.yaml` (with the survey's hash); the paper reads only that file: the shares as
+`\VFleetUnrepresentedPct` and `\VFleetNonXPct`, the weights from `manuscript/generated/fleet.tex` (T14). At the
+default envelope node04 broke the memory invariant (D-80); D-108 bounds a fleet worker's slots by its donated
+memory. *Rejected:* a per-class speed scalar
 (a geometric mean of function ratios hides the per-function differences the run-time model learns); literature TPM costs for a TPM-less class (guardrail 28); a fixed split between node02's two disk bundles.
 
 **D-108 A calibrated-fleet worker's concurrency limit is also bounded by its donated memory (plan V9.4; owner's
