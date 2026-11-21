@@ -19,7 +19,7 @@ from voss.world.geo import Metros, load_metros, with_traced_pop
 from voss.world.hardware import load_hw_classes
 from voss.world.machines import Fleet, fleet_columns, load_fleet
 from voss.world.sessions import SessionTrace, generate_sessions
-from voss.world.workers import GeoParams, WorkerTable, generate_workers
+from voss.world.workers import GeoParams, WorkerTable, cap_slots_by_memory, generate_workers
 from voss.world.workload import ArrivalTrace, Catalog, generate_arrivals, load_catalog
 
 
@@ -99,6 +99,7 @@ def generate(cfg: RunConfig) -> Scenario:
     fleet = load_fleet(sc.machines, cfg.calibration, catalog) if sc.machines else None
     if fleet is not None:
         workers = generate_workers(sc, metros, fleet.hw, rng, fleet.mix.weights)
+        workers = cap_slots_by_memory(workers, max(f.mem_mb for f in catalog.functions))  # D-108
     else:
         workers = generate_workers(sc, metros, load_hw_classes(sorted(sc.hw_mix), cfg.calibration), rng)
     check_memory_invariant(workers, catalog)

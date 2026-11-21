@@ -7,11 +7,16 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
-from voss.core.config import RunConfig
+import yaml
+from experiments.analysis import fleet_mix
+from voss.core.config import RunConfig, load_config
 from voss.core.hashing import hash_obj
-from voss.core.paths import load_data_yaml
+from voss.core.paths import CONFIGS, load_data_yaml
+from voss.core.rng import RngFactory
 from voss.world.execution import ExecParams, true_runtime
+from voss.world.geo import load_metros
 from voss.world.machines import TPM_KEYS, load_fleet, load_hw, survey_mix
+from voss.world.workers import cap_slots_by_memory, generate_workers
 from voss.world.workload import Catalog, FunctionSpec, TenantSpec
 
 REF = "node02-i7-12700-64g-nvme_nvme"
@@ -125,3 +130,32 @@ def test_reference_must_be_a_fleet_bundle(tmp_path: Path) -> None:
     _survey(tmp_path)
     with pytest.raises(ValueError, match="reference"):
         load_fleet({"bundles": [OLD], "survey": "s", "trace_root": str(tmp_path)}, CAL, _catalog())
+
+
+def test_committed_mix_names_the_published_survey() -> None:
+    """``configs/machines_mix.yaml`` was computed from the survey file the trace's provenance publishes."""
+    mix = fleet_mix.load_mix()
+    prov = yaml.safe_load((CONFIGS / "traces" / mix["survey"] / "provenance.yaml").read_text())
+    assert mix["input_sha256"] == prov["outputs"]["hosts.parquet"]
+    assert sum(c["weight"] for c in mix["classes"].values()) == pytest.approx(1.0, abs=1e-5)
+
+
+def test_committed_mix_agrees_with_the_survey() -> None:
+    mp = fleet_mix.MachinesParams.model_validate(fleet_mix.load_config(fleet_mix.FLEET).scenario.machines)
+    if not fleet_mix.survey_path(mp).exists():
+        pytest.skip("survey not fetched (python -m tools.traces.fetch)")
+    assert fleet_mix.compute() == fleet_mix.load_mix()
+
+
+def test_no_fleet_class_exceeds_its_donated_memory_at_the_default_envelope() -> None:
+    """D-108: the slot cap keeps ``slots x largest function memory`` within the donated memory of every class."""
+    sc = RunConfig().scenario.model_copy(update={"workers": 60})
+    bundles = load_config(fleet_mix.FLEET).scenario.machines["bundles"]
+    hw = {b: load_hw(b) for b in bundles}
+    wt = generate_workers(sc, load_metros("geo/metros.csv"), hw, RngFactory(1), dict.fromkeys(bundles, 1.0))
+    big = max(f["mem_mb"] for f in load_data_yaml("functions.yaml")["functions"])
+    assert np.any(wt.slots * big > wt.mem_mb)  # node04 at cpu_frac 0.75: 6 slots x 1,024 MB > 4,424 MB
+    capped = cap_slots_by_memory(wt, big)
+    assert np.all(capped.slots * big <= capped.mem_mb)
+    assert np.all(capped.slots >= 1)
+    assert len(set(wt.hw[capped.slots < wt.slots].tolist())) == 1  # only the small-memory class is capped

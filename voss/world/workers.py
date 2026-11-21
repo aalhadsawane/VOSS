@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, replace
 from pathlib import Path
 from typing import Any
 
@@ -175,6 +175,14 @@ def _envelope(hw: list[HwClass], ep: EnvelopeParams) -> dict[str, np.ndarray]:
         "ssd_mb": np.array([h.ssd_gb * 1024 * ep.ssd_frac for h in hw]),
         "hdd_mb": np.array([h.hdd_gb * 1024 * ep.hdd_frac for h in hw]),
     }
+
+
+def cap_slots_by_memory(wt: WorkerTable, mem_per_slot_mb: float) -> WorkerTable:
+    """Calibrated fleet (D-108): ``slots = min(cpu-based slots, floor(donated memory / memory per slot))``, at least 1,
+    so the memory invariant (doc 02 §4, D-80) holds on small-memory machines. ``mem_per_slot_mb`` is the largest
+    function memory of the catalogue (the invariant's worst case)."""
+    by_mem = np.maximum(1, np.floor(wt.mem_mb / mem_per_slot_mb)).astype(wt.slots.dtype)
+    return replace(wt, slots=np.minimum(wt.slots, by_mem))
 
 
 def generate_workers(
