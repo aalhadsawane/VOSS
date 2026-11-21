@@ -121,15 +121,11 @@ from the page alone.
 Items that need experiments or code are tracked in `docs/EXPERIMENT_TODO.md` (X-1 multi-machine calibration, X-2 per-step start-up
 times, X-3 redraw Figure 1).
 
-- **CRITICAL (MAJOR TODO): make the calibration cover many kinds of volunteer machine, not one.** All start-up, boot and
-  attestation costs come from one laptop with a hard disk. The goal is to show how long each step takes on the different
-  machines volunteers could offer: SSD and NVMe machines, laptops and desktops, different CPU generations and TPMs. Each
-  machine's specification (CPU, board, BIOS, memory, disk type and measured throughput, TPM, kernel) is listed in the method
-  section, as is done now for the first machine (i3-7020U, HDD; macros `Cal*` generated from the bundle's `meta.yaml` and
-  `hardware.yaml` by `experiments/paper_tex/measured.py`). Each new machine gets its own bundle under
-  `configs/calibration/measured/`, and the paper should compare them (a table of step times per machine, and a sensitivity run of
-  the simulator per machine class). Marked with `\critical{...}` in `sections/intro.tex` and `sections/method.tex`. Running the
-  calibration harness needs the user's approval (AGENTS.md rule 14). Plan: `docs/EXPERIMENT_TODO.md` X-1 and X-2.
+- **CLOSED (round 21): calibration covers several machines, within what hardware allowed.** The v2 fleet is node02 (NVMe and
+  hard-disk scratch) and node04 (Haswell, 8 GB, hard disk), weighted by the volunteer host survey. The author confirmed no further
+  hardware is available. The paper states the limits (survey hosts with no represented class, no ARM or GPU class, TPM entries of
+  TPM-less classes shared from node02) in Limitations and the fleet in the method section. Published reboot and TPM timings are
+  cited as context only; they are never written into a calibration bundle.
 - **CRITICAL: terminology for the two parts of the scheduler** (decided in round 8; keep it consistent everywhere):
   - **Provisioning** = the periodic, set-level decision (which workers hold each tenant's key, warm environments, reserved slots).
     Formerly "planner", "slow loop", "planning". Algorithms: *greedy provisioning*, *exact provisioning* (integer program),
@@ -408,3 +404,16 @@ times, X-3 redraw Figure 1).
 - **Lesson:** heuristic 30. Every sentence in a section must follow from the section's question; say why before citing an outside
   fact. Caveats about our own method belong in Limitations, written as a statement, not as an answer to a question.
 
+
+### Round 21: no more hardware; literature as context; v2 writing
+- **Said:** No more heterogeneous machines can be had; proceed with the measured fleet, cite existing work on reboot times and
+  similar costs, finish experiments and the paper, and keep updating the writing following this log.
+- **Did:** Closed the multi-machine CRITICAL item above. Literature is collected with a verified-source rule (read the source,
+  quote the figure and its hardware, mark the rest unverified) in `docs/validation/LITERATURE_START_COSTS.md`.
+- **Rules for v2 writing (this log is from v1; take the voice, not the specifics):**
+  - Use `\todoitem{Tnn}{waits for}{what}` for open items, not `\critical` or `\potrem`; terminology and forbidden words come from
+    `WRITING_SPEC.md`, which wins over the v1 terminology list.
+  - Where the concurrency limit $c_j$ is defined, re-derive it from the code after the memory-slot cap (D-108) merges.
+  - Fleet coverage limits go in Limitations; D-107 goes in the method section; harness history stays out of the introduction.
+  - Rebuild the PDF with `make manuscript-pdf` after every `.tex` change.
+- **Lesson:** heuristic 11 and 30 apply to the fleet story: say what was measured and what it covers; keep process history out.
