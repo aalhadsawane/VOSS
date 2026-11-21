@@ -31,7 +31,7 @@ Read on 2026-11-21.
 | `agache2020firecracker` | microVM boot, headline | "boots to application code in less than 125ms, and allows creation of up to 150 MicroVMs per second per host." | Production claim; setup not stated at this point in the text | p. 420, §1 |
 | `agache2020firecracker` | Evaluation machine | "Our evaluation is performed on an EC2 m5d.metal instance, with two Intel Xeon Platinum 8175M processors (for a total of 48 cores with hyper-threading disabled), 384GB of RAM, and four 840GB local NVMe disks. The base OS was Ubuntu 18.04.2 with kernel 4.15.0-1044-aws." | — | p. 427, §5 |
 | `agache2020firecracker` | Definition of boot time | "The boot time is measured as the time between when VMM process is forked and the guest kernel forks its init process." Guest: "Linux 4.14.94 kernel [...] directly loaded by the VMM", "a single vCPU and 256MB of memory", no networking. | m5d.metal as above; 500 serial boots (Fig. 5) | p. 427, §5.1 |
-| `agache2020firecracker` | Parallel boot, 50 concurrent, p99 | "pre-configured Fire-cracker out-performing Cloud Hypervisor both in average boot times as well as a tighter distribution with a 99th percentile of 146ms vs 158ms." | 1000 microVMs, 50 launching concurrently (Fig. 6) | p. 428, §5.1 |
+| `agache2020firecracker` | Parallel boot, 50 concurrent, p99 | "pre-configured Firecracker out-performing Cloud Hypervisor both in average boot times as well as a tighter distribution with a 99th percentile of 146ms vs 158ms." | 1000 microVMs, 50 launching concurrently (Fig. 6) | p. 428, §5.1 |
 | `agache2020firecracker` | 100 concurrent, p99 | "starting 100 MicroVMs concurrently and see a similar trend, albeit with a slightly wider distribution with the 99th percentile for pre-configure Firecracker going up to 153ms." | m5d.metal as above | p. 428, §5.1 |
 | `agache2020firecracker` | Effect of guest kernel | "Decompressing the kernel during boot adds around 40ms." "the kernel which ships with Ubuntu 18.04 takes an additional 900ms to start!" "Adding a statically configured network interface adds around 20ms to the boot times for Firecracker and Cloud Hypervisor". Disabling serial console logging: "saving up to 70ms of boot time". | m5d.metal as above | p. 428, §5.1 |
 | `firecracker2025spec` | VMM start, wall clock | "The Firecracker virtual machine manager starts (up to API socket availability) within `8 CPU ms` [...] The wall-clock time has a large standard deviation, spanning `6 ms to 60 ms`, with typical durations around `12 ms`." | "On an M5D.metal instance (with hyperthreading disabled) and an M6G.metal instance" | `SPECIFICATION.md`, item 1 |
@@ -65,8 +65,8 @@ Notes on §2.
 
 1. **262,143 µs is 2^18 − 1.** The Nuvoton quote average equals 2^18 − 1 exactly. This may be a timer or
    formatting artefact. Quote it as printed, and do not use it as a sensitivity value without this caveat.
-2. **TPM-FAIL measures signing, not quoting.** A quote is a signature over PCR values, so the signing cost is the
-   dominant part of a quote on the same TPM, but the paper does not report `TPM2_Quote` times.
+2. **TPM-FAIL measures signing, not quoting.** The paper does not report absolute `TPM2_Quote` times; it gives only
+   the EC-Schnorr/ECDSA ratio quoted above.
 3. **No published per-command times were found for AMD fTPM.** The faulTPM paper (`jacob2023faultpm`) attacks the
    AMD fTPM but was not searched for latency figures. **UNVERIFIED; no number.**
 4. **No per-command times for Intel PTT `TPM2_Quote`, `TPM2_Load` or `TPM2_Create` (ECC) were found** in a
@@ -88,7 +88,26 @@ Notes on §2.
 
 ## 4. Power-on to booted OS (a)
 
-(Filled in the next commit.)
+| Key | Quantity | Exact quote / value | Hardware / setup (as stated) | Location |
+|---|---|---|---|---|
+| `kashyap2016kup` | Server soft reboot (firmware + kernel + services) and `kexec` reboot | Table 3, "Kernel switch time in seconds for different hardware configurations", columns Soft reboot (Default) / kexec() reboot (Default) / kexec() reboot (Optimized): "1-way 4-core E5-1620/ 64 GB" 45.2 / 2.4 / 2.4; "1-way 8-core E3-1271/ 32 GB" 42.9 / 6.7 / 6.0; "2-way 16-core E5-2630/128 GB" 62.9 / 22.1 / 9.2; "8-way 80-core E7-8870/512 GB" 247.5 / 31.9 / 25.9. Definition: "The reboot time is the time taken to boot into a new kernel from the previous one." | Intel Xeon servers as named in the rows. Storage not stated for these rows. A soft reboot includes firmware re-initialisation; `kexec` skips it ("skipping most of the hardware initialization routine (such as slow BIOS and POST)", §3). | p. 614, §7.3, Table 3 |
+| `gandhi2012autoscale` | Server power-on to application server ready | "in our lab the setup time for turning on an application server is 260 seconds, during which time power is consumed at the peak rate of 200W." §2.1: "we observed the setup time for the servers to be about 260 seconds." | "38 Intel Xeon servers, each equipped with two quad-core 2.26 GHz processors"; servers switched on through the PDU over SNMP; includes start of the application (Apache/PHP) | pp. 14:2 (§1), 14:5 (§2.1) |
+| `xing2010uefifastboot` | Firmware POST, SSD vs HDD, same platform | Slide "Performance Improvement", "BIOS POST (Volecity)" with "Blink Boot (Seamless AHCI + Smart Boot)" On / Off: SSD 2.75 / 4.11; HDD 3.63 / 5.06. Row "IRU": SSD 1.692 / 3.021; HDD 1.912 / 3.314. Units not printed on the slide. Next slide, "Actual OEM platform", "Smart Boot" On / Off: BIOS POST SSD 3.25 / 4.11, HDD 4.16 / 5.06; IRU SSD 2.068 / 3.021, HDD 2.313 / 3.314. | Insyde H2O UEFI firmware; platform model not named. Industry presentation (Intel, Insyde, Microsoft), not peer reviewed. | Slides 11-12 (PDF pages 11-12); values read from the rendered slide images |
+| `xing2010uefifastboot` | Median firmware POST time of Windows 7 OEM machines | "Median POST time 3 sec faster than Windows Vista (11 sec → 8 sec)" with histogram "2010 POST TIMES" vs "2009 POST times", "Source: Microsoft Windows Ecosystem Engineering" | Population of OEM PCs audited by Microsoft; machines not named. Earlier slide: "In a recent audit of Windows 7 notebooks, 34% booted in 35 sec or less", "Not including post times". | Slides 15-16 |
+| `clark2012win8boot` | Firmware POST, design allowance (not a measurement) | "These 2-3 seconds include the time allowed for firmware initialization and POST (< 2 seconds), and the time allowed for the Windows boot manager to detect an alternate boot path (< 200 milliseconds on some systems)." | Microsoft engineering blog; Windows 8 UEFI PCs, unnamed. Allowance, not a measured distribution. | Building Windows 8 blog, dated 2012-05-22 in the archived page metadata |
+| `clark2012win8boot` | Laptop boot, Windows 8 fast startup | "a laptop with a solid state drive (SSD) fully booting in less than 7 seconds" | Laptop not named; video demonstration. Windows 8 "fast startup" resumes a hibernated kernel session (`aul2011win8boot`), so this is **not a cold boot**. | Same post |
+| — | Desktop or laptop power-on to OS ready, HDD vs SSD, in a controlled peer-reviewed study | **UNVERIFIED; no number.** A ResearchGate-hosted paper ("Effect of Ssd Vs Hdd Selection on Computer Boot Speed") appeared in search results but was not read; its venue and method are unknown. Press and forum figures were found but name no hardware or method and are not listed. | — | — |
+| — | `systemd-analyze` firmware / loader / kernel / userspace split on named consumer hardware (OpenBenchmarking.org `pts/systemd-boot-*` results) | **UNVERIFIED; no number.** The pages are behind a browser check and could not be read as source text. | — | — |
+
+Notes on §4.
+
+1. The only same-platform SSD-versus-HDD comparison found is the firmware POST time on one Insyde reference
+   platform (`xing2010uefifastboot`). It covers the firmware phase only, not the kernel or user space.
+2. The server rows measure reboots (`kashyap2016kup`) or power-on to a running application (`gandhi2012autoscale`);
+   both include firmware initialisation of multi-socket Xeon servers, which the volunteer desktops and laptops of VOSS
+   do not have.
+3. The calibration bundles measure the whole sequence directly (power-on to verifier, per step), e.g. firmware + loader
+   on `node02` in `node02-i7-12700-64g-nvme.md`, "Session boot".
 
 ---
 
@@ -180,10 +199,76 @@ Notes on §2.
   month       = nov,
   url         = {https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/msr-tr-2015-84.pdf},
 }
+
+@inproceedings{kashyap2016kup,
+  author    = {Sanidhya Kashyap and Changwoo Min and Byoungyoung Lee and Taesoo Kim and Pavel Emelyanov},
+  title     = {Instant {OS} Updates via Userspace Checkpoint-and-Restart},
+  booktitle = {2016 USENIX Annual Technical Conference (USENIX ATC 16)},
+  pages     = {605--619},
+  year      = {2016},
+  publisher = {USENIX Association},
+  url       = {https://www.usenix.org/conference/atc16/technical-sessions/presentation/kashyap},
+}
+
+@article{gandhi2012autoscale,
+  author  = {Anshul Gandhi and Mor Harchol-Balter and Ram Raghunathan and Michael A. Kozuch},
+  title   = {{AutoScale}: Dynamic, Robust Capacity Management for Multi-Tier Data Centers},
+  journal = {ACM Transactions on Computer Systems},
+  volume  = {30},
+  number  = {4},
+  pages   = {14:1--14:26},
+  year    = {2012},
+  doi     = {10.1145/2382553.2382556},
+}
+
+@misc{xing2010uefifastboot,
+  author       = {Yuanyuan Xing and Aven Chuang and Mark Svancarek},
+  title        = {{UEFI} Fast Boot for {Microsoft Windows 7}: Fast Boot Without Compromising your {BIOS}},
+  howpublished = {Intel Developer Forum, session EFIS004 (Intel, Insyde Software, Microsoft)},
+  year         = {2010},
+  url          = {https://www.intel.com/content/dam/doc/guide/uefi-fast-boot-windows-7.pdf},
+  note         = {Slides carry the IDF2009 logo and a 2010 copyright; year taken from the copyright line},
+}
+
+@misc{clark2012win8boot,
+  author       = {Chris Clark},
+  title        = {Designing for {PCs} that boot faster than ever before},
+  howpublished = {Building Windows 8 blog, Microsoft},
+  year         = {2012},
+  month        = may,
+  url          = {https://learn.microsoft.com/en-us/archive/blogs/b8/designing-for-pcs-that-boot-faster-than-ever-before},
+  note         = {Date from the archived page metadata (2012-05-22); author named in the post},
+}
+
+@misc{aul2011win8boot,
+  author       = {Gabe Aul},
+  title        = {Delivering fast boot times in {Windows 8}},
+  howpublished = {Building Windows 8 blog, Microsoft},
+  year         = {2011},
+  month        = sep,
+  url          = {https://learn.microsoft.com/en-us/archive/blogs/b8/delivering-fast-boot-times-in-windows-8},
+  note         = {Describes fast startup as a hybrid of cold boot and resume from hibernation},
+}
 ```
 
 ---
 
 ## 6. Differences from `manuscript/refs.bib`
 
-(Filled in the next commit.)
+`manuscript/refs.bib` says it was written from memory. Only the entries that overlap with this file were compared.
+
+| refs.bib key | Difference found | Source checked |
+|---|---|---|
+| `agache2020firecracker` | Author list omits **Andreea Florescu** (third author on the title page). Pages 419-434 agree. | Title page of the NSDI '20 PDF |
+| `ao2022faasnap` | Agrees (authors, EuroSys, pages 730-746); DOI 10.1145/3492321.3524270 is missing from refs.bib. | Crossref |
+| `jacob2023faultpm` | Not checked; it was not used for any number here. | — |
+| `tcg2019tpm` | Not checked; no number here comes from the TPM specification. | — |
+
+The other keys of §5 are not in `manuscript/refs.bib`.
+
+## 7. Sources searched but not used
+
+- Sleep-proxy papers (Somniloquy, NSDI '09; SleepServer and LiteGreen, USENIX ATC '10) were text-searched for boot
+  times; the values found are resume from S3 sleep, not power-on boot, so no row was taken from them.
+- The fTPM conference paper (`raj2016ftpm`) gives per-command latencies for TPM2 `Load`, `Sign`, `Seal`, `Unseal` only
+  as unlabelled bar charts; no value was read off a chart axis.
