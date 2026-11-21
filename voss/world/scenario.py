@@ -17,8 +17,9 @@ from voss.core.rng import RngFactory
 from voss.world.adversary import BEHAVIORS, AdversaryTrace, generate_adversaries, load_adversary_regime
 from voss.world.geo import Metros, load_metros, with_traced_pop
 from voss.world.hardware import load_hw_classes
+from voss.world.machines import Fleet, fleet_columns, load_fleet
 from voss.world.sessions import SessionTrace, generate_sessions
-from voss.world.workers import GeoParams, WorkerTable, generate_workers
+from voss.world.workers import GeoParams, WorkerTable, cap_slots_by_memory, generate_workers
 from voss.world.workload import ArrivalTrace, Catalog, generate_arrivals, load_catalog
 
 
@@ -34,6 +35,7 @@ class Scenario:
     sessions: SessionTrace
     adversary: AdversaryTrace
     arrivals: ArrivalTrace
+    fleet: Fleet | None = None  # calibrated machine classes (plan V9.4); None: the configured hardware classes
 
     def tables(self) -> dict[str, pd.DataFrame]:
         return _tables(self.workers, self.sessions, self.adversary, self.arrivals)
@@ -53,8 +55,10 @@ def _tables(
     }
 
 
-def _hash(tables: dict[str, pd.DataFrame], catalog: Catalog, horizon: float) -> str:
+def _hash(tables: dict[str, pd.DataFrame], catalog: Catalog, horizon: float, fleet: Fleet | None = None) -> str:
     cols = {name: {c: df[c].to_numpy() for c in df.columns} for name, df in tables.items()}
+    if fleet is not None:  # only a fleet scenario hashes it, so other scenarios keep their hash
+        cols["machines"] = fleet_columns(fleet)
     cols["catalog"] = {
         "functions": [f.model_dump_json() for f in catalog.functions],
         "tenants": [t.model_dump_json() for t in catalog.tenants],
@@ -92,7 +96,12 @@ def generate(cfg: RunConfig) -> Scenario:
         metros = with_traced_pop(metros, Path(gp.trace_root) / gp.pop_trace / "metro_pop.parquet")
     metros = metros.restrict(gp.regions)
     catalog = load_catalog(sc, cfg.calibration)
-    workers = generate_workers(sc, metros, load_hw_classes(sorted(sc.hw_mix), cfg.calibration), rng)
+    fleet = load_fleet(sc.machines, cfg.calibration, catalog) if sc.machines else None
+    if fleet is not None:
+        workers = generate_workers(sc, metros, fleet.hw, rng, fleet.mix.weights)
+        workers = cap_slots_by_memory(workers, max(f.mem_mb for f in catalog.functions))  # D-108
+    else:
+        workers = generate_workers(sc, metros, load_hw_classes(sorted(sc.hw_mix), cfg.calibration), rng)
     check_memory_invariant(workers, catalog)
     adv = generate_adversaries(sc, workers, horizon, rng)
     params = load_adversary_regime(sc).params
@@ -101,14 +110,14 @@ def generate(cfg: RunConfig) -> Scenario:
         sc, workers, metros, horizon, rng, (fake, params.fake_drain_rate_per_h, params.fake_drain_lead_s)
     )
     arrivals = generate_arrivals(sc, catalog, metros, horizon, rng)
-    h = _hash(_tables(workers, sessions, adv, arrivals), catalog, horizon)
-    return Scenario(h, horizon, metros, catalog, workers, sessions, adv, arrivals)
+    h = _hash(_tables(workers, sessions, adv, arrivals), catalog, horizon, fleet)
+    return Scenario(h, horizon, metros, catalog, workers, sessions, adv, arrivals, fleet)
 
 
 def with_world(scn: Scenario, workers: WorkerTable, sessions: SessionTrace, adversary: AdversaryTrace) -> Scenario:
     """The same workload on another worker population (reference clouds, doc 02 §9), rehashed."""
     h = _hash(_tables(workers, sessions, adversary, scn.arrivals), scn.catalog, scn.horizon)
-    return replace(scn, hash=h, workers=workers, sessions=sessions, adversary=adversary)
+    return replace(scn, hash=h, workers=workers, sessions=sessions, adversary=adversary, fleet=None)
 
 
 def store(scn: Scenario, root: Path) -> Path:
@@ -128,5 +137,13 @@ def store(scn: Scenario, root: Path) -> Path:
         "functions": [f.model_dump() for f in scn.catalog.functions],
         "tenants": [t.model_dump() for t in scn.catalog.tenants],
     }
+    if scn.fleet is not None:  # weights and what each class shares with the reference (D-107)
+        meta["machines"] = {
+            "reference": scn.fleet.reference,
+            "weights": scn.fleet.mix.weights,
+            "unrepresented": scn.fleet.mix.unrepresented,
+            "non_x86": scn.fleet.mix.non_x86,
+            "provenance": {n: c.provenance for n, c in sorted(scn.fleet.classes.items())},
+        }
     (out / "meta.json").write_text(json.dumps(meta, indent=2, sort_keys=True))
     return out

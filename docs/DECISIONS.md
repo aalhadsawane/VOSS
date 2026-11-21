@@ -232,6 +232,47 @@ false, not part of the scenario hash): the D01 specs' result hashes do not chang
 reproduces its result hash). *Rejected:* the transfer at each worker's own downlink (a deadline is the tenant's
 promise, fixed before placement); the raw tensor bytes for images (no client sends a float tensor).
 
+**D-107 The calibrated fleet: one machine class per bundle, TPM costs of TPM-less classes from the reference, survey
+buckets to the nearest machine (plan V9.4; owner's assumption, approved).** *TPM costs of TPM-less classes are taken from the
+reference machine; a machine without a TPM cannot attest, so such a class is a compute reference.* With
+`scenario.machines: {bundles, survey}` (opt-in; empty keeps `hw_mix` and the C classes, and is left out of the config
+hash, so no existing hash changes) every listed bundle under `configs/calibration/measured` is one class
+(`world/machines.py`): threads, memory and TPM kind from `calibration/specs/<label>/class.yaml`, disk sizes from its
+`spec.yaml` (the disk the bundle ran on, its name's suffix, is the fast tier; a rotational disk is the second tier only
+when the fast tier is not one), disk speeds from the bundle's `hardware.yaml`. The class speed is 1: each class runs
+its own copy of every catalogue function with that bundle's `work_ref_s`, `init_s` and `size_exp`, a trace function at
+its mapped input size (`exec_by_size`, `Catalog.profiles`), so speed differences are per function. Workers of a class
+also take their substrate lifecycle and TPM quote from their class's distributions. The run's `calibration` is the
+reference and must be in the fleet; it still supplies the catalogue, the trace mapping and the scheduler's priors. A
+TPM entry (`tpm2_quote`, `tpm2_unseal`, `verify_s`) that a class did not measure is the reference's and is recorded as
+`shared:<reference>` in the fleet's provenance (scenario `meta.json`), never as measured; any other unmeasured entry
+is refused. node04 (i7-4790S, no TPM) shares all three. The mix: each survey bucket (logical CPUs `n`, memory bucket
+`m`) goes to the class minimising `hypot(log2(n / threads), log2(m / mem_bucket))`: resources scale by ratios and
+the survey's memory is in powers of two, so a step of one is one doubling of either. Classes at the same distance
+share a bucket equally (node02's NVMe and HDD bundles: the survey has no disk type). A bucket farther than 1 (one
+doubling) from every class is not represented well; hosts whose vendor is neither Intel nor AMD are not x86 and no
+machine represents them; both still count in the weights. Rosetta@home (11,553 hosts; `configs/machines.yaml`):
+node02 NVMe 17.7%, node02 HDD 17.7%, node04 64.6%; 57% of hosts beyond the radius (the common 8-16 thread, 16-32 GB
+hosts lie between the two machines), 11% not x86. MilkyWay@home: node02 38.7% (two classes), node04 61.3%, 60%
+beyond, 2.4% not x86. The survey is gitignored data, so `experiments.analysis.fleet_mix` writes the mapping to the
+committed `configs/machines_mix.yaml` (with the survey's hash); the paper reads only that file: the shares as
+`\VFleetUnrepresentedPct` and `\VFleetNonXPct`, the weights from `manuscript/generated/fleet.tex` (T14). At the
+default envelope node04 broke the memory invariant (D-80); D-108 bounds a fleet worker's slots by its donated
+memory. *Rejected:* a per-class speed scalar
+(a geometric mean of function ratios hides the per-function differences the run-time model learns); literature TPM costs for a TPM-less class (guardrail 28); a fixed split between node02's two disk bundles.
+
+**D-108 A calibrated-fleet worker's concurrency limit is also bounded by its donated memory (plan V9.4; owner's
+decision).** D-107 found that at the default envelope (`cpu_frac` 0.75, `mem_frac` 0.6) node04 (8 threads, 7.2 GiB)
+breaks the memory invariant (D-80): 6 slots x 1,024 MB (the catalogue's largest `mem_mb`) > 4,424 MB donated, so the
+fleet scenario was refused. For every class of a calibrated fleet, `slots = min(cpu-based slots, floor(donated memory /
+memory per slot))`, at least 1, with memory per slot the catalogue's largest `mem_mb`, the invariant's own worst case
+(`workers.cap_slots_by_memory`, applied in `scenario.generate` only when `scenario.machines` is set). node04 gets 4
+slots; node02 keeps 15 (its memory allows 37). The envelope stays as it is and runs without a fleet are unchanged
+(their scenario and result hashes do not change). The V9.4 check now runs at the default envelope: 100 workers,
+30 simulated minutes, 368,531 events, synchronous deadline met 90.7% (9,869 of 10,106 invocations met, 197 late,
+40 lost; not tuned). *Rejected:* lowering `cpu_frac` for every class (it would also cut node02's slots, and the
+envelope is not calibrated); raising `mem_frac` (it takes memory from the owner).
+
 ## v1 decisions (D-01 to D-80)
 
 **D-01 Custom Python discrete-event simulator.** FaaS physics is small; solver wall time must enter simulated time;

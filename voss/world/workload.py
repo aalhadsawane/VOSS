@@ -6,7 +6,7 @@ origin city by population with local-time demand diurnality (thinning); optional
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 import numpy as np
@@ -98,6 +98,9 @@ class Catalog:
     # the input over the network's median downlink. Not part of the scenario hash's catalogue (the arrivals'
     # deadlines are), so catalogues without it hash as before.
     transfer_deadline: bool = False
+    # trace function -> (catalogue function, measured input size kB or None) it is mapped to (V9.1); the fleet runs
+    # each at that size on every machine class (V9.4). Not hashed with the catalogue either.
+    profiles: dict[str, tuple[str, float | None]] = field(default_factory=dict)
 
     def fn_index(self, name: str) -> int:
         return [f.name for f in self.functions].index(name)
@@ -124,17 +127,17 @@ def load_catalog(sc: ScenarioConfig, calibration: str | None = None) -> Catalog:
     )
     ten = tuple(TenantSpec.model_validate(t) for t in load_data_yaml(sc.tenants)["tenants"])
     reg = load_load_regime(sc)
-    transfer = False
+    transfer, prof = False, dict[str, tuple[str, float | None]]()
     if reg.trace:  # the trace's functions and owners replace the catalog (plan V9.1)
         from voss.world.trace_load import trace_catalog  # noqa: PLC0415  (trace_load imports this module)
 
         traced = trace_catalog(reg, Catalog(fns, ten), function_sizes(calibration))
-        fns, ten, transfer = traced.functions, traced.tenants, traced.transfer_deadline
+        fns, ten, transfer, prof = traced.functions, traced.tenants, traced.transfer_deadline, traced.profiles
     known = {t.id for t in ten}
     for f in fns:
         if f.tenant not in known:
             raise ValueError(f"function {f.name}: unknown tenant {f.tenant}")
-    return key_domains(Catalog(fns, ten, transfer))
+    return key_domains(Catalog(fns, ten, transfer, prof))
 
 
 def key_domain(tenant: str, fn: str) -> str:
@@ -151,7 +154,7 @@ def key_domains(cat: Catalog) -> Catalog:
         for f in cat.functions
     )
     fns = tuple(f.model_copy(update={"tenant": key_domain(f.tenant, f.name), "owner": f.tenant}) for f in cat.functions)
-    return Catalog(fns, doms, cat.transfer_deadline)
+    return Catalog(fns, doms, cat.transfer_deadline, cat.profiles)
 
 
 def load_load_regime(sc: ScenarioConfig) -> LoadRegime:

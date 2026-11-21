@@ -67,6 +67,8 @@ class ScenarioConfig(Frozen):
     substrate_mix: dict[str, float] = Field(default_factory=lambda: {"appliance_tpm": 1.0})
     tiers: dict[str, float] = Field(default_factory=lambda: {"nightly": 0.6, "idle": 0.3, "dedicated": 0.1})
     hw_mix: dict[str, float] = Field(default_factory=lambda: {"C0": 0.1, "C1": 0.35, "C2": 0.35, "C3": 0.2})
+    # calibrated fleet (plan V9.4, D-107): {bundles: [...], survey: <trace>}; set, it replaces hw_mix and the C classes
+    machines: dict[str, Any] = Field(default_factory=dict)
     tofu_frac: float = Field(default=0.3, ge=0, le=1)
     physical_frac: float = Field(default=0.0, ge=0, le=1)  # owners without memory encryption willing to attack
     # physically: class P, the rest class S (plan V3.3; axis, >0 only in the security experiment)
@@ -290,6 +292,8 @@ class RunConfig(Frozen):
         for sect, key, default in _HASH_OMIT_DEFAULT:  # D-77: knobs added later keep old run directories valid
             if tree["voss"][sect][key] == default:
                 del tree["voss"][sect][key]
+        if not tree["scenario"]["machines"]:  # D-107: likewise the opt-in calibrated fleet
+            del tree["scenario"]["machines"]
         return hash_obj(tree)
 
 
