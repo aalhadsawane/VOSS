@@ -131,7 +131,6 @@ class CostConfig(Frozen):
     """Doc 03 §5.2. Placement is lexicographic (D-110): no weights."""
 
     lifecycle_aware: bool = True  # False: ablation, placement sees one startup estimate for every candidate
-    wait_model: Literal["ewma", "per_worker"] = "ewma"  # slot-wait estimate (D-77): scheduler-wide EWMA or per worker
 
 
 class AdmissionConfig(Frozen):
@@ -189,7 +188,7 @@ class WorkerConfig(Frozen):
     warm_eviction: str = "lru"  # lru | greedy_dual (FaaSCache keep-alive, plan V8)
     m_base_mb: float = 512.0
     assurance_tofu_factor: float = 0.9  # f_policy for TOFU firmware (doc 04 §8). tag: assumed
-    sync_priority: bool = False  # D-77: a free slot serves waiting synchronous requests before queued async ones
+    sync_priority: bool = True  # D-114: a free slot serves waiting synchronous requests before queued async ones
 
 
 class KeepaliveHistConfig(Frozen):
@@ -260,9 +259,6 @@ class VossConfig(Frozen):
     keys: KeysConfig = Field(default_factory=KeysConfig)
 
 
-_HASH_OMIT_DEFAULT = (("cost", "wait_model", "ewma"), ("worker", "sync_priority", False))
-
-
 class RunConfig(Frozen):
     """Root of the config tree."""
 
@@ -280,9 +276,6 @@ class RunConfig(Frozen):
 
     def config_hash(self) -> str:
         tree = self.model_dump(mode="json", exclude={"out_dir", "label"})
-        for sect, key, default in _HASH_OMIT_DEFAULT:  # D-77: knobs added later keep old run directories valid
-            if tree["voss"][sect][key] == default:
-                del tree["voss"][sect][key]
         if not tree["scenario"]["machines"]:  # D-107: likewise the opt-in calibrated fleet
             del tree["scenario"]["machines"]
         return hash_obj(tree)

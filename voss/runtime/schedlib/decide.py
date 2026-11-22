@@ -144,8 +144,8 @@ class Decider:
     def _waits(
         self, view: ClusterView, jobs: Mapping[WorkerId, Sequence[JobEst]] | None, now: float, svc: float
     ) -> Waits | None:
-        """Doc 03 §5.2 / D-77: per-worker wait from predicted remaining work (``cost.wait_model: per_worker``)."""
-        if self.cfg.cost.wait_model != "per_worker" or jobs is None:
+        """Doc 03 §5.2 / D-77, D-114: per-worker wait from predicted remaining work, the only wait model."""
+        if jobs is None:
             return None
         prio = self.cfg.worker.sync_priority
         asyn = worker_waits(view, jobs, now, svc, False, prio)

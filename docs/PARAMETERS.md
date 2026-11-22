@@ -57,7 +57,6 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.predictor.forgetting` | `0.995` | S | run-time estimator forgetting factor |
 | `voss.predictor.conformal` | `True` | S | conformal quantiles on/off |
 | `voss.cost.lifecycle_aware` | `True` | pending V11 | v1 ablation switch; delete at the freeze (always on) |
-| `voss.cost.wait_model` | `'ewma'` | pending V11 | deleted by D-114 (per-worker queue replay is the only model) |
 | `voss.admission.enabled` | `True` | S | admission on/off |
 | `voss.admission.eps` | `0.05` | S | reject when every candidate misses with probability above 1 - eps |
 | `voss.admission.defer_s` | `1.0` | S | retry delay for a deferred asynchronous invocation |
@@ -92,7 +91,7 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.worker.warm_eviction` | `lru` | A | warm-sandbox eviction: `lru` or `greedy_dual` (FaaSCache baseline, V8) |
 | `voss.worker.m_base_mb` | `512.0` | A | D-117: image memory reserve, a stated build parameter; R07 varies {256, 1,024}; merged with the planner's copy |
 | `voss.worker.assurance_tofu_factor` | `0.9` | pending V11 | v1 trust score; delete at the freeze |
-| `voss.worker.sync_priority` | `False` | A | D-114: synchronous-first on for every system; off only as the R06 ablation |
+| `voss.worker.sync_priority` | `True` | A | D-114: synchronous-first on for every system; off only as the R06 ablation |
 | `voss.keepalive_hist.bin_s` | `60.0` | L | Shahrad et al. ATC 2020: 1-minute bins |
 | `voss.keepalive_hist.range_s` | `14400.0` | L | Shahrad et al. ATC 2020: 4-hour range |
 | `voss.keepalive_hist.head_pct` | `5.0` | L | Shahrad et al. ATC 2020 |
