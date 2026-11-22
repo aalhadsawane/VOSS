@@ -394,6 +394,20 @@ the image boot would delay the freeze by the bare-metal visit. *Rejected:* waiti
 brute-force property test (`tests/property/test_hetero_provisioning.py`); the appendix gap table is dropped.
 *Rejected:* a new MILP of VOSS's objective (a second solver adds no claim).
 
+**D-132 The donated shares are stated assumptions, class A, varied in R07 (owner's answer; checklist 3.3).**
+`scenario.envelope` (`cpu_frac` 0.75, `mem_frac` 0.6, `ssd_frac` and `hdd_frac` 0.2) are the owner's donation,
+stated once in the paper's constants table; R07 varies `cpu_frac` {0.5, 1.0} and `mem_frac` {0.4, 0.8}. D-108 still
+caps a fleet worker's slots by its donated memory. *Why:* no measurement of what owners donate exists; the option
+needs no code and no rerun. *Rejected:* capacity = physical cores and memory minus the image (plan V5.5; a code change
+and a new development run before the freeze).
+
+**D-133 Execution variation comes from the bundles (owner's answer; checklist 3.3).** In `scenario.execution`,
+co-run interference is the bundle's measured co-run table (class M), and the run-to-run noise of each function is
+its measured repeat variation (class D, from the per-function repeat samples in `calibration/raw`, the source of
+`experiments/analysis/machines.py`'s repeat coefficient of variation). A part that no bundle supplies (the
+heavy-tail mixture `tail_p`, `tail_median`, `tail_sigma` unless the repeat samples show it) is deleted rather than kept
+as an assumed value. *Rejected:* keeping the assumed log-normal mixture (guardrails 28, 29).
+
 ## v1 decisions (D-01 to D-80)
 
 **D-01 Custom Python discrete-event simulator.** FaaS physics is small; solver wall time must enter simulated time;
