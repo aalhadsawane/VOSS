@@ -22,7 +22,12 @@ functions:
         n: 30
         sebs_class: '-'
     init_s: 0.003146
-    input_gen_by_size: {}
+    input_gen_by_size:
+      500: 9.1e-05
+      2000: 0.0003255
+      8000: 0.0012565
+      32000: 0.005589
+      128000: 0.0235555
     interference:
       1: 1.0
       2: 1.0142123449855023
@@ -56,7 +61,11 @@ functions:
         n: 30
         sebs_class: '-'
     init_s: 0.072386
-    input_gen_by_size: {}
+    input_gen_by_size:
+      100: 0.0029284999999999997
+      500: 0.014623500000000001
+      2000: 0.057871000000000006
+      8000: 0.2457005
     interference:
       1: 1.0
       2: 1.027340395139789
@@ -92,7 +101,12 @@ functions:
         n: 30
         sebs_class: '-'
     init_s: 0.033901
-    input_gen_by_size: {}
+    input_gen_by_size:
+      1: 1.0e-06
+      10: 1.0e-06
+      1000: 1.0e-06
+      10000: 1.0e-06
+      100000: 1.0e-06
     interference:
       1: 1.0
       2: 1.0296632372390604
@@ -124,7 +138,11 @@ functions:
         n: 30
         sebs_class: '-'
     init_s: 0.028323
-    input_gen_by_size: {}
+    input_gen_by_size:
+      1: 0.011868
+      10: 0.1621415
+      30: 0.6158669999999999
+      100: 2.7969239999999997
     interference:
       1: 1.0
       2: 1.1377435293535438
@@ -157,7 +175,11 @@ functions:
         n: 30
         sebs_class: '-'
     init_s: 0.028065
-    input_gen_by_size: {}
+    input_gen_by_size:
+      1: 0.0117205
+      10: 0.16210049999999998
+      30: 0.6160334999999999
+      100: 2.7951185
     interference:
       1: 1.0
       2: 1.1460861561046887
@@ -190,7 +212,11 @@ functions:
         n: 30
         sebs_class: '-'
     init_s: 0.028011
-    input_gen_by_size: {}
+    input_gen_by_size:
+      1: 0.0119285
+      10: 0.1609865
+      30: 0.6153085
+      100: 2.77229
     interference:
       1: 1.0
       2: 1.1209942973687494
@@ -219,7 +245,10 @@ functions:
         n: 30
         sebs_class: '-'
     init_s: 1.489607
-    input_gen_by_size: {}
+    input_gen_by_size:
+      50: 0.000381
+      100: 0.00038
+      400: 0.0014885
     interference:
       1: 1.0
       2: 1.051824423681036
@@ -256,7 +285,12 @@ functions:
         n: 30
         sebs_class: '-'
     init_s: 0.061265
-    input_gen_by_size: {}
+    input_gen_by_size:
+      50: 0.000697
+      200: 0.0025989999999999997
+      1000: 0.011983
+      4000: 0.0537365
+      16000: 0.22249649999999999
     interference:
       1: 1.0
       2: 1.0284166423510446
@@ -294,7 +328,12 @@ functions:
         n: 30
         sebs_class: large
     init_s: 0.001079
-    input_gen_by_size: {}
+    input_gen_by_size:
+      256: 0.000371
+      1000: 0.0014455
+      6700: 0.009572500000000001
+      25000: 0.035099
+      100000: 0.157413
     interference:
       1: 1.0
       2: 1.1576048808657167
@@ -328,7 +367,11 @@ functions:
         n: 30
         sebs_class: '-'
     init_s: 0.004655
-    input_gen_by_size: {}
+    input_gen_by_size:
+      1000: 0.6837835
+      5000: 3.2639635
+      20000: 12.7478675
+      80000: 50.708737
     interference:
       1: 1.0
       2: 1.0250633231402262
