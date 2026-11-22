@@ -205,10 +205,41 @@ apart):
 | hedged | 0 | 0.918 → 0.909 | 5.18 → 4.30 | 22.5 → 0 | 355 → 1,293 |
 | hedged | 20% | 0.926 → 0.881 | 5.14 → 4.22 | 22.0 → 0 | 375 → 1,543 |
 
-Measured: mean holders fell by about one (5.1 → 4.1) and refused key requests tripled; every key that had exceeded
-its budget now stays within it. The per-system changes in deadlines met (−0.009 to −0.045) are within the 1.5-2 point
-swing that one arbitrary holder choice produces in these runs (see (3)), so 2 seeds of 1 h do not size the cost of the
-honest budget. The results of D01a, D02 and the earlier iterations were all run with the exceeded budget.
+Measured on D01's bundle: mean holders fell by about one (5.1 → 4.1) and refused key requests tripled; every key
+that had exceeded its budget now stays within it. On D01's bundle the per-system changes (−0.009 to −0.045) are within
+the 1.5-2 point swing that one arbitrary holder choice produces (see (3)).
+
+**On the calibrated fleet the cost is not small, and it exposed a second defect.** Same settings on
+`configs/machines.yaml` (D-107, D-108; reference node02 NVMe, per-size mapping), `revision-v2` at 7fd34ab against this
+branch, mean of seeds 1 and 2:
+
+| System | Dropping owners | Deadlines met before → after | Mean holders | Keys over budget per run | Refused key requests |
+|---|---|---|---|---|---|
+| voss | 0 | 0.937 → 0.799 | 6.78 → 5.19 | 28.0 → 0 | 910 → 3,825 |
+| voss | 20% | 0.812 → 0.764 | 6.34 → 5.11 | 28.0 → 0 | 898 → 3,643 |
+| hedged | 0 | 0.967 → 0.908 | 6.32 → 5.08 | 28.0 → 0 | 820 → 3,235 |
+| hedged | 20% | 0.966 → 0.937 | 6.42 → 5.11 | 27.0 → 0 | 869 → 3,212 |
+
+How far the old budget was exceeded: with the old key service tr0143, the busiest synchronous function, averaged
+**13.6 holders at K = 8** (VOSS, seed 1). With the honest key service, the eight workers that took tr0143's key on
+first use, at t = 0.7-15 s before the first plan, kept their places for the whole run (VOSS, seed 2): the plan never
+released them, so 508 key requests from 27 other workers (almost all planned preparations; 2 of them ever got a tr0143
+dispatch) were refused, and tr0143's late invocations waited a median 5.3 s for a slot. The cause: `diff` emits
+`RELEASE` only for keys the plan pinned inside the 40-worker planning pool, and `hold_until_needed` only filters those
+releases, so a holder that got its key on first use, or one outside the pool, is never released. The old key service
+hid this by freeing every place within 900 s.
+
+**Release rule tried, held back.** `hold_until_needed` issuing the releases the budget needs for any current holder the
+plan does not want (D-85's rule, no constant; branch `v2/V11-release-rule`) made it worse (fleet, alpha 0): VOSS met
+0.456 and 0.553 (seeds 1, 2) against 0.884 and 0.714, hedged 0.906 and 0.498. tr0143 then had 18 distinct holders
+instead of 8, and its attempts took a median 4.2 s instead of 0.96 s, on the first-use holders (input median 3.6 s
+against 0.73 s) as well as on the seven the plan brought in (6.5 s). In both runs 96-99% of all holder time sat on 40
+workers, the planning pool's cap (`max_plan_workers`), so every function's holders and inputs are packed onto the same
+40 home links, and adding the plan's holders added load to the same links. The cleanup series removes the pool cap;
+the release rule is to be measured again on that code. Until then the first-use squatting stays, as measured above.
+
+The results of D01a, D02 and the earlier iterations were all run with the exceeded budget, so none of them ranks the
+systems at an honest K.
 
 ### (2) Failure scenarios from the run seed
 
