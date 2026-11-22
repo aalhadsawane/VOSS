@@ -27,17 +27,22 @@ def test_preset_runs_clean(group: str, name: str) -> None:
     assert (inv.outcome == "ok").mean() > 0.5  # hosts join and serve (trusted hosts once never got a certificate)
 
 
-LONG = ["horizon_s=1000", "scenario.workers=120", "scenario.load.rate=8", "voss.keys.max_holders=2"]
+LONG = ["horizon_s=1000", "scenario.workers=120", "voss.keys.max_holders=2"]
+TRACE = ["scenario.load.trace=azure2019", "scenario.load.split=dev", "scenario.load.rate_mult=3"]
+BUDGET = [(g, n, False) for g, n in CASES] + [("provisioning", n, True) for n in sorted(PRESETS["provisioning"])]
 
 
-@pytest.mark.parametrize(("group", "name"), CASES, ids=[f"{g}-{n}" for g, n in CASES])
-def test_holder_budget_holds_across_certificate_requotes(group: str, name: str) -> None:
+@pytest.mark.parametrize(("group", "name", "fleet"), BUDGET, ids=[f"{g}-{n}{'-fleet' * f}" for g, n, f in BUDGET])
+def test_holder_budget_holds_across_certificate_requotes(group: str, name: str, fleet: bool) -> None:
     """Guardrail 16 (equal budgets), development log iteration 3: K holders means at most K at every instant, for
-    every system (provisioning and failure handling), also after session certificates were extended by re-quotes
-    (900 s validity, re-quote every 600 s);
-    the key service once freed a place at the expiry the certificate had at release."""
+    every system, also after session certificates were extended by re-quotes (900 s validity, re-quote every 600 s);
+    the key service once freed a place at the expiry the certificate had at release. The provisioning presets also run
+    on the calibrated fleet (D-107), which needs the fetched Azure trace."""
     from voss.runtime.invariants import holders_within_budget
 
-    r = run_system(load_config(REPO / "configs/smoke.yaml", [*LONG, *PRESETS[group][name]["overrides"]]))
+    if fleet and not (REPO / "data/traces/azure2019/functions_dev.parquet").exists():
+        pytest.skip("Azure trace not fetched (python -m tools.traces.fetch)")
+    base, extra = ("configs/machines.yaml", TRACE) if fleet else ("configs/smoke.yaml", ["scenario.load.rate=8"])
+    r = run_system(load_config(REPO / base, [*LONG, *extra, *PRESETS[group][name]["overrides"]]))
     keys = sorted(set(r.recorder.frame(Table.EVENTS).tenant.dropna()))
-    assert holders_within_budget(r.recorder, dict.fromkeys(keys, 2)) == []
+    assert keys and holders_within_budget(r.recorder, dict.fromkeys(keys, 2)) == []
