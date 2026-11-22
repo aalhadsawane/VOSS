@@ -2,8 +2,10 @@
 
 It releases a function key, wrapped to the worker's session key, only to a holder of a valid verifier-issued session
 certificate, and only while the function has fewer holders than its budget ``K`` (the tenant's own enforcement of the
-budget). A place frees when the worker reports that it dropped the key, when the verifier revokes the worker's session,
-or when the certificate the key was released under has expired. The scheduler and orchestrator never see keys.
+budget). A key stays in RAM for the session (doc 04 §6), so its place frees only when the worker reports that it dropped
+the key or when the verifier revokes the worker's session, which it also does when the certificate expires without a
+re-quote. The expiry the certificate had at release is not a reason: re-quotes extend it while the worker keeps the
+key (development log iteration 3). The scheduler and orchestrator never see keys.
 """
 
 from __future__ import annotations
@@ -56,8 +58,6 @@ class TenantKbs(Actor):
             self.send(m.reply_to, Key(m.tenant, m.cert_id, False, "cert"))
             return
         h = self.holders[m.tenant]
-        for w in [w for w, (_, exp) in sorted(h.items()) if exp <= self.now]:
-            del h[w]  # released under a certificate that has expired since
         k = self.budgets[m.tenant]
         if m.worker not in h and k is not None and len(h) >= k:
             self.ctx.rec.log(

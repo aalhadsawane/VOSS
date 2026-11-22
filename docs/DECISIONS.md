@@ -273,6 +273,16 @@ slots; node02 keeps 15 (its memory allows 37). The envelope stays as it is and r
 40 lost; not tuned). *Rejected:* lowering `cpu_frac` for every class (it would also cut node02's slots, and the
 envelope is not calibrated); raising `mem_frac` (it takes memory from the owner).
 
+**D-109 A key's place in the holder budget frees only when its drop is acknowledged or the session is revoked
+(guardrail 16; doc 04 §6; development log iteration 3).** The tenant key service no longer frees a place at the
+expiry the certificate had when the key was released: re-quotes extend the certificate while the key stays in RAM for
+the session. A place frees on the worker's `KeyDrop` or on the verifier's `RevokeSession`, which the verifier also
+sends when a certificate expires without a re-quote. *Why:* K = 8 admitted more than 8 holders (keys over budget in
+every 1 h run); equal budgets require at most K at every instant. *Consequence:* a worker that leaves without notice
+keeps its place until its certificate is revoked (up to the 900 s validity), and every system meets fewer deadlines
+than with the exceeded budget. *Rejected:* waiting for drop confirmation before a new release (the key service has no
+other signal of a drop than the acknowledgement it already uses).
+
 **D-110 to D-131: the freeze decisions (plan V11.4; the owner's answers to the open items of the freeze
 preparation).** Prepared from the repository (branch `v2/V11-freeze-prep`); the owner took every recommendation except
 D-130. Rule from the owner: if an option causes a major delay or a rerun of finished work, the other option is taken;
