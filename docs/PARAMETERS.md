@@ -33,8 +33,8 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `scenario.load` | `{}` | T | every R spec sets the Azure Functions 2019 trace, held-out split (V9.1); `rate_mult` is the load axis {10.5, 21, 30} (D-99) |
 | `scenario.geo` | `{}` | T | every R spec sets `pop_trace: wup2025` (World Urbanization Prospects 2025, V9.3) |
 | `scenario.network` | `{}` | T | links: `link.trace` = Ookla fixed-broadband per metro (V9.3); `route_factor` 1.654 fitted to WonderProxy pings; `c_eff` 100 km/ms (fibre) |
-| `scenario.envelope` | `{}` | pending V5 | donated shares 0.75/0.6/0.2; removed by the capacity model (V5.5) |
-| `scenario.execution` | `{}` | pending V5 | execution noise and interference; interference becomes measured (V5.5) |
+| `scenario.envelope` | `{}` | A | D-132: donated shares `cpu_frac` 0.75, `mem_frac` 0.6, disks 0.2, stated; R07 varies `cpu_frac` {0.5, 1.0} and `mem_frac` {0.4, 0.8}; slots capped by donated memory (D-108) |
+| `scenario.execution` | `{}` | pending V11 | D-133: interference from the bundle's co-run table (M), noise from measured repeat variation (D), unmeasured parts deleted; leaves pending with that change |
 | `scenario.functions` | `'functions.yaml'` | A | the function catalogue (D-119): guest memory stated, deadline multiple and idempotent fraction axes |
 | `scenario.tenants` | `'tenants.yaml'` | A | tenant template (D-125): key-service city and default budget |
 | `voss.infra.orchestrator` | `'Frankfurt'` | A | provider site (stated in the paper) |

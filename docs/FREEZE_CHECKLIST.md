@@ -39,7 +39,7 @@ before the tag. After the tag, `voss/` and `configs/` change only by bug fixes l
 |---|---|---|
 | 3.1 | No row is pending, in any table. | `grep -n 'pending' docs/PARAMETERS.md` (empty) |
 | 3.2 | Every key and data file has a row. | `uv run pytest -q tests/unit/test_parameters.py` |
-| 3.3 | Two rows are still undecided and need the owner: `scenario.envelope` (donated shares 0.75 / 0.6 / 0.2; plan V5.5 says capacity is physical cores and memory minus the image) and `scenario.execution` (execution noise and interference; V5.5 says interference is measured). | `grep -n 'scenario.envelope\|scenario.execution' docs/PARAMETERS.md` (classed, with a decision) |
+| 3.3 | `scenario.envelope` is class A (D-132); `scenario.execution` takes interference and noise from the bundles and drops the assumed tail mixture (D-133, a code PR). | `grep -rn 'tail_p\|tail_median\|noise_sigma: float = Field(default' voss/world/execution.py` (empty) |
 | 3.4 | Literature values are checked: `voss.worker.warm_ttl_s` ("citation to be checked"), the Envoy defaults (`consecutive_streak`, `consecutive_eject_s`), the histogram limits (D-123). | `grep -rn 'TODO verify\|to be checked' voss docs/PARAMETERS.md configs/baselines.yaml` (empty) |
 | 3.5 | Every S constant VOSS reads has an R07 variant or a stated exemption. | `uv run pytest -q tests/unit/test_r_specs.py -k r07` |
 | 3.6 | The manuscript's parameter TODOs are closed (T47, T48). | `grep -n 'T47\|T48' manuscript/sections/*.tex manuscript/TODO.md` (empty) |
