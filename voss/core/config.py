@@ -96,10 +96,8 @@ class InfraConfig(Frozen):
 
 
 class RouterConfig(Frozen):
-    """Doc 07 §2 (dispatch watchdog) and the start-up price priors the scheduler uses until it measures them."""
+    """Doc 07 §2 (dispatch watchdog)."""
 
-    cold_penalty_s: float = 3.0  # prior price of a trust-cold start until a cluster measured one  # TODO verify
-    cold_fn_s: float = 0.5  # prior price of a cold function start until measured  # TODO verify
     T_dispatch: float = 1.0
     max_resends: int = 3
     give_up_s: dict[str, float] = Field(default_factory=lambda: {"sync": 30.0, "async": 300.0})
@@ -173,7 +171,6 @@ class SchedulerConfig(Frozen):
 
     hetero_aware: bool = True  # False: ablation, predictions ignore worker speed
     heartbeat_s: float = 2.0
-    keepalive_s: float = 1.0
     stale_after_s: float = 7.0
     max_attempts: int = 3
     retry_backoff_s: float = 0.2

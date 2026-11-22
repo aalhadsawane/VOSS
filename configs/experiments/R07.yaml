@@ -32,7 +32,7 @@
 # Added when their keys land: drop-estimate prior and drift (D-111), deadline multiple and idempotent fraction
 #   (D-119), certificate validity and re-attestation (D-120), the time-to-start variance and OVERDUE_FRAC (D-122).
 #   Not varied: a trace source fallback (no second session or arrival source exists, D-129).
-# Runs: 71 variants x 10 seeds = 710 (10 shared with R01).
+# Runs: 69 variants x 10 seeds = 690 (10 shared with R01).
 experiment: R07
 base: ../machines.yaml
 overrides:
@@ -79,8 +79,6 @@ systems:
   scenarios_hi: [voss.planner.name=hetero, voss.planner.scenarios=64]
   heartbeat_lo: [voss.planner.name=hetero, voss.scheduler.heartbeat_s=1.0]
   heartbeat_hi: [voss.planner.name=hetero, voss.scheduler.heartbeat_s=4.0]
-  price_tick_lo: [voss.planner.name=hetero, voss.scheduler.keepalive_s=0.5]
-  price_tick_hi: [voss.planner.name=hetero, voss.scheduler.keepalive_s=2.0]
   stale_lo: [voss.planner.name=hetero, voss.scheduler.stale_after_s=3.5]
   stale_hi: [voss.planner.name=hetero, voss.scheduler.stale_after_s=14.0]
   attempts_lo: [voss.planner.name=hetero, voss.scheduler.max_attempts=2]

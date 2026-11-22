@@ -24,7 +24,6 @@ from voss.policy.plan.types import Plan, PlanInput, PlanParams
 from voss.policy.predict.arrivals import poisson_quantile
 from voss.runtime.schedlib.hetero_inputs import hetero_inputs
 from voss.runtime.schedlib.models import SchedModels
-from voss.runtime.schedlib.prices import Prices
 
 
 @dataclass
@@ -54,7 +53,6 @@ class Planning:
         self.planner: Any = create("planner", pc.name, **kw)
         self.params = PlanParams(**pc.params)
         self.prev: Plan | None = None
-        self.prices: Prices | None = None  # set by the scheduler: measured card prices (D-33)
         self._last_sig: tuple[object, ...] = ()
 
     def _workers(self, view: ClusterView, now: float, horizon: float) -> np.ndarray:
