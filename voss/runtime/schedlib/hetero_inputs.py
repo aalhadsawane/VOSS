@@ -14,7 +14,7 @@ import math
 
 import numpy as np
 
-from voss.core.rng import stream
+from voss.core.rng import RngFactory
 from voss.core.types import ClusterView
 from voss.policy.cost.arrays import ArrayCache
 from voss.policy.cost.inputs import CostContext
@@ -37,6 +37,7 @@ def hetero_inputs(
     models: SchedModels,
     m: int,
     shock_p: float,
+    rng: RngFactory,
     ablate: tuple[str, ...] = (),
 ) -> HeteroInput:
     """Everything ``policy.plan.hetero.provision`` needs, for the functions and workers of ``inp``. ``ablate`` removes
@@ -63,7 +64,7 @@ def hetero_inputs(
     reliability = inp.survival * (1.0 - inp.p_omit)
     if "reliability_blind" in ablate:
         reliability, shock_p = np.ones(n_j), 0.0
-    gen = stream(0, "plan.scenarios", round(inp.now * 1000))
+    gen = rng.stream("plan.scenarios", round(inp.now * 1000))  # from the run seed (doc 01 §3)
     dom = np.asarray(inp.domain, dtype=np.int64)
     alive = scenarios(reliability, dom, np.full(int(dom.max()) + 1 if n_j else 0, shock_p), m, gen)
     t_ref = np.array([ctx.fns[f].work_ref_s for f in inp.fns])

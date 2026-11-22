@@ -171,5 +171,124 @@ hours, at 29-64 s of wall time per 10 simulated minutes. Deadlines met over thos
 1.39 attempts per invocation).
 
 **Known, not changed:** the holder budget invariant reports 9 holders for a budget of 8 in short runs (16 violations
-in a 2 h run of `revision-v2` before iteration 1, 41 for pre-released keys): a new holder is counted before the
-released one has dropped its key.
+in a 2 h run of `revision-v2` before iteration 1, 41 for pre-released keys). The cause, found in iteration 3, was not
+the release order: the key service freed places at the certificate's original expiry (see there).
+
+## Iteration 3: equal budgets, run seed, why hedged leads without adversaries, the audit's cost, network transfer
+
+Local runs: 500 workers, K = 8, rate_mult 21, bundle `i7_12700_64g_full-b4f89a4def` (D01's), 1 h after a 10-minute
+warm-up, seeds 1 and 2, `voss` and `hedged` failure handling with VOSS provisioning, no adversaries or 20% dropping
+owners. "Before" is `revision-v2` at 6a148c8 (iteration 2). 24 h evidence: D02_DROP run 44056777206 and D02_FORGE run
+44056798787 (seed 1), from their raw logs.
+
+### (1) The holder budget was exceeded (bug fix, D-109; guardrail 16)
+
+The tenant key service freed a holder's place once, at the expiry the session certificate had when the key was
+released (within 900 s of the release), and left it free while the worker kept the key: re-quotes (every 600 s)
+extend a certificate (900 s validity), and the key stays in RAM for the session (doc 04 §6). The budget then admitted
+more holders than K. The violations are not message races: at each violation the holder the key service had already let go
+dropped its key 25 s to 75 min later (34 violations in a 2 h VOSS run: 22 planned releases, 12 session ends). Now a
+place frees only on the worker's `KeyDrop` or the verifier's `RevokeSession` (also sent when a certificate expires
+without a re-quote). Every system uses this key service.
+
+Hard test: `test_holder_budget_holds_across_certificate_requotes` runs each of the ten provisioning presets for
+1,500 s with K = 2; on the old key service it fails for `prereleased_keys` and `exact_program`, now all pass. In 2 h
+local runs the violations fell to 0 (VOSS, pre-released keys, fixed keep-alive).
+
+Key service fix together with the run-seed scenarios of (2) (1 h, mean of 2 seeds; the two changes were not run
+apart):
+
+| System | Dropping owners | Deadlines met before → after | Mean holders | Keys with a violation per run | Key requests refused |
+|---|---|---|---|---|---|
+| voss | 0 | 0.944 → 0.917 | 5.09 → 4.08 | 22.5 → 0 | 367 → 1,215 |
+| voss | 20% | 0.942 → 0.930 | 4.79 → 4.01 | 22.0 → 0 | 363 → 1,129 |
+| hedged | 0 | 0.918 → 0.909 | 5.18 → 4.30 | 22.5 → 0 | 355 → 1,293 |
+| hedged | 20% | 0.926 → 0.881 | 5.14 → 4.22 | 22.0 → 0 | 375 → 1,543 |
+
+Measured on D01's bundle: mean holders fell by about one (5.1 → 4.1) and refused key requests tripled; every key
+that had exceeded its budget now stays within it. On D01's bundle the per-system changes (−0.009 to −0.045) are within
+the 1.5-2 point swing that one arbitrary holder choice produces (see (3)).
+
+**On the calibrated fleet the cost is not small, and it exposed a second defect.** Same settings on
+`configs/machines.yaml` (D-107, D-108; reference node02 NVMe, per-size mapping), `revision-v2` at 7fd34ab against this
+branch, mean of seeds 1 and 2:
+
+| System | Dropping owners | Deadlines met before → after | Mean holders | Keys over budget per run | Refused key requests |
+|---|---|---|---|---|---|
+| voss | 0 | 0.937 → 0.799 | 6.78 → 5.19 | 28.0 → 0 | 910 → 3,825 |
+| voss | 20% | 0.812 → 0.764 | 6.34 → 5.11 | 28.0 → 0 | 898 → 3,643 |
+| hedged | 0 | 0.967 → 0.908 | 6.32 → 5.08 | 28.0 → 0 | 820 → 3,235 |
+| hedged | 20% | 0.966 → 0.937 | 6.42 → 5.11 | 27.0 → 0 | 869 → 3,212 |
+
+How far the old budget was exceeded: with the old key service tr0143, the busiest synchronous function, averaged
+**13.6 holders at K = 8** (VOSS, seed 1). With the honest key service, the eight workers that took tr0143's key on
+first use, at t = 0.7-15 s before the first plan, kept their places for the whole run (VOSS, seed 2): the plan never
+released them, so 508 key requests from 27 other workers (almost all planned preparations; 2 of them ever got a tr0143
+dispatch) were refused, and tr0143's late invocations waited a median 5.3 s for a slot. The cause: `diff` emits
+`RELEASE` only for keys the plan pinned inside the 40-worker planning pool, and `hold_until_needed` only filters those
+releases, so a holder that got its key on first use, or one outside the pool, is never released. The old key service
+hid this by freeing every place within 900 s.
+
+**Release rule tried, held back.** `hold_until_needed` issuing the releases the budget needs for any current holder the
+plan does not want (D-85's rule, no constant; branch `v2/V11-release-rule`) made it worse (fleet, alpha 0): VOSS met
+0.456 and 0.553 (seeds 1, 2) against 0.884 and 0.714, hedged 0.906 and 0.498. tr0143 then had 18 distinct holders
+instead of 8, and its attempts took a median 4.2 s instead of 0.96 s, on the first-use holders (input median 3.6 s
+against 0.73 s) as well as on the seven the plan brought in (6.5 s). In both runs 96-99% of all holder time sat on 40
+workers, the planning pool's cap (`max_plan_workers`), so every function's holders and inputs are packed onto the same
+40 home links, and adding the plan's holders added load to the same links. The cleanup series removes the pool cap;
+the release rule is to be measured again on that code. Until then the first-use squatting stays, as measured above.
+
+The results of D01a, D02 and the earlier iterations were all run with the exceeded budget, so none of them ranks the
+systems at an honest K.
+
+### (2) Failure scenarios from the run seed
+
+Provisioning drew its failure scenarios from master seed 0 for every run, so the run seed did not reach them. They now
+come from `rng.stream("plan.scenarios", t)` of the run (AGENTS.md rule 9). A convention test fails on any literal
+master seed under `voss/` outside `voss/core`.
+
+### (3) Why hedged leads without adversaries (D02_DROP, 24 h: hedged 0.984, VOSS 0.966)
+
+Not the backups. VOSS made 251,889 backup attempts (22,654 answered first) against hedged's 127,646 (7,753), and
+62,276 backups or retries were refused by the deadline-fit check. The gap of 16,274 misses (30,019 against 13,745)
+comes entirely from two network-bound functions: tr0006 (deadline 0.27 s, execution 4 ms, 12,190 more misses) and
+tr0018 (4,272 more); every other function together has slightly fewer misses under VOSS. For Singapore-routed
+invocations of tr0006 the Frankfurt scheduler's round trip leaves almost no slack, and the share met depends on the
+holder's access link: worker 193 misses 8%, worker 319 misses 79%. Under hedged, 193 got tr0006's key at t = 1,650 s and
+kept it for 22.4 of the 24 measured hours; 319 held it too but was rarely chosen (116 invocations). Under VOSS, 193 got
+the key only at t = 70,111 s (6.6 h), and 319 served 13,264 invocations. Both runs use the same provisioning; the
+choice among Asian workers is arbitrary because provisioning's deadline probability includes only run time and warm
+dispatch, so every worker looks the same for a function whose time is network, and the swap rule (D-100) then keeps
+the early choice. The detectors are not involved: no Asian holder was ever suspected in either run.
+
+**Change tried, rejected.** The deadline probability with the cost model's network term: router-worker round trip
+(distance estimate corrected by the scheduler's observed round trip to that worker) plus transfers, as a mix over the
+routers the function's invocations came through. Over the same 8 local runs (after the budget fix) it changed deadlines
+met by +0.004 (VOSS, no adversaries), −0.021 (VOSS, 20%), −0.020 (hedged, none) and +0.018 (hedged, 20%), and did not
+reduce tr0006's misses (895 with it against 821 before, VOSS seed 1). It is not committed. Placing holders per
+region is the open design question this leaves: a function's holders serve every router, and one deadline probability
+per worker cannot say which region a holder is good for.
+
+### (4) The 5% audit (D02_FORGE, 24 h: p 1% 0.981, p 5% 0.964, class-P share 5%, forge_p 0.5)
+
+The same mechanism, not audit load. Misses: 16,696 at 1%, 31,424 at 5%; tr0006 accounts for 13,723 of the 14,728
+difference (4,574 against 18,297). At 1% worker 193 held tr0006's key for 22.3 h, at 5% not at all. Forged answers were
+27 and 12, both negligible. Audit attempts do compete for holder slots: 27,414 audit dispatches at 1% against 136,448
+at 5%. Synchronous slot wait barely moved: mean 0.023 s against 0.029 s, p99 0.295 s against 0.294 s, share with any
+wait 1.9% against 1.7%, and tr0006, whose misses make the difference, waited 0 s in both. So the 1.5 points are which
+holders the run happened to keep, not the audit's load. One seed per cell cannot separate the audit rate from that
+choice.
+
+### (5) Network transfer under the per-size mapping (#117, now D-106)
+
+On the first per-size mapping (node02 NVMe bundle, D01 central cell, 1 h, seed 1) VOSS met 61.4% of synchronous
+deadlines and pre-released keys 60.0%. 84% of the late synchronous invocations were of one function, tr0143
+(thumbnailer at size 16,000): its late invocations spent a median 0.88 s (mean 1.70 s) in dispatch and input transfer
+against 0.13 s of execution and 0.07 s mean slot wait, on 99% warm sandboxes. The profile's size had been taken as a
+16 MB input; at 2.75 invocations/s that is about 350 Mbit/s into 8-15 home downlinks (worker 459 received 36% of it),
+with median input times of 0.43-0.51 s on the best links and 2.4-7.6 s on the worst. Neither cores (pool 2.9% busy),
+long co-located functions (85% of the busy time on tr0143's top holders, yet near-zero slot wait), sandbox eviction
+nor placement (pre-released keys did no better) were the cause. D-106 (owner's decision) now carries the bytes a
+client sends and includes the transfer in the deadline. What remains true: provisioning and the per-function
+utilisation count cores only, and the cost model's `bytes / down` ignores other transfers on the same link, which the
+simulator shares.

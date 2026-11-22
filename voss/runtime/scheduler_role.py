@@ -74,7 +74,7 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, AuditMixin, Plan
         self.busy_until = 0.0
         self.models = SchedModels(cfg, self.priors)
         self.decider = Decider(cfg, self.cost, self.models, self.ctx.cfg.scenario.start_utc_h)
-        self.planning = Planning(cfg, self.cost, self.models, self.ctx.cfg.scenario.start_utc_h)
+        self.planning = Planning(cfg, self.cost, self.models, self.ctx.cfg.scenario.start_utc_h, self.ctx.rng)
         self.det = detector(cfg.detection.detector, cfg.detection, cfg.scheduler.max_attempts)
         self.retry = BasicRetry(self.det.max_attempts, cfg.scheduler.retry_backoff_s)
         self.gen = self.ctx.rng.stream("sched.place", self.hl.worker, self.hl.session)
