@@ -255,8 +255,9 @@ against the iteration-3 key service (merged as #126, without the release rule):
 | eviction_aware | 0.726 → 0.743 | 5.88 → 5.88 | 2.5 → 0 | 43 → 3,780 |
 
 The systems that kept K holders on purpose lost the most: VOSS (−0.138), pre-released keys (−0.177) and the
-autoscaler (−0.051) had exceeded the budget on 15-29 keys per run. The keep-alive baselines rarely reach K holders
-and are unchanged (within ±0.01). Trusted hosts never re-quote and are unchanged. Pre-released keys led VOSS before
+autoscaler (−0.051) had exceeded the budget on 15-29 keys per run. Fixed keep-alive and greedy-dual, which rarely
+reach K holders, are unchanged; hybrid histogram lost 0.011, on demand 0.054 and eviction-aware gained 0.017 (each
+had exceeded the budget on 1-4.5 keys per run). Trusted hosts never re-quote and are unchanged. Pre-released keys led VOSS before
 the fix (0.950 against 0.937) and trails it after (0.773 against 0.799). Two seeds of 1 h on the fleet: indicative
 only.
 
