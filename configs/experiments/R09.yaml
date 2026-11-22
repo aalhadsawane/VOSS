@@ -18,7 +18,7 @@
 #   K            voss.keys.max_holders 8 (R01's central K)
 # R01's central cell with the upper bound: VOSS's provisioning and placement on provider hosts that never leave
 #   and need no attestation (configs/references/trusted_hosts.yaml; its hardware and host count are
-#   FREEZE_DECISIONS_NEEDED item 15). The voss row is R01's central-cell run (same config hash).
+#   D-124). The voss row is R01's central-cell run (same config hash).
 # Runs: 2 systems x 10 seeds = 20 (10 shared with R01). Output: a line in Fig. 1.
 experiment: R09
 base: ../machines.yaml

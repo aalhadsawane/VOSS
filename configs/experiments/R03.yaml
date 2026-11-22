@@ -4,7 +4,7 @@
 #
 # Header (AGENTS.md rule 21):
 #   workers      grid scenario.workers in {100, 300, 500} (plan: 100, 300, 1,000, 3,000 if V9.5 allows; D-97: 1,000
-#                does not fit one job; FREEZE_DECISIONS_NEEDED item 17)
+#                does not fit one job; D-126)
 #   load         Azure Functions 2019, held-out split, grid scenario.load.rate_mult in {10.5, 21, 30} (arrivals do not
 #                scale with the pool, so a smaller pool carries the same load on fewer slots)
 #   utilisation  per function against its key holders (D-99): fn_util_p50 / fn_util_p95 and the pool utilisation are

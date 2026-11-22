@@ -23,12 +23,13 @@ BASELINES = yaml.safe_load((REPO / "configs/baselines.yaml").read_text())
 R = [f"R0{i}" for i in range(1, 10)]
 HEADER = ("workers", "load", "utilisation", "duration", "warm-up", "calibration", "trace split", "seeds")
 K_AXIS, UTIL_AXIS = "voss.keys.max_holders", "scenario.load.rate_mult"
-# Swept (S) constants without an R07 variant, and why (FREEZE_DECISIONS_NEEDED item 20).
+# Swept (S) constants without an R07 variant, and why (D-129).
 R07_EXEMPT = {
     "voss.router.give_up_s": "above every deadline: changes only when a lost invocation is recorded, not whether",
     "voss.router.receipt_batch_s": "receipt batching to the database, off the invocation path",
     "voss.predictor.name": "the estimator is a design choice (plan V5.4); the alternatives are v1 estimators",
-    "voss.models.omission": "one registered model; its constants are FREEZE_DECISIONS_NEEDED item 2",
+    "voss.models.omission": "one registered model; its constants become keys (D-111)",
+    "voss.planner.params": "a container; its rows are varied one by one",
     "drain_s": "simulated time after the horizon, outside the measured window",
     "decision_clock.cpu_scale": "emulation only",
 }
@@ -101,9 +102,7 @@ def test_central_cell_runs_are_r01_runs(name: str, label: str | None, tmp_path: 
 
 def test_r08_smallest_pool_is_r01_central_cell(tmp_path: Path) -> None:
     assert hashes("R08", tmp_path, "w500") <= hashes("R01", tmp_path)
-    for label, ov in spec("R08")["systems"].items():
-        workers, rate = (float(o.split("=")[1]) for o in ov)
-        assert workers == float(label[1:]) and rate == pytest.approx(21 * workers / 500)  # load per worker constant
+    assert list(spec("R08")["systems"]) == ["w500"]  # larger pools: the decision-timing bench (D-127)
 
 
 def test_r02_and_r09_are_the_central_cell() -> None:
@@ -155,9 +154,9 @@ def test_r07_varies_every_swept_constant() -> None:
     systems = spec("R07")["systems"]
     varied: dict[str, set[str]] = {}
     for label, ov in systems.items():
-        assert ov[0] == "voss.planner.name=hetero" and len(ov) == (1 if label == "voss" else 2), label
-        if label != "voss":
-            key, _, value = ov[1].partition("=")
+        assert ov[0] == "voss.planner.name=hetero" and (len(ov) == 1) == (label == "voss"), label
+        for o in ov[1:]:
+            key, _, value = o.partition("=")
             varied.setdefault(key, set()).add(value)
     assert sorted(s_keys() - set(varied) - set(R07_EXEMPT)) == []
     assert not set(R07_EXEMPT) & set(varied)

@@ -17,7 +17,7 @@
 #   seeds        1-10 (plan V12.2: at least 10)
 #   K            voss.keys.max_holders 8 (R01's central K)
 # One-at-a-time variants of VOSS at R01's central cell, one systems label each (the label names the variant; the voss
-#   row is R01's central-cell run). FREEZE_DECISIONS_NEEDED item 20 holds the step:
+#   row is R01's central-cell run). D-129 sets the step:
 #   - every swept (S) constant VOSS reads, x0.5 (_lo) and x2 (_hi); integers rounded (max_resends 3 -> 2/6,
 #     max_attempts 3 -> 2/6, suspect_streak 2 -> 1/4, max_parallel_prepares 2 -> 1/4, scenarios 32 -> 16/64,
 #     w_max 4 -> 2/8); the timer quantile 0.95 -> 0.90/0.99 and the forgetting factor 0.995 -> 0.99/0.999;
@@ -26,9 +26,12 @@
 #   - key rotation period R in {1 h, 24 h} (plan §3; none is the voss row);
 #   - calibration machine mix: MilkyWay@home survey in place of Rosetta@home; node02 only (its two bundles).
 # Swept constants without a variant, with the reason, are listed in tests/unit/test_r_specs.py (R07_EXEMPT).
-# Not expressible yet (FREEZE_DECISIONS_NEEDED items 10, 20): deadline multiple, idempotent fraction, trace source
-#   fallback; the constants of items 1-13 join once they are keys.
-# Runs: 61 variants x 10 seeds = 610 (10 shared with R01).
+#   - the provisioning period T_plan (S, plan V5.3) {15, 60} s, the retry backoff (D-116) {0.1, 0.4} s and the image
+#     memory reserve (D-117) {256, 1,024} MB.
+# Added when their keys land: drop-estimate prior and drift (D-111), deadline multiple and idempotent fraction
+#   (D-119), certificate validity and re-attestation (D-120), the time-to-start variance and OVERDUE_FRAC (D-122).
+#   Not varied: a trace source fallback (no second session or arrival source exists, D-129).
+# Runs: 67 variants x 10 seeds = 670 (10 shared with R01).
 experiment: R07
 base: ../machines.yaml
 overrides:
@@ -105,4 +108,10 @@ systems:
   rotate_24h: [voss.planner.name=hetero, voss.keys.rotate_s=86400]
   fleet_milkyway: [voss.planner.name=hetero, scenario.machines.survey=boinc-milkyway]
   fleet_node02: [voss.planner.name=hetero, "scenario.machines.bundles=[node02-i7-12700-64g-nvme_nvme, node02-i7-12700-64g-nvme_hdd]"]
+  t_plan_lo: [voss.planner.name=hetero, voss.planner.T_plan=15.0]
+  t_plan_hi: [voss.planner.name=hetero, voss.planner.T_plan=60.0]
+  backoff_lo: [voss.planner.name=hetero, voss.scheduler.retry_backoff_s=0.1]
+  backoff_hi: [voss.planner.name=hetero, voss.scheduler.retry_backoff_s=0.4]
+  m_base_lo: [voss.planner.name=hetero, voss.worker.m_base_mb=256.0, voss.planner.params.m_base_mb=256.0]
+  m_base_hi: [voss.planner.name=hetero, voss.worker.m_base_mb=1024.0, voss.planner.params.m_base_mb=1024.0]
 seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]

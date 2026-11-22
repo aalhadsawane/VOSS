@@ -3,10 +3,11 @@
 # Do not create its request file before the freeze (docs/FREEZE_CHECKLIST.md).
 #
 # Header (AGENTS.md rule 21):
-#   workers      500, 1,000, 3,000, 9,000 (V10: one scheduler saturates at about 9,000 workers at 0.1 invocations/s
-#                per worker), one systems label per pool
-#   load         Azure Functions 2019, held-out split; scenario.load.rate_mult grows with the pool (21 per 500 workers,
-#                R01's central level), so the load per worker is constant
+#   workers      500 (D-97). D-127: the single-scheduler limit (about 9,000 workers at 0.1 invocations/s per worker,
+#                V10) is a throughput limit and is measured by the decision-timing bench (bench-decision.yml) rerun on
+#                the frozen code; this spec holds only the simulated 500-worker cell
+#   load         Azure Functions 2019, held-out split, scenario.load.rate_mult 21 (R01's central level); the bench
+#                caps its load at 300 invocations/s (V10)
 #   utilisation  as R01 (measured per run, D-99)
 #   duration     horizon_s 100,800 (28 h): 4 h warm-up + 24 h measured (D-97)
 #   warm-up      scenario.warmup_s 14,400 = voss.keepalive_hist.range_s, the longest learning window of a compared
@@ -18,10 +19,10 @@
 #                links ookla-fixed-2024q1, populations wup2025 and the host survey have no split
 #   seeds        1-10 (plan V12.2: at least 10)
 #   K            voss.keys.max_holders 8 (R01's central K)
-# NOT RUNNABLE AS IS above 500 workers: events grow with arrivals, so 1,000 workers at this duration already exceed
-#   one job (D-97); FREEZE_DECISIONS_NEEDED item 18 (recommended: the V10 bench on the frozen code). The w500 row is
-#   R01's central-cell VOSS run.
-# Runs: 4 pools x 10 seeds = 40. Output: table of decision time, scheduler load and deadlines met per pool.
+# The w500 row is R01's central-cell VOSS run (no new runs). Larger simulated pools do not fit one job (D-97) and
+#   were deleted (D-127).
+# Runs: 1 x 10 seeds = 10, shared with R01. Output: with the bench, a table of decision time and scheduler capacity
+#   per pool, and deadlines met at 500 workers.
 experiment: R08
 base: ../machines.yaml
 overrides:
@@ -37,7 +38,4 @@ overrides:
   - voss.planner.name=hetero
 systems:
   w500: [scenario.workers=500, scenario.load.rate_mult=21]
-  w1000: [scenario.workers=1000, scenario.load.rate_mult=42]
-  w3000: [scenario.workers=3000, scenario.load.rate_mult=126]
-  w9000: [scenario.workers=9000, scenario.load.rate_mult=378]
 seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]

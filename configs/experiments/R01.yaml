@@ -20,7 +20,7 @@
 #   K            grid axis voss.keys.max_holders in {2, 4, 8, 16, unbounded (null)}
 # Systems: every provisioning system of configs/baselines.yaml with its overrides, except
 #   trusted_hosts: the upper bound, run at the central cell in R09 (a line in Fig. 1);
-#   exact_program: an offline optimality check, not a system (cost in the D01 header; FREEZE_DECISIONS_NEEDED item 22).
+#   exact_program: an offline optimality check, not a system (cost in the D01 header; D-131 deletes it).
 # Runs: 8 systems x 5 K x 3 loads x 10 seeds = 1,200. Outputs: Fig. 1 (deadlines met vs K), Fig. 2 (latency and
 #   slowdown CDFs), table of holders, key releases per hour and warm memory.
 experiment: R01

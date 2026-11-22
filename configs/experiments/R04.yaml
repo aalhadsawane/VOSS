@@ -19,7 +19,7 @@
 # Grid: dropping owners scenario.adversary.alpha in {0, 0.1, 0.2} of the pool (plan: 0, 10, 20%) x strategy
 #   scenario.adversary.mix, one behaviour each (plan V7.3): black_hole (drop-all), omit_random (drop-fraction, omit_p
 #   0.5), on_off (1,800 s serving / 600 s dropping), throttle (delay, throttle_f 0.3); parameters of
-#   configs/regimes/adversary_mixed.yaml and AdversaryParams, stated in the paper (FREEZE_DECISIONS_NEEDED item 12).
+#   configs/regimes/adversary_mixed.yaml and AdversaryParams, class A, stated in the paper (D-121).
 #   alpha 0 is the no-fault control (one per strategy; the scenarios are equal, the config hashes are not).
 #   Dropping owners are of class S or P (both can omit); the claim names both (guardrail 24).
 # Systems: every failure-handling system of configs/baselines.yaml, each with VOSS provisioning (hetero).
