@@ -273,6 +273,117 @@ slots; node02 keeps 15 (its memory allows 37). The envelope stays as it is and r
 40 lost; not tuned). *Rejected:* lowering `cpu_frac` for every class (it would also cut node02's slots, and the
 envelope is not calibrated); raising `mem_frac` (it takes memory from the owner).
 
+**D-110 to D-131: the freeze decisions (plan V11.4; the owner's answers to the open items of the freeze
+preparation).** Prepared from the repository (branch `v2/V11-freeze-prep`); the owner took every recommendation except
+D-130. Rule from the owner: if an option causes a major delay or a rerun of finished work, the other option is taken;
+no held-out grid has run, so code changes before the grids cost no rerun. Each decision below says what changes; the
+code changes land before the `v2-freeze` tag, with tests, and `docs/FREEZE_CHECKLIST.md` tracks them.
+
+**D-110 Placement is lexicographic.** Lowest miss probability, ties to the lowest expected completion; `voss.cost.eps`,
+`sync_weight`, `scalarizer`, `lambda_exposure`, `sigma`, the exposure component and the hard-coded 0.3 weight of
+invocations without a waiting client are deleted; batched asynchronous placement steps a worker's load by its mean
+service time per slot. *Why:* plan §2 and §3 ("no weights; lexicographic tie-break"); miss-probability ties are common
+(warm holders near 0), so the tie-break does what `ε` did. Closes manuscript T47. *Rejected:* keeping the weights as
+swept constants (two weights to justify, and v1's exposure term would stay in placement).
+
+**D-111 The drop-estimate constants are configuration keys, class S, swept in R07.** The prior `(a0, b0)` (0.5, 20),
+the pessimistic prior (2, 4) and the CUSUM drift `k` 0.1 of `BetaCusum` become `voss.models` keys; R07 varies the
+prior strength ×0.5/×2 at equal mean and `k` {0.05, 0.2}. Closes T48 with `cusum_h` and `max_attempts`. *Rejected:*
+Page's rule for `k` (changes `k` before the freeze without a development run).
+
+**D-112 Placement sees every eligible worker.** `voss.placer.K` (12 candidates) is deleted. *Why:* plan §3; the
+measured placement cost (0.25 µs per candidate pair, V10) adds about 0.13 ms at 500 candidates. *Rejected:* keeping
+12 as a swept constant.
+
+**D-113 Provisioning plans every live attested worker and every function above `min_rate`.** `max_plan_workers` (40),
+`hot_top_k` (20) and `hot_fn_k` (50) are deleted, and with them the v1 assurance score that ranked the 40.
+*Gate (owner):* measure the wall time of one 500-worker 28 h run with the caps removed; if it no longer fits one
+Actions job, the caps come back as swept constants (option B) and the paper states the pre-filter. *Why:* the
+contribution is the choice among heterogeneous workers (plan §11); a pre-filter by another rule undercuts it.
+
+**D-114 Synchronous-first queueing and the per-worker wait model for every system.** `voss.worker.sync_priority` is on
+in the base configuration and the `ewma` wait model is deleted (`per_worker` is the only model); R06 then ablates
+synchronous-first. *Why:* plan V5.2 and §3 state both for every compared system; D01-D03 ran with the old defaults,
+and no held-out cell has run. *Rejected:* deleting both options (the design would lose a stated mechanism).
+
+**D-115 Start-up price priors come from the reference bundle.** `voss.router.cold_penalty_s` and `cold_fn_s` are
+derived (D) from the reference machine's measured startup model: attestation, key release and boot, and the measured
+cold function start. The smoothing constant 0.05 stays, class S (D-122). *Rejected:* swept priors (the bundle has the
+values).
+
+**D-116 Retry backoff is a swept constant.** `voss.scheduler.retry_backoff_s` 0.2 is class S, varied {0.1, 0.4} in
+R07: a client backoff is the retry baselines' standard mechanism (guardrail 18). *Rejected:* retrying at once.
+
+**D-117 The image memory reserve is a stated build parameter.** `voss.worker.m_base_mb` and
+`voss.planner.params.m_base_mb` (512 MB) become one key, class A, varied {256, 1,024} in R07; if V13 measures the
+image's resident memory before the freeze, the value becomes M. *Why:* D-103 (no node booted the real image).
+
+**D-118 Domain shocks are deleted from provisioning.** `voss.planner.domain_shock_p` and the shock scenarios of the
+planner go; the reliability model has independent failures, and backups go to another owner, city and ISP. The
+paper's reliability model and R06 lose "independent failures". *Why:* no estimator exists, and the trace has no
+failure domain beyond city. *Rejected:* estimating it from the seti09 development split (a new definition before the
+freeze).
+
+**D-119 The function catalogue keeps only stated or measured fields.** `mem_mb` is the guest memory the image gives
+each Firecracker sandbox (A, a build parameter, stated); `slo_k` (deadline multiple) and the idempotent fraction get
+configuration keys and become axes ({2, 5, 10} and {0, 0.5, 1}, plan §3) with R07 variants; `in_sigma` is deleted.
+*Rejected:* keeping the literature placeholders for reported results (guardrails 28, 29).
+
+**D-120 Session certificate and attestation messages.** `valid_s` and `reattest_every_s` of the appliance substrate
+are the verifier's policy (A), varied {450/300, 2,700/1,800} in R07; message sizes are derived from the quote and
+certificate formats; `assurance_base` (v1 exposure) is deleted.
+
+**D-121 Owner behaviour parameters are axes of the threat.** `omit_p` 0.5, on/off 1,800 s / 600 s, `throttle_f` 0.3,
+`forge_p` (R05 axis {0.5, 1}) and `start_t` 0 are class A, stated with R04 and R05; claims are worded for them. Regimes
+that no spec uses are deleted. *Rejected:* sweeping each in R04 (grows R04 2-3 times).
+
+**D-122 Constants in code become keys, class S.** The time-to-start variance `(0.3 tts)²`, `HEDGE_MIN_SAMPLES` 20, the
+run-time prior standard deviations (0.7, 0.3, 0.5), the start-up price smoothing 0.05 and `OVERDUE_FRAC` 0.25 become
+configuration keys; R07 varies the two that enter VOSS's timer and placement (`0.3 tts`, `OVERDUE_FRAC`) ×0.5/×2.
+The others are listed in the ledger with their reason (the run-time priors wash out after a few observations; the
+hedge threshold is the baseline's warm-up).
+
+**D-123 Hybrid-histogram limits are checked against the paper.** `voss.keepalive_hist.min_samples` 10 and `oob_max`
+0.2: if Shahrad et al. (ATC 2020, §4.2) give them, class L with the page; otherwise each is a deviation in
+`configs/baselines.yaml` and class S.
+
+**D-124 Trusted always-on hosts are the reference machine.** The upper bound (R09) runs on the reference class
+(node02, NVMe bundle), and its host count is the R01 pool's slots divided among the three router metros (D, equal
+capacity, guardrail 16); `configs/hardware/DC.yaml` is deleted.
+
+**D-125 The tenant template keeps what v2 reads.** `configs/tenants.yaml` keeps `kbs_city` and the default
+`max_holders`; `sensitivity`, `assurance_floor` and `f` are deleted (with D-110 and D-131).
+
+**D-126 R03 pools are {100, 300, 500}.** D-97: 1,000 workers do not fit one job at 28 h; the paper states that the
+region map stops at 500. *Rejected:* larger pools with a shorter measured window.
+
+**D-127 R08 is the decision-timing bench on the frozen code plus the 500-worker cell.** The single-scheduler limit is a
+throughput limit (V10 outcome), which `bench-decision.yml` measures; the simulated cells above 500 workers, which do
+not fit a job, are deleted from `R08.yaml`. *Rejected:* simulating 1,000-2,000 workers with a shorter window.
+
+**D-128 R06 adds "backup attempts off" and "drop estimate off".** Each gets a key (a `voss` detector profile without
+backups; an omission model that returns the prior). The other variants without a mechanism (cover rule `f` = 0, one
+speed factor, robust worst case, independent failures) are dropped from the plan and the paper (guardrail 25);
+synchronous-first is ablated after D-114.
+
+**D-129 R07 varies every swept constant ×0.5 and ×2** (integers rounded, quantiles to 0.90 and 0.99, forgetting to
+0.99 and 0.999), the rotation period, the machine mix, and the keys that D-111, D-116, D-117, D-119, D-120 and D-122
+add; the exemptions with their reasons are in `tests/unit/test_r_specs.py`. A trace source fallback is not varied (no
+second session or arrival source exists).
+
+**D-130 Freeze with the two-machine fleet (amends D-91; the owner's choice, against the recommendation to wait).**
+The reported results use the calibrated fleet of node02 (NVMe and HDD bundles) and node04; node01 is a cross-check.
+No node booted the real image (D-103). The methodology states both: two machine models, and run times, start-up and
+attestation measured with the stack the image runs, not by booting the image. *Why:* waiting for a third machine and
+the image boot would delay the freeze by the bare-metal visit. *Rejected:* waiting for the visit.
+
+**D-131 The exact program, the v1 greedy planner and the v1 objective weights are deleted.** `milp`, `greedy`,
+`voss.planner.T_solve`, `node_limit`, `cold_penalty`, `f_from_alpha` and the `voss.planner.params` weights
+(`rho_mem`, `rho_ssd`, `kappa_switch`, `beta_warm`, `gamma`, `kappa_dom`, `use_exposure`, `exposure_weight`,
+`use_robust`, `use_domain_cap`) go. The optimality statement rests on Proposition 1's `(1 − 1/e)` bound and the
+brute-force property test (`tests/property/test_hetero_provisioning.py`); the appendix gap table is dropped.
+*Rejected:* a new MILP of VOSS's objective (a second solver adds no claim).
+
 ## v1 decisions (D-01 to D-80)
 
 **D-01 Custom Python discrete-event simulator.** FaaS physics is small; solver wall time must enter simulated time;
