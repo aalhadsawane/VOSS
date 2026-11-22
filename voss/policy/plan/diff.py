@@ -90,7 +90,10 @@ def hold_until_needed(
 ) -> list[PlanAction]:
     """Keys are kept until the session ends (D-85, plan V4.3): drop every ``RELEASE`` except those the holder budget
     needs, i.e. when a key's current holders plus the plan's new holders exceed ``K``; then release only holders the
-    plan no longer wants, lowest worker id first, and no more than the excess."""
+    plan no longer wants, lowest worker id first, and no more than the excess. Those releases are issued whether or not
+    the diff produced them: a worker that got the key on first use, or that is outside the planning pool, has no
+    ``RELEASE`` in the diff, and once the key service keeps its place until the drop (D-109) it would otherwise hold
+    the place for its whole session (development log iteration 3)."""
     planned = {str(t): {int(plan.workers[j]) for j in np.flatnonzero(plan.y[i])} for i, t in enumerate(plan.tenants)}
     keep: set[tuple[str, int]] = set()
     for t, cur in sorted(holders.items()):
@@ -100,4 +103,7 @@ def hold_until_needed(
         excess = len(cur | planned.get(t, set())) - k
         for w in sorted(cur - planned.get(t, set()))[: max(0, excess)]:
             keep.add((t, w))
-    return [a for a in actions if a.kind != "RELEASE" or (str(a.tenant), int(a.worker)) in keep]
+    kept = [a for a in actions if a.kind != "RELEASE" or (str(a.tenant), int(a.worker)) in keep]
+    have = {(str(a.tenant), int(a.worker)) for a in kept if a.kind == "RELEASE"}
+    extra = [PlanAction("RELEASE", WorkerId(w), TenantId(t)) for t, w in sorted(keep - have)]
+    return extra + kept

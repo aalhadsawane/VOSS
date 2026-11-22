@@ -92,6 +92,14 @@ def test_keys_are_kept_unless_the_budget_needs_the_place() -> None:
     assert hold_until_needed(rel, holders, plan, {"a/f": 0}) == []  # no budget: never release
     assert hold_until_needed(rel, holders, plan, {"a/f": 4}) == []  # {1, 2, 3, 4} fits K = 4
     assert hold_until_needed(rel, holders, plan, {"a/f": 3}) == rel[:1]  # one too many: release worker 1 only
+    # development log iteration 3: holders the diff has no RELEASE for (first use, outside the planning pool) are
+    # released too when the budget needs their place
+    outside = {"a/f": {7, 8, 9}}  # none of them in the plan's pool; the plan wants workers 2 and 3
+    assert hold_until_needed([], outside, plan, {"a/f": 3}) == [
+        PlanAction("RELEASE", WorkerId(7), TenantId("a/f")),
+        PlanAction("RELEASE", WorkerId(8), TenantId("a/f")),
+    ]
+    assert hold_until_needed([], outside, plan, {"a/f": 5}) == []  # {2, 3, 7, 8, 9} fits K = 5
 
 
 def test_rotation_forces_a_new_release_and_deletes_old_snapshots() -> None:
