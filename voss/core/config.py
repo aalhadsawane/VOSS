@@ -114,7 +114,6 @@ class PlacerConfig(Frozen):
 
     sync: str = "greedy"
     async_: str = Field(default="greedy", alias="async")
-    K: int = 12
     window_s: float = 0.2
 
     model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
@@ -148,10 +147,7 @@ class PlannerConfig(Frozen):
     T_plan: float = 30.0
     T_solve: float = 2.0
     node_limit: int = 50
-    max_plan_workers: int = 40
     replan_tolerance: float = 0.2
-    hot_top_k: int = 20
-    hot_fn_k: int = 50
     min_rate: float = 0.01
     f_from_alpha: float = 0.1
     horizon_factor: float = 2.0
