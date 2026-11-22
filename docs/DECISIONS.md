@@ -283,6 +283,19 @@ keeps its place until its certificate is revoked (up to the 900 s validity), and
 than with the exceeded budget. *Rejected:* waiting for drop confirmation before a new release (the key service has no
 other signal of a drop than the acknowledgement it already uses).
 
+**D-110 Development load levels by a rule on per-function utilisation (plan V11.1, D-99; draft, levels pending the
+measurement on the frozen code).** The three load levels of D01 and D03 are the `scenario.load.rate_mult` values at
+which `fn_util_p95` (the 95th percentile over functions, weighted by invocations, of offered load over the slots of the
+function's key holders, D-99) of VOSS at the central K = 8 on the calibrated fleet (`configs/machines.yaml`, D-107,
+D-108), development split, measured after the warm-up, reaches the plan's 30%, 60% and 85%. Each level is found by
+linear interpolation in `rate_mult` between two measured points that bracket the target (offered load is linear in
+the arrival rate; the points are measured, not extrapolated). A level whose `rate_mult` exceeds the D-97 event budget
+(the largest `rate_mult` whose 28 h run at 500 workers was measured to fit one job) is not run, and the grid states
+which targets it could not reach. *Why p95 and not the median:* the median function keeps under 2% of its holders busy
+at every level that fits a job (D-99), so the median cannot express 30-85%; the 95th percentile is where holders
+saturate first. *Rejected:* choosing levels by the pool's utilisation (under 3% at every feasible level); levels picked
+by eye from a table.
+
 ## v1 decisions (D-01 to D-80)
 
 **D-01 Custom Python discrete-event simulator.** FaaS physics is small; solver wall time must enter simulated time;

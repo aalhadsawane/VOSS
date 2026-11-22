@@ -5,7 +5,7 @@
 # trace, exact_program left out) is D01's; the overrides and systems are copied unchanged, so these runs have the same
 # config hashes as the matching D01 runs.
 experiment: D01a
-base: ../base.yaml
+base: ../machines.yaml  # calibrated fleet: node02 NVMe and HDD, node04 (D-107, D-108)
 overrides:
   - horizon_s=100800
   - scenario.warmup_s=14400
@@ -15,7 +15,6 @@ overrides:
   - scenario.load.split=dev
   - scenario.network.link.trace=ookla-fixed-2024q1
   - scenario.geo.pop_trace=wup2025
-  - calibration=configs/calibration/measured/i7_12700_64g_full-b4f89a4def
 grid:
   voss.keys.max_holders: [8]
   scenario.load.rate_mult: [21]
