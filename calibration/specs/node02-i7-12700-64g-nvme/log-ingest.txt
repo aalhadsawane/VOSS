@@ -4,3 +4,13 @@ configs/calibration/measured/node02-i7-12700-64g-nvme_nvme: 0 errors, 1 warnings
 configs/calibration/measured/node02-i7-12700-64g-nvme_hdd
 WARNING handler times span 2.5e-05-3.61 s, not <1 ms to >10 s (plan F2a)
 configs/calibration/measured/node02-i7-12700-64g-nvme_hdd: 0 errors, 1 warnings
+error: Failed to initialize cache at `/home/USER/.cache/uv`
+  cause: failed to open file `/home/USER/.cache/uv/sdists-v10/.git`: Permission denied (os error 13)
+error: Failed to initialize cache at `/home/USER/.cache/uv`
+  cause: failed to open file `/home/USER/.cache/uv/sdists-v10/.git`: Permission denied (os error 13)
+configs/calibration/measured/node02-i7-12700-64g-nvme_nvme
+WARNING handler times span 2.5e-05-3.61 s, not <1 ms to >10 s (plan F2a)
+configs/calibration/measured/node02-i7-12700-64g-nvme_nvme: 0 errors, 1 warnings
+configs/calibration/measured/node02-i7-12700-64g-nvme_hdd
+WARNING handler times span 2.5e-05-3.61 s, not <1 ms to >10 s (plan F2a)
+configs/calibration/measured/node02-i7-12700-64g-nvme_hdd: 0 errors, 1 warnings
