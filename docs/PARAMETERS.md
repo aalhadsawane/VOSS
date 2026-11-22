@@ -20,18 +20,18 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `reference` | `'trusted_hosts'` | D | trusted always-on hosts baseline (V8): appliance ladder without attestation |
 | `scenario.workers` | `1000` | A | pool size axis (R03) |
 | `scenario.start_utc_h` | `0.0` | T | aligned to the trace window (V9) |
-| `scenario.warmup_s` | `172800.0` | pending V9 | session warm-up of the parametric generator; replaced by trace alignment |
+| `scenario.warmup_s` | `172800.0` | D | = `voss.keepalive_hist.range_s` (14,400 s), the longest learning window of a compared policy (guardrail 23, D-97); every R spec sets it (`tests/unit/test_r_specs.py`); the base default is replaced at the freeze (`docs/FREEZE_CHECKLIST.md`) |
 | `scenario.substrate_mix` | `{'appliance_tpm': 1.0}` | A | owner classes S/P/M (V3.3) |
 | `scenario.tiers` | `{'nightly': 0.6, 'idle': 0.3, 'dedicated': 0.1}` | pending V9 | v1 assumed worker tiers; replaced by traced availability |
 | `scenario.hw_mix` | `{'C0': 0.1, 'C1': 0.35, 'C2': 0.35, 'C3': 0.2}` | pending V9 | v1 assumed classes; superseded by `scenario.machines` (V9.4, D-107); delete at the freeze |
 | `scenario.machines` | `{}` | D | calibrated fleet (V9.4, D-107): one class per measured bundle (M), weights from the BOINC host survey (T), radius 1 = one power-of-two step of the survey; empty = `hw_mix` |
 | `scenario.tofu_frac` | `0.3` | pending V4 | v1 firmware trust-on-first-use share; removed with trust scores |
 | `scenario.physical_frac` | `0.0` | A | share of owners without memory encryption willing to attack physically (class P, V3.3) |
-| `scenario.regime` | `'churn_med'` | pending V9 | parametric churn regime; replaced by traced sessions |
-| `scenario.churn` | `{}` | pending V9 | inline churn overrides |
+| `scenario.regime` | `'churn_med'` | T | every R spec sets `churn_seti` (seti09, Failure Trace Archive, held-out split; `tests/unit/test_r_specs.py`); the parametric default is deleted at the freeze |
+| `scenario.churn` | `{}` | A | inline overrides of the regime: every R spec sets `split: heldout`; the notice fraction `graceful_frac` is an axis {0, 0.5} (R03, `configs/regimes/churn_seti.yaml`) |
 | `scenario.adversary` | `{}` | A | owner faults: fraction and behaviour (R04, R05) |
-| `scenario.load` | `{}` | pending V9 | parametric arrivals; replaced by the Azure 2019 trace |
-| `scenario.geo` | `{}` | pending V9 | metro and region data |
+| `scenario.load` | `{}` | T | every R spec sets the Azure Functions 2019 trace, held-out split (V9.1); `rate_mult` is the load axis {10.5, 21, 30} (D-99) |
+| `scenario.geo` | `{}` | T | every R spec sets `pop_trace: wup2025` (World Urbanization Prospects 2025, V9.3) |
 | `scenario.network` | `{}` | T | links: `link.trace` = Ookla fixed-broadband per metro (V9.3); `route_factor` 1.654 fitted to WonderProxy pings; `c_eff` 100 km/ms (fibre) |
 | `scenario.envelope` | `{}` | pending V5 | donated shares 0.75/0.6/0.2; removed by the capacity model (V5.5) |
 | `scenario.execution` | `{}` | pending V5 | execution noise and interference; interference becomes measured (V5.5) |
@@ -41,7 +41,7 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.infra.verifier` | `'Frankfurt'` | A | provider site |
 | `voss.infra.registry` | `'Frankfurt'` | A | provider site |
 | `voss.infra.scheduler` | `'Frankfurt'` | A | provider site of the one scheduler (D-83) |
-| `voss.infra.scheduler_speed` | `1.0` | pending V10 | replaced by measured decision timing |
+| `voss.infra.scheduler_speed` | `1.0` | D | 1 = the provider CPU whose decision times are charged (`decision_clock.coeffs_file`, V10; `runtime/schedlib/provider_host.py`) |
 | `voss.infra.routers` | `('Washington', 'Frankfurt', 'Singapore')` | A | provider front-end sites |
 | `voss.router.cold_penalty_s` | `3.0` | pending V5 | prior price of a start without key; replaced by measured start-up costs |
 | `voss.router.cold_fn_s` | `0.5` | pending V5 | prior price of a cold function start; replaced by measured start-up costs |
@@ -110,7 +110,7 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.keepalive_hist.min_samples` | `10` | pending V8 | not in the paper; check |
 | `voss.keepalive_hist.cv_min` | `2.0` | L | Shahrad et al. ATC 2020 |
 | `voss.keepalive_hist.oob_max` | `0.2` | pending V8 | out-of-range rule; check against the paper |
-| `voss.keepalive_hist.fallback_ttl_s` | `600.0` | pending V8 | fallback when the histogram is not representative |
+| `voss.keepalive_hist.fallback_ttl_s` | `600.0` | D | = `voss.worker.warm_ttl_s`: out-of-range idle times fall back to the fixed timer in place of the paper's ARIMA forecast (deviation listed in `configs/baselines.yaml`) |
 | `voss.cache.value` | `'gdsf'` | S | disk cache value policy |
 | `voss.cache.hdd_tier` | `True` | S | hard-disk tier on/off |
 | `voss.audit.p` | `0.0` | A | audit probability per idempotent invocation (V7.3; swept in R05) |
@@ -151,6 +151,23 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | Quantity | Class | Basis |
 |---|---|---|
 | slots of a calibrated-fleet worker | D | min(floor(`cpu_frac` x threads), floor(donated memory / largest function `mem_mb`)), at least 1 (D-108); node04: 6 -> 4 |
+
+## Constants in code that are not configuration keys (guardrail 27)
+
+Found while preparing the freeze; each is an open item of `docs/FREEZE_DECISIONS_NEEDED.md` (number in brackets). They
+are listed here so that the ledger is complete; they are not parsed by `tests/unit/test_parameters.py`.
+
+| Constant | Value | Class | Where | Item |
+|---|---|---|---|---|
+| placement weight of an invocation without a waiting client | 0.3 | pending V11 | `voss/policy/cost/components.py` `slo_weight` | [1] (T47) |
+| omission prior `(a0, b0)` | (0.5, 20.0) | pending V11 | `voss/policy/omission.py` `BetaCusum` | [2] (T48) |
+| omission pessimistic prior after a change point | (2.0, 4.0) | pending V11 | `voss/policy/omission.py` `BetaCusum` | [2] (T48) |
+| CUSUM drift `k` | 0.1 | pending V11 | `voss/policy/omission.py` `BetaCusum` | [2] (T48) |
+| variance of the time to start, `(0.3 tts)^2` | 0.3 | pending V11 | `voss/policy/cost/components.py` | [13] |
+| hedged requests: latencies observed before the q95 timer applies | 20 | pending V11 | `voss/policy/detect.py` `HEDGE_MIN_SAMPLES` | [13] |
+| run-time model prior standard deviations | (0.7, 0.3, 0.5) | pending V11 | `voss/policy/predict/blr.py` | [13] |
+| start-up price smoothing | 0.05 | pending V11 | `voss/runtime/schedlib/prices.py` `ALPHA` | [13] |
+| overdue job: extra fraction of its prediction | 0.25 | pending V11 | `voss/policy/cost/wait.py` `OVERDUE_FRAC` | [13] |
 
 ## Data files (`configs/`, excluding calibration bundles and experiment specs)
 
