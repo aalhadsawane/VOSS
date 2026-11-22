@@ -26,7 +26,10 @@ class SchedModels:
         inner = make_predictor(pc.name, priors, pc.forgetting)
         self.predictor: Any = Conformal(inner) if pc.conformal else inner
         self.survival: Any = create("survival", cfg.models.survival)
-        self.omission: Any = create("omission", cfg.models.omission, h=cfg.models.cusum_h)
+        m = cfg.models  # D-111: the drop estimate's constants are keys (S)
+        self.omission: Any = create(
+            "omission", m.omission, prior=m.omission_prior, pessimistic=m.omission_pessimistic, k=m.cusum_k, h=m.cusum_h
+        )
         self.forecaster: Any = create("forecaster", "ewma2")
         self.hetero_aware = cfg.scheduler.hetero_aware
         self.svc = 1.0

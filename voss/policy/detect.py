@@ -7,6 +7,7 @@ then, and when a worker is ejected. Every detector gets the same timers and the 
 | ``consecutive`` | the invocation's deadline | retry once elsewhere | after 5 failures in a row, for 30 s |
 | ``voss`` | predicted q95 completion | backup attempt on a holder in another failure domain | drop estimate + streak |
 | ``hedged`` | observed q95 latency of the function | second request to the best other eligible worker | never |
+| ``voss_no_backup`` | predicted q95 completion | probe only, no backup (R06 ablation, D-128) | drop estimate + streak |
 
 ``hedged`` is the hedged request of Dean and Barroso ("The Tail at Scale", CACM 2013) as published: the timer is the
 function's observed 95th-percentile latency (dispatch to outcome), the second request may go to any other eligible
@@ -32,7 +33,8 @@ HEDGE_MIN_SAMPLES = 20
 class Detector:
     name: str
     timer: str  # "q95": predicted completion quantile | "deadline": the invocation's deadline
-    on_expiry: str  # "backup": start a backup, keep the first attempt | "retry": abandon it and retry
+    on_expiry: str  # "backup": start a backup, keep the first attempt | "retry": abandon it and retry | "probe": only
+    # probe the worker (no second attempt)
     streak: int  # failures in a row that eject a worker; 0 = never
     eject_s: float  # how long an ejection lasts
     change_point: bool  # an omission change point also ejects (drop estimate, doc 07)
@@ -70,6 +72,8 @@ def detector(name: str, dc: DetectionConfig, max_attempts: int) -> Detector:
         return Detector("hedged", "observed_q95", "backup", 0, 0.0, False, max_attempts, "any", False)
     if name == "voss":
         return Detector("voss", "q95", "backup", dc.suspect_streak, dc.suspect_s, True, max_attempts)
+    if name == "voss_no_backup":  # R06 ablation (D-128): the first attempt is probed, never backed up
+        return Detector("voss_no_backup", "q95", "probe", dc.suspect_streak, dc.suspect_s, True, max_attempts)
     raise KeyError(f"unknown detector {name!r}")
 
 

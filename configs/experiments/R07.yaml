@@ -28,11 +28,12 @@
 # Swept constants without a variant, with the reason, are listed in tests/unit/test_r_specs.py (R07_EXEMPT).
 #   - the provisioning period T_plan (S, plan V5.3) {15, 60} s, the retry backoff (D-116) {0.1, 0.4} s and the image
 #     memory reserve (D-117) {256, 1,024} MB;
-#   - the donated shares (D-132): cpu_frac {0.5, 1.0}, mem_frac {0.4, 0.8}.
-# Added when their keys land: drop-estimate prior and drift (D-111), deadline multiple and idempotent fraction
+#   - the donated shares (D-132): cpu_frac {0.5, 1.0}, mem_frac {0.4, 0.8};
+#   - the drop estimate (D-111): prior and pessimistic prior x0.5/x2 at equal mean, drift k {0.05, 0.2}.
+# Added when their keys land: deadline multiple and idempotent fraction
 #   (D-119), certificate validity and re-attestation (D-120), the time-to-start variance and OVERDUE_FRAC (D-122).
 #   Not varied: a trace source fallback (no second session or arrival source exists, D-129).
-# Runs: 69 variants x 10 seeds = 690 (10 shared with R01).
+# Runs: 75 variants x 10 seeds = 750 (10 shared with R01).
 experiment: R07
 base: ../machines.yaml
 overrides:
@@ -117,4 +118,10 @@ systems:
   cpu_frac_hi: [voss.planner.name=hetero, scenario.envelope.cpu_frac=1.0]
   mem_frac_lo: [voss.planner.name=hetero, scenario.envelope.mem_frac=0.4]
   mem_frac_hi: [voss.planner.name=hetero, scenario.envelope.mem_frac=0.8]
+  omission_prior_lo: [voss.planner.name=hetero, "voss.models.omission_prior=[0.25, 10.0]"]
+  omission_prior_hi: [voss.planner.name=hetero, "voss.models.omission_prior=[1.0, 40.0]"]
+  omission_pessimistic_lo: [voss.planner.name=hetero, "voss.models.omission_pessimistic=[1.0, 2.0]"]
+  omission_pessimistic_hi: [voss.planner.name=hetero, "voss.models.omission_pessimistic=[4.0, 8.0]"]
+  cusum_k_lo: [voss.planner.name=hetero, voss.models.cusum_k=0.05]
+  cusum_k_hi: [voss.planner.name=hetero, voss.models.cusum_k=0.2]
 seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
