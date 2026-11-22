@@ -41,7 +41,6 @@ class FnInfo:
 
 @dataclass(frozen=True)
 class TenantInfo:
-    sigma: float
     kbs_lat: float
     kbs_lon: float
     assurance_floor: float
@@ -77,8 +76,5 @@ class CostContext:
     routers: dict[str, tuple[float, float]] = field(default_factory=dict)
     scheduler: tuple[float, float] | None = None  # the scheduler's location: the watchdog timer runs from there
     geo: GeoRtt = field(default_factory=GeoRtt)
-    sync_weight: float = 1.0
-    eps: float = 0.05
-    lambda_exposure: float = 1.0
     K: int = 12
     lifecycle_aware: bool = True

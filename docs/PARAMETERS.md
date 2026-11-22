@@ -57,11 +57,6 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.predictor.name` | `'blr'` | S | run-time estimator (V5.4) |
 | `voss.predictor.forgetting` | `0.995` | S | run-time estimator forgetting factor |
 | `voss.predictor.conformal` | `True` | S | conformal quantiles on/off |
-| `voss.cost.scalarizer` | `'slo_miss'` | pending V11 | deleted by D-110 (lexicographic placement) |
-| `voss.cost.eps` | `0.05` | pending V11 | deleted by D-110 |
-| `voss.cost.lambda_exposure` | `1.0` | pending V11 | deleted by D-110 |
-| `voss.cost.sync_weight` | `1.0` | pending V11 | deleted by D-110 |
-| `voss.cost.sigma` | `{'low': 0.1, 'medium': 1.0, 'high': 3.0}` | pending V11 | deleted by D-110 |
 | `voss.cost.lifecycle_aware` | `True` | pending V11 | v1 ablation switch; delete at the freeze (always on) |
 | `voss.cost.wait_model` | `'ewma'` | pending V11 | deleted by D-114 (per-worker queue replay is the only model) |
 | `voss.admission.enabled` | `True` | S | admission on/off |
@@ -159,7 +154,6 @@ the constant is deleted or becomes a key. They are listed here so that the ledge
 
 | Constant | Value | Class | Where | Item |
 |---|---|---|---|---|
-| placement weight of an invocation without a waiting client | 0.3 | pending V11 | `voss/policy/cost/components.py` `slo_weight` | D-110: deleted (T47) |
 | omission prior `(a0, b0)` | (0.5, 20.0) | pending V11 | `voss/policy/omission.py` `BetaCusum` | D-111: key, S (T48) |
 | omission pessimistic prior after a change point | (2.0, 4.0) | pending V11 | `voss/policy/omission.py` `BetaCusum` | D-111: key, S (T48) |
 | CUSUM drift `k` | 0.1 | pending V11 | `voss/policy/omission.py` `BetaCusum` | D-111: key, S (T48) |

@@ -129,13 +129,8 @@ class PredictorConfig(Frozen):
 
 
 class CostConfig(Frozen):
-    """Doc 03 §5.2, D-12. ``sigma``: weight per tenant sensitivity class (doc 04 §8). tag: assumed."""
+    """Doc 03 §5.2. Placement is lexicographic (D-110): no weights."""
 
-    scalarizer: str = "slo_miss"
-    eps: float = 0.05
-    lambda_exposure: float = 1.0
-    sync_weight: float = 1.0
-    sigma: dict[str, float] = Field(default_factory=lambda: {"low": 0.1, "medium": 1.0, "high": 3.0})
     lifecycle_aware: bool = True  # False: ablation, placement sees one startup estimate for every candidate
     wait_model: Literal["ewma", "per_worker"] = "ewma"  # slot-wait estimate (D-77): scheduler-wide EWMA or per worker
 

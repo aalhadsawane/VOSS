@@ -245,19 +245,17 @@ serving until the attempt ends), the probability of a miss is
 P^{\mathrm{miss}}_{ij} = q_j + (1 - q_j)\,\Pr\!\left(C_{ij} > b_i\right),
 \label{eq:pmiss}
 \end{equation}
-where $b_i$ is the time left until the deadline. The scheduler assigns
+where $b_i$ is the time left until the deadline. The scheduler assigns the holder with the lowest
+$P^{\mathrm{miss}}_{ij}$, and among holders of equal miss probability the one with the lowest expected completion
+$\mathrm{E}[C_{ij}]$:
 \begin{equation}
-j^\star(i) = \arg\min_{j \in S_f}\; \kappa_i\, P^{\mathrm{miss}}_{ij} + \epsilon\, \mathrm{E}[C_{ij}],
+j^\star(i) = \operatorname{lexmin}_{j \in S_f}\; \left(P^{\mathrm{miss}}_{ij},\ \mathrm{E}[C_{ij}]\right).
 \label{eq:place}
 \end{equation}
-with $\kappa_i = 1$ for a synchronous invocation and $0.3$ for one without a waiting client, and $\epsilon$ per second
-small enough that it only orders holders of nearly equal miss probability. Synchronous invocations are placed as they
+The order has no weight between the two. Synchronous invocations are placed as they
 arrive; invocations without a waiting client are placed in batches, after the synchronous ones and with the tightest
-remaining time first, and each placement in a batch adds its load to the worker before the next is placed. The time
-the scheduler itself takes is part of $W_j$. \todoitem{T47}{parameter ledger}{$\epsilon = 0.05$ and the weight $0.3$
-of invocations without a waiting client are class \emph{pending} in the parameter ledger: either list them in
-Table~\ref{tab:constants} with their basis and report their sensitivity, or replace~\eqref{eq:place} by the order
-``lowest miss probability, then lowest expected completion'', which has no weight.}
+remaining time first, and each placement in a batch adds its share of the worker's service capacity to the worker's expected
+completion before the next is placed. The time the scheduler itself takes is part of $W_j$.
 
 \subsection{Failure handling}
 \label{sec:fail}

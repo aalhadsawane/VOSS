@@ -66,14 +66,11 @@ def cost_context(
         )
         for f in catalog.functions
     }
-    sig = cfg.voss.cost.sigma
     ten = {}
     for t in catalog.tenants:
         i = metros.index(t.kbs_city)
         k = t.max_holders if cfg.voss.keys.max_holders is None else cfg.voss.keys.max_holders
-        ten[t.id] = TenantInfo(
-            sig.get(t.sensitivity, 1.0), float(metros.lat[i]), float(metros.lon[i]), t.assurance_floor, t.f, k
-        )
+        ten[t.id] = TenantInfo(float(metros.lat[i]), float(metros.lon[i]), t.assurance_floor, t.f, k)
     reg = metros.index(cfg.voss.infra.registry)
     routers = {
         f"router:{c}": (float(metros.lat[metros.index(c)]), float(metros.lon[metros.index(c)]))
@@ -88,9 +85,6 @@ def cost_context(
         (float(metros.lat[reg]), float(metros.lon[reg])),
         routers,
         scheduler=(float(metros.lat[sch]), float(metros.lon[sch])),
-        sync_weight=c.sync_weight,
-        eps=c.eps,
-        lambda_exposure=c.lambda_exposure,
         K=cfg.voss.placer.K,
         lifecycle_aware=c.lifecycle_aware,
     )

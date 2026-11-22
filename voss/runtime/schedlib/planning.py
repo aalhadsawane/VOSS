@@ -114,7 +114,7 @@ class Planning:
             tenants=tuple(TenantId(t) for t in tenants),
             q=np.array([demand.q.get(t, 0.0) for t in tenants]),
             rate=np.array([demand.rate[t] for t in tenants]),
-            sigma=np.array([self.ctx.tenants[t].sigma for t in tenants]),
+            sigma=np.ones(len(tenants)),  # v1 planners only (milp, greedy); D-131 deletes them
             a_min=np.array([self.ctx.tenants[t].assurance_floor for t in tenants]),
             f=np.array([self.ctx.tenants[t].f if self.ctx.tenants[t].f is not None else f_default for t in tenants]),
             max_holders=np.array([self.ctx.tenants[t].max_holders or 0 for t in tenants], dtype=np.int64),
