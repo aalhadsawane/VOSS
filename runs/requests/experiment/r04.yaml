@@ -1,0 +1,3 @@
+spec: R04
+shards: 160
+note: "HELD-OUT, REPORTED RESULT: run once on the code tagged v2-freeze, after the hypotheses of docs/architecture/06-experiments.md §3 are committed (guardrails 22, 31); do not merge this file into revision-v2 before the tag (docs/FREEZE_CHECKLIST.md 5.4). 480 runs in 160 shards of 3 (one round on a 3-worker shard; D-135 no longer limits the shard size by release assets); the --jobs choice is in docs/validation/v12-runbook.md."
