@@ -11,6 +11,13 @@ from pathlib import Path
 import pytest
 from tools.emu.run import main
 
+from tests.fixtures.emu import FIXTURE
+
+
+def _fixture_sets() -> list[str]:
+    """``--set`` for the traced inputs the shipped scenario names (gitignored release assets)."""
+    return [item for ov in FIXTURE for item in ("--set", ov)]
+
 
 def test_the_run_cli_needs_a_system_and_a_repetition(tmp_path: Path) -> None:
     with pytest.raises(SystemExit):
@@ -28,7 +35,17 @@ def test_dry_run_prints_the_plan_without_touching_anything(tmp_path: Path, capsy
     out = tmp_path / "runs-emu"
     assert (
         main(
-            ["configs/emu/s1_central.yaml", "--system", "fixed_keepalive", "--rep", "2", "--out", str(out), "--dry-run"]
+            [
+                "configs/emu/s1_central.yaml",
+                "--system",
+                "fixed_keepalive",
+                "--rep",
+                "2",
+                "--out",
+                str(out),
+                "--dry-run",
+                *_fixture_sets(),
+            ]
         )
         == 0
     )

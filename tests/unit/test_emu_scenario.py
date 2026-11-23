@@ -9,6 +9,8 @@ from tools.emu import scenario as spec_mod
 from tools.emu.topology import KIND_PERFORMANCE, Cpu, Topology, plan
 from voss.world.scenario import generate
 
+from tests.fixtures.emu import FIXTURE
+
 SCENARIO = "configs/emu/s1_central.yaml"
 
 
@@ -37,7 +39,7 @@ def test_each_system_runs_its_own_overrides_on_the_same_scenario() -> None:
     voss = spec.run_config("voss", 2)
     assert voss.voss.planner.name == "hetero"
     # the compared systems must see the same exogenous traces: the scenario hash ignores the planner
-    short = ["horizon_s=60"]
+    short = [*FIXTURE, "horizon_s=60"]
     assert (
         generate(spec.run_config("voss", 1, short)).hash == generate(spec.run_config("fixed_keepalive", 1, short)).hash
     )

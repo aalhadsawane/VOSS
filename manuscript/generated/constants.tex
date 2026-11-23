@@ -6,6 +6,10 @@ time allowed for the answer to a progress question & 2~s & swept \\
 consecutive failures after which a worker gets no invocations & 2 & swept \\
 time a worker gets no invocations after that & 600~s & swept \\
 threshold of the change-point test & 5 & swept \\
+prior $(a_0, b_0)$ of the drop estimate & (0.5, 20.0) & swept \\
+pessimistic prior after a change point & (2.0, 4.0) & swept \\
+drift $k$ of the change-point test & 0.1 & swept \\
+attempts per invocation & 3 & swept \\
 time a finished invocation is remembered, to recognise a late second result & 3600~s & derived \\
 holder budget $K$ per function & varied & varied \\
 key rotation period & varied & varied \\

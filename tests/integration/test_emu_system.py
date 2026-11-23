@@ -22,6 +22,8 @@ from tools.emu.vms import ExecResult
 from voss.runtime.voss_system import VossSystem
 from voss.world.scenario import generate
 
+from tests.fixtures.emu import FIXTURE, sessions_trace
+
 LIVE: set[int] = set()
 
 
@@ -108,16 +110,16 @@ class FakeQuoter:
         return {"n": self.quotes}
 
 
-def short_cfg(extra: list[str] | None = None) -> Any:
-    """The scenario at a test horizon, with a short gap so every worker has a session at t=0."""
+def short_cfg(trace_root: Path | None = None, extra: list[str] | None = None) -> Any:
+    """The scenario at a test horizon, on the test fixtures (no gitignored trace data)."""
     spec = spec_mod.load("configs/emu/s1_central.yaml")
-    gap = "scenario.churn={tiers: {dedicated: {min_off_s: 0, gap: {dist: lognormal, median: 0.1, sigma: 0.1}}}}"
-    return spec.run_config("voss", 1, ["scenario.load.rate=3", gap, *(extra or [])])
+    churn = [f"scenario.churn={{trace: test, trace_root: {trace_root}, split: dev}}"] if trace_root is not None else []
+    return spec.run_config("voss", 1, [*FIXTURE, *churn, "scenario.load.rate=3", *(extra or [])])
 
 
 def test_emulated_run_places_vms_follows_sessions_and_quotes(tmp_path: Path) -> None:
     # warm-up 25 s: the sessions start before t=0 (prebooted, no boot delay) and are attested at t=0
-    cfg = short_cfg(["horizon_s=25", "drain_s=5", "scenario.warmup_s=25"])
+    cfg = short_cfg(extra=["horizon_s=25", "drain_s=5", "scenario.warmup_s=25"])
     iso, quoter = FakeIsolation(), FakeQuoter()
     emu = EmuConfig("fc", "k", "r", tmp_path, threads=8, min_free_gb=0.0, isolation=iso, tpm=quoter)
     sysm = EmuSystem(cfg, generate(cfg), emu, FakeVm)  # type: ignore[arg-type]
@@ -141,12 +143,9 @@ def test_emulated_run_places_vms_follows_sessions_and_quotes(tmp_path: Path) -> 
 
 
 def test_a_session_end_kills_the_worker_tree_through_the_isolation_layer(tmp_path: Path) -> None:
-    # sessions of a few seconds: they end inside the run, which must tear the worker down (handoff Part E)
-    churn = (
-        "scenario.churn={tiers: {dedicated: {kind: always, length: {dist: weibull, shape: 0.8, scale: 2}, "
-        "gap: {dist: lognormal, median: 0.1, sigma: 0.1}, min_off_s: 0}}}"
-    )
-    cfg = short_cfg(["horizon_s=25", "drain_s=5", "scenario.warmup_s=20", churn])
+    # a session trace of seconds, so sessions end inside the run and the harness must tear the worker down
+    root = sessions_trace(tmp_path / "traces", [(0.0, 8.0), (9.0, 60.0)])
+    cfg = short_cfg(root, extra=["horizon_s=25", "drain_s=5", "scenario.warmup_s=0"])
     iso = FakeIsolation()
     emu = EmuConfig("fc", "k", "r", tmp_path, threads=8, min_free_gb=0.0, isolation=iso)
     res = EmuSystem(cfg, generate(cfg), emu, FakeVm).run()  # type: ignore[arg-type]

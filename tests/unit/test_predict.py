@@ -76,9 +76,8 @@ def test_weibull_mle_with_censoring() -> None:
 
 
 def test_survival_monotone_and_drain() -> None:
-    s = WeibullSurvival({"idle": (0.7, 3600.0)})
+    s = WeibullSurvival((0.7, 3600.0))
     p = s.p_alive(
-        ["idle"] * 3,
         np.array([100.0, 100.0, 100.0]),
         np.array([10.0, 1000.0, 10.0]),
         np.zeros(3),
@@ -88,8 +87,8 @@ def test_survival_monotone_and_drain() -> None:
     assert 1 >= p[0] > p[1] > 0 and p[2] == 0.0
     km = KaplanMeierSurvival(min_obs=5)
     for d in (100, 200, 300, 400, 500, 600):
-        km.observe_end("idle", d, 3)
-    q = km.p_alive(["idle"], np.array([150.0]), 200.0, np.zeros(1))
+        km.observe_end(d, 3)
+    q = km.p_alive(np.array([150.0]), 200.0, np.zeros(1))
     assert q[0] == pytest.approx((3 + 1) / (5 + 1), rel=0.01)  # S(350)/S(150) = (4/7)/(6/7)
 
 

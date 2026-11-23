@@ -18,7 +18,6 @@ from voss.core.ids import WorkerId
 from voss.core.types import ClusterView
 
 _IDLE = -1e12  # a server that has been idle "forever"
-OVERDUE_FRAC = 0.25  # a job past its predicted end is assumed to need this fraction of its prediction more. TODO verify
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,12 +37,14 @@ def expected_wait(
     unseen: int = 0,
     arrival_sync: bool = False,
     sync_priority: bool = False,
+    overdue_frac: float = 0.25,
 ) -> float:
     """Seconds until a slot is free for a request arriving at ``now`` (exact replay, O(n log n)).
 
     ``jobs`` are replayed in dispatch order (ties keep list order) on ``slots`` servers; a job past its predicted end
-    keeps holding its slot for ``OVERDUE_FRAC`` of its prediction. ``unseen`` extra jobs (the worker reports more load
-    than the scheduler dispatched) are assumed to need ``default_s`` more: the first ``slots`` of them hold a slot now,
+    keeps holding its slot for ``overdue_frac`` of its prediction (D-122). ``unseen`` extra jobs (the worker reports
+    more load than the scheduler dispatched) are assumed to need ``default_s`` more: the first ``slots`` of them hold a
+    slot now,
     the rest queue at ``now``. With ``sync_priority`` a free slot serves waiting synchronous jobs first, so a
     synchronous arrival only waits behind running jobs and earlier synchronous ones.
     """
@@ -74,7 +75,7 @@ def expected_wait(
         dur = j.dur_s if j.dur_s > 0 else default_s
         end = s + dur
         if s <= now and end <= now:
-            end = now + OVERDUE_FRAC * dur
+            end = now + overdue_frac * dur
         heapq.heappush(free, end)
 
 
@@ -85,6 +86,7 @@ def worker_waits(
     default_s: float,
     arrival_sync: bool = False,
     sync_priority: bool = False,
+    overdue_frac: float = 0.25,
 ) -> np.ndarray:
     """``expected_wait`` for every view worker; load not attributable to own dispatches is ``unseen``."""
     occ = view.busy + view.queued + view.inflight
@@ -92,5 +94,7 @@ def worker_waits(
     for i, w in enumerate(view.workers):
         js = jobs.get(w, ())
         unseen = max(0, int(occ[i]) - len(js))
-        out[i] = expected_wait(int(view.slots[i]), js, now, default_s, unseen, arrival_sync, sync_priority)
+        out[i] = expected_wait(
+            int(view.slots[i]), js, now, default_s, unseen, arrival_sync, sync_priority, overdue_frac
+        )
     return out

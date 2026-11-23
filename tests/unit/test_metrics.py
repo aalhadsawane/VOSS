@@ -143,7 +143,7 @@ def test_a_smoke_run_produces_every_metric() -> None:
     from voss.runtime.system import run_system
 
     repo = Path(__file__).resolve().parents[2]
-    over = ["horizon_s=240", "scenario.workers=120", "scenario.load.rate=8", "voss.planner.name=greedy"]
+    over = ["horizon_s=240", "scenario.workers=120", "scenario.load.rate=8", "voss.planner.name=hetero"]
     r = run_system(load_config(repo / "configs/smoke.yaml", over))
     s = summarize(r.recorder.frame, warmup_s=60.0, t_end=240.0)
     assert s["sync_invocations"] > 0 and 0.0 <= s["deadline_met"] <= 1.0

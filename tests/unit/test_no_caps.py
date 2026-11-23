@@ -20,7 +20,6 @@ def _view() -> ClusterView:
         queued=np.zeros(N, int),
         mem_free_mb=np.full(N, 1e3),
         speed=np.ones(N),
-        assurance=np.linspace(0.0, 1.0, N),
         domain=np.arange(N),
         session_expiry=np.full(N, 1e4),
         age=np.zeros(N),
@@ -37,7 +36,7 @@ def test_every_live_worker_is_planned() -> None:
     planning = Planning.__new__(Planning)
     planning.cfg = VossConfig()
     idx = planning._workers(_view(), 0.0, 60.0)
-    assert list(idx) == [i for i in range(N) if i % 10]  # all but the draining ones, whatever their assurance
+    assert list(idx) == [i for i in range(N) if i % 10]  # all but the draining ones, whatever their reliability
 
 
 def test_every_function_above_the_minimum_rate_is_planned() -> None:

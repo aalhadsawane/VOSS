@@ -40,10 +40,13 @@ the simulator side from the same file with `--emit-sim-spec` (step 3 below).
 | TPM | `/dev/tpmrm0` (Intel PTT on node02) and `tpm2-tools` | `tpm2_getcap properties-fixed` |
 | Assets | `~/voss-calib/assets/{firecracker,vmlinux,voss-guest.ext4}` | `ls ~/voss-calib/assets` |
 | Storage | 50 GB free under `/var/tmp` (snapshots and VM memory files) | `df -h /var/tmp` |
+| Traced inputs | `data/traces/boinc-rosetta/hosts.parquet` (the fleet survey), `data/traces/ookla-fixed-2024q1/links.parquet` (the worker links the injected delay and bandwidth come from), `data/traces/seti09/sessions_dev.parquet` (the session trace: since the freeze it is the only session model) | `ls data/traces` |
 | Code | `revision-v2` at the commit that carries this harness; no local edits | `git status --short` (empty) |
 
 Build the assets exactly as in the calibration visit (handoff Part B): `tools/calibrate/guest/fetch_assets.sh` and
-`tools/calibrate/guest/build_rootfs.sh`. The emulation uses the same images as the bundle, which is the point.
+`tools/calibrate/guest/build_rootfs.sh`. The emulation uses the same images as the bundle, which is the point. The
+traced inputs are the release assets the calibration visit already fetched; `--dry-run` names the first file that is
+missing.
 
 ## 2. Commands
 
@@ -123,25 +126,18 @@ while its queues are saturated, the node cannot serve the offered load: stop, re
 
 Never fill a gap with an estimate. A failed repetition is reported as failed.
 
-## 5. After the freeze cleanup
+## 5. The session trace, and what to say in the report
 
-The cleanup PRs (FREEZE_CHECKLIST 1.1, 1.2) delete `configs/hardware/` and make the calibrated fleet the only path.
-One edit is then needed, and it is the only place the emulation config mentions a machine class: in
-`configs/emu/s1_central.yaml`, replace
+Since the freeze cleanup (checklist 2.9) there is no synthetic session model: sessions come from
+`data/traces/seti09/sessions_dev.parquet`, where every worker replays one SETI@home host's week of availability
+(V9.2). Six workers therefore follow six real hosts, and how many sessions start and end inside the 2 h window is
+whatever those hosts did — possibly very few. `emu.json` records the attested sessions and the backend counters record
+every session end; the report states both, and it does not claim that the run exercised session churn that the trace
+did not contain. If the window contains no session end, say so and re-run a repetition rather than editing the
+scenario: the seed chooses the hosts, the file stays as the builder prepared it.
 
-```yaml
-  - "scenario.hw_mix={E2: 1.0}"
-```
-
-with
-
-```yaml
-  - "scenario.machines={bundles: [node02-i7-12700-64g-nvme_nvme], survey: boinc-rosetta}"
-```
-
-and delete `configs/hardware/E2.yaml`. Nothing under `tools/emu/` depends on which of the two the config uses: the
-emulated slice is one physical P-core per worker either way. The fleet path also needs `data/traces/boinc-rosetta/`
-(the survey), which the trace release provides.
+The fleet is one class (node02 itself), so `survey` only weights classes and has no effect on this run (D-107). No
+machine class file is involved: `configs/hardware/` no longer exists.
 
 ## 6. What to deliver
 

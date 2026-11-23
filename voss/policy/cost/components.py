@@ -80,23 +80,24 @@ def static_parts(
 ) -> Static:
     a = cache.get(view, ctx)
     f, t = ctx.fns[inv.fn], ctx.tenants[inv.tenant]
-    ok = eligible(view, inv, now, margin_s) & (view.assurance >= t.assurance_floor)
+    ok = eligible(view, inv, now, margin_s)
     holder = cache.holder(view, inv.tenant)
     # a backup, or the budget is reached: only holders are candidates (D-85, plan V7.1)
     if inv.holders_only or not may_add_holder(int(holder.sum()), t.max_holders):
         ok &= holder
     trust = np.where(holder | (a.trust_fixed == 0), 0.0, cache.rtt(ctx, t.kbs_lat, t.kbs_lon) + a.trust_fixed)
     fetch, rest = cache.startup(view, ctx, inv.fn)
-    if not ctx.lifecycle_aware:  # ablation: one startup estimate for every candidate (warmth is invisible)
-        fetch, rest = np.full_like(fetch, fetch.mean()), np.full_like(rest, rest.mean())
     rlat, rlon = ctx.routers.get(router, (float(a.lat.mean()), float(a.lon.mean())))
     net = cache.rtt(ctx, rlat, rlon) + inv.in_bytes * 8 / a.down + f.out_bytes * 8 / a.up
     return Static(ok, holder, trust, fetch, rest, net)
 
 
-def completion_of(tts: np.ndarray, net: np.ndarray, exec_mean: np.ndarray, exec_var: np.ndarray) -> Completion:
-    """Doc 03 §5.2: time to start plus network, with a 30% spread on the time to start, then execution."""
-    return moment_match(tts + net, (0.3 * tts) ** 2, exec_mean, exec_var)
+def completion_of(
+    tts: np.ndarray, net: np.ndarray, exec_mean: np.ndarray, exec_var: np.ndarray, tts_cv: float = 0.3
+) -> Completion:
+    """Doc 03 §5.2: time to start plus network, with a ``tts_cv`` spread on the time to start (D-122), then
+    execution."""
+    return moment_match(tts + net, (tts_cv * tts) ** 2, exec_mean, exec_var)
 
 
 def _row(
@@ -115,7 +116,7 @@ def _row(
     tts = np.maximum(np.maximum(w, st.trust[sub]), st.fetch[sub]) + st.rest[sub]
     cpu = a.cpu_factor[sub]
     e_mean = p.exec_mean * cpu
-    comp = completion_of(tts, st.net[sub], e_mean, p.exec_var * cpu**2)
+    comp = completion_of(tts, st.net[sub], e_mean, p.exec_var * cpu**2, ctx.tts_cv)
     p_fail = 1 - p.p_alive * (1 - p.p_omit)
     budget = np.full(len(sub), inv.deadline - (now - inv.t_arrive))
     return {

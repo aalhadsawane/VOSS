@@ -13,7 +13,7 @@ REPO = Path(__file__).resolve().parents[2]
 
 def _good(root: Path) -> Path:
     b = root / "bundle"
-    b.mkdir()
+    b.mkdir(parents=True)
     dists = {k: {"tag": "measured"} for k in [*cb.REQUIRED, *cb.RATIOS, *cb.simulator_entries()]}
     fits = {k: {"n": float(n)} for k, n in cb.REQUIRED.items()}
     times = iter([5e-4, 20.0])
@@ -88,3 +88,33 @@ def test_unused_entries_are_not_demanded() -> None:
     """Rule 32: entries no substrate or simulator code reads are not part of the contract check (D-103)."""
     for gone in ("drtm_launch", "image_mem_mb", "boot_total", "boot_firmware", "fn_corun_mixed"):
         assert gone not in cb.REQUIRED and gone not in cb.simulator_entries()
+
+
+def test_tpm_entries_shared_from_the_reference_are_not_errors(tmp_path: Path, capsys) -> None:  # type: ignore[no-untyped-def]
+    """D-107: a class without a TPM takes tpm2_quote, tpm2_unseal and verify_s from the reference bundle."""
+    ref = _good(tmp_path / "ref")
+    b = _good(tmp_path / "node")
+    d = yaml.safe_load((b / "distributions.yaml").read_text())
+    for key in cb.TPM_KEYS:
+        d["distributions"][key] = {"tag": "assumed", "dist": "constant", "value": 0.0}
+    (b / "distributions.yaml").write_text(yaml.safe_dump(d))
+    shared: list[str] = []
+    assert cb.check_distributions(b, ref, shared) == []
+    assert {s.split(":")[0] for s in shared} == set(cb.TPM_KEYS)
+    assert cb.main([str(b), "--shared-from", str(ref)]) == 0
+    out = capsys.readouterr().out
+    assert "SHARED tpm2_quote: shared from" in out
+
+
+def test_sharing_does_not_hide_another_missing_entry(tmp_path: Path) -> None:
+    """Only the TPM entries are shared; a missing dispatch remains an error."""
+    ref = _good(tmp_path / "ref")
+    b = _good(tmp_path / "node")
+    d = yaml.safe_load((b / "distributions.yaml").read_text())
+    for key in cb.TPM_KEYS:
+        d["distributions"][key] = {"tag": "assumed", "dist": "constant", "value": 0.0}
+    d["distributions"]["dispatch"] = {"tag": "assumed", "dist": "constant", "value": 0.0}
+    (b / "distributions.yaml").write_text(yaml.safe_dump(d))
+    errors = cb.check_distributions(b, ref)
+    assert any(e.startswith("dispatch: missing") for e in errors)
+    assert not any(e.startswith("tpm2_quote:") for e in errors)

@@ -139,21 +139,31 @@ def _write(cfg: RunConfig, run_dir: Path, system: EmuSystem, info: dict[str, Any
     (run_dir / "emu.json").write_text(json.dumps(info, indent=2, default=str))
 
 
-def _run(spec: spec_mod.EmuScenario, a: argparse.Namespace, cfg: RunConfig, scn: Any, layout: Any) -> int:
-    assets = (a.assets or Path(spec.emu.assets)).expanduser()
-    workdir = (a.workdir or Path(spec.emu.workdir)).expanduser()
-    problems = preflight_mod.check(spec, isolation=not a.no_isolation, tpm=not a.no_tpm, assets=assets, workdir=workdir)
-    for pr in problems:
-        print(pr.line())
-    if any(pr.level == "fail" for pr in problems):
-        print("\npreflight failed: fix the lines above, then run again (nothing was started)", file=sys.stderr)
-        return 2
-    run_dir = a.out / spec.run_dir(a.system, a.rep)
+def _prepare(a: argparse.Namespace, spec: spec_mod.EmuScenario, workdir: Path) -> int | Path:
+    """The run directory, or the exit code of refusing to overwrite one; prepares the scratch directory."""
+    run_dir = Path(a.out) / spec.run_dir(a.system, a.rep)
     if (run_dir / "manifest.json").exists() and not a.force:
         print(f"{run_dir} already has a manifest; pass --force to overwrite it", file=sys.stderr)
         return 3
     workdir.mkdir(parents=True, exist_ok=True)
     shutil.rmtree(workdir / "fc", ignore_errors=True)
+    return run_dir
+
+
+def _run(spec: spec_mod.EmuScenario, a: argparse.Namespace, cfg: RunConfig, scn: Any, layout: Any) -> int:
+    assets = (a.assets or Path(spec.emu.assets)).expanduser()
+    workdir = (a.workdir or Path(spec.emu.workdir)).expanduser()
+    problems = preflight_mod.check(
+        spec, cfg, isolation=not a.no_isolation, tpm=not a.no_tpm, assets=assets, workdir=workdir
+    )
+    for pr in problems:
+        print(pr.line())
+    if any(pr.level == "fail" for pr in problems):
+        print("\npreflight failed: fix the lines above, then run again (nothing was started)", file=sys.stderr)
+        return 2
+    run_dir = _prepare(a, spec, workdir)
+    if isinstance(run_dir, int):
+        return run_dir
     iso, quoter, ak_s = _start(spec, a, layout, workdir)
     info = _info(spec, a, layout)
     emu = EmuConfig(
@@ -205,7 +215,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     cfg = spec.run_config(a.system, a.rep, a.set)
     spec.check_workers(cfg)
-    scn = generate(cfg)
+    try:
+        scn = generate(cfg)
+    except FileNotFoundError as e:  # a traced input the scenario names is not on the node
+        print(f"{e}\nfetch or build the trace release into data/traces (tools/traces, docs/handoff)", file=sys.stderr)
+        return 2
     try:
         layout = layout_for(spec, cfg, scn)
     except (RuntimeError, ValueError) as e:  # not Linux, or too few cores: a dry run still shows the config

@@ -19,6 +19,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from voss.core.config import RunConfig
+from voss.world.sessions import load_session_regime
+from voss.world.workers import GeoParams, LinkParams
+from voss.world.workload import load_load_regime
+
 from tools.emu import scenario as spec_mod
 from tools.emu.isolation import CGROUP_ROOT
 from tools.emu.scenario import EmuScenario
@@ -59,6 +64,7 @@ def _cgroup_ok() -> tuple[bool, str]:
 
 def check(
     spec: EmuScenario,
+    cfg: RunConfig,
     *,
     isolation: bool = True,
     tpm: bool | None = None,
@@ -82,6 +88,7 @@ def check(
         out += _isolation_caps()
         out += _layout(spec)
     out += _tpm(want_tpm)
+    out += _inputs(cfg)
     out += _assets(spec, assets)
     out += _disk(workdir or Path(spec.emu.workdir).expanduser())
     load = os.getloadavg()[0] if hasattr(os, "getloadavg") else 0.0
@@ -165,6 +172,40 @@ def _tpm(want_tpm: bool) -> list[Problem]:
     return [Problem("fail", "no TPM device (/dev/tpmrm0)", "enable the firmware TPM (Intel PTT) in the firmware")]
 
 
+def _inputs(cfg: RunConfig) -> list[Problem]:
+    """The traced inputs the scenario names: gitignored release assets, so a missing file is a preflight failure.
+
+    The regime files are resolved by the simulator's own loaders (``load_session_regime``, ``load_load_regime``), so
+    this names exactly the files a run would open.
+    """
+    sc = cfg.scenario
+    machines = dict(sc.machines)
+    root = Path(str(machines.get("trace_root", "data/traces")))
+    need: list[tuple[Path, str]] = []
+    if machines.get("survey"):
+        need.append((root / str(machines["survey"]) / "hosts.parquet", "the fleet survey (V9.4)"))
+    churn, load = load_session_regime(sc), load_load_regime(sc)
+    if churn.trace:
+        need.append(
+            (Path(churn.trace_root) / churn.trace / f"sessions_{churn.split}.parquet", "the session trace (V9.2)")
+        )
+    if load.trace:
+        need.append(
+            (Path(load.trace_root) / load.trace / f"functions_{load.split}.parquet", "the arrival trace (V9.1)")
+        )
+    link = LinkParams.model_validate(dict(sc.network).get("link", {}))
+    if link.trace:
+        need.append((Path(link.trace_root) / link.trace / "links.parquet", "the measured links (V9.3)"))
+    geo = GeoParams.model_validate(sc.geo)
+    if geo.pop_trace:
+        need.append((Path(geo.trace_root) / geo.pop_trace / "metro_pop.parquet", "the population trace (V9.4)"))
+    return [
+        Problem("fail", f"{path} is missing", f"fetch the trace release into data/traces, or build it with {what}")
+        for path, what in need
+        if not path.exists()
+    ]
+
+
 def _assets(spec: EmuScenario, assets: Path | None) -> list[Problem]:
     root = assets or Path(spec.emu.assets).expanduser()
     out = []
@@ -194,11 +235,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("scenario", help="configs/emu/<name>.yaml or a scenario name")
     ap.add_argument("--no-isolation", action="store_true", help="skip the netns/tc/cgroup checks (smoke runs)")
     ap.add_argument("--no-tpm", action="store_true", help="skip the TPM checks")
+    ap.add_argument("--system", default="", help="a system of the scenario (default: the first)")
+    ap.add_argument("--rep", type=int, default=1)
     ap.add_argument("--assets", type=Path, default=None)
     ap.add_argument("--workdir", type=Path, default=None)
     a = ap.parse_args(argv)
     spec = spec_mod.load(a.scenario)
-    problems = check(spec, isolation=not a.no_isolation, tpm=not a.no_tpm, assets=a.assets, workdir=a.workdir)
+    cfg = spec.run_config(a.system or sorted(spec.systems)[0], a.rep)
+    problems = check(spec, cfg, isolation=not a.no_isolation, tpm=not a.no_tpm, assets=a.assets, workdir=a.workdir)
     for p in problems:
         print(p.line())
     fails = sum(p.level == "fail" for p in problems)

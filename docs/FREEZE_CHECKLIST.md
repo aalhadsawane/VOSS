@@ -13,7 +13,7 @@ before the tag. After the tag, `voss/` and `configs/` change only by bug fixes l
 | 1.2 | `scenario.hw_mix` is deleted and `scenario.machines` is required, not opt-in; the fleet overlay is the base, so `configs/machines.yaml` merges into `configs/base.yaml`. | `grep -rn 'hw_mix' voss configs experiments tests` (empty) |
 | 1.3 | The config hash no longer special-cases an empty fleet. | `grep -n 'machines' voss/core/config.py` (no `if not tree["scenario"]["machines"]`) |
 | 1.4 | The base calibration is a measured bundle of the fleet, not the placeholder. | `grep -n '^calibration' configs/base.yaml` (a `measured/` path); `ls configs/calibration/placeholder` (absent) |
-| 1.5 | Every fleet bundle passes the contract. | `for b in node02-i7-12700-64g-nvme_nvme node02-i7-12700-64g-nvme_hdd node04-i7-4790s-8g-hdd_hdd; do uv run python -m tools.calibrate.check_bundle configs/calibration/measured/$b; done` (0 errors each) |
+| 1.5 | Every fleet bundle passes the contract. | `uv run python -m tools.calibrate.check_bundle configs/calibration/measured/node02-i7-12700-64g-nvme_nvme`; the same for `node02-i7-12700-64g-nvme_hdd`; `uv run python -m tools.calibrate.check_bundle configs/calibration/measured/node04-i7-4790s-8g-hdd_hdd --shared-from configs/calibration/measured/node02-i7-12700-64g-nvme_nvme` (0 errors each; the node04 TPM entries are shared by D-107) |
 | 1.6 | The methodology states two machine models and the unbooted image (D-130). | `grep -n 'node04\|two machine' manuscript/sections/*.tex` |
 
 ## 2. Dormant options and v1 mechanisms are deleted (guardrail 32)
@@ -21,11 +21,11 @@ before the tag. After the tag, `voss/` and `configs/` change only by bug fixes l
 | # | Item | Check |
 |---|---|---|
 | 2.1 | PR A (D-110): lexicographic placement; `voss.cost` weights, exposure term and the 0.3 deleted. | `grep -rn 'lambda_exposure\|sync_weight\|scalarizer\|slo_weight' voss` (empty) |
-| 2.2 | PR B (D-112, D-113): candidate cap and planning-pool caps deleted; the D-113 gate measured (one 500-worker 28 h run fits one job) and recorded in the development log. | `grep -rn 'placer.K\|max_plan_workers\|hot_top_k\|hot_fn_k' voss` (empty); `grep -n 'D-113' docs/validation/development-log.md` |
+| 2.2 | PR B (D-112, D-113): candidate cap and planning-pool caps deleted; the D-113 gate measured (one 500-worker 28 h run fits one job) and recorded in the development log. If the gate fails, the caps return as swept constants and R07 gains their variants before the tag (not pre-emptively). | `grep -rn 'placer.K\|max_plan_workers\|hot_top_k\|hot_fn_k' voss` (empty); `grep -n 'D-113' docs/validation/development-log.md` |
 | 2.3 | PR C (D-114): `sync_priority` on for every system, `ewma` wait model deleted. | `grep -rn 'ewma' voss/runtime voss/policy/cost` (empty); `grep -n 'sync_priority' configs/base.yaml` |
 | 2.4 | PR D (D-115): start-up price priors from the reference bundle. | `grep -n 'cold_penalty_s\|cold_fn_s' voss/core/config.py` (no literal 3.0 / 0.5 default) |
 | 2.5 | PR E (D-111, D-116, D-117, D-119, D-120, D-122, D-124, D-125, D-128): new keys for the drop-estimate constants, the code constants, the deadline multiple and idempotent fraction, certificate timings; one image-memory key; trusted hosts on the reference machine; tenant template reduced; detector profiles "backup off" and "drop estimate off". | `grep -n 'HEDGE_MIN_SAMPLES = \|OVERDUE_FRAC = \|ALPHA = ' -r voss` (empty); `uv run pytest -q tests/unit/test_r_specs.py` |
-| 2.6 | PR F (D-131): `milp`, `greedy` and every v1 objective weight deleted. | `ls voss/policy/plan/milp.py voss/policy/plan/greedy.py` (absent); `grep -rn 'rho_mem\|kappa_switch\|exposure_weight' voss` (empty) |
+| 2.6 | PR F (D-131): `milp`, `greedy` and every v1 objective weight deleted; the hetero planner and its brute-force property test remain. | `ls voss/policy/plan/milp.py voss/policy/plan/greedy.py` (absent); `grep -rn 'rho_mem\|kappa_switch\|exposure_weight' voss` (empty); `uv run pytest -q tests/property/test_hetero_provisioning.py` |
 | 2.7 | D-118: domain shocks deleted from provisioning. | `grep -rn 'domain_shock' voss` (empty) |
 | 2.8 | v1 switches and trust scores deleted: `lifecycle_aware`, `hetero_aware`, `tofu_frac`, `assurance_tofu_factor`, `tiers`, `assurance`. | `grep -rn 'lifecycle_aware\|hetero_aware\|tofu\|assurance' voss` (empty) |
 | 2.9 | Unused data files deleted: v1 emulation (`configs/e01/`, `functions_e01.yaml`, `tenants_e01.yaml`, `churn_e01.yaml`), parametric churn and load regimes, `adversary_collude.yaml`, `substrates/none.yaml`. Tests that used them get fixtures under `tests/`. | `ls configs/e01 configs/regimes/churn_med.yaml configs/regimes/load_default.yaml 2>&1 \| grep -v 'No such'` (empty) |
@@ -56,6 +56,9 @@ before the tag. After the tag, `voss/` and `configs/` change only by bug fixes l
 | 4.6 | The choice of VOSS's provisioning and the S defaults are recorded as decisions (V11.3, plan §10.4). | `grep -n 'D-1[0-9][0-9]' docs/DECISIONS.md` |
 
 ## 5. Held-out specs and hypotheses (V12.1-V12.2)
+
+The shared central cells of R02, R06, R07, R08 and R09 are seeded from R01's release before their request files are
+pushed; the procedure is in `docs/validation/HELDOUT_RUNBOOK.md` (the runner does not deduplicate across specs).
 
 | # | Item | Check |
 |---|---|---|

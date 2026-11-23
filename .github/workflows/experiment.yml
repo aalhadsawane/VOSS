@@ -72,13 +72,13 @@ jobs:
       # Keep a deterministic raw-log sample (one run from every 100th shard) for the release. The full raw logs are
       # not retained: every run is reproducible from its committed config hash and seed, and the paper reads the
       # committed summary and hash of every run (D-135).
-      - if: ${{ matrix.shard % 100 == 0 }}
+      - if: ${{ matrix.shard == 0 || matrix.shard == 100 || matrix.shard == 200 }}
         run: |
           d=$(find "runs/${{ needs.plan.outputs.spec }}" -mindepth 1 -maxdepth 1 -type d | sort | head -1)
           test -n "$d"
           tar --zstd -cf raw-${{ matrix.shard }}.tar.zst -C "runs/${{ needs.plan.outputs.spec }}" "$(basename "$d")"
       - uses: actions/upload-artifact@v4
-        if: ${{ matrix.shard % 100 == 0 }}
+        if: ${{ matrix.shard == 0 || matrix.shard == 100 || matrix.shard == 200 }}
         with: {name: 'raw-${{ matrix.shard }}', path: 'raw-${{ matrix.shard }}.tar.zst', retention-days: 7}
   publish:
     needs: [plan, sweep]

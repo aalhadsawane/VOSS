@@ -12,7 +12,7 @@
 #   duration     horizon_s 100,800 (28 h): 4 h warm-up + 24 h measured (D-97)
 #   warm-up      scenario.warmup_s 14,400 = voss.keepalive_hist.range_s, the longest learning window of a compared
 #                policy (guardrail 23)
-#   calibration  calibrated fleet configs/machines.yaml (D-107, D-108): bundles node02-i7-12700-64g-nvme_nvme
+#   calibration  calibrated fleet configs/base.yaml (D-107, D-108): bundles node02-i7-12700-64g-nvme_nvme
 #                (reference), node02-i7-12700-64g-nvme_hdd, node04-i7-4790s-8g-hdd_hdd, weighted by the Rosetta@home
 #                survey (configs/machines_mix.yaml); measured bundles only (guardrail 28)
 #   trace split  held-out: load azure2019 heldout, sessions churn_seti heldout (seti09, odd hosts, second week);
@@ -24,7 +24,7 @@
 # Runs: 1 x 10 seeds = 10, shared with R01. Output: with the bench, a table of decision time and scheduler capacity
 #   per pool, and deadlines met at 500 workers.
 experiment: R08
-base: ../machines.yaml
+base: ../base.yaml
 overrides:
   - horizon_s=100800
   - scenario.warmup_s=14400

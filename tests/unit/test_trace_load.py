@@ -45,14 +45,11 @@ def test_arrivals_follow_minute_counts(tmp_path: Path) -> None:
         init_s=0.1,
         work_ref_s=0.1,
         in_kb=1,
-        in_sigma=0,
         size_exp=0,
         out_kb=1,
-        idempotent=True,
         slo_class="sync",
-        slo_k=5,
     )
-    cat = Catalog((f,), (TenantSpec(id="o", sensitivity="low", kbs_city="x", assurance_floor=0),))
+    cat = Catalog((f,), (TenantSpec(id="o", kbs_city="x"),))
     reg = LoadRegime(regime="t", rate=1, zipf_s=0, trace="tr", trace_root=str(tmp_path), start_min=10, rate_mult=2)
     a = trace_arrivals(reg, cat, _Metros(), 240.0, RngFactory(3))  # type: ignore[arg-type]
     first, third = a[a.t < 60], a[(a.t >= 180) & (a.t < 240)]
@@ -63,8 +60,7 @@ def test_arrivals_follow_minute_counts(tmp_path: Path) -> None:
 def _fn(name: str, work: float, in_kb: float) -> FunctionSpec:
     return FunctionSpec(
         name=name, tenant="o", runtime="python3", rootfs_mb=1, bundle_mb=1, snapshot_mb=1, mem_mb=128, init_s=0.1,
-        work_ref_s=work, in_kb=in_kb, in_sigma=0.5, size_exp=1.0, out_kb=1, idempotent=True, slo_class="sync",
-        slo_k=5,
+        work_ref_s=work, in_kb=in_kb, size_exp=1.0, out_kb=1, slo_class="sync",
     )  # fmt: skip
 
 
@@ -83,7 +79,7 @@ def test_trace_functions_map_to_the_nearest_measured_input_size(tmp_path: Path) 
     from voss.world.trace_load import load_trace_functions, trace_catalog
 
     reg = _trace(tmp_path, [2.0, 50.0, 900.0, 40_000.0, None])
-    tenant = TenantSpec(id="o", sensitivity="low", kbs_city="x", assurance_floor=0)
+    tenant = TenantSpec(id="o", kbs_city="x")
     base = Catalog((_fn("uploader", 0.01, 10), _fn("graph-bfs", 0.5, 100), _fn("js", 9.0, 1)), (tenant,))
     sizes = {"uploader": {1.0: 0.001, 10.0: 0.01, 100.0: 0.1}, "graph-bfs": {100.0: 0.5, 1000.0: 5.0}}  # js: none
     tf = load_trace_functions(reg, base, sizes)
@@ -98,7 +94,7 @@ def test_trace_functions_map_to_the_nearest_measured_input_size(tmp_path: Path) 
     cat = trace_catalog(reg, base, sizes)
     assert cat.transfer_deadline
     up, graph = cat.functions[1], cat.functions[2]
-    assert (up.name, up.in_kb, up.in_sigma, up.work_ref_s) == ("tr0001", 100.0, 0.0, 0.1)  # data: size kB
+    assert (up.name, up.in_kb, up.work_ref_s) == ("tr0001", 100.0, 0.1)  # data: size kB
     assert (graph.in_kb, graph.work_ref_s) == (1.0, 0.5)  # parameters only: the catalogue's smallest input
     ref = load_trace_functions(reg, base)  # a bundle without exec_by_size: one profile per function, as before
     assert not ref.per_size and list(ref.table.base) == ["uploader", "uploader", "graph-bfs", "js"]
@@ -127,14 +123,14 @@ def test_request_bytes_follow_what_the_client_sends() -> None:
 
 
 def test_sync_deadline_adds_the_input_transfer_only_when_asked() -> None:
-    """D-106: slo_k x (run time + input bytes at the median downlink + overhead); D01's bundles keep the old one."""
+    """D-106: deadline_multiple x (run time + input bytes at the median downlink + overhead)."""
     from voss.world.workload import _frame
 
-    f = _fn("uploader", 0.1, 16000).model_copy(update={"in_sigma": 0.0, "slo_k": 5.0})
+    f = _fn("uploader", 0.1, 16000)
     reg = LoadRegime(regime="t", rate=1, zipf_s=0, sync_overhead_s=0.05)
     size, one = np.array([16000 * 1024.0]), np.zeros(1)
     old = _frame(f, 0, 0, one, one.astype(np.int64), size, reg).deadline_s.iloc[0]
-    new = _frame(f, 0, 0, one, one.astype(np.int64), size, reg, 190e6).deadline_s.iloc[0]
+    new = _frame(f, 0, 0, one, one.astype(np.int64), size, reg, 5.0, 190e6).deadline_s.iloc[0]
     assert old == pytest.approx(5 * (0.1 + 0.05))
     assert new == pytest.approx(5 * (0.1 + 16000 * 1024 * 8 / 190e6 + 0.05))
 

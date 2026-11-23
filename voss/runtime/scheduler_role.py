@@ -145,10 +145,7 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, AuditMixin, Plan
     def _refit(self) -> None:
         if not self.active:
             return
-        live: dict[str, list[float]] = {}
-        for s in self.views.store.states.values():
-            if s.static is not None:
-                live.setdefault(s.static.tier, []).append(self.now - s.static.session_start)
+        live = [self.now - s.static.session_start for s in self.views.store.states.values() if s.static is not None]
         self.models.refit(live)
         self.after(self.ctx.cfg.voss.models.refit_s, self._refit)
 
@@ -156,7 +153,7 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, AuditMixin, Plan
         st = self.views.store.states.get(w)
         if st is not None and st.static is not None:
             hour = (self.ctx.cfg.scenario.start_utc_h + self.now / 3600 + st.static.tz) % 24
-            self.models.survival.observe_end(st.static.tier, self.now - st.static.session_start, hour)
+            self.models.survival.observe_end(self.now - st.static.session_start, hour)
         self.views.lost(w)
         for _, rec in sorted(self.inflight.items()):
             for c in rec.live_on(w):

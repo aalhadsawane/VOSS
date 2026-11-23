@@ -18,14 +18,14 @@ N = 4
 CTX = CostContext(
     startup={"appliance_tpm": StartupModel(0.15, 0.02, 0.002, 0.002, 0.0007, 0.3)},
     fns={"f": FnInfo("f", "t", 128, 10, 100, 50, 0.5, 1000, True)},
-    tenants={"t": TenantInfo(50.0, 8.0, 0.0)},
+    tenants={"t": TenantInfo(50.0, 8.0)},
     registry=(50.0, 8.0),
     routers={"r": (50.0, 8.0)},
 )
 
 
 def view() -> ClusterView:
-    st = WorkerStatic(50.0, 8.0, 1.0, "idle", "appliance_tpm", 1e8, 2e7, 2000, 150, 0.0)
+    st = WorkerStatic(50.0, 8.0, 1.0, "appliance_tpm", 1e8, 2e7, 2000, 150, 0.0)
     cache = ({"f": CacheEntry("L3", "ram", 1)}, {"f": CacheEntry("L2", "ssd")}, {}, {"f": CacheEntry("L1", "hdd")})
     return ClusterView(
         as_of=0.0,
@@ -35,7 +35,6 @@ def view() -> ClusterView:
         queued=np.zeros(N, int),
         mem_free_mb=np.full(N, 1e3),
         speed=np.ones(N),
-        assurance=np.full(N, 0.8),
         domain=np.arange(N),
         session_expiry=np.full(N, 1e4),
         age=np.zeros(N),

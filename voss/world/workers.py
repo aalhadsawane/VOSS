@@ -1,4 +1,4 @@
-"""Worker population (doc 02 §1): location, hardware, substrate, tier, identity, failure domain, link, envelope."""
+"""Worker population (doc 02 §1): location, hardware, substrate, identity, failure domain, link, envelope."""
 
 from __future__ import annotations
 
@@ -16,8 +16,6 @@ from voss.core.paths import REPO_ROOT
 from voss.core.rng import RngFactory
 from voss.world.geo import Metros, jitter_location
 from voss.world.hardware import HwClass
-
-TIERS: tuple[str, ...] = ("nightly", "idle", "dedicated")
 
 
 class GeoParams(BaseModel):
@@ -72,13 +70,11 @@ class WorkerTable:
     tz: np.ndarray
     hw: np.ndarray
     substrate: np.ndarray
-    tier: np.ndarray
     asn: np.ndarray
     domain: np.ndarray
     down_bps: np.ndarray
     up_bps: np.ndarray
     last_mile_s: np.ndarray
-    known_good: np.ndarray
     slots: np.ndarray
     speed: np.ndarray
     mem_mb: np.ndarray
@@ -101,7 +97,6 @@ class WorkerTable:
         df = pd.DataFrame(cols)
         df["hw_name"] = [self.hw_names[i] for i in self.hw]
         df["substrate_name"] = [self.substrate_names[i] for i in self.substrate]
-        df["tier_name"] = [TIERS[i] for i in self.tier]
         return df
 
 
@@ -190,10 +185,10 @@ def generate_workers(
     metros: Metros,
     hw_classes: dict[str, HwClass],
     rng: RngFactory,
-    hw_mix: dict[str, float] | None = None,
+    mix: dict[str, float],
 ) -> WorkerTable:
-    """Doc 02 §1. Each attribute family draws from its own stream; ``hw_mix`` (the calibrated fleet's survey weights,
-    plan V9.4) replaces ``scenario.hw_mix``."""
+    """Doc 02 §1. Each attribute family draws from its own stream; ``mix`` is the calibrated fleet's survey weight
+    (plan V9.4, D-107: the fleet is the only machine path)."""
     n = sc.workers
     gp = GeoParams.model_validate(sc.geo)
     g_loc = rng.stream("workers.location")
@@ -201,7 +196,7 @@ def generate_workers(
     lat, lon = jitter_location(metros.lat[city], metros.lon[city], gp.jitter_km, g_loc)
     hw_names = tuple(sorted(hw_classes))
     substrate_names = tuple(sorted(sc.substrate_mix))
-    hw = _pick(rng.stream("workers.hw"), sc.hw_mix if hw_mix is None else hw_mix, hw_names, n)
+    hw = _pick(rng.stream("workers.hw"), mix, hw_names, n)
     asn, domain = _domains(rng.stream("workers.asn"), city, gp)
     g_id = rng.stream("workers.identity")
     identity = tuple(hashlib.sha256(g_id.bytes(32)).hexdigest()[:16] for _ in range(n))
@@ -212,10 +207,8 @@ def generate_workers(
         tz=metros.tz[city],
         hw=hw,
         substrate=_pick(rng.stream("workers.substrate"), sc.substrate_mix, substrate_names, n),
-        tier=_pick(rng.stream("workers.tier"), sc.tiers, TIERS, n),
         asn=asn,
         domain=domain,
-        known_good=rng.stream("workers.firmware").random(n) >= sc.tofu_frac,
         owner_class=_owner_class(rng.stream("workers.owner"), [hw_classes[hw_names[i]] for i in hw], sc.physical_frac),
         identity=identity,
         hw_names=hw_names,

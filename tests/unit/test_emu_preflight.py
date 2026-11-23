@@ -15,7 +15,7 @@ from tools.emu.topology import KIND_PERFORMANCE, Cpu, Topology
 
 def test_off_linux_the_run_is_refused_with_one_line() -> None:
     spec = spec_mod.load("configs/emu/s1_central.yaml")
-    problems = preflight.check(spec, isolation=False, tpm=False)
+    problems = preflight.check(spec, spec.run_config("voss", 1), isolation=False, tpm=False)
     if platform.system() == "Linux":
         pytest.skip("this test checks the non-Linux message")
     assert len(problems) == 1 and problems[0].level == "fail" and "not Linux" in problems[0].what
@@ -55,6 +55,16 @@ def test_a_full_disk_is_a_blocking_problem(tmp_path: Path, monkeypatch: pytest.M
     monkeypatch.setattr(sh, "disk_usage", lambda _p: type("U", (), {"free": 10 * 2**30})())
     problems = preflight._disk(tmp_path)
     assert problems and problems[0].level == "fail" and "50 GB" in problems[0].fix
+
+
+def test_the_traced_inputs_are_named_when_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    spec = spec_mod.load("configs/emu/s1_central.yaml")
+    cfg = spec.run_config("voss", 1)
+    problems = preflight._inputs(cfg)
+    assert problems and all(p.level == "fail" and "data/traces" in p.what for p in problems)
+    assert any("hosts.parquet" in p.what for p in problems)  # the fleet survey
+    assert any("sessions_dev.parquet" in p.what for p in problems)  # the session trace
+    assert any("links.parquet" in p.what for p in problems)  # the measured links
 
 
 def test_missing_assets_are_named(tmp_path: Path) -> None:

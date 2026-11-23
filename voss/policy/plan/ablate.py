@@ -1,6 +1,6 @@
 """Planner-input ablations (round-4 plan §2b, E25). ``survival_blind`` removes the survival information any planner
 sees: every worker gets the planning-pool mean of ``S_j(H)``. Reliability
-differences between workers (``p_omit``, assurance) are untouched: only the *session-length* signal is lost."""
+differences between workers (``p_omit``) are untouched: only the *session-length* signal is lost."""
 
 from __future__ import annotations
 

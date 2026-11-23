@@ -25,7 +25,6 @@ def build_view(
         queued=np.array([s.queued for s in st], dtype=np.int64),
         mem_free_mb=np.array([s.mem_free_mb for s in st], dtype=float),
         speed=np.array([s.speed for s in st], dtype=float),
-        assurance=np.array([s.assurance for s in st], dtype=float),
         domain=np.array([s.domain for s in st], dtype=np.int64),
         session_expiry=np.array([s.session_expiry for s in st], dtype=float),
         age=np.array([now - s.as_of for s in st], dtype=float),
