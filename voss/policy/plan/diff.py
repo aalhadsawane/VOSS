@@ -33,7 +33,7 @@ def _index(
     return y, wv, s
 
 
-def diff(prev: Plan | None, plan: Plan, fn_tenant: dict[str, str], benefit: dict[str, float]) -> list[PlanAction]:
+def diff(prev: Plan | None, plan: Plan, fn_tenant: dict[str, str], value: dict[str, float]) -> list[PlanAction]:
     """Actions that move workers from ``prev`` to ``plan`` (sorted: releases first, then by value)."""
     py, pw, ps = _index(prev)
     ny, nw, ns = _index(plan)
@@ -47,16 +47,16 @@ def diff(prev: Plan | None, plan: Plan, fn_tenant: dict[str, str], benefit: dict
     for (t, w), on in sorted(ny.items()):
         if on and not py.get((t, w), False):
             fns = tuple(FnId(f) for f in fns_of.get(t, []) if f in plan.fns)
-            out.append(PlanAction("PREPARE", WorkerId(w), TenantId(t), fns, value=sum(benefit.get(f, 0) for f in fns)))
+            out.append(PlanAction("PREPARE", WorkerId(w), TenantId(t), fns, value=sum(value.get(f, 0) for f in fns)))
     for (f, w), on in sorted(ns.items()):
         if on and not ps.get((f, w), False):
             out.append(
-                PlanAction("PIN_SNAPSHOT", WorkerId(w), TenantId(fn_tenant[f]), (FnId(f),), value=benefit.get(f, 0.0))
+                PlanAction("PIN_SNAPSHOT", WorkerId(w), TenantId(fn_tenant[f]), (FnId(f),), value=value.get(f, 0.0))
             )
     for (f, w), n in sorted(nw.items()):
         if n != pw.get((f, w), 0):
             out.append(
-                PlanAction("WARM", WorkerId(w), TenantId(fn_tenant[f]), (FnId(f),), n, value=benefit.get(f, 0.0) * n)
+                PlanAction("WARM", WorkerId(w), TenantId(fn_tenant[f]), (FnId(f),), n, value=value.get(f, 0.0) * n)
             )
     rank = {"RELEASE": 0, "PREPARE": 1, "PIN_SNAPSHOT": 2, "WARM": 3}
     return sorted(out, key=lambda a: (rank[a.kind], -a.value, int(a.worker), a.tenant, a.fns))

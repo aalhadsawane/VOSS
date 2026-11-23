@@ -182,7 +182,7 @@ def class_catalog(catalog: Catalog, mc: MachineClass) -> tuple[FunctionSpec, ...
         base, size = catalog.profiles.get(f.name, (f.name, None))
         if base not in mc.functions:
             raise ValueError(f"{mc.hw.name}: function {base} not measured")
-        out.append(f.model_copy(update=class_function(mc.functions[base], f.name, size)))
+        out.append(f.model_copy(update=class_function(mc.functions[base], f.name, size) | {"base": base}))
     return tuple(out)
 
 

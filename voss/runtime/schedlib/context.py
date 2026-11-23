@@ -70,7 +70,7 @@ def cost_context(
     for t in catalog.tenants:
         i = metros.index(t.kbs_city)
         k = t.max_holders if cfg.voss.keys.max_holders is None else cfg.voss.keys.max_holders
-        ten[t.id] = TenantInfo(float(metros.lat[i]), float(metros.lon[i]), t.assurance_floor, t.f, k)
+        ten[t.id] = TenantInfo(float(metros.lat[i]), float(metros.lon[i]), k)
     reg = metros.index(cfg.voss.infra.registry)
     routers = {
         f"router:{c}": (float(metros.lat[metros.index(c)]), float(metros.lon[metros.index(c)]))
@@ -85,8 +85,7 @@ def cost_context(
         (float(metros.lat[reg]), float(metros.lon[reg])),
         routers,
         scheduler=(float(metros.lat[sch]), float(metros.lon[sch])),
-        K=cfg.voss.placer.K,
-        lifecycle_aware=c.lifecycle_aware,
+        tts_cv=c.tts_cv,
     )
 
 
@@ -98,5 +97,5 @@ def _deadline(f: FunctionSpec, cfg: RunConfig) -> float:
     """The deadline the tenant states for ``f`` at its reference input (doc 02 §8, background §2.3 of the paper)."""
     reg = load_load_regime(cfg.scenario)
     if f.slo_class == "sync":
-        return float(f.slo_k * (f.work_ref_s + reg.sync_overhead_s))
+        return float(cfg.scenario.deadline_multiple * (f.work_ref_s + reg.sync_overhead_s))
     return float(reg.async_deadline_s)

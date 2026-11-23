@@ -11,7 +11,7 @@ from voss.metrics.schema import Table
 from voss.runtime.system import RunResult, run_system
 
 REPO = Path(__file__).resolve().parents[2]
-SMALL = ["horizon_s=260", "scenario.workers=200", "scenario.load.rate=8", "voss.planner.name=greedy"]
+SMALL = ["horizon_s=260", "scenario.workers=200", "scenario.load.rate=8", "voss.planner.name=hetero"]
 
 
 def _run(extra: list[str]) -> RunResult:

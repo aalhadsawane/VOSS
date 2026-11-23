@@ -10,7 +10,6 @@ import pytest
 import yaml
 from experiments.analysis import fleet_mix
 from voss.core.config import RunConfig, load_config
-from voss.core.hashing import hash_obj
 from voss.core.paths import CONFIGS, load_data_yaml
 from voss.core.rng import RngFactory
 from voss.world.execution import ExecParams, true_runtime
@@ -27,7 +26,7 @@ CAL = f"configs/calibration/measured/{REF}"
 def _catalog() -> Catalog:
     rows = {f["name"]: f for f in load_data_yaml("functions.yaml")["functions"]}
     fns = (FunctionSpec.model_validate(rows["compression"]), FunctionSpec.model_validate(rows["thumbnailer"]))
-    mapped = fns[0].model_copy(update={"name": "tr0001", "in_sigma": 0.0})
+    mapped = fns[0].model_copy(update={"name": "tr0001"})
     tenants = tuple(TenantSpec.model_validate(t) for t in load_data_yaml("tenants.yaml")["tenants"])
     return Catalog((*fns, mapped), tenants, profiles={"tr0001": ("compression", 8000.0)})
 
@@ -50,7 +49,7 @@ def _measured(bundle: str) -> dict[str, dict]:  # type: ignore[type-arg]
 
 
 def test_each_class_runs_its_own_bundle_times(fleet) -> None:  # type: ignore[no-untyped-def]
-    p = ExecParams(noise_sigma=0.0)
+    p = ExecParams()
     for b in (REF, OLD):
         fns, meas = {f.name: f for f in fleet.catalogs[b]}, _measured(b)
         assert fleet.hw[b].speed == 1.0  # no per-class speed scalar: differences are per function
@@ -116,14 +115,13 @@ def test_identical_machines_share_a_bucket_equally() -> None:
     assert mix.weights == {hdd: 0.5, REF: 0.5}
 
 
-def test_fleet_is_opt_in_for_the_config_hash() -> None:
-    """An empty ``scenario.machines`` is left out of the config hash, so existing run directories stay valid."""
-    cfg = RunConfig()
-    tree = cfg.model_dump(mode="json", exclude={"out_dir", "label"})
-    del tree["scenario"]["machines"], tree["voss"]["cost"]["wait_model"], tree["voss"]["worker"]["sync_priority"]
-    assert cfg.config_hash() == hash_obj(tree)
-    on = RunConfig.model_validate({"scenario": {"machines": {"bundles": [REF], "survey": "s"}}})
-    assert on.config_hash() != cfg.config_hash()
+def test_the_fleet_is_always_in_the_config_hash() -> None:
+    """Checklist 1.3: the fleet is required, so it is always part of the config hash; another fleet is another run."""
+    base = RunConfig.model_validate({"scenario": {"machines": {"bundles": [REF], "survey": "s"}}})
+    other = RunConfig.model_validate({"scenario": {"machines": {"bundles": [OLD], "survey": "s"}}})
+    assert base.config_hash() != other.config_hash()
+    tree = base.model_dump(mode="json", exclude={"out_dir", "label"})
+    assert tree["scenario"]["machines"] == {"bundles": [REF], "survey": "s"}
 
 
 def test_reference_must_be_a_fleet_bundle(tmp_path: Path) -> None:
@@ -149,7 +147,9 @@ def test_committed_mix_agrees_with_the_survey() -> None:
 
 def test_no_fleet_class_exceeds_its_donated_memory_at_the_default_envelope() -> None:
     """D-108: the slot cap keeps ``slots x largest function memory`` within the donated memory of every class."""
-    sc = RunConfig().scenario.model_copy(update={"workers": 60})
+    sc = RunConfig.model_validate({"scenario": {"machines": {"bundles": [REF], "survey": "s"}}}).scenario.model_copy(
+        update={"workers": 60}
+    )
     bundles = load_config(fleet_mix.FLEET).scenario.machines["bundles"]
     hw = {b: load_hw(b) for b in bundles}
     wt = generate_workers(sc, load_metros("geo/metros.csv"), hw, RngFactory(1), dict.fromkeys(bundles, 1.0))

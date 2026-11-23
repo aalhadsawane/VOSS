@@ -12,7 +12,12 @@ from voss.policy.predict import means as _means  # noqa: F401
 from voss.policy.predict.base import FnPrior
 
 
-def make_predictor(name: str, priors: dict[str, FnPrior], forgetting: float = 0.995) -> Any:
+def make_predictor(
+    name: str,
+    priors: dict[str, FnPrior],
+    forgetting: float = 0.995,
+    prior_sd: tuple[float, float, float] = (0.7, 0.3, 0.5),
+) -> Any:
     if name == "blr":
-        return create("predictor", name, priors, forgetting=forgetting)
+        return create("predictor", name, priors, forgetting=forgetting, prior_sd=prior_sd)
     return create("predictor", name, priors)

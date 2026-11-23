@@ -13,6 +13,8 @@ runs/… ──▶ experiments/analysis/*.py (bootstrap CIs over seeds) ──�
 ```
 
 - ≥ 10 seeds for headline results (≥ 5 for pilots); systems are compared paired, on the same scenario hash.
+- Shared cells across specs are seeded from R01's release before the later spec runs (`docs/validation/HELDOUT_RUNBOOK.md`);
+  the runner is idempotent per spec directory but does not deduplicate across specs.
 - Figures are registered functions of run directories.
 
 ## 2. Logged tables (`metrics/schema.py`)

@@ -1,8 +1,8 @@
 """Session survival (doc 03 §6.3, doc 09 §1): residual life of a donation session.
 
-``weibull`` fits a Weibull per tier by censored maximum likelihood (completed sessions + live ages) with a 24-bin
-local-hour hazard multiplier; ``km`` is the Kaplan–Meier comparison. Drain notices are hints that only *shorten*
-predicted life (they may be fake, doc 07 §4).
+``weibull`` fits one Weibull by censored maximum likelihood (completed sessions + live ages) with a 24-bin local-hour
+hazard multiplier; ``km`` is the Kaplan–Meier comparison. The v1 per-tier split is deleted with the assumed tiers
+(checklist 2.8/2.9). Drain notices are hints that only *shorten* predicted life (they may be fake, doc 07 §4).
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from voss.core.registry import register
 
 
 @dataclass
-class _TierData:
+class _Data:
     done: list[float] = field(default_factory=list)
     end_hours: list[int] = field(default_factory=list)
 
@@ -45,37 +45,32 @@ def weibull_mle(done: np.ndarray, censored: np.ndarray, k0: float = 0.7) -> tupl
 
 @register("survival", "weibull")
 class WeibullSurvival:
-    """Per-tier Weibull; prior shape/scale until ``min_obs`` sessions completed."""
+    """One Weibull; prior shape/scale until ``min_obs`` sessions completed."""
 
-    def __init__(self, prior: dict[str, tuple[float, float]] | None = None, min_obs: int = 20) -> None:
-        self.prior = prior or {}
+    def __init__(self, prior: tuple[float, float] | None = None, min_obs: int = 20) -> None:
+        self.params: tuple[float, float] = prior or (0.7, 7200.0)
         self.min_obs = min_obs
-        self.data: dict[str, _TierData] = {}
-        self.params: dict[str, tuple[float, float]] = dict(self.prior)
+        self.data = _Data()
         self.hour_mult = np.ones(24)
 
-    def observe_end(self, tier: str, duration_s: float, local_hour: float) -> None:
-        d = self.data.setdefault(tier, _TierData())
-        d.done.append(duration_s)
-        d.end_hours.append(int(local_hour) % 24)
+    def observe_end(self, duration_s: float, local_hour: float) -> None:
+        self.data.done.append(duration_s)
+        self.data.end_hours.append(int(local_hour) % 24)
 
-    def refit(self, live_ages: dict[str, list[float]]) -> None:
-        for tier in sorted(set(self.data) | set(live_ages)):
-            d = self.data.get(tier, _TierData())
-            if len(d.done) >= self.min_obs:
-                self.params[tier] = weibull_mle(np.array(d.done), np.array(live_ages.get(tier, [])))
-        hours = np.array([h for d in self.data.values() for h in d.end_hours], dtype=int)
+    def refit(self, live_ages: list[float]) -> None:
+        if len(self.data.done) >= self.min_obs:
+            self.params = weibull_mle(np.array(self.data.done), np.array(live_ages))
+        hours = np.array(self.data.end_hours, dtype=int)
         if len(hours) >= 48:
             counts = np.bincount(hours, minlength=24) + 1.0
             self.hour_mult = counts / counts.mean()
 
-    def tier_params(self, tiers: list[str]) -> tuple[np.ndarray, np.ndarray]:
-        kl = [self.params.get(t, (0.7, 7200.0)) for t in tiers]
-        return np.array([x[0] for x in kl]), np.array([x[1] for x in kl])
+    def params_arr(self, n: int) -> tuple[np.ndarray, np.ndarray]:
+        k, lam = self.params
+        return np.full(n, k), np.full(n, lam)
 
     def p_alive(
         self,
-        tiers: list[str],
         age_s: np.ndarray,
         horizon_s: np.ndarray | float,
         local_hour: np.ndarray,
@@ -83,7 +78,7 @@ class WeibullSurvival:
         now: float = 0.0,
     ) -> np.ndarray:
         """``S(age + h) / S(age)`` per worker, scaled by the local-hour hazard; 0 past a drain deadline."""
-        k, lam = self.tier_params(tiers)
+        k, lam = self.params_arr(len(age_s))
         return self.p_alive_arr(k, lam, age_s, horizon_s, local_hour, drain_deadline, now)
 
     def p_alive_arr(
@@ -107,25 +102,24 @@ class WeibullSurvival:
 
 @register("survival", "km")
 class KaplanMeierSurvival(WeibullSurvival):
-    """Kaplan–Meier product-limit estimate per tier (comparison model); falls back to the Weibull prior."""
+    """Kaplan–Meier product-limit estimate (comparison model); falls back to the Weibull prior."""
 
     def p_alive(
         self,
-        tiers: list[str],
         age_s: np.ndarray,
         horizon_s: np.ndarray | float,
         local_hour: np.ndarray,
         drain_deadline: np.ndarray | None = None,
         now: float = 0.0,
     ) -> np.ndarray:
-        base = super().p_alive(tiers, age_s, horizon_s, local_hour, drain_deadline, now)
+        base = super().p_alive(age_s, horizon_s, local_hour, drain_deadline, now)
         h = np.broadcast_to(np.asarray(horizon_s, dtype=float), age_s.shape)
         out = base.copy()
-        for i, tier in enumerate(tiers):
-            done = np.sort(np.array(self.data.get(tier, _TierData()).done))
-            if len(done) < self.min_obs:
-                continue
-            n = len(done)
+        done = np.sort(np.array(self.data.done))
+        if len(done) < self.min_obs:
+            return out
+        n = len(done)
+        for i in range(len(age_s)):
             s_now = (np.sum(done > age_s[i]) + 1) / (n + 1)
             s_end = (np.sum(done > age_s[i] + h[i]) + 1) / (n + 1)
             out[i] = 0.0 if base[i] == 0 else float(s_end / s_now)

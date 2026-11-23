@@ -23,11 +23,11 @@ class HistParams:
 
     bin_s: float = 60.0
     range_s: float = 14400.0
-    head_pct: float = 5.0  # TODO verify
-    tail_pct: float = 99.0  # TODO verify
-    margin: float = 0.10  # TODO verify
+    head_pct: float = 5.0  # literature: 5th percentile
+    tail_pct: float = 99.0  # literature: 99th percentile
+    margin: float = 0.10  # literature: 10% margin
     min_samples: int = 10
-    cv_min: float = 2.0  # TODO verify
+    cv_min: float = 2.0  # literature: CV threshold 2
     oob_max: float = 0.2
     fallback_ttl_s: float = 600.0
 

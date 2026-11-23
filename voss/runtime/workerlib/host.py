@@ -29,7 +29,6 @@ class HostLocal:
     speed: float
     n_slots: int
     domain: int
-    known_good: bool
     snapshot_class: str
     slots: Slots
     disks: dict[str, Disk]
@@ -42,7 +41,6 @@ class HostLocal:
     up: bool = False
     cert_id: str = ""
     cert_expiry: float = 0.0
-    assurance: float = 0.0
     attested: bool = False
     extra: dict[str, float] = field(default_factory=dict)
     static_base: WorkerStatic | None = None
@@ -75,12 +73,12 @@ def make_host(
     hw: dict[str, float],
     caps: dict[str, float],
     quote: Dist | None,
-    meta: tuple[int, bool, str],
+    meta: tuple[int, str],
     hdd_tier: bool,
 ) -> HostLocal:
     """Build a worker host.
 
-    ``hw``: disk speeds; ``caps``: slots/speed/mem/ssd/hdd; ``meta``: (domain, known_good, snapshot class).
+    ``hw``: disk speeds; ``caps``: slots/speed/mem/ssd/hdd; ``meta``: (domain, snapshot class).
     """
     gen = rng.stream("host.tpm", w)
     disks = {
@@ -95,8 +93,7 @@ def make_host(
         speed=caps["speed"],
         n_slots=int(caps["slots"]),
         domain=meta[0],
-        known_good=meta[1],
-        snapshot_class=meta[2],
+        snapshot_class=meta[1],
         slots=Slots(int(caps["slots"])),
         disks=disks,
         tpm=tpm,

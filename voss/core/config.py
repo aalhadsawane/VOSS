@@ -34,15 +34,8 @@ class DecisionClockConfig(Frozen):
     mode: Literal["measured", "modeled"] = "modeled"
     cpu_scale: float = 1.0
     coeffs_file: str = ""  # configs/calibration/provider/<cpu-label>/decision.yaml; empty = the coefficients below
-    # used only without coeffs_file (unit tests): seeds, not results. TODO verify (superseded by the V10 file)
-    coeffs: dict[str, tuple[float, float]] = Field(
-        default_factory=lambda: {
-            "plan": (0.02, 5e-5),
-            "place": (0.0002, 2e-5),
-            "route": (0.0001, 1e-5),
-            "verify": (0.0, 5e-5),
-        }
-    )
+    # empty unless a unit test passes its own; every run sets coeffs_file (checklist 2.11, V10)
+    coeffs: dict[str, tuple[float, float]] = Field(default_factory=dict)
 
     @model_validator(mode="before")
     @classmethod
@@ -65,14 +58,11 @@ class ScenarioConfig(Frozen):
     start_utc_h: float = 0.0
     warmup_s: float = Field(default=172800.0, ge=0)
     substrate_mix: dict[str, float] = Field(default_factory=lambda: {"appliance_tpm": 1.0})
-    tiers: dict[str, float] = Field(default_factory=lambda: {"nightly": 0.6, "idle": 0.3, "dedicated": 0.1})
-    hw_mix: dict[str, float] = Field(default_factory=lambda: {"C0": 0.1, "C1": 0.35, "C2": 0.35, "C3": 0.2})
-    # calibrated fleet (plan V9.4, D-107): {bundles: [...], survey: <trace>}; set, it replaces hw_mix and the C classes
-    machines: dict[str, Any] = Field(default_factory=dict)
-    tofu_frac: float = Field(default=0.3, ge=0, le=1)
+    # calibrated fleet (plan V9.4, D-107; checklist 1.2): required, the only machine path
+    machines: dict[str, Any]
     physical_frac: float = Field(default=0.0, ge=0, le=1)  # owners without memory encryption willing to attack
     # physically: class P, the rest class S (plan V3.3; axis, >0 only in the security experiment)
-    regime: str = "churn_med"
+    regime: str = "churn_seti"
     churn: dict[str, Any] = Field(default_factory=dict)
     adversary: dict[str, Any] = Field(default_factory=dict)
     load: dict[str, Any] = Field(default_factory=dict)
@@ -82,6 +72,8 @@ class ScenarioConfig(Frozen):
     execution: dict[str, Any] = Field(default_factory=dict)
     functions: str = "functions.yaml"
     tenants: str = "tenants.yaml"
+    deadline_multiple: float = Field(default=5.0, gt=0)  # D-119: deadline = k x (run time + overhead)
+    idempotent_frac: float = Field(default=1.0, ge=0, le=1)  # D-119: share of functions that may be retried
 
 
 class InfraConfig(Frozen):
@@ -96,10 +88,8 @@ class InfraConfig(Frozen):
 
 
 class RouterConfig(Frozen):
-    """Doc 07 §2 (dispatch watchdog) and the start-up price priors the scheduler uses until it measures them."""
+    """Doc 07 §2 (dispatch watchdog)."""
 
-    cold_penalty_s: float = 3.0  # prior price of a trust-cold start until a cluster measured one  # TODO verify
-    cold_fn_s: float = 0.5  # prior price of a cold function start until measured  # TODO verify
     T_dispatch: float = 1.0
     max_resends: int = 3
     give_up_s: dict[str, float] = Field(default_factory=lambda: {"sync": 30.0, "async": 300.0})
@@ -114,7 +104,6 @@ class PlacerConfig(Frozen):
 
     sync: str = "greedy"
     async_: str = Field(default="greedy", alias="async")
-    K: int = 12
     window_s: float = 0.2
 
     model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
@@ -126,13 +115,14 @@ class PredictorConfig(Frozen):
     name: str = "blr"
     forgetting: float = 0.995
     conformal: bool = True
+    prior_sd: tuple[float, float, float] = (0.7, 0.3, 0.5)  # D-122: run-time prior SDs, S, listed
 
 
 class CostConfig(Frozen):
-    """Doc 03 §5.2. Placement is lexicographic (D-110): no weights."""
+    """Doc 03 §5.2. Placement is lexicographic (D-110): no weights, no v1 switches."""
 
-    lifecycle_aware: bool = True  # False: ablation, placement sees one startup estimate for every candidate
-    wait_model: Literal["ewma", "per_worker"] = "ewma"  # slot-wait estimate (D-77): scheduler-wide EWMA or per worker
+    tts_cv: float = Field(default=0.3, ge=0)  # D-122: spread of the time to start, S
+    overdue_frac: float = Field(default=0.25, ge=0)  # D-122: extra hold of a job past its predicted end, S
 
 
 class AdmissionConfig(Frozen):
@@ -142,26 +132,26 @@ class AdmissionConfig(Frozen):
 
 
 class PlannerConfig(Frozen):
-    """Slow loop (doc 03 §4, doc 05 §6). Objective weights are in ``params`` (``policy.plan.types.PlanParams``)."""
+    """Slow loop (doc 03 §4, doc 05 §6). ``hetero`` is the only VOSS provisioning planner (D-131); the remaining
+    names are baselines."""
 
-    name: str = "milp"
+    name: str = "hetero"
     T_plan: float = 30.0
-    T_solve: float = 2.0
-    node_limit: int = 50
-    max_plan_workers: int = 40
     replan_tolerance: float = 0.2
-    hot_top_k: int = 20
-    hot_fn_k: int = 50
     min_rate: float = 0.01
-    f_from_alpha: float = 0.1
     horizon_factor: float = 2.0
-    cold_penalty: float = 10.0
     max_parallel_prepares: int = 2
     T_linger: float = 30.0
     scenarios: int = Field(default=32, ge=1)  # failure scenarios sampled per provisioning round (hetero, §11.6)
-    domain_shock_p: float = Field(default=0.0, ge=0.0, le=1.0)  # P(a failure domain is lost in a horizon); V9 estimates
     ablate: tuple[Literal["homogeneous", "binary", "reliability_blind"], ...] = ()  # hetero ablations (§11.7, R06)
     params: dict[str, Any] = Field(default_factory=dict)
+
+
+class VerifierConfig(Frozen):
+    """Session certificate policy (D-120): validity and re-attestation period, class A, varied in R07."""
+
+    valid_s: float = Field(default=900.0, gt=0)
+    reattest_every_s: float = Field(default=600.0, gt=0)
 
 
 class ModelsConfig(Frozen):
@@ -171,14 +161,15 @@ class ModelsConfig(Frozen):
     omission: str = "beta_cusum"
     refit_s: float = 60.0
     cusum_h: float = 5.0
+    omission_prior: tuple[float, float] = (0.5, 20.0)  # Beta prior (a0, b0) of the drop estimate (D-111)
+    omission_pessimistic: tuple[float, float] = (2.0, 4.0)  # prior after a change point (D-111)
+    cusum_k: float = 0.1  # CUSUM drift (D-111)
 
 
 class SchedulerConfig(Frozen):
     """Scheduler role timers (doc 08 §3.2, §5)."""
 
-    hetero_aware: bool = True  # False: ablation, predictions ignore worker speed
     heartbeat_s: float = 2.0
-    keepalive_s: float = 1.0
     stale_after_s: float = 7.0
     max_attempts: int = 3
     retry_backoff_s: float = 0.2
@@ -192,8 +183,7 @@ class WorkerConfig(Frozen):
     warm_ttl_s: float = 600.0
     warm_eviction: str = "lru"  # lru | greedy_dual (FaaSCache keep-alive, plan V8)
     m_base_mb: float = 512.0
-    assurance_tofu_factor: float = 0.9  # f_policy for TOFU firmware (doc 04 §8). tag: assumed
-    sync_priority: bool = False  # D-77: a free slot serves waiting synchronous requests before queued async ones
+    sync_priority: bool = True  # D-114: a free slot serves waiting synchronous requests before queued async ones
 
 
 class KeepaliveHistConfig(Frozen):
@@ -232,6 +222,7 @@ class DetectionConfig(Frozen):
     detector: str = "voss"  # fixed | consecutive | voss (policy.detect, plan V7.2)
     quantile: float = 0.95  # the voss timer: this quantile of the attempt's predicted completion (plan V7.1)
     probe_timeout_s: float = 2.0  # an unanswered probe is evidence for the drop estimate; it does not end the attempt
+    hedge_min_samples: int = 20  # D-122: hedged requests use the deadline until this many latencies are observed, S
     consecutive_streak: int = 5  # consecutive: failures in a row that eject (L: Envoy consecutive_5xx)
     consecutive_eject_s: float = 30.0  # consecutive: ejection time (L: Envoy base_ejection_time)
     suspect_streak: int = 2  # watchdog failures in a row → suspected
@@ -254,6 +245,7 @@ class VossConfig(Frozen):
     cost: CostConfig = Field(default_factory=CostConfig)
     admission: AdmissionConfig = Field(default_factory=AdmissionConfig)
     models: ModelsConfig = Field(default_factory=ModelsConfig)
+    verifier: VerifierConfig = Field(default_factory=VerifierConfig)
     planner: PlannerConfig = Field(default_factory=PlannerConfig)
     scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
     worker: WorkerConfig = Field(default_factory=WorkerConfig)
@@ -264,9 +256,6 @@ class VossConfig(Frozen):
     keys: KeysConfig = Field(default_factory=KeysConfig)
 
 
-_HASH_OMIT_DEFAULT = (("cost", "wait_model", "ewma"), ("worker", "sync_priority", False))
-
-
 class RunConfig(Frozen):
     """Root of the config tree."""
 
@@ -274,7 +263,7 @@ class RunConfig(Frozen):
     horizon_s: float = 3600.0
     system: str = "voss"
     reference: str = "trusted_hosts"  # profile of ``system: reference_cloud`` (configs/references/, plan V8)
-    scenario: ScenarioConfig = Field(default_factory=ScenarioConfig)
+    scenario: ScenarioConfig
     voss: VossConfig = Field(default_factory=VossConfig)
     drain_s: float = 30.0
     decision_clock: DecisionClockConfig = Field(default_factory=DecisionClockConfig)
@@ -284,11 +273,6 @@ class RunConfig(Frozen):
 
     def config_hash(self) -> str:
         tree = self.model_dump(mode="json", exclude={"out_dir", "label"})
-        for sect, key, default in _HASH_OMIT_DEFAULT:  # D-77: knobs added later keep old run directories valid
-            if tree["voss"][sect][key] == default:
-                del tree["voss"][sect][key]
-        if not tree["scenario"]["machines"]:  # D-107: likewise the opt-in calibrated fleet
-            del tree["scenario"]["machines"]
         return hash_obj(tree)
 
 

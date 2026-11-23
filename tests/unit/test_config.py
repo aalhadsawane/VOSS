@@ -10,9 +10,17 @@ from voss.core.config import DecisionClockConfig, RunConfig, load_config
 from voss.core.decision_clock import DecisionClock
 from voss.core.registry import Registry
 
+from tests.fixtures.fleet import FLEET
+
+
+def _cfg(seed: int) -> RunConfig:
+    return RunConfig.model_validate({"seed": seed, "scenario": {"machines": FLEET}})
+
 
 def test_extends_and_overrides(tmp_path: Path) -> None:
-    (tmp_path / "base.yaml").write_text("seed: 1\nhorizon_s: 10\nscenario: {workers: 5, load: {a: 1}}\n")
+    (tmp_path / "base.yaml").write_text(
+        f"seed: 1\nhorizon_s: 10\nscenario: {{workers: 5, load: {{a: 1}}, machines: {FLEET!r}}}\n"
+    )
     (tmp_path / "child.yaml").write_text("extends: base.yaml\nscenario: {load: {b: 2}}\n")
     cfg = load_config(tmp_path / "child.yaml", ["seed=9", "scenario.workers=7"])
     assert cfg.seed == 9
@@ -25,8 +33,8 @@ def test_unknown_keys_rejected() -> None:
 
 
 def test_config_hash_stable() -> None:
-    assert RunConfig(seed=1).config_hash() == RunConfig(seed=1).config_hash()
-    assert RunConfig(seed=1).config_hash() != RunConfig(seed=2).config_hash()
+    assert _cfg(1).config_hash() == _cfg(1).config_hash()
+    assert _cfg(1).config_hash() != _cfg(2).config_hash()
 
 
 def test_registry() -> None:

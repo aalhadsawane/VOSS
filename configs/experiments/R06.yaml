@@ -9,7 +9,7 @@
 #   duration     horizon_s 100,800 (28 h): 4 h warm-up + 24 h measured (D-97)
 #   warm-up      scenario.warmup_s 14,400 = voss.keepalive_hist.range_s, the longest learning window of a compared
 #                policy (guardrail 23)
-#   calibration  calibrated fleet configs/machines.yaml (D-107, D-108): bundles node02-i7-12700-64g-nvme_nvme
+#   calibration  calibrated fleet configs/base.yaml (D-107, D-108): bundles node02-i7-12700-64g-nvme_nvme
 #                (reference), node02-i7-12700-64g-nvme_hdd, node04-i7-4790s-8g-hdd_hdd, weighted by the Rosetta@home
 #                survey (configs/machines_mix.yaml); measured bundles only (guardrail 28)
 #   trace split  held-out: load azure2019 heldout, sessions churn_seti heldout (seti09, odd hosts, second week);
@@ -22,13 +22,15 @@
 #   reliability_blind  every worker stays and never drops work (voss.planner.ablate)
 #   survival_blind     survival replaced by the pool mean (voss.planner.params.survival_blind)
 #   no_warm            no warm sandboxes kept (voss.planner.params.w_max 0; holders, keys and snapshots stay)
-# Added when their keys land (D-114, D-128): backup attempts off, drop estimate off, synchronous-first off.
+#   sync_first_off     queued asynchronous invocations are not overtaken (voss.worker.sync_priority false, D-114)
+#   backup_off         a late attempt is probed, never backed up (voss.detection.detector voss_no_backup, D-128)
+#   drop_estimate_off  every worker keeps the prior drop rate, no change point (voss.models.omission prior_only)
 #   Dropped from the plan (D-118, D-128): cover rule (f = 0), one speed factor, robust (worst case), independent
 #   failures.
 # The voss row has R01's central-cell config hash (shared run).
-# Runs: 6 x 10 seeds = 60 (10 shared with R01). Output: Fig. 6.
+# Runs: 9 x 10 seeds = 90 (10 shared with R01). Output: Fig. 6.
 experiment: R06
-base: ../machines.yaml
+base: ../base.yaml
 overrides:
   - horizon_s=100800
   - scenario.warmup_s=14400
@@ -48,4 +50,7 @@ systems:
   reliability_blind: [voss.planner.name=hetero, "voss.planner.ablate=[reliability_blind]"]
   survival_blind: [voss.planner.name=hetero, voss.planner.params.survival_blind=true]
   no_warm: [voss.planner.name=hetero, voss.planner.params.w_max=0]
+  sync_first_off: [voss.planner.name=hetero, voss.worker.sync_priority=false]
+  backup_off: [voss.planner.name=hetero, voss.detection.detector=voss_no_backup]
+  drop_estimate_off: [voss.planner.name=hetero, voss.models.omission=prior_only]
 seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]

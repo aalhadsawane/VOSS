@@ -61,3 +61,23 @@ class BetaCusum:
         self.p_omit(np.array([worker]))  # grow the cache if needed
         self._p[worker] = st.a / (st.a + st.b)
         return cp
+
+
+@register("omission", "prior_only")
+class PriorOnly:
+    """The drop estimate switched off (R06, D-128): every worker keeps the prior mean and no change point fires."""
+
+    def __init__(
+        self,
+        prior: tuple[float, float] = (0.5, 20.0),
+        pessimistic: tuple[float, float] = (2.0, 4.0),
+        k: float = 0.1,
+        h: float = 5.0,
+    ) -> None:
+        self._p0 = prior[0] / (prior[0] + prior[1])
+
+    def p_omit(self, workers: np.ndarray) -> np.ndarray:
+        return np.full(len(np.asarray(workers)), self._p0)
+
+    def update(self, worker: int, omitted: bool, t: float) -> ChangePoint | None:
+        return None
