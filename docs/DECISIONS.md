@@ -439,6 +439,15 @@ and the report's "what is real and what is modelled" section lists the modelled 
 per-role processes with a socket transport (a second network implementation before the freeze); one worker per core
 pair with the provider roles sharing a worker's core (breaks the handoff's rule).
 
+**D-137 The D-113 fallback: the three planning caps return as swept constants.** The 500-worker 28 h D-113 gate on the
+no-caps code hit the 340-minute job limit before the first run finished; planning every live worker against every
+active function does not fit one Actions job. `voss.planner.max_plan_workers` (40), `hot_top_k` (20) and `hot_fn_k`
+(50) return as class-S pre-filters. Workers are ranked by capacity and previous holders; tenants and functions by
+forecast rate. R07 varies each ×0.5 and ×2, and the paper states the pre-filter and its effect. *Why:* the alternative
+is no 28 h run at all, and the held-out R01/R03 cells have the same 500-worker, 28 h shape. *Rejected:* shortening the
+measured window (the plan's 24 h measured window stays) and raising the job timeout (GitHub's maximum is six hours,
+and a five-run shard still needs two waves).
+
 ## v1 decisions (D-01 to D-80)
 
 **D-01 Custom Python discrete-event simulator.** FaaS physics is small; solver wall time must enter simulated time;
