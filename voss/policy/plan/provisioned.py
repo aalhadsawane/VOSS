@@ -3,11 +3,13 @@ planning. It isolates *how many* holders from *which* holders.
 
 For every hot key ``t`` the holder count ``N_t`` is the budget ``K`` when the tenant sets one; otherwise the planner
 asks ``greedy`` what it would do on the same input and takes ``N_t = Σ_j y_tj``. It then holds ``t``'s key on the
-``N_t`` eligible workers with the highest ``S_j(H)·(1 − p_j)`` (``PlanInput.contrib``), eligible = freshness (``PlanInput.allowed``). Equal ``N_t`` means the key-holder count matches greedy; what differs is *which* workers: reliability only, with no robust coverage, no failure-domain cap, no exposure
-or memory trade-off. Warm sandboxes and snapshots are not planned (``s = w = 0``); the worker keep-alive TTL alone keeps
-sandboxes warm. Capacity ``c_tj`` is greedy's total for ``t`` split evenly over its holders (capped at the worker's
-slots); it only feeds the logged objective, never the placement. Slots are not shared out between tenants, so a very
-reliable worker may hold several tenants' keys.
+``N_t`` eligible workers with the highest ``S_j(H)·(1 − p_j)`` (``PlanInput.contrib``), eligible = freshness
+(``PlanInput.allowed``). Equal ``N_t`` means the key-holder count matches greedy; what differs is *which* workers:
+reliability only, with no robust coverage, no failure-domain cap, no exposure or memory trade-off. Warm sandboxes and
+snapshots are not planned (``s = w = 0``); the worker keep-alive TTL alone keeps sandboxes warm. Capacity
+``c_tj`` is greedy's total for ``t`` split evenly over its holders (capped at the worker's slots); it only feeds the
+logged objective, never the placement. Slots are not shared out between tenants, so a very reliable worker may hold
+several tenants' keys.
 """
 
 from __future__ import annotations
