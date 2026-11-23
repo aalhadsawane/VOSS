@@ -19,10 +19,7 @@
 #                reaches 39-53% only at K=2, rate_mult 30 (D-99).
 #   duration     horizon_s 100,800 (28 h): 4 h warm-up + 24 h measured (D-97)
 #   warm-up      scenario.warmup_s 14,400 (longest learning window of a compared policy: the histogram's 4 h range)
-#   calibration  provisional measured bundle i7_12700_64g_full-b4f89a4def (i7-12700, NVMe + HDD, measured session
-#                boot) for every class: a run takes one bundle, which overrides class C0; C1-C3 keep their
-#                measured machine classes in one run
-#                need a mechanism that does not exist yet (plan V9.4).
+#   calibration  calibrated fleet (configs/base.yaml, D-107): node02 (NVMe and HDD) and node04, one bundle per class
 #   trace split  development: load azure2019 dev, sessions churn_seti dev (seti09, even hosts, first week),
 #                links ookla-fixed-2024q1, populations wup2025
 #   seeds        1-5
@@ -44,7 +41,6 @@ overrides:
   - scenario.load.split=dev
   - scenario.network.link.trace=ookla-fixed-2024q1
   - scenario.geo.pop_trace=wup2025
-  - calibration=configs/calibration/measured/i7_12700_64g_full-b4f89a4def
 grid:
   voss.keys.max_holders: [2, 4, 8, 16, null]
   scenario.load.rate_mult: [10.5, 21, 30]
