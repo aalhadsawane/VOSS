@@ -27,7 +27,7 @@ class KpaPlanner:
         s, w = np.zeros((n_f, n_j), bool), np.zeros((n_f, n_j), np.int64)
         conc = inp.fn_inflight if inp.fn_inflight is not None else np.zeros(n_f)
         allowed, score = inp.allowed(), inp.contrib()
-        mem = np.maximum(0.0, inp.mem_mb - inp.params.m_base_mb)
+        mem = np.maximum(0.0, inp.mem_mb - inp.m_base_mb)
         for f, fn in enumerate(inp.fns):
             st = self.state.setdefault(str(fn), KpaState())
             st.observe(inp.now, float(conc[f]), self.p.stable_s)

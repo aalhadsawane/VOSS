@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import numpy as np
 import pytest
 from voss.core.config import DetectionConfig
 from voss.policy.detect import detector, fits
+from voss.policy.omission import BetaCusum, PriorOnly
 
 DC = DetectionConfig()
 
@@ -72,3 +74,16 @@ def test_watchdog_quantile_uses_the_scheduler_round_trip_and_the_input_arrival()
     late_input = _timing(cm, 0, 0, 0.95, span=(0.17, 0.06))  # input arrives 0.06 s after the dispatch is received
     assert far.q > router.q + 0.1 and late_input.q > far.q + 0.03
     assert far.mean == late_input.mean == router.mean and far.budget == router.budget
+
+
+def test_ablation_profiles_of_r06() -> None:
+    """D-128: backups off keeps VOSS's timer and ejection; drop estimate off keeps the prior for every worker."""
+    full, ablated = detector("voss", DetectionConfig(), 3), detector("voss_no_backup", DetectionConfig(), 3)
+    assert ablated.on_expiry == "probe" and full.on_expiry == "backup"
+    assert (ablated.timer, ablated.streak, ablated.change_point) == (full.timer, full.streak, full.change_point)
+    off, on = PriorOnly(), BetaCusum()
+    for _ in range(50):
+        assert off.update(7, True, 0.0) is None
+        on.update(7, True, 0.0)
+    assert float(off.p_omit(np.array([7]))[0]) == float(BetaCusum().p_omit(np.array([7]))[0])
+    assert float(on.p_omit(np.array([7]))[0]) > float(off.p_omit(np.array([7]))[0])

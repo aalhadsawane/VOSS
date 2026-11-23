@@ -1,7 +1,17 @@
-# P2 smoke run (roadmap P2 exit): 1k workers, 1 simulated hour, one cluster.
+# P2 smoke run (roadmap P2 exit): 1k workers, 1 simulated hour, one cluster. Test configuration only: the fleet survey
+# and the session trace are tiny fixtures under tests/, and the arrival process and links are the synthetic seeds, so
+# the run needs no fetched trace data (the reported runs use configs/base.yaml's traces).
 extends: base.yaml
 horizon_s: 3600
 scenario:
   workers: 1000
+  machines:
+    bundles: [node02-i7-12700-64g-nvme_nvme, node02-i7-12700-64g-nvme_hdd, node04-i7-4790s-8g-hdd_hdd]
+    survey: test
+    trace_root: tests/fixtures/fleet
+  churn: {trace: test, trace_root: tests/fixtures/traces}
+  load: {trace: "", rate: 100, zipf_s: 1.0}
+  network: {link: {trace: ""}}
+  geo: {pop_trace: ""}
 voss:
   placer: {sync: least_loaded}

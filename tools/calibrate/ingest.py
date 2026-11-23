@@ -258,7 +258,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--label", default=None, help="bundle name to write instead (a version of the same raw logs)")
     p.add_argument("--out", type=Path, default=Path("configs/calibration/measured"))
     p.add_argument("--tier", default=None, help="disk tier standing in for 'ssd' in mapping.yaml (e.g. hdd)")
-    p.add_argument("--placeholder", type=Path, default=Path("configs/calibration/placeholder/c0"))
+    p.add_argument("--placeholder", type=Path, default=Path("tests/fixtures/calibration/placeholder/c0"))
     a = p.parse_args(argv)
     fp, files = build(a.raw, a.host, a.placeholder, a.tier, a.label)
     out = a.out / fp

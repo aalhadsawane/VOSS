@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import resource
 import sys
 import time
 from pathlib import Path
@@ -36,12 +37,11 @@ from voss.runtime.verifier import Verifier
 from voss.runtime.worker_agent import WorkerAgent
 from voss.runtime.workerlib.faults import Adversary
 from voss.runtime.workerlib.host import HostLocal, make_host
-from voss.world.execution import ExecParams, noise_matrix
-from voss.world.hardware import HwClass, load_hw_classes
+from voss.world.execution import ExecParams, load_exec, noise_matrix
+from voss.world.hardware import HwClass
 from voss.world.network import Network, NetworkParams
 from voss.world.scenario import Scenario, generate
 from voss.world.substrate import SubstrateProfile, load_bundle, load_substrate
-from voss.world.workers import TIERS
 from voss.world.workload import SLO_CLASSES, FunctionSpec
 
 ClassInputs = tuple[dict[FnId, FunctionSpec], dict[str, Dist], dict[str, SubstrateProfile]]
@@ -57,7 +57,9 @@ class VossSystem:
         self.kernel, self.rng, self.rec = self.kernel_cls(), RngFactory(cfg.seed), Recorder()
         net_params = NetworkParams.model_validate(cfg.scenario.network)
         self.net = Network(self.kernel, net_params, self.rng.stream("net.jitter"))
-        self.bundle = load_bundle(cfg.calibration or "calibration/placeholder/c0")
+        if cfg.calibration is None:
+            raise ValueError("a run needs calibration= a measured bundle (D-107; checklist 1.4)")
+        self.bundle = load_bundle(cfg.calibration)
         names = sorted(set(scn.workers.substrate_names))
         self.profiles: dict[str, SubstrateProfile] = {n: load_substrate(n, self.bundle) for n in names}
         self.directory = Directory()
@@ -65,7 +67,12 @@ class VossSystem:
         self.ctx = ActorContext(self.kernel, self.net, self.rec, self.rng, clock, cfg, self.directory)
         self.cost = cost_context(cfg, scn.catalog, scn.metros, self.profiles, self.bundle)
         self.priors = fn_priors(scn.catalog)
+        self.exec_override = ExecParams.model_validate(cfg.scenario.execution).model_dump(exclude_unset=True)
+        self.exec_ref = load_exec(cfg.calibration).model_copy(
+            update=self.exec_override
+        )  # D-133: reference repeat variation; the key overrides only
         self.by_class: dict[str, ClassInputs] = {}  # calibrated fleet (plan V9.4): per machine class
+        self.exec_by_class: dict[str, ExecParams] = {}
         self.agents: dict[WorkerId, WorkerAgent] = {}
         self.routers: list[Router] = []
         self._infra()
@@ -99,8 +106,7 @@ class VossSystem:
             self.directory.kbs[TenantId(t.id)] = ("kbs", f"kbs:{t.owner or t.id}")
         for i, name in enumerate(self.scn.metros.name):
             self._place(f"client:{i}", name)
-        valid = {n: (p.assurance_base, p.session.valid_s) for n, p in self.profiles.items()}
-        self._attach(Verifier("verifier", self.ctx, valid))
+        self._attach(Verifier("verifier", self.ctx))
         self._attach(OpDb("orchestrator", self.ctx))
         sched_host = ProviderHost(speed=inf.scheduler_speed)
         self.sched = self._attach(SchedulerRole(sched_host, NODE, self.ctx, self.cost, self.priors))
@@ -118,15 +124,22 @@ class VossSystem:
 
     def _workers(self) -> None:
         wt, fleet = self.scn.workers, self.scn.fleet
-        hw = fleet.hw if fleet is not None else load_hw_classes(list(wt.hw_names), self.cfg.calibration)
-        ep = ExecParams.model_validate(self.cfg.scenario.execution)
-        noise = noise_matrix(self.rng.stream("inv.exec.noise"), len(self.scn.arrivals), 6, ep)
+        if fleet is None:
+            raise ValueError("a VOSS run needs a calibrated fleet (D-107; checklist 1.2)")
+        hw = fleet.hw
+        base = np.array(
+            [
+                self.scn.catalog.functions[int(i)].base or self.scn.catalog.functions[int(i)].name
+                for i in self.scn.arrivals.frame.fn
+            ]
+        )
+        noise = noise_matrix(self.rng.stream("inv.exec.noise"), base, 6, self.exec_ref)
         for w in range(len(wt)):
             wid = WorkerId(w)
             hc = hw[wt.hw_names[int(wt.hw[w])]]
             catalog, bundle, _ = self._class(hc)
             touched = bundle["snapshot_touched_frac"].mean() if "snapshot_touched_frac" in bundle else 0.3
-            params = {"exec": ep, "touched_frac": touched, "noise": noise}
+            params = {"exec": self._exec(hc), "touched_frac": touched, "noise": noise}
             host = self._host(wid, hc)
             self.net.add_host(
                 wid,
@@ -142,14 +155,19 @@ class VossSystem:
                 self.rec.log(Table.EVENTS, t=0.0, kind="adversary", worker=w, value=0.0, reason=adv.name)
             self.agents[wid] = self._attach(WorkerAgent(host, self.ctx, catalog, params, adv))
 
+    def _exec(self, hc: HwClass) -> ExecParams:
+        """Execution variation of the class's bundle; the noise draws are the reference's (common random numbers)."""
+        if hc.name not in self.exec_by_class:
+            ep = load_exec(f"calibration/measured/{hc.name}").model_copy(update=self.exec_override)
+            self.exec_by_class[hc.name] = ep.model_copy(update={"noise_cv": self.exec_ref.noise_cv})
+        return self.exec_by_class[hc.name]
+
     def _class(self, hc: HwClass) -> ClassInputs:
-        """Catalogue, bundle and substrate profiles a worker of class ``hc`` runs with: its own calibrated machine's in
-        a fleet (plan V9.4, D-107), else the run's calibration bundle for every class."""
+        """Catalogue, bundle and substrate profiles a worker of class ``hc`` runs with: its own calibrated machine's
+        (plan V9.4, D-107)."""
         fleet = self.scn.fleet
         if fleet is None or hc.name not in fleet.classes:
-            if "" not in self.by_class:
-                self.by_class[""] = ({FnId(f.name): f for f in self.scn.catalog.functions}, self.bundle, self.profiles)
-            return self.by_class[""]
+            raise ValueError(f"{hc.name}: not a class of the run's calibrated fleet (D-107)")
         if hc.name not in self.by_class:
             d = fleet.classes[hc.name].dists
             fns = {FnId(f.name): f for f in fleet.catalogs[hc.name]}
@@ -161,7 +179,7 @@ class VossSystem:
         _, bundle, profiles = self._class(hc)
         prof = profiles[wt.substrate_names[int(wt.substrate[w])]]
         caps = {k: float(getattr(wt, k)[w]) for k in ("slots", "speed", "mem_mb", "ssd_mb", "hdd_mb")}
-        meta = (int(wt.domain[w]), bool(wt.known_good[w]), f"{hc.cpu_model}|k1|fc1")
+        meta = (int(wt.domain[w]), f"{hc.cpu_model}|k1|fc1")
         host = make_host(
             self.kernel,
             self.rng,
@@ -182,7 +200,6 @@ class VossSystem:
             float(wt.lat[w]),
             float(wt.lon[w]),
             float(wt.tz[w]),
-            TIERS[int(wt.tier[w])],
             prof.name,
             float(wt.down_bps[w]),
             float(wt.up_bps[w]),
@@ -191,7 +208,7 @@ class VossSystem:
             0.0,
             mem_mb=caps["mem_mb"],
             ssd_mb=caps["ssd_mb"],
-            snapshot_class=meta[2],
+            snapshot_class=meta[1],
             machine_class=hc.name,
         )
         return host
@@ -237,13 +254,12 @@ class VossSystem:
             demotions=sum(h.cache.stats.demotions for h in hosts),
             promotions=sum(h.cache.stats.promotions for h in hosts),
             key_holders=sum(len(a.keys) for a in live),
-            exposure=sum(len(a.keys) * (1 - a.host.assurance) for a in live),
         )
 
     def _progress(self, now: float) -> None:
         """One line per simulated hour on stderr (run sizing, plan V9.5): a runner that is killed still shows how far
         it got and how much memory it held. Not a result: nothing here reaches the recorder."""
-        rss = int(Path("/proc/self/statm").read_text().split()[1]) * os.sysconf("SC_PAGE_SIZE") / 2**20
+        rss = _peak_rss_mb()
         wall = time.perf_counter() - self._t0
         msg = f"progress sim_h={now / 3600:.1f} events={self.kernel.events_run} wall_s={wall:.0f} rss_mb={rss:.0f}"
         print(msg, file=sys.stderr, flush=True)
@@ -256,6 +272,8 @@ class VossSystem:
         self.kernel.at(0.0, self._sample)
         run_chunked(self.kernel, self.scn.horizon + self.cfg.drain_s, PROGRESS_S, self._progress)
         end = self.kernel.now
+        res = self.net.stats.get("Result")
+        drops = res.drops + res.in_flight if res is not None else 0  # lost, or still uploading at the end
         for r in self.routers:
             r.finalize_all()
         self.kernel.run(self.kernel.now + 5.0)  # the last receipt batches land
@@ -265,8 +283,6 @@ class VossSystem:
         for kind, st in sorted(self.net.stats.items()):
             self.rec.log(Table.MESSAGES, kind=kind, count=st.count, bytes=st.bytes, drops=st.drops)
         give_up = {i: self.cfg.voss.router.give_up_s[c] for i, c in enumerate(SLO_CLASSES)}
-        res = self.net.stats.get("Result")
-        drops = res.drops + res.in_flight if res is not None else 0  # lost, or still uploading at the end
         k_all = self.cfg.voss.keys.max_holders
         budgets = {t.id: (t.max_holders if k_all is None else k_all) for t in self.scn.catalog.tenants}
         for v in check_invariants(self.rec, self.scn, len(arr), give_up, end, drops, budgets):
@@ -278,6 +294,20 @@ def _sample(ref: Any, g: np.random.Generator) -> float:
     if isinstance(ref, int | float):
         return float(ref)
     return float(ref.sample(g))
+
+
+def _peak_rss_mb() -> int:
+    """Resident memory of the runner, portable across the Linux runners and a developer's macOS checkout.
+
+    ``/proc`` is Linux-only; elsewhere ``ru_maxrss`` is in bytes on macOS and kilobytes on Linux."""
+    try:
+        statm = Path("/proc/self/statm")
+        if statm.exists():
+            return int(int(statm.read_text().split()[1]) * os.sysconf("SC_PAGE_SIZE") / 2**20)
+    except OSError:
+        pass
+    rss = float(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+    return int(rss / 2**20) if sys.platform == "darwin" else int(rss / 1024)
 
 
 PROGRESS_S = 3600.0  # simulated seconds between progress lines

@@ -1,7 +1,8 @@
-"""Planner inputs and plans (doc 03 §4.1-4.2, doc 05 §3).
+"""Planner inputs and plans (doc 03 §4.1, doc 05 §3).
 
 Arrays are indexed by hot tenants ``T``, hot functions ``F`` and attested workers ``J`` of one cluster. All inputs
-are estimates from the scheduler's view (no ground truth).
+are estimates from the scheduler's view (no ground truth). The v1 objective weights, robust cover rule and failure-
+domain cap are deleted (D-131); ``hetero`` is the only VOSS provisioning planner.
 """
 
 from __future__ import annotations
@@ -16,22 +17,11 @@ from voss.policy.plan.hetero import HeteroInput
 
 @dataclass(frozen=True)
 class PlanParams:
-    """Objective weights and structural limits (doc 03 §4.2). tag: assumed; swept by E04/E23."""
+    """Structural limits of a plan (doc 03 §4.2; D-131)."""
 
-    rho_mem: float = 1e-4  # per MB of warm-VM memory
-    rho_ssd: float = 2e-5  # per MB of pinned snapshot
-    kappa_switch: float = 0.05
-    beta_warm: float = 0.05
-    gamma: float = 0.5  # a pinned snapshot is worth γ of a warm VM
-    kappa_dom: float = 0.5  # max share of a tenant's earmarked capacity in one failure domain
-    w_max: int = 4
-    m_base_mb: float = 512.0
-    use_robust: bool = True
-    use_exposure: bool = True
-    use_domain_cap: bool = True
+    w_max: int = 4  # warm sandboxes per function per worker
     use_freshness: bool = True
-    exposure_weight: float = 1.0
-    survival_blind: bool = False  # E25: survival, residence = cluster mean (plan.ablate)
+    survival_blind: bool = False  # R06 ablation: survival, residence = cluster mean (plan.ablate)
 
 
 @dataclass(frozen=True)
@@ -44,24 +34,18 @@ class PlanInput:
     ssd_mb: np.ndarray  # [J] SSD budget for pinned snapshots
     survival: np.ndarray  # [J] S_j(H)
     p_omit: np.ndarray  # [J]
-    assurance: np.ndarray  # [J]
-    domain: np.ndarray  # [J]
     fresh_ok: np.ndarray  # [J] attestation valid through the horizon (or a re-quote fits)
     tenants: tuple[TenantId, ...]
     q: np.ndarray  # [T] required concurrent capacity quantile
-    rate: np.ndarray  # [T] arrival rate (orders the greedy planner)
-    sigma: np.ndarray  # [T] sensitivity weight
-    a_min: np.ndarray  # [T] assurance floor
-    f: np.ndarray  # [T] robustness level (workers that may defect)
-    cold_penalty: np.ndarray  # [T] cost per unit of uncovered demand
     fns: tuple[FnId, ...]
     fn_tenant: np.ndarray  # [F] index into tenants
+    fn_rate: np.ndarray  # [F] arrival rate (1/s)
     fn_mem: np.ndarray  # [F] MB per warm VM
     fn_size: np.ndarray  # [F] snapshot MB
-    fn_benefit: np.ndarray  # [F] start-up seconds saved × expected hits in the horizon (per warm unit)
     fn_units: np.ndarray  # [F] warm VMs worth keeping cluster-wide (demand bound)
     y_prev: np.ndarray  # [T, J] previous trust-warm sets
     params: PlanParams = field(default_factory=PlanParams)
+    m_base_mb: float = 512.0  # image memory reserve, voss.worker.m_base_mb (D-117)
     max_holders: np.ndarray | None = None  # [T] holder budget K per key, 0 = none (D-85); None = no budgets
     fn_inflight: np.ndarray | None = None  # [F] in-flight requests of each function now (kpa baseline)
     hetero: HeteroInput | None = None  # per-worker run times, deadline probabilities, scenarios (§11; hetero planner)
@@ -82,12 +66,11 @@ class PlanInput:
         return out
 
     def allowed(self) -> np.ndarray:
-        """``[T, J]`` assurance floor and freshness (``y`` forced to 0 elsewhere)."""
-        ok = self.assurance[None, :] >= self.a_min[:, None]
-        if self.params.use_freshness:
-            ok &= self.fresh_ok[None, :]
-        out: np.ndarray = ok
-        return out
+        """``[T, J]`` freshness (``y`` forced to 0 elsewhere); the v1 trust floor is deleted (D-125)."""
+        ok = np.broadcast_to(self.fresh_ok[None, :], (len(self.tenants), len(self.workers))).copy()
+        if not self.params.use_freshness:
+            ok[:] = True
+        return ok
 
 
 @dataclass(frozen=True)
@@ -119,13 +102,3 @@ class Plan:
             inp.now + inp.horizon_s,
             planner=planner,
         )
-
-    def robust_slack(self, inp: PlanInput) -> np.ndarray:
-        """``[T]`` coverage minus the ``f_t`` largest contributions minus ``q_t`` (≥ 0 means robust)."""
-        eff = self.c * inp.contrib()[None, :]
-        out = np.empty(len(self.tenants))
-        for t in range(len(self.tenants)):
-            k = int(inp.f[t])
-            top = np.sort(self.c[t])[::-1][:k].sum() if k > 0 else 0.0
-            out[t] = eff[t].sum() - top - inp.q[t]
-        return out

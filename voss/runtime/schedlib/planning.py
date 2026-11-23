@@ -3,7 +3,6 @@ registered planner, and turn the plan diff into rate-limited, value-ordered acti
 
 from __future__ import annotations
 
-import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any
@@ -24,7 +23,6 @@ from voss.policy.plan.types import Plan, PlanInput, PlanParams
 from voss.policy.predict.arrivals import poisson_quantile
 from voss.runtime.schedlib.hetero_inputs import hetero_inputs
 from voss.runtime.schedlib.models import SchedModels
-from voss.runtime.schedlib.prices import Prices
 
 
 @dataclass
@@ -34,8 +32,9 @@ class PlanRound:
     n_vars: int = 0
 
 
-def _hot(rates: dict[str, float], k: int, min_rate: float) -> list[str]:
-    return [key for key, r in sorted(rates.items(), key=lambda x: (-x[1], x[0])) if r >= min_rate][:k]
+def _hot(rates: dict[str, float], min_rate: float) -> list[str]:
+    """Every key with a forecast rate of at least ``min_rate``, busiest first (D-113: no count cap)."""
+    return [key for key, r in sorted(rates.items(), key=lambda x: (-x[1], x[0])) if r >= min_rate]
 
 
 class Planning:
@@ -46,29 +45,17 @@ class Planning:
         self.rng = rng  # the run's streams (doc 01 §3): failure scenarios follow the run seed
         pc = cfg.planner
         kw: dict[str, Any] = {}
-        if pc.name == "milp":
-            kw = {"time_limit": pc.T_solve, "node_limit": pc.node_limit}
         if pc.name == "histogram_prewarm":
             kw = {"params": HistParams(**cfg.keepalive_hist.model_dump())}
         self.planner: Any = create("planner", pc.name, **kw)
         self.params = PlanParams(**pc.params)
         self.prev: Plan | None = None
-        self.prices: Prices | None = None  # set by the scheduler: measured card prices (D-33)
         self._last_sig: tuple[object, ...] = ()
 
     def _workers(self, view: ClusterView, now: float, horizon: float) -> np.ndarray:
-        """Planning pool (D-30): live workers, at most ``max_plan_workers`` (previous holders first, then by
-        capacity × assurance), until P5 clustering bounds cluster size."""
+        """Planning pool: every live attested worker that is not draining (D-113: no cap, no ranking)."""
         ok = (~view.draining) & (view.age < self.cfg.scheduler.stale_after_s) & (view.session_expiry > now)
-        idx = np.flatnonzero(ok)
-        k = self.cfg.planner.max_plan_workers
-        if len(idx) <= k:
-            return idx
-        held = {int(w) for w in (self.prev.workers if self.prev is not None else ())}
-        score = view.slots[idx] * view.assurance[idx] + np.array(
-            [1e6 if int(view.workers[i]) in held else 0.0 for i in idx]
-        )
-        out: np.ndarray = np.sort(idx[np.argsort(-score, kind="stable")[:k]])
+        out: np.ndarray = np.flatnonzero(ok)
         return out
 
     def build(self, view: ClusterView, now: float) -> PlanInput:
@@ -76,7 +63,7 @@ class Planning:
         inp = survival_blind(inp) if self.params.survival_blind else inp
         if self.cfg.planner.name == "hetero":  # per-worker run times, deadline probabilities, failure scenarios (§11)
             pc = self.cfg.planner
-            het = hetero_inputs(inp, view, self.ctx, self.models, pc.scenarios, pc.domain_shock_p, self.rng, pc.ablate)
+            het = hetero_inputs(inp, view, self.ctx, self.models, pc.scenarios, self.rng, pc.ablate)
             inp = replace(inp, hetero=het)
         return inp
 
@@ -86,44 +73,33 @@ class Planning:
         idx = self._workers(view, now, horizon)
         st = [view.static[i] if view.static else None for i in idx]
         demand = self.models.forecaster.forecast(now)
-        tenants = _hot({k: v for k, v in demand.rate.items() if not k.startswith("fn:")}, pc.hot_top_k, pc.min_rate)
+        tenants = _hot({k: v for k, v in demand.rate.items() if not k.startswith("fn:")}, pc.min_rate)
         tenants = [t for t in tenants if t in self.ctx.tenants]
         fn_rates = {k[3:]: v for k, v in demand.rate.items() if k.startswith("fn:")}
-        fns = [
-            f
-            for f in _hot(fn_rates, pc.hot_fn_k, pc.min_rate)
-            if f in self.ctx.fns and self.ctx.fns[f].tenant in tenants
-        ]
+        fns = [f for f in _hot(fn_rates, pc.min_rate) if f in self.ctx.fns and self.ctx.fns[f].tenant in tenants]
         workers = np.asarray(view.workers, dtype=np.int64)[idx]
         k, lam, start, tz, drain = self.models._static(view)
         hour = np.mod(self.start_utc_h + now / 3600 + tz[idx], 24)
         survival = self.models.survival.p_alive_arr(k[idx], lam[idx], now - start[idx], horizon, hour, drain[idx], now)
-        f_default = math.ceil(pc.f_from_alpha * len(idx))
         return PlanInput(
             now=now,
             horizon_s=horizon,
             workers=tuple(WorkerId(int(w)) for w in workers),
             cap=view.slots[idx].astype(float),
             mem_mb=np.array([s.mem_mb if s else 0.0 for s in st]),
+            m_base_mb=self.cfg.worker.m_base_mb,
             ssd_mb=np.array([s.ssd_mb if s else 0.0 for s in st]),
             survival=survival,
             p_omit=self.models.p_omit(workers),
-            assurance=view.assurance[idx],
-            domain=view.domain[idx],
             fresh_ok=view.session_expiry[idx] > now + min(horizon, 300.0),
             tenants=tuple(TenantId(t) for t in tenants),
             q=np.array([demand.q.get(t, 0.0) for t in tenants]),
-            rate=np.array([demand.rate[t] for t in tenants]),
-            sigma=np.array([self.ctx.tenants[t].sigma for t in tenants]),
-            a_min=np.array([self.ctx.tenants[t].assurance_floor for t in tenants]),
-            f=np.array([self.ctx.tenants[t].f if self.ctx.tenants[t].f is not None else f_default for t in tenants]),
             max_holders=np.array([self.ctx.tenants[t].max_holders or 0 for t in tenants], dtype=np.int64),
-            cold_penalty=np.full(len(tenants), pc.cold_penalty),
             fns=tuple(FnId(f) for f in fns),
             fn_tenant=np.array([tenants.index(self.ctx.fns[f].tenant) for f in fns], dtype=np.int64),
             fn_mem=np.array([self.ctx.fns[f].mem_mb for f in fns]),
             fn_size=np.array([self.ctx.fns[f].snapshot_mb for f in fns]),
-            fn_benefit=np.array([self._benefit(f, fn_rates[f], horizon, demand.q) for f in fns]),
+            fn_rate=np.array([fn_rates[f] for f in fns]),
             fn_units=np.array([float(poisson_quantile(fn_rates[f] * self._svc(f), 0.95)) for f in fns]),
             y_prev=self._prev_y(tenants, workers, view),
             params=self.params,
@@ -131,14 +107,6 @@ class Planning:
 
     def _svc(self, fn: str) -> float:
         return float(self.models.forecaster.service.get(f"fn:{fn}", self.ctx.fns[fn].work_ref_s))
-
-    def _benefit(self, fn: str, rate: float, horizon: float, q: dict[str, float]) -> float:
-        """Start-up seconds a warm unit saves over the horizon (cold boot from artifacts vs warm dispatch)."""
-        f = self.ctx.fns[fn]
-        sm = next(iter(self.ctx.startup.values()))
-        saved = f.rootfs_mb / 500.0 + sm.boot_s + f.init_s
-        units = max(1.0, float(poisson_quantile(rate * self._svc(fn), 0.95)))
-        return rate * horizon * saved / units
 
     def _prev_y(self, tenants: list[str], workers: np.ndarray, view: ClusterView) -> np.ndarray:
         """``[T, J]`` workers that hold each key now (reported keys): kept first when a budget binds (D-85)."""
@@ -196,8 +164,8 @@ class Planning:
             plan = self.planner.plan(inp)
             self._last_sig = sig
         fn_tenant = {f: self.ctx.fns[f].tenant for f in self.ctx.fns}
-        benefit = {str(f): float(b) for f, b in zip(inp.fns, inp.fn_benefit, strict=True)}
-        acts = diff(self.confirmed(view, inp), plan, fn_tenant, benefit)
+        value = {str(f): float(r) for f, r in zip(inp.fns, inp.fn_rate, strict=True)}
+        acts = diff(self.confirmed(view, inp), plan, fn_tenant, value)
         acts = hold_until_needed(acts + stale_releases(view, inp), holders_of(view), plan, self._budgets(inp))
         acts = rate_limit(acts, self.cfg.planner.max_parallel_prepares)
         self.prev = plan

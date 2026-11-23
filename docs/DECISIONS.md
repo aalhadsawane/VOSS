@@ -407,6 +407,22 @@ its measured repeat variation (class D, from the per-function repeat samples in 
 `experiments/analysis/machines.py`'s repeat coefficient of variation). A part that no bundle supplies (the
 heavy-tail mixture `tail_p`, `tail_median`, `tail_sigma` unless the repeat samples show it) is deleted rather than kept
 as an assumed value. *Rejected:* keeping the assumed log-normal mixture (guardrails 28, 29).
+**D-134 The start-up prices are deleted, not derived (amends D-115).** Implementing D-115 showed that the scheduler's
+start-up prices (`Prices`: the trust-cold and cold-start EWMAs seeded by `voss.router.cold_penalty_s` and
+`cold_fn_s`, and the in-cluster overhead) are updated on every outcome and decayed every `voss.scheduler.keepalive_s`
+but read by no policy: they fed v1's cluster cards (D-33), which D-83 removed. A value nothing reads needs no basis, so
+the prices, both priors, their smoothing constant (0.05), the decay tick `keepalive_s` and the unused
+decision-latency buffer it cleared are deleted (guardrail 32). Placement and provisioning take start-up costs from
+the cost model's startup model, which is measured. No behaviour changes except fewer timer events.
+
+**D-135 The held-out sweep publishes summaries and hashes of every run, and a raw-log sample, not every raw table.**
+The 4,180 distinct held-out runs at 28 h produce about 2.7 TB of raw tables. A GitHub release allows 1,000 assets of
+less than 2 GiB and the publish runner has about 14 GB of disk, so publishing every run's raw directory is not
+possible. Each shard collects its own summaries and hashes where the logs are; the publish job merges them and commits
+one `summary.parquet` and `hashes.csv` for every run, and publishes one raw-log run from every 100th shard. The rest is
+reproducible from the committed config hash, scenario hash and seed. The paper's figures read summaries only, and
+guardrail 20 still reports every grid cell. *Rejected:* multiple multi-terabyte releases (upload time, no reader) and
+keeping raw logs only as artifacts (they expire after seven days).
 
 ## v1 decisions (D-01 to D-80)
 

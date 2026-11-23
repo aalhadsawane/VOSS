@@ -1,4 +1,4 @@
-"""One request-placement decision (doc 03 §5): predictions → cost matrix → scalarize → admission → place.
+"""One request-placement decision (doc 03 §5): predictions → cost matrix → placement order (D-110) → admission → place.
 
 The scheduler role calls this and applies the result after the decision latency (doc 01 §7).
 """
@@ -19,7 +19,7 @@ from voss.policy.admission import admit
 from voss.policy.cost.arrays import ArrayCache
 from voss.policy.cost.components import CostMatrix, Waits, build_cost_matrix, completion_of
 from voss.policy.cost.inputs import CostContext
-from voss.policy.cost.scalarize import SCALARIZERS
+from voss.policy.cost.scalarize import placement_keys
 from voss.policy.cost.wait import JobEst, worker_waits
 from voss.policy.place import registry as _placers  # noqa: F401  (registers placers)
 from voss.policy.place.base import PlaceRequest
@@ -54,7 +54,6 @@ class Decider:
         self.cfg, self.ctx, self.models, self.start_utc_h = cfg, ctx, models, start_utc_h
         self.sync = make_placer(cfg.placer.sync, cfg)
         self.batch = make_placer(cfg.placer.async_, cfg)
-        self.scalarize = SCALARIZERS[cfg.cost.scalarizer]
         self.cache = ArrayCache()
 
     def decide(
@@ -77,7 +76,7 @@ class Decider:
         cm = build_cost_matrix(
             invs, view, self.ctx, preds, now, routers, self.cache, svc_s=svc, waits=self._waits(view, jobs, now, svc)
         )
-        scores = self.scalarize(cm, invs, self.ctx)
+        scores, tiebreak = placement_keys(cm)
         keep = self._admission(invs, cm, out)
         if not keep:
             return out
@@ -89,7 +88,8 @@ class Decider:
             gen,
             cm=_rows(cm, keep),
             scores=scores[keep],
-            slot_step=self.ctx.eps * svc / np.maximum(view.slots[cm.candidates[keep]], 1),
+            tiebreak=tiebreak[keep],
+            slot_step=svc / np.maximum(view.slots[cm.candidates[keep]], 1),
         )
         placer = self.batch if windowed else self.sync
         if getattr(placer, "uses_fn_load", False):
@@ -118,7 +118,7 @@ class Decider:
             j = idx[w]
             out.predicted[(inv.id, w)] = _pred(req.cm, r, j)
             span = self._span(view, routers[r], j, inv.in_bytes, rtt)
-            out.timing[inv.id] = _timing(req.cm, r, j, self.cfg.detection.quantile, span)
+            out.timing[inv.id] = _timing(req.cm, r, j, self.cfg.detection.quantile, self.cfg.cost.tts_cv, span)
 
     def _span(
         self, view: ClusterView, router: str, j: int, in_bytes: int, rtt: Mapping[WorkerId, float]
@@ -144,12 +144,13 @@ class Decider:
     def _waits(
         self, view: ClusterView, jobs: Mapping[WorkerId, Sequence[JobEst]] | None, now: float, svc: float
     ) -> Waits | None:
-        """Doc 03 §5.2 / D-77: per-worker wait from predicted remaining work (``cost.wait_model: per_worker``)."""
-        if self.cfg.cost.wait_model != "per_worker" or jobs is None:
+        """Doc 03 §5.2 / D-77, D-114: per-worker wait from predicted remaining work, the only wait model."""
+        if jobs is None:
             return None
         prio = self.cfg.worker.sync_priority
-        asyn = worker_waits(view, jobs, now, svc, False, prio)
-        return Waits(asyn, worker_waits(view, jobs, now, svc, True, True) if prio else asyn)
+        overdue = self.cfg.cost.overdue_frac
+        asyn = worker_waits(view, jobs, now, svc, False, prio, overdue)
+        return Waits(asyn, worker_waits(view, jobs, now, svc, True, True, overdue) if prio else asyn)
 
     def _admission(self, invs: tuple[Invocation, ...], cm: CostMatrix, out: Decision) -> list[int]:
         keep = []
@@ -177,7 +178,9 @@ def _pred(cm: CostMatrix | None, r: int, j: int) -> tuple[float, float]:
     return float(cm.components["exec"][r, k]), float(cm.components["exec_var"][r, k])
 
 
-def _timing(cm: CostMatrix | None, r: int, j: int, q: float, span: tuple[float, float] | None = None) -> Timing:
+def _timing(
+    cm: CostMatrix | None, r: int, j: int, q: float, tts_cv: float = 0.3, span: tuple[float, float] | None = None
+) -> Timing:
     """The detector quantile is of the attempt as the scheduler times it: with ``span = (rtt, input lead)`` its network
     is the scheduler round trip, and execution starts no earlier than the input arrives (``Decider._span``). The mean
     and the budget stay those of the invocation as its router sees it, for the deadline-fit check."""
@@ -188,7 +191,7 @@ def _timing(cm: CostMatrix | None, r: int, j: int, q: float, span: tuple[float, 
     if span is None:
         return Timing(float(c.quantile(q)[r, k]), float(c.mean()[r, k]), float(cm.budget[r, k]))
     start = np.maximum(x["tts"][r, k : k + 1], span[1])
-    watched = completion_of(start, np.array([span[0]]), x["exec"][r, k : k + 1], x["exec_var"][r, k : k + 1])
+    watched = completion_of(start, np.array([span[0]]), x["exec"][r, k : k + 1], x["exec_var"][r, k : k + 1], tts_cv)
     return Timing(float(watched.quantile(q)[0]), float(c.mean()[r, k]), float(cm.budget[r, k]))
 
 

@@ -7,6 +7,7 @@ systems compare paired on the same arrivals. Profiles live in ``configs/referenc
 from __future__ import annotations
 
 import hashlib
+import math
 
 import numpy as np
 import pandas as pd
@@ -14,12 +15,12 @@ from pydantic import BaseModel, ConfigDict
 
 from voss.core.paths import load_data_yaml
 from voss.world.adversary import AdversaryTrace
-from voss.world.hardware import load_hw_class
+from voss.world.machines import load_hw
 from voss.world.scenario import Scenario, with_world
 from voss.world.sessions import SessionTrace
-from voss.world.workers import TIERS, WorkerTable
+from voss.world.workers import WorkerTable
 
-DC_LAST_MILE_S = 0.0005  # in-region data-centre hop  # TODO verify
+DC_LAST_MILE_S = 0.0005  # in-region data-centre hop; unverified seed (paper agent note)
 DC_BPS = 10e9
 RACKS = 8  # failure domains per region
 
@@ -41,8 +42,7 @@ class RefProfile(BaseModel):
 
     name: str
     substrate: str
-    hw: str
-    hosts_per_region: int
+    hw: str  # a calibrated fleet bundle (D-124: the reference machine, node02 NVMe)
     voss: tuple[str, ...] = ()  # overrides applied to the run config (the reference's own control choices)
     pricing: Pricing
 
@@ -57,12 +57,15 @@ def load_reference(name: str) -> RefProfile:
 
 
 def dc_workers(scn: Scenario, ref: RefProfile, regions: tuple[str, ...]) -> WorkerTable:
-    """``hosts_per_region`` provider hosts at each router metro, ``RACKS`` failure domains per region."""
-    m, hw = scn.metros, load_hw_class(ref.hw)
-    city = np.repeat([m.index(c) for c in regions], ref.hosts_per_region)
+    """Provider hosts at each router metro, ``RACKS`` failure domains per region, equal capacity to the VOSS pool
+    (D-124): the pool's slots divided among the three router metros, each host contributing its measured class's
+    slots."""
+    m, hw = scn.metros, load_hw(ref.hw)
+    per_region = max(1, math.ceil(float(scn.workers.slots.sum()) / (len(regions) * hw.cores)))
+    city = np.repeat([m.index(c) for c in regions], per_region)
     n = len(city)
-    rack = np.tile(np.arange(ref.hosts_per_region) % RACKS, len(regions))
-    domain = np.repeat(np.arange(len(regions)), ref.hosts_per_region) * RACKS + rack
+    rack = np.tile(np.arange(per_region) % RACKS, len(regions))
+    domain = np.repeat(np.arange(len(regions)), per_region) * RACKS + rack
     ident = tuple(hashlib.sha256(f"{ref.name}:{i}".encode()).hexdigest()[:16] for i in range(n))
     return WorkerTable(
         city=city,
@@ -72,13 +75,11 @@ def dc_workers(scn: Scenario, ref: RefProfile, regions: tuple[str, ...]) -> Work
         hw=np.zeros(n, dtype=np.int64),
         owner_class=np.zeros(n, dtype=np.int64),  # provider hosts: class S (no physical attack)
         substrate=np.zeros(n, dtype=np.int64),
-        tier=np.full(n, TIERS.index("dedicated")),
         asn=domain.copy(),
         domain=domain,
         down_bps=np.full(n, DC_BPS),
         up_bps=np.full(n, DC_BPS),
         last_mile_s=np.full(n, DC_LAST_MILE_S),
-        known_good=np.ones(n, dtype=bool),
         slots=np.full(n, hw.cores),
         speed=np.full(n, hw.speed),
         mem_mb=np.full(n, hw.mem_gb * 1024.0),

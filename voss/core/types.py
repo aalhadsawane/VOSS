@@ -48,12 +48,11 @@ class CacheEntry:
 
 @dataclass(frozen=True, slots=True)
 class WorkerStatic:
-    """Declared at ``JOIN`` (doc 08 §5): location, tier, substrate, envelope speeds, session start."""
+    """Declared at ``JOIN`` (doc 08 §5): location, substrate, envelope speeds, session start."""
 
     lat: float
     lon: float
     tz: float
-    tier: str
     substrate: str
     down_bps: float
     up_bps: float
@@ -81,7 +80,6 @@ class WorkerState:
     trust: frozenset[TenantId]
     session_expiry: float
     drain_deadline: float | None
-    assurance: float
     speed: float
     domain: int
     as_of: float
@@ -101,7 +99,6 @@ class ClusterView:
     queued: np.ndarray
     mem_free_mb: np.ndarray
     speed: np.ndarray
-    assurance: np.ndarray
     domain: np.ndarray
     session_expiry: np.ndarray
     age: np.ndarray
@@ -160,6 +157,5 @@ class Outcome:
     timings: Timings
     start_level: str
     trust_cold: bool
-    tier: str = ""
     ref_work_units: float = 0.0
     digest: int = 0  # digest of the result: equal for every honest execution of an invocation (plan V7.3)

@@ -1,15 +1,15 @@
-"""Donation sessions: availability ground truth (doc 02 §2).
+"""Donation sessions: availability ground truth (doc 02 §2; plan V9.2).
 
-A worker alternates ``OFF ⇄ SESSION``. Starts follow per-tier processes in *local* time; lengths are heavy-tailed;
-ends are graceful (drain notice with lead time) or abrupt; regional shocks end many sessions at once; identities
-join and leave the platform. Fake drain notices come from ``fake_signals`` adversaries.
+Every worker replays one traced host's week of availability intervals (the SETI@home trace, Failure Trace Archive
+seti09). Ends are graceful (a drain notice with lead time) or abrupt; whether a session ends with notice is not in the
+data, so ``graceful_frac`` is an axis. Fake drain notices come from ``fake_signals`` adversaries. The v1 synthetic
+per-tier session process and its regional shocks are deleted (checklist 2.9); the trace carries the correlation.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -20,51 +20,22 @@ from voss.core.dist import Dist, LogNormal
 from voss.core.paths import REPO_ROOT, load_data_yaml
 from voss.core.rng import RngFactory
 from voss.world.config_merge import merged
-from voss.world.geo import Metros, diurnal, local_hour
-from voss.world.workers import TIERS, WorkerTable
+from voss.world.geo import Metros
+from voss.world.workers import WorkerTable
 
 
 class _M(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
-class TierModel(_M):
-    """Session process of one tier."""
-
-    kind: Literal["nightly", "poisson", "always"]
-    start_hour: float = 23.0
-    start_sd_h: float = 1.5
-    p_night: float = Field(default=0.8, ge=0, le=1)
-    rate_per_h: float = Field(default=0.15, ge=0)
-    peak_h: float = 14.0
-    amplitude: float = Field(default=0.6, ge=0, le=1)
-    length: Dist
-    gap: Dist = LogNormal(median=300.0, sigma=0.5)
-    min_off_s: float = Field(default=60.0, ge=0)
-
-
-class ShockModel(_M):
-    rate_per_h: float = Field(default=0.0, ge=0)
-    frac: float = Field(default=0.5, ge=0, le=1)
-    scope: Literal["city", "region"] = "city"
-
-
-class PlatformModel(_M):
-    late_join_frac: float = Field(default=0.0, ge=0, le=1)
-    leave_rate_per_day: dict[str, float] = Field(default_factory=dict)
-
-
 class SessionRegime(_M):
     """``configs/regimes/churn_*.yaml`` merged with ``scenario.churn`` overrides."""
 
-    regime: str
-    tiers: dict[str, TierModel]
-    graceful_frac: float = Field(ge=0, le=1)
-    drain_lead: Dist
-    shocks: ShockModel = Field(default_factory=ShockModel)
-    platform: PlatformModel = Field(default_factory=PlatformModel)
+    regime: str = ""
+    graceful_frac: float = Field(default=0.5, ge=0, le=1)
+    drain_lead: Dist = LogNormal(median=120.0, sigma=0.7)
     # traced availability (plan V9.2): data/traces/<trace>/sessions_<split>.parquet from tools/traces/fta.py; each
-    # worker replays one sampled host's week of availability intervals, repeated to cover the run. Empty = tiers.
+    # worker replays one sampled host's week of availability intervals, repeated to cover the run.
     trace: str = ""
     trace_root: str = "data/traces"
     split: str = "dev"
@@ -107,89 +78,9 @@ class SessionTrace:
 
 
 def load_session_regime(sc: ScenarioConfig) -> SessionRegime:
-    return SessionRegime.model_validate(merged(load_data_yaml(f"regimes/{sc.regime}.yaml"), sc.churn))
-
-
-def _nightly(tm: TierModel, tz: float, lo: float, hi: float, start_utc_h: float, g: np.random.Generator) -> list[float]:
-    out: list[float] = []
-    first_day = int(np.floor((lo / 3600 + start_utc_h + tz) / 24)) - 1
-    last_day = int(np.ceil((hi / 3600 + start_utc_h + tz) / 24)) + 1
-    for day in range(first_day, last_day + 1):
-        if g.random() < tm.p_night:
-            h = tm.start_hour + tm.start_sd_h * g.standard_normal()
-            out.append((day * 24 + h - tz - start_utc_h) * 3600)
-    return out
-
-
-def _poisson_next(tm: TierModel, tz: float, t: float, start_utc_h: float, g: np.random.Generator) -> float:
-    """Next start of a non-homogeneous Poisson process (thinning) in local time."""
-    lam_max = tm.rate_per_h * (1 + tm.amplitude) / 3600
-    if lam_max <= 0:
-        return np.inf
-    while True:
-        t += g.exponential(1 / lam_max)
-        f = diurnal(local_hour(tz, t, start_utc_h), tm.peak_h, tm.amplitude)
-        if g.random() * (1 + tm.amplitude) <= float(f):
-            return t
-
-
-def _worker_sessions(
-    tm: TierModel, tz: float, lo: float, hi: float, start_utc_h: float, g: np.random.Generator
-) -> list[tuple[float, float]]:
-    """Non-overlapping ``(start, end)`` intervals for one worker over ``[lo, hi)``."""
-    out: list[tuple[float, float]] = []
-    if tm.kind == "nightly":
-        for s in _nightly(tm, tz, lo, hi, start_utc_h, g):
-            e = s + float(tm.length.sample(g))
-            if (not out or s >= out[-1][1] + tm.min_off_s) and e > lo and s < hi:
-                out.append((s, e))
-        return out
-    t = lo - (float(tm.length.sample(g)) if tm.kind == "always" else 0.0)
-    while t < hi:
-        s = t + float(tm.gap.sample(g)) if tm.kind == "always" else _poisson_next(tm, tz, t, start_utc_h, g)
-        if s >= hi:
-            break
-        e = s + float(tm.length.sample(g))
-        if e > lo:
-            out.append((s, e))
-        t = e + tm.min_off_s
-    return out
-
-
-def _platform(
-    reg: SessionRegime, workers: WorkerTable, horizon: float, g: np.random.Generator
-) -> tuple[np.ndarray, np.ndarray]:
-    n = len(workers)
-    late = g.random(n) < reg.platform.late_join_frac
-    join = np.where(late, g.random(n) * horizon, -np.inf)
-    rate = np.array([reg.platform.leave_rate_per_day.get(TIERS[t], 0.0) for t in workers.tier]) / 86400
-    life = np.where(rate > 0, g.exponential(1 / np.maximum(rate, 1e-300)), np.inf)
-    return join, np.maximum(join, 0.0) + life
-
-
-def _shocks(
-    reg: SessionRegime,
-    sess: pd.DataFrame,
-    area: np.ndarray,
-    area_w: np.ndarray,
-    span: tuple[float, float],
-    g: np.random.Generator,
-) -> None:
-    """Regional shocks: end a fraction ``frac`` of the sessions live in the shocked area at the shock time."""
-    sh = reg.shocks
-    lo, hi = span
-    if sh.rate_per_h <= 0 or sess.empty:
-        return
-    times = np.sort(lo + (hi - lo) * g.random(g.poisson(sh.rate_per_h * (hi - lo) / 3600)))
-    w_area = area[sess.worker.to_numpy()]
-    for ts in times:
-        a = g.choice(len(area_w), p=area_w)
-        hit = (w_area == a) & (sess.start.to_numpy() <= ts) & (sess.end.to_numpy() > ts)
-        hit &= g.random(len(sess)) < sh.frac
-        late_drain = hit & ~(sess.drain_t.to_numpy() < ts)
-        sess.loc[hit, "end"] = ts
-        sess.loc[hit, "reason"] = "shock"
-        sess.loc[late_drain, "drain_t"] = np.nan
+    name = str(sc.regime)
+    base = load_data_yaml(f"regimes/{name}.yaml") if name else {}
+    return SessionRegime.model_validate(merged(base, sc.churn))
 
 
 def _ends(reg: SessionRegime, sess: pd.DataFrame, g: np.random.Generator) -> None:
@@ -214,15 +105,6 @@ def _fake_drains(
     return pd.DataFrame(rows, columns=["worker", "t", "deadline"])
 
 
-def _areas(workers: WorkerTable, metros: Metros, scope: str) -> tuple[np.ndarray, np.ndarray]:
-    if scope == "city":
-        return workers.city, metros.weights()
-    names = sorted(set(metros.region))
-    reg_of_city = np.array([names.index(r) for r in metros.region])
-    w = np.array([metros.pop[reg_of_city == i].sum() for i in range(len(names))])
-    return reg_of_city[workers.city], w / w.sum()
-
-
 WEEK_S = 7 * 86400.0
 
 
@@ -231,6 +113,8 @@ def _traced_rows(
 ) -> list[tuple[int, float, float]]:
     """Each worker takes one traced host (a random assignment, without repeats while hosts last) and replays its week
     of intervals, shifted by whole weeks to cover ``[lo, hi)``."""
+    if not reg.trace:
+        raise ValueError("a run needs a traced session regime (scenario.regime or scenario.churn.trace; D-107, V9.2)")
     d = Path(reg.trace_root) / reg.trace / f"sessions_{reg.split}.parquet"
     tab = pd.read_parquet(d if d.is_absolute() else REPO_ROOT / d)
     hosts = np.sort(tab.host.unique())
@@ -258,23 +142,10 @@ def generate_sessions(
     """Doc 02 §2 over ``[-warmup, horizon)``; ``fake = (workers, rate_per_h, lead_s)`` for fake drain notices."""
     reg = load_session_regime(sc)
     lo = -sc.warmup_s
-    join, leave = _platform(reg, workers, horizon, rng.stream("sessions.platform"))
-    rows: list[tuple[int, float, float]] = []
-    if reg.trace:
-        rows = _traced_rows(reg, len(workers), lo, horizon, rng.stream("sessions.trace"))
-    for w in range(0 if reg.trace else len(workers)):
-        tm = reg.tiers[TIERS[int(workers.tier[w])]]
-        g = rng.stream("sessions.worker", w)
-        for s0, e0 in _worker_sessions(tm, float(workers.tz[w]), lo, horizon, sc.start_utc_h, g):
-            s, e = max(s0, join[w]), min(e0, leave[w])
-            if e > s:
-                rows.append((w, s, e))
-    rows = [(w, max(s, join[w]), min(e, leave[w])) for w, s, e in rows if min(e, leave[w]) > max(s, join[w])]
+    rows = _traced_rows(reg, len(workers), lo, horizon, rng.stream("sessions.trace"))
     sess = pd.DataFrame(rows, columns=["worker", "start", "end"])
     _ends(reg, sess, rng.stream("sessions.ends"))
-    area, area_w = _areas(workers, metros, reg.shocks.scope)
-    _shocks(reg, sess, area, area_w, (lo, horizon), rng.stream("sessions.shocks"))
-    left = sess.end.to_numpy() >= leave[sess.worker.to_numpy()]
-    sess.loc[left, "reason"] = "leave"
+    n = len(workers)
+    join, leave = np.zeros(n), np.full(n, np.inf)
     fakes = _fake_drains(sess, fake[0], fake[1], fake[2], rng.stream("sessions.fake"))
     return SessionTrace(sess.reset_index(drop=True), fakes, join, leave)

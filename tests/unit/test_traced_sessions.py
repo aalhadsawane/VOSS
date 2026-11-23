@@ -17,7 +17,6 @@ def test_each_worker_replays_one_hosts_week(tmp_path: Path) -> None:
     reg = SessionRegime.model_validate(
         {
             "regime": "t",
-            "tiers": {},
             "graceful_frac": 0.5,
             "drain_lead": {"dist": "const", "value": 60.0},
             "trace": "s",

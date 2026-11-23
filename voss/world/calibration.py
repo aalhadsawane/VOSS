@@ -1,6 +1,6 @@
-"""Measured overrides from a calibration bundle (doc 10 §1): hardware class fields (``hardware.yaml``) and function
-profiles (``functions.yaml``) written by ``tools/calibrate/ingest.py``. The placeholder bundle has neither, so runs
-without measured data keep the literature values of ``configs/hardware`` and ``configs/functions.yaml``."""
+"""Measured overrides from a calibration bundle (doc 10 §1): function profiles (``functions.yaml``) written by
+``tools/calibrate/ingest.py``. The calibrated fleet is the only machine path (D-107); bundles without a profile keep
+the catalogue's values, which every reported run then overrides per class (``world/machines.py``)."""
 
 from __future__ import annotations
 
@@ -8,18 +8,14 @@ from typing import Any
 
 from voss.core.paths import config_path, load_data_yaml
 
-PLACEHOLDER = "calibration/placeholder/c0"
 FN_FIELDS = ("init_s", "work_ref_s", "size_exp")
 
 
 def bundle_file(calibration: str | None, name: str) -> dict[str, Any]:
-    path = config_path(calibration or PLACEHOLDER) / f"{name}.yaml"
+    if not calibration:  # unit tests may build a catalogue without a bundle
+        return {}
+    path = config_path(calibration) / f"{name}.yaml"
     return load_data_yaml(path) if path.exists() else {}
-
-
-def hardware_overrides(calibration: str | None) -> dict[str, dict[str, float]]:
-    classes: dict[str, dict[str, float]] = bundle_file(calibration, "hardware").get("classes") or {}
-    return classes
 
 
 def function_overrides(calibration: str | None) -> dict[str, dict[str, float]]:

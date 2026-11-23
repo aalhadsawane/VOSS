@@ -115,7 +115,7 @@ def request_kb(fn: str, size: float, rules: dict[str, object], param_kb: float) 
 def trace_catalog(reg: LoadRegime, base: Catalog, sizes: dict[str, dict[float, float]] | None = None) -> Catalog:
     """Catalog of the trace's functions and owners (before per-function key domains, D-85). With per-size profiles a
     function's copy runs for the measured median at its mapped size (``work_ref_s``) and its invocations carry the
-    bytes a client sends at that size (``in_kb`` by ``request_kb``, no spread: ``in_sigma`` 0, D-105, D-106)."""
+    bytes a client sends at that size (``in_kb`` by ``request_kb``, exact: D-105, D-106)."""
     tf = load_trace_functions(reg, base, sizes)
     rules = load_data_yaml("request_bytes.yaml") if tf.per_size else {}
     param_kb = min(f.in_kb for f in base.functions)
@@ -127,7 +127,7 @@ def trace_catalog(reg: LoadRegime, base: Catalog, sizes: dict[str, dict[float, f
         upd["slo_class"] = "sync" if r.sync else "async"
         if tf.per_size:
             kb = request_kb(str(r.base), float(r.size_kb), rules, param_kb)
-            upd |= {"in_kb": kb, "in_sigma": 0.0, "work_ref_s": float(r.profile_s)}
+            upd |= {"in_kb": kb, "work_ref_s": float(r.profile_s)}
         fns.append(by_name[str(r.base)].model_copy(update=upd))
         prof[str(upd["name"])] = (str(r.base), float(r.size_kb) if tf.per_size else None)
     owners = sorted({f.tenant for f in fns})
@@ -136,7 +136,13 @@ def trace_catalog(reg: LoadRegime, base: Catalog, sizes: dict[str, dict[float, f
 
 
 def trace_arrivals(
-    reg: LoadRegime, catalog: Catalog, metros: Metros, horizon: float, rng: RngFactory, down_bps: float | None = None
+    reg: LoadRegime,
+    catalog: Catalog,
+    metros: Metros,
+    horizon: float,
+    rng: RngFactory,
+    down_bps: float | None = None,
+    deadline_multiple: float = 5.0,
 ) -> pd.DataFrame:
     """Arrival frame in the ``ArrivalTrace`` schema (``workload._frame``), sorted by time; with ``down_bps`` the
     synchronous deadlines include the input's transfer at that rate (D-106)."""
@@ -154,11 +160,11 @@ def trace_arrivals(
         t = np.repeat((c.minute.to_numpy() - lo) * 60.0, n) + g.random(int(n.sum())) * 60.0
         t = np.sort(t[t < horizon])
         origin = g.choice(len(metros), size=len(t), p=metros.weights())
-        size = g.lognormal(np.log(f.in_kb * 1024), f.in_sigma, len(t))
-        parts.append(_frame(f, i, catalog.tenant_index(f.tenant), t, origin, size, reg, down_bps))
+        size = np.full(len(t), f.in_kb * 1024)
+        parts.append(_frame(f, i, catalog.tenant_index(f.tenant), t, origin, size, reg, deadline_multiple, down_bps))
     df = (
         pd.concat(parts, ignore_index=True)
         if parts
-        else _frame(catalog.functions[0], 0, 0, np.zeros(0), np.zeros(0, np.int64), np.zeros(0), reg)
+        else _frame(catalog.functions[0], 0, 0, np.zeros(0), np.zeros(0, np.int64), np.zeros(0), reg, deadline_multiple)
     )
     return df.sort_values(["t", "fn"], kind="stable").reset_index(drop=True)

@@ -24,8 +24,9 @@ class PlaceRequest:
     gen: np.random.Generator
     expiry_margin_s: float = 5.0
     cm: CostMatrix | None = None
-    scores: np.ndarray | None = None  # [I, K] scalarized costs over cm.candidates
-    slot_step: np.ndarray | None = None  # [I, K] cost added per extra invocation on the same worker
+    scores: np.ndarray | None = None  # [I, K] miss probability over cm.candidates (primary key, D-110)
+    tiebreak: np.ndarray | None = None  # [I, K] expected completion (tie-break key)
+    slot_step: np.ndarray | None = None  # [I, K] seconds added to the tie-break per extra invocation on the worker
     fn_load: Mapping[str, float] = field(default_factory=dict)  # concurrency per function (rate × service time)
 
     def options(self, i: int) -> np.ndarray:

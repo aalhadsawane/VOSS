@@ -75,9 +75,7 @@ class SessionMixin:
             self.send(self.ctx.directory.verifier, Requote(h.worker, h.session, h.cert_id, self.addr))
         else:
             sub = h.profile.name
-            self.send(
-                self.ctx.directory.verifier, Attest(h.worker, h.identity, h.session, sub, h.known_good, self.addr)
-            )
+            self.send(self.ctx.directory.verifier, Attest(h.worker, h.identity, h.session, sub, self.addr))
 
     def _session_cert(self, m: SessionCert) -> None:
         h = self.host
@@ -89,7 +87,7 @@ class SessionMixin:
             )
             h.attested = False
             return
-        h.cert_id, h.cert_expiry, h.assurance = m.cert_id, m.expiry, m.assurance
+        h.cert_id, h.cert_expiry = m.cert_id, m.expiry
         cont, self.attest_cont = self.attest_cont, None
         if cont is not None:
             cont()
@@ -111,24 +109,22 @@ class SessionMixin:
                 h.worker,
                 h.cert_id,
                 h.cert_expiry,
-                h.assurance,
                 h.speed,
                 h.n_slots,
                 h.domain,
                 self.addr,
                 h.static_base.lat if h.static_base else 0.0,
                 h.static_base.lon if h.static_base else 0.0,
-                h.static_base.tier if h.static_base else "",
             ),
         )
-        self.after(h.profile.session.reattest_every_s, self._reattest, session)
+        self.after(self.ctx.cfg.voss.verifier.reattest_every_s, self._reattest, session)
 
     def _reattest(self, session: int) -> None:
         h = self.host
         if session != h.session or not h.up:
             return
         OpRun(h.profile.session.reattest, self._env(self.ctx.rng), lambda d: None).start()
-        self.after(h.profile.session.reattest_every_s, self._reattest, session)
+        self.after(self.ctx.cfg.voss.verifier.reattest_every_s, self._reattest, session)
 
     def _drain(self, deadline: float) -> None:
         h = self.host

@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from voss.core.dist import Const, Dist
 from voss.core.paths import config_path, load_data_yaml
 
-SUBSTRATES: tuple[str, ...] = ("appliance_tpm", "none")
+SUBSTRATES: tuple[str, ...] = ("appliance_tpm", "trusted_hosts")
 Artifact = Literal["bundle", "rootfs", "snapshot", "snapshot_touched", "zygote"]
 Endpoint = Literal["verifier", "tenant_kbs", "registry", "orchestrator"]
 DistRef = Dist | str | float
@@ -91,8 +91,6 @@ Op = Annotated[
 class SessionSpec(_Op):
     establish: tuple[Op, ...]
     reattest: tuple[Op, ...] = ()
-    reattest_every_s: float = Field(gt=0)
-    valid_s: float = Field(gt=0)
 
 
 class LadderSpec(_Op):
@@ -143,10 +141,9 @@ class OwnerActivity(_Op):
 
 
 class SubstrateProfile(_Op):
-    """Doc 04 §3: how trust is established and lasts, the ladder, assurance and slowdowns."""
+    """Doc 04 §3: how trust is established and lasts, the ladder and slowdowns."""
 
     name: str
-    assurance_base: float = Field(ge=0, le=1)
     concurrent_owner_use: bool
     session: SessionSpec
     trust: tuple[Op, ...]

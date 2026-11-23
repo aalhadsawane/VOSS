@@ -1,0 +1,32 @@
+# D113_WALL: the wall-clock gate of D-113 (provisioning without the planning-pool and candidate caps). DEVELOPMENT
+# SPLIT, NOT A REPORTED RESULT. One run: the top cell of D03 (500 workers at the top load level), VOSS, K = 8, on the
+# calibrated fleet. It must run on code with the caps removed (#131); the experiment pipeline runs the code of
+# revision-v2 at the push that adds the request, so the request is merged only after #131.
+#
+# Header (AGENTS.md rule 21):
+#   workers      500 (D-97)
+#   load         Azure Functions 2019, development split, scenario.load.rate_mult 30 (D03's top level, the D-97 size)
+#   utilisation  reported in the summary (pool utilisation, fn_util_p50, fn_util_p95; D-99)
+#   duration     horizon_s 100,800 (28 h): 4 h warm-up + 24 h measured (D-97)
+#   warm-up      scenario.warmup_s 14,400 (the longest learning window of a compared policy: the histogram's 4 h)
+#   calibration  calibrated fleet configs/base.yaml: node02 NVMe and HDD, node04 (D-107, D-108); reference node02 NVMe
+#   trace split  development: load azure2019 dev, sessions churn_seti dev, links ookla-fixed-2024q1, populations wup2025
+#   seeds        1
+#   K            voss.keys.max_holders 8
+# Gate (D-113): the run fits one Actions job (340 minutes); the summary gives wall_s, events and peak_rss_mb.
+experiment: D113_WALL
+base: ../base.yaml
+overrides:
+  - horizon_s=100800
+  - scenario.warmup_s=14400
+  - scenario.workers=500
+  - scenario.regime=churn_seti
+  - scenario.load.trace=azure2019
+  - scenario.load.split=dev
+  - scenario.network.link.trace=ookla-fixed-2024q1
+  - scenario.geo.pop_trace=wup2025
+  - voss.keys.max_holders=8
+  - scenario.load.rate_mult=30
+systems:
+  voss: [voss.planner.name=hetero]
+seeds: [1]

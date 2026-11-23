@@ -1,15 +1,15 @@
-"""Hardware classes (doc 02 §1). C0 is the calibration node; other classes are scaled by benchmark ratios."""
+"""One machine class of the calibrated fleet (doc 02 §1; plan V9.4, D-107).
+
+Classes are built from calibration bundles only (``world/machines.py``); the v1 assumed hardware classes are deleted
+(checklist 1.1)."""
 
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from voss.core.paths import load_data_yaml
-from voss.world.calibration import hardware_overrides
-
 
 class HwClass(BaseModel):
-    """One hardware class (``configs/hardware/<name>.yaml``)."""
+    """Threads, memory, disks and TPM kind of one measured machine class."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
     name: str
@@ -25,13 +25,3 @@ class HwClass(BaseModel):
     cpu_model: str
     tpm: str
     mem_encryption: bool = False  # active memory encryption (SEV-SNP/TDX): owner class M (plan V3.3)
-
-
-def load_hw_class(name: str, calibration: str | None = None) -> HwClass:
-    """``configs/hardware/<name>.yaml`` with measured fields from the calibration bundle (doc 10 §1)."""
-    data = load_data_yaml(f"hardware/{name}.yaml") | hardware_overrides(calibration).get(name, {})
-    return HwClass.model_validate(data)
-
-
-def load_hw_classes(names: list[str], calibration: str | None = None) -> dict[str, HwClass]:
-    return {n: load_hw_class(n, calibration) for n in sorted(names)}

@@ -19,7 +19,7 @@ from voss.core.config import load_config
 from voss.core.paths import REPO_ROOT
 from voss.world.machines import MachinesParams, load_hw, mem_bucket, survey_mix, survey_table
 
-FLEET = REPO_ROOT / "configs" / "machines.yaml"
+FLEET = REPO_ROOT / "configs" / "base.yaml"
 MIX = REPO_ROOT / "configs" / "machines_mix.yaml"
 
 
@@ -29,7 +29,7 @@ def survey_path(mp: MachinesParams) -> Path:
 
 
 def compute() -> dict[str, Any]:
-    """The mix of the fleet overlay ``configs/machines.yaml`` from its survey (the data must be present)."""
+    """The mix of the fleet in ``configs/base.yaml`` from its survey (the data must be present)."""
     mp = MachinesParams.model_validate(load_config(FLEET).scenario.machines)
     hw = {b: load_hw(b) for b in sorted(set(mp.bundles))}
     mix = survey_mix(survey_table(mp), hw, mp.radius)

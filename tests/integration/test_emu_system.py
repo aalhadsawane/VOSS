@@ -61,12 +61,12 @@ class FakeVm:
 
 def small_cfg() -> Any:
     return load_config(
-        "configs/e01/s1_stable.yaml",
+        "configs/smoke.yaml",
         [
             "horizon_s=20",
             "drain_s=5",
             "scenario.workers=6",
-            "scenario.load={regime: load_default, rate: 3}",
+            'scenario.load={trace: "", rate: 3}',
             "decision_clock.mode=measured",
             "decision_clock.cpu_scale=0.0",
         ],

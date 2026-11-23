@@ -42,23 +42,19 @@ class FunctionSpec(_M):
     init_s: float = Field(ge=0)
     work_ref_s: float = Field(gt=0)
     in_kb: float = Field(gt=0)
-    in_sigma: float = Field(ge=0)
     size_exp: float = Field(ge=0)
     out_kb: float = Field(ge=0)
-    idempotent: bool
+    idempotent: bool = False  # set from scenario.idempotent_frac (D-119), not a catalogue field
     slo_class: Literal["sync", "async"]
-    slo_k: float = Field(gt=0)
     owner: str = ""  # the tenant that owns the function; ``tenant`` is the function's key domain (D-85)
+    base: str = ""  # the measured catalogue function this trace function maps to (D-107); empty = its own name
 
 
 class TenantSpec(_M):
-    """One tenant (``configs/tenants.yaml``)."""
+    """One tenant (``configs/tenants.yaml``, D-125): key-service city and default holder budget only."""
 
     id: str
-    sensitivity: Literal["low", "medium", "high"]
     kbs_city: str
-    assurance_floor: float = Field(ge=0, le=1)
-    f: int | None = None
     max_holders: int | None = Field(default=None, ge=1)  # holder budget K per function key (D-85); None = unbounded
     owner: str = ""  # for a key domain: the tenant it belongs to
 
@@ -74,9 +70,9 @@ class FlashCrowd(_M):
 class LoadRegime(_M):
     """``configs/regimes/load_*.yaml`` merged with ``scenario.load`` overrides."""
 
-    regime: str
-    rate: float = Field(gt=0)
-    zipf_s: float = Field(ge=0)
+    regime: str = ""
+    rate: float = Field(default=1.0, gt=0)
+    zipf_s: float = Field(default=0.0, ge=0)
     diurnal: dict[str, float] = Field(default_factory=lambda: {"peak_h": 15.0, "amplitude": 0.3})
     mmpp: dict[str, float | bool] = Field(default_factory=dict)
     async_deadline_s: float = 60.0
@@ -133,11 +129,19 @@ def load_catalog(sc: ScenarioConfig, calibration: str | None = None) -> Catalog:
 
         traced = trace_catalog(reg, Catalog(fns, ten), function_sizes(calibration))
         fns, ten, transfer, prof = traced.functions, traced.tenants, traced.transfer_deadline, traced.profiles
+    fns = _idempotent(fns, sc.idempotent_frac)
     known = {t.id for t in ten}
     for f in fns:
         if f.tenant not in known:
             raise ValueError(f"function {f.name}: unknown tenant {f.tenant}")
     return key_domains(Catalog(fns, ten, transfer, prof))
+
+
+def _idempotent(fns: tuple[FunctionSpec, ...], frac: float) -> tuple[FunctionSpec, ...]:
+    """D-119: the first ``round(frac * n)`` functions in name order may be retried; the rest run once."""
+    n = round(frac * len(fns))
+    retryable = {f.name for f in sorted(fns, key=lambda f: f.name)[:n]}
+    return tuple(f.model_copy(update={"idempotent": f.name in retryable}) for f in fns)
 
 
 def key_domain(tenant: str, fn: str) -> str:
@@ -158,8 +162,9 @@ def key_domains(cat: Catalog) -> Catalog:
 
 
 def load_load_regime(sc: ScenarioConfig) -> LoadRegime:
-    name = str(sc.load.get("regime", "load_default"))
-    return LoadRegime.model_validate(merged(load_data_yaml(f"regimes/{name}.yaml"), sc.load))
+    name = str(sc.load.get("regime", ""))
+    base = load_data_yaml(f"regimes/{name}.yaml") if name else {}
+    return LoadRegime.model_validate(merged(base, sc.load))
 
 
 def popularity(n: int, s: float, gen: np.random.Generator) -> np.ndarray:
@@ -219,7 +224,7 @@ def generate_arrivals(
 
         link = LinkParams.model_validate(sc.network.get("link", {}))
         down = median_down_bps(link) if catalog.transfer_deadline else None
-        return ArrivalTrace(trace_arrivals(reg, catalog, metros, horizon, rng, down))
+        return ArrivalTrace(trace_arrivals(reg, catalog, metros, horizon, rng, down, sc.deadline_multiple))
     fns = catalog.functions
     share = popularity(len(fns), reg.zipf_s, rng.stream("workload.popularity"))
     top = int(np.argmax(share))
@@ -231,8 +236,8 @@ def generate_arrivals(
             if fc.fn == f.name or (fc.fn == "top" and i == top):
                 ft, fo = _flash(fc, reg.rate * share[i], metros, horizon, g)
                 t, origin = np.r_[t, ft], np.r_[origin, fo]
-        size = g.lognormal(np.log(f.in_kb * 1024), f.in_sigma, len(t))
-        parts.append(_frame(f, i, catalog.tenant_index(f.tenant), t, origin, size, reg))
+        size = np.full(len(t), f.in_kb * 1024)
+        parts.append(_frame(f, i, catalog.tenant_index(f.tenant), t, origin, size, reg, sc.deadline_multiple))
     df = pd.concat(parts, ignore_index=True).sort_values(["t", "fn"], kind="stable").reset_index(drop=True)
     return ArrivalTrace(df)
 
@@ -250,13 +255,15 @@ def _frame(
     origin: np.ndarray,
     size: np.ndarray,
     reg: LoadRegime,
+    deadline_multiple: float = 5.0,
     down_bps: float | None = None,
 ) -> pd.DataFrame:
-    """Arrival rows of one function. A synchronous deadline is ``slo_k`` × (warm run time + sync overhead), plus
+    """Arrival rows of one function. A synchronous deadline is ``deadline_multiple`` × (warm run time + sync
+    overhead), plus
     the input's transfer at ``down_bps`` when given (trace functions on measured input sizes, D-106)."""
     if f.slo_class == "sync":
         transfer = size * 8.0 / down_bps if down_bps else 0.0
-        deadline = f.slo_k * (warm_estimate_s(f, size) + transfer + reg.sync_overhead_s)
+        deadline = deadline_multiple * (warm_estimate_s(f, size) + transfer + reg.sync_overhead_s)
     else:
         deadline = np.full(len(t), reg.async_deadline_s)
     return pd.DataFrame(

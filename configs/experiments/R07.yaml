@@ -9,7 +9,7 @@
 #   duration     horizon_s 100,800 (28 h): 4 h warm-up + 24 h measured (D-97)
 #   warm-up      scenario.warmup_s 14,400 = voss.keepalive_hist.range_s, the longest learning window of a compared
 #                policy (guardrail 23)
-#   calibration  calibrated fleet configs/machines.yaml (D-107, D-108): bundles node02-i7-12700-64g-nvme_nvme
+#   calibration  calibrated fleet configs/base.yaml (D-107, D-108): bundles node02-i7-12700-64g-nvme_nvme
 #                (reference), node02-i7-12700-64g-nvme_hdd, node04-i7-4790s-8g-hdd_hdd, weighted by the Rosetta@home
 #                survey (configs/machines_mix.yaml); measured bundles only (guardrail 28)
 #   trace split  held-out: load azure2019 heldout, sessions churn_seti heldout (seti09, odd hosts, second week);
@@ -28,13 +28,16 @@
 # Swept constants without a variant, with the reason, are listed in tests/unit/test_r_specs.py (R07_EXEMPT).
 #   - the provisioning period T_plan (S, plan V5.3) {15, 60} s, the retry backoff (D-116) {0.1, 0.4} s and the image
 #     memory reserve (D-117) {256, 1,024} MB;
-#   - the donated shares (D-132): cpu_frac {0.5, 1.0}, mem_frac {0.4, 0.8}.
-# Added when their keys land: drop-estimate prior and drift (D-111), deadline multiple and idempotent fraction
-#   (D-119), certificate validity and re-attestation (D-120), the time-to-start variance and OVERDUE_FRAC (D-122).
+#   - the donated shares (D-132): cpu_frac {0.5, 1.0}, mem_frac {0.4, 0.8};
+#   - the drop estimate (D-111): prior and pessimistic prior x0.5/x2 at equal mean, drift k {0.05, 0.2}.
+#   - the deadline multiple (D-119) {2, 10} and the idempotent fraction {0, 0.5};
+#   - the certificate timings (D-120): valid_s/reattest_every_s {450/300, 2,700/1,800};
+#   - the time-to-start spread and the overdue hold (D-122) x0.5/x2;
+#   - the histogram's stated deviations (D-123) x0.5/x2: min_samples 10 -> 5/20, oob_max 0.2 -> 0.1/0.4;
 #   Not varied: a trace source fallback (no second session or arrival source exists, D-129).
-# Runs: 71 variants x 10 seeds = 710 (10 shared with R01).
+# Runs: 89 variants x 10 seeds = 890 (10 shared with R01).
 experiment: R07
-base: ../machines.yaml
+base: ../base.yaml
 overrides:
   - horizon_s=100800
   - scenario.warmup_s=14400
@@ -79,8 +82,6 @@ systems:
   scenarios_hi: [voss.planner.name=hetero, voss.planner.scenarios=64]
   heartbeat_lo: [voss.planner.name=hetero, voss.scheduler.heartbeat_s=1.0]
   heartbeat_hi: [voss.planner.name=hetero, voss.scheduler.heartbeat_s=4.0]
-  price_tick_lo: [voss.planner.name=hetero, voss.scheduler.keepalive_s=0.5]
-  price_tick_hi: [voss.planner.name=hetero, voss.scheduler.keepalive_s=2.0]
   stale_lo: [voss.planner.name=hetero, voss.scheduler.stale_after_s=3.5]
   stale_hi: [voss.planner.name=hetero, voss.scheduler.stale_after_s=14.0]
   attempts_lo: [voss.planner.name=hetero, voss.scheduler.max_attempts=2]
@@ -113,10 +114,30 @@ systems:
   t_plan_hi: [voss.planner.name=hetero, voss.planner.T_plan=60.0]
   backoff_lo: [voss.planner.name=hetero, voss.scheduler.retry_backoff_s=0.1]
   backoff_hi: [voss.planner.name=hetero, voss.scheduler.retry_backoff_s=0.4]
-  m_base_lo: [voss.planner.name=hetero, voss.worker.m_base_mb=256.0, voss.planner.params.m_base_mb=256.0]
-  m_base_hi: [voss.planner.name=hetero, voss.worker.m_base_mb=1024.0, voss.planner.params.m_base_mb=1024.0]
+  m_base_lo: [voss.planner.name=hetero, voss.worker.m_base_mb=256.0]
+  m_base_hi: [voss.planner.name=hetero, voss.worker.m_base_mb=1024.0]
+  deadline_2: [voss.planner.name=hetero, scenario.deadline_multiple=2.0]
+  deadline_10: [voss.planner.name=hetero, scenario.deadline_multiple=10.0]
+  idem_0: [voss.planner.name=hetero, scenario.idempotent_frac=0.0]
+  idem_05: [voss.planner.name=hetero, scenario.idempotent_frac=0.5]
+  cert_lo: [voss.planner.name=hetero, voss.verifier.valid_s=450.0, voss.verifier.reattest_every_s=300.0]
+  cert_hi: [voss.planner.name=hetero, voss.verifier.valid_s=2700.0, voss.verifier.reattest_every_s=1800.0]
+  tts_cv_lo: [voss.planner.name=hetero, voss.cost.tts_cv=0.15]
+  tts_cv_hi: [voss.planner.name=hetero, voss.cost.tts_cv=0.6]
+  overdue_lo: [voss.planner.name=hetero, voss.cost.overdue_frac=0.125]
+  overdue_hi: [voss.planner.name=hetero, voss.cost.overdue_frac=0.5]
+  hist_samples_lo: [voss.planner.name=hetero, voss.keepalive_hist.min_samples=5]
+  hist_samples_hi: [voss.planner.name=hetero, voss.keepalive_hist.min_samples=20]
+  hist_oob_lo: [voss.planner.name=hetero, voss.keepalive_hist.oob_max=0.1]
+  hist_oob_hi: [voss.planner.name=hetero, voss.keepalive_hist.oob_max=0.4]
   cpu_frac_lo: [voss.planner.name=hetero, scenario.envelope.cpu_frac=0.5]
   cpu_frac_hi: [voss.planner.name=hetero, scenario.envelope.cpu_frac=1.0]
   mem_frac_lo: [voss.planner.name=hetero, scenario.envelope.mem_frac=0.4]
   mem_frac_hi: [voss.planner.name=hetero, scenario.envelope.mem_frac=0.8]
+  omission_prior_lo: [voss.planner.name=hetero, "voss.models.omission_prior=[0.25, 10.0]"]
+  omission_prior_hi: [voss.planner.name=hetero, "voss.models.omission_prior=[1.0, 40.0]"]
+  omission_pessimistic_lo: [voss.planner.name=hetero, "voss.models.omission_pessimistic=[1.0, 2.0]"]
+  omission_pessimistic_hi: [voss.planner.name=hetero, "voss.models.omission_pessimistic=[4.0, 8.0]"]
+  cusum_k_lo: [voss.planner.name=hetero, voss.models.cusum_k=0.05]
+  cusum_k_hi: [voss.planner.name=hetero, voss.models.cusum_k=0.2]
 seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
