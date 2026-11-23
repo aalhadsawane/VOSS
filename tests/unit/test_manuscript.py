@@ -10,7 +10,9 @@ import re
 from pathlib import Path
 
 import pytest
-from experiments.analysis import fleet_mix, paper_inputs
+import yaml
+from experiments.analysis import calibration, paper_inputs
+from experiments.analysis import traces as trace_stats
 from experiments.analysis.macros import render
 
 MS = Path(__file__).resolve().parents[2] / "manuscript"
@@ -69,8 +71,39 @@ def test_every_figure_and_table_is_referenced() -> None:
 def test_generated_inputs_are_fresh() -> None:
     assert (MS / "generated" / "inputs.tex").read_text() == render(paper_inputs.build())
     assert (MS / "generated" / "constants.tex").read_text() == paper_inputs.constants_table()
-    assert (MS / "generated" / "fleet.tex").read_text() == fleet_mix.table()
+    for name, render_table in paper_inputs.TABLES.items():
+        assert (MS / "generated" / name).read_text() == render_table(), name
     assert (MS / "TODO.md").read_text() == paper_inputs.todo_list()
+
+
+def test_calibration_macros_come_from_the_bundles() -> None:
+    """T03-T05, T09, T13, T26, T44, T49: the machine and cost macros are the bundles' measured medians."""
+    values = paper_inputs.build()
+    assert values["MachCount"] == len(calibration.MACHINES) == 2
+    assert values["MachClasses"] == len(calibration.CLASSES) == 3
+    assert values["MachProcClasses"] == 2
+    assert values["MachFns"] == len(calibration.functions(calibration.REFERENCE)) == 10
+    assert values["MachPairs"] == sum(
+        len(f["exec_by_size"]) for f in calibration.functions(calibration.REFERENCE).values()
+    )
+    assert calibration.power_on_s(calibration.REFERENCE) == pytest.approx(39.75, abs=0.01)
+    assert calibration.power_on_s("node04-i7-4790s-8g-hdd_hdd") == pytest.approx(27.47, abs=0.01)
+    assert calibration.measured(calibration.REFERENCE, "fc_boot") * 1e3 == pytest.approx(44.07, abs=0.01)
+    assert calibration.measured("node04-i7-4790s-8g-hdd_hdd", "fc_boot") * 1e3 == pytest.approx(75.65, abs=0.01)
+    assert values["MachPowerOnHi"] == round(calibration.power_on_s(calibration.REFERENCE))
+    assert values["MachBootHi"] == round(calibration.measured("node04-i7-4790s-8g-hdd_hdd", "fc_boot") * 1e3)
+
+
+def test_trace_macros_come_from_the_committed_summary() -> None:
+    """T08 and T15: the summary is the release's, and the macros are its statistics."""
+    summary = trace_stats.load()
+    prov = yaml.safe_load(trace_stats.PROVENANCE.read_text())
+    assert summary["source"] == trace_stats.RELEASE
+    assert summary["splits"]["dev"]["sha256"] == prov["outputs"]["sessions_dev.parquet"]
+    assert summary["splits"]["heldout"]["sha256"] == prov["outputs"]["sessions_heldout.parquet"]
+    values = paper_inputs.build()
+    assert values["TraceIntervalMedianLoMin"] == round(summary["splits"]["dev"]["median_h"] * 60)
+    assert values["TraceAvailableHiPct"] == round(summary["splits"]["dev"]["available_frac"] * 100)
 
 
 def test_todo_ids_are_unique() -> None:

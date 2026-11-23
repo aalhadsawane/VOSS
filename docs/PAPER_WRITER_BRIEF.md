@@ -40,6 +40,14 @@ still open. Then read the files in section 3 in the order given.
     Open a PR into `revision-v2`; merge it when CI is green. Keep writing PRs `.tex`-only where possible so the generated-input
     freshness test does not clash with parallel branches.
 
+## 2a. Writing skill (use it)
+
+Read [`aalhadsawane/research-humanizer`](https://github.com/aalhadsawane/research-humanizer) before editing prose. Its
+`SKILL.md` is the working checklist for this paper: a systems reviewer without serverless background, direct technical
+prose, the VOSS vocabulary, claim-evidence paragraphs, and the cold-reader questions. Its `scripts/check.py` flags the
+forbidden VOSS terms and common research-writing tells; run it on every changed section and fix the real warnings.
+The skill is a helper. `WRITING_SPEC.md` and `HUMAN_FEEDBACK.md` remain binding; if they disagree, they win.
+
 ## 3. Reading order
 
 | # | File | Why |
@@ -51,7 +59,7 @@ still open. Then read the files in section 3 in the order given.
 | 5 | `docs/PARAMETERS.md` | Every constant with its class (measured, trace, literature, derived, axis, swept). "pending" rows are open |
 | 6 | `docs/architecture/00-overview.md` to `11-component-contracts.md` | 03 scheduling, 04 trust and security, 07 fault tolerance, 06 experiments, 10 calibration |
 | 7 | `manuscript/main.tex`, `manuscript/sections/*.tex` | The paper: intro, background, design, trust, method, results, discussion, related, conclusion, appendix |
-| 8 | `manuscript/generated/*.tex`, `manuscript/TODO.md` | Macros and the list of open markers (38 at the time of writing) |
+| 8 | `manuscript/generated/*.tex`, `manuscript/TODO.md` | Macros and the list of open markers |
 | 9 | `docs/validation/development-log.md` | What the development runs found (iterations 1 and 2) |
 | 10 | `docs/validation/LITERATURE_START_COSTS.md` | Verified published boot, TPM, attestation and microVM timings, for related work only |
 
@@ -95,7 +103,7 @@ entry before citing it. Known gaps: `agache2020firecracker` lacks author Andreea
 
 | Group | Unlocked by |
 |---|---|
-| calibration bundles and trace statistics | already available: replace these markers now, through new macros in `paper_inputs.py` (ask the repository owner's lead agent if a macro is missing) |
+| calibration bundles and trace statistics | closed: the measured inputs are macros and tables in `paper_inputs.py`; T45 moved to the domain-failure decision |
 | parameter ledger | the `pending` rows of `docs/PARAMETERS.md` (about 89) resolved before the freeze |
 | code revision of the results | the `v2-freeze` tag |
 | emulation on real machines | V13 (`tools/emu/`) |
@@ -109,6 +117,7 @@ because D-108 caps slots by donated memory.
 ## 7. Check before every PR
 
 - [ ] No forbidden word from `WRITING_SPEC.md`; no coined label.
+- [ ] `research-humanizer/SKILL.md` applied; `scripts/check.py` run on the changed sections and real warnings fixed.
 - [ ] Every number is a macro; `paper_inputs` regenerated; `make manuscript-check` passes.
 - [ ] Every new claim has a figure, table or citation that supports it; every cited source was read.
 - [ ] Each paragraph opens with the concrete claim it proves; each term is defined at first use.

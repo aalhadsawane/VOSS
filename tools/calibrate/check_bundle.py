@@ -1,12 +1,15 @@
 """Check a calibration bundle against docs/handoff/CALIBRATION_DATA_CONTRACT.md (plan V1 step 8).
 
 ``python -m tools.calibrate.check_bundle configs/calibration/measured/<bundle> [--spec calibration/specs/<host>]``
+``[--shared-from configs/calibration/measured/<reference>]``
 
 Errors (exit 1): an entry the simulator reads (``simulator_entries``: every ``measured/<name>`` of
 ``configs/substrates/*.yaml`` and every bundle key read in ``voss/``) or a contract entry is missing, not tagged
 ``measured`` (the bundle then holds the placeholder's literature/assumed value, guardrails 28-29), or has fewer
 samples than the contract asks for; a measured disk speed of the bundle's tier is missing; a workload function is
 missing or lacks an input size of the ``sebs`` suite; the machine specification lacks a field.
+``--shared-from`` accepts the TPM entries a class did not measure from the reference bundle (D-107) and prints
+them as ``SHARED``; every other missing entry is still an error.
 Warnings (exit 0, each needs a sentence in the session report): handler times do not span under 1 ms to over 10 s
 across all functions, or a handler time is more than 10x away from a published SeBS value where one is listed.
 Numbers are printed with ``%.3g``: a value such as ``2.5e-05`` is never shown as ``2.5``.
@@ -20,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from voss.world.machines import TPM_KEYS
 
 from tools.calibrate.suites.sebs import SIZES
 
@@ -100,13 +104,29 @@ def _missing(key: str, d: dict[str, Any] | None) -> str:
     return f"{key}: missing, not measured ({held}{why})"
 
 
-def check_distributions(bundle: Path) -> list[str]:
+def check_distributions(
+    bundle: Path, shared_from: Path | None = None, shared_out: list[str] | None = None
+) -> list[str]:
+    """Errors of one bundle; ``shared_from`` supplies the TPM entries D-107 shares with the reference class."""
     dists = _load(bundle / "distributions.yaml").get("distributions", {})
     fits = _load(bundle / "fits.yaml")
+    ref = _load(shared_from / "distributions.yaml").get("distributions", {}) if shared_from else {}
+    ref_fits = _load(shared_from / "fits.yaml") if shared_from else {}
     errors = []
     for key in sorted({*REQUIRED, *simulator_entries()}):
         d = dists.get(key)
         if d is None or d.get("tag") != "measured":
+            r = ref.get(key)
+            n = float((ref_fits.get(key) or {}).get("n", 0))
+            if (
+                key in TPM_KEYS
+                and r is not None
+                and r.get("tag") == "measured"
+                and (key not in REQUIRED or n >= REQUIRED[key])
+            ):
+                if shared_out is not None:
+                    shared_out.append(f"{key}: shared from {shared_from}")
+                continue
             errors.append(_missing(key, d))
         elif key in REQUIRED and float((fits.get(key) or {}).get("n", 0)) < REQUIRED[key]:
             errors.append(f"{key}: n={(fits.get(key) or {}).get('n', 0)} < {REQUIRED[key]}")
@@ -161,10 +181,19 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("bundle", type=Path)
     p.add_argument("--spec", type=Path, default=None, help="calibration/specs/<host_label> directory")
+    p.add_argument(
+        "--shared-from",
+        type=Path,
+        default=None,
+        help="reference bundle whose measured TPM entries this class shares (D-107)",
+    )
     a = p.parse_args(argv)
-    errors = check_distributions(a.bundle)
+    shared: list[str] = []
+    errors = check_distributions(a.bundle, a.shared_from, shared)
     fn_errors, warnings = check_functions(a.bundle)
     errors += fn_errors + (check_spec(a.spec) if a.spec is not None else [])
+    for s in shared:
+        print(f"SHARED {s}")
     for w in warnings:
         print(f"WARNING {w}")
     for e in errors:
