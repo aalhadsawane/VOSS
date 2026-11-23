@@ -50,12 +50,8 @@ def _waits_pair(
     free = [_IDLE] * (n - held) + [now + default_s] * held
     heapq.heapify(free)
     queued = max(0, unseen - held)
-    items: list[tuple[float, int, float, bool]] = [
-        (now, -(i + 1), default_s, False) for i in range(queued)
-    ]
-    items += [
-        (j.t_dispatch, i, j.dur_s if j.dur_s > 0 else default_s, j.sync) for i, j in enumerate(jobs)
-    ]
+    items: list[tuple[float, int, float, bool]] = [(now, -(i + 1), default_s, False) for i in range(queued)]
+    items += [(j.t_dispatch, i, j.dur_s if j.dur_s > 0 else default_s, j.sync) for i, j in enumerate(jobs)]
     if any(items[i][0] > items[i + 1][0] for i in range(len(items) - 1)):
         items.sort(key=lambda x: (x[0], x[1]))
     ready: list[tuple[int, float, int, float, bool]] = []  # (priority, t, seq, dur, sync)
@@ -76,9 +72,7 @@ def _waits_pair(
         if s >= now:  # every job that arrived by ``now`` and has not started is queued
             waiting = [q for q in ready if q[1] <= now]
             waiting += [
-                (0 if (sync_priority and sync) else 1, t, seq, dur, sync)
-                for t, seq, dur, sync in items[k:]
-                if t <= now
+                (0 if (sync_priority and sync) else 1, t, seq, dur, sync) for t, seq, dur, sync in items[k:] if t <= now
             ]
             break
         _, t, seq, dur, _sync = heapq.heappop(ready)
@@ -165,7 +159,5 @@ def worker_waits_pair(
         if not js and occ[i] <= 0:
             continue  # idle worker: a new arrival starts at once
         unseen = max(0, int(occ[i]) - len(js))
-        asyn[i], sync[i] = _waits_pair(
-            int(view.slots[i]), js, now, default_s, unseen, overdue_frac, sync_priority
-        )
+        asyn[i], sync[i] = _waits_pair(int(view.slots[i]), js, now, default_s, unseen, overdue_frac, sync_priority)
     return asyn, sync
