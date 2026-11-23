@@ -8,7 +8,7 @@ from pathlib import Path
 import yaml
 
 CONFIGS = Path(__file__).resolve().parents[2] / "configs"
-DATA_DIRS = ("substrates", "hardware", "regimes", "calibration")
+DATA_DIRS = ("substrates", "hardware", "regimes", "calibration", "emu")
 
 
 def test_data_files_have_provenance() -> None:

@@ -1,4 +1,4 @@
-"""Wall-clock kernel for the emulation testbed (doc 10 §4, P9b).
+"""Wall-clock kernel for the emulation testbed (doc 10 §4, plan V13).
 
 Same API as ``voss.core.kernel.Kernel`` (``now``, ``at``, ``after``, ``cancel``, ``pending``, ``run``) so actors, the
 network model and the resource models run unchanged; ``now`` is real seconds since construction. Callbacks still run

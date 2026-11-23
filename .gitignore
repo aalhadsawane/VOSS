@@ -11,6 +11,9 @@ __pycache__/
 !runs-e01/
 runs-e01/**/*.sock
 runs-e01/**/fc/
+# V13 emulation runs (plan V13): same rule. Snapshots, VM memory files and sockets stay in the work dir outside the
+# repository (`emu.workdir`, /var/tmp/voss-emu by default), so only the tables are committed.
+!runs-emu/
 .pytest_cache/
 .ruff_cache/
 .claude/

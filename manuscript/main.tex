@@ -38,9 +38,9 @@
 
 \begin{abstract}
 We study serverless functions whose results are due within seconds, served by home and office machines that their
-owners lend. An owner can take a machine back at any moment and cannot be trusted with the code and data it runs.
-Each machine therefore boots a measured image and proves it by remote attestation before it receives the key that
-decrypts a function; an owner who does not physically attack the machine can then only switch it off or drop its
+owners lend. An owner can take a machine back at any moment and cannot be trusted with code or data.
+Each machine therefore boots a measured image and proves it by remote attestation before it receives a function's
+decryption key; an owner who does not physically attack the machine can then only switch it off or drop its
 messages. \voss{} is an architecture and a scheduler for this setting. The scheduler chooses, within a limit the tenant
 sets on how many machines may hold a function's key, the key holders and warm sandboxes that serve the most
 invocations on time when machines differ in speed per function and leave without notice; it places each invocation
@@ -48,8 +48,8 @@ by its probability of meeting its deadline; and it runs an invocation on a secon
 answer in time.
 \todoitem{T01}{held-out experiments}{Headline result (held-out experiments): deadlines met at a stated holder limit, VOSS against the best of
 the keep-alive, histogram and autoscaling policies; failure result if supported.}
-\todoitem{T02}{calibration bundles and trace statistics}{Basis sentence: simulator driven by public traces, calibrated on N machines, checked against an N-worker
-emulation; N after calibration and validation.}
+The evaluation uses a simulator driven by public traces and calibrated on \VMachCount{} machines.
+\todoitem{T02}{emulation on real machines}{Emulation clause: checked against an N-worker emulation; N after V13.}
 \end{abstract}
 
 \begin{CCSXML}

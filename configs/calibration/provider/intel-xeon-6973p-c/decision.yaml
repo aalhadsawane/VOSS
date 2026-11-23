@@ -1,0 +1,168 @@
+provenance:
+  default: measured
+  source: https://github.com/aalhadsawane/VOSS/actions/runs/45183180512
+  note: tools/bench/decision_timing.py (plan V10)
+cpu:
+  label: intel-xeon-6973p-c
+  lscpu:
+  - 'Architecture:                            x86_64'
+  - 'CPU op-mode(s):                          32-bit, 64-bit'
+  - 'Address sizes:                           48 bits physical, 57 bits virtual'
+  - 'Byte Order:                              Little Endian'
+  - 'CPU(s):                                  4'
+  - 'On-line CPU(s) list:                     0-3'
+  - 'Vendor ID:                               GenuineIntel'
+  - 'Model name:                              Intel(R) Xeon(R) 6973P-C'
+  - 'CPU family:                              6'
+  - 'Model:                                   173'
+  - 'Thread(s) per core:                      2'
+  - 'Core(s) per socket:                      2'
+  - 'Socket(s):                               1'
+  - 'Stepping:                                1'
+  - 'CPU(s) scaling MHz:                      129%'
+  - 'CPU max MHz:                             2600.0000'
+  - 'CPU min MHz:                             800.0000'
+  - 'BogoMIPS:                                5199.99'
+  - 'Flags:                                   fpu vme de pse tsc msr pae mce cx8 apic
+    sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss ht syscall nx pdpe1gb
+    rdtscp lm constant_tsc rep_good nopl xtopology tsc_reliable nonstop_tsc cpuid
+    aperfmperf tsc_known_freq pni pclmulqdq vmx ssse3 fma cx16 pcid sse4_1 sse4_2
+    x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm
+    abm 3dnowprefetch tpr_shadow ept vpid ept_ad fsgsbase tsc_adjust bmi1 hle avx2
+    smep bmi2 erms invpcid rtm avx512f avx512dq rdseed adx smap avx512ifma clflushopt
+    clwb avx512cd sha_ni avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves user_shstk
+    avx_vnni avx512_bf16 vnmi avx512vbmi umip waitpkg avx512_vbmi2 gfni vaes vpclmulqdq
+    avx512_vnni avx512_bitalg avx512_vpopcntdq la57 rdpid cldemote movdiri movdir64b
+    fsrm serialize tsxldtrk ibt amx_bf16 avx512_fp16 amx_tile amx_int8 arch_capabilities'
+  - 'Virtualization:                          VT-x'
+  - 'Hypervisor vendor:                       Microsoft'
+  - 'Virtualization type:                     full'
+  - 'L1d cache:                               96 KiB (2 instances)'
+  - 'L1i cache:                               128 KiB (2 instances)'
+  - 'L2 cache:                                4 MiB (2 instances)'
+  - 'L3 cache:                                480 MiB (1 instance)'
+  - 'NUMA node(s):                            1'
+  - 'NUMA node0 CPU(s):                       0-3'
+  - 'Vulnerability Gather data sampling:      Not affected'
+  - 'Vulnerability Ghostwrite:                Not affected'
+  - 'Vulnerability Indirect target selection: Mitigation; Aligned branch/return thunks'
+  - 'Vulnerability Itlb multihit:             Not affected'
+  - 'Vulnerability L1tf:                      Not affected'
+  - 'Vulnerability Mds:                       Not affected'
+  - 'Vulnerability Meltdown:                  Not affected'
+  - 'Vulnerability Mmio stale data:           Not affected'
+  - 'Vulnerability Old microcode:             Not affected'
+  - 'Vulnerability Reg file data sampling:    Not affected'
+  - 'Vulnerability Retbleed:                  Vulnerable'
+  - 'Vulnerability Spec rstack overflow:      Not affected'
+  - 'Vulnerability Spec store bypass:         Vulnerable'
+  - 'Vulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers
+    and __user pointer sanitization'
+  - 'Vulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled;
+    RSB filling; PBRSB-eIBRS Not affected; BHI Retpoline'
+  - 'Vulnerability Srbds:                     Not affected'
+  - 'Vulnerability Tsa:                       Not affected'
+  - 'Vulnerability Tsx async abort:           Not affected'
+  - 'Vulnerability Vmscape:                   Not affected'
+work_units:
+  plan: decision variables of the provisioning round (functions x candidate workers)
+  place: candidate (invocation, worker) pairs scored by request placement
+  route: schedulers the router knows
+  verify: receipts whose signature is checked
+coeffs:
+  plan:
+  - 0.0
+  - 5.306215861338244e-05
+  place:
+  - 0.0028623032289116076
+  - 3.7656891197641968e-06
+  route:
+  - 1.0966958257085936e-07
+  - 6.2747801621298925e-09
+  verify:
+  - 0.00020266141577072466
+  - 8.200503432663402e-05
+fit:
+  plan:
+    a: 0.0
+    b: 5.306215861338244e-05
+    r2: 0.9227
+    samples: 495
+    work_max: 4800.0
+  place:
+    a: 0.0028623032289116076
+    b: 3.7656891197641968e-06
+    r2: 0.8927
+    samples: 20019
+    work_max: 49936.0
+  route:
+    a: 1.0966958257085936e-07
+    b: 6.2747801621298925e-09
+    r2: 0.7308
+    samples: 40000
+    work_max: 8.0
+  verify:
+    a: 0.00020266141577072466
+    b: 8.200503432663402e-05
+    r2: 0.9999
+    samples: 400
+    work_max: 1000.0
+pools:
+- 50
+- 200
+- 1000
+- 3000
+- 10000
+functions:
+- 12
+- 100
+- 500
+placement_limit:
+  '12':
+    median_place_s:
+      50: 0.0007429290000047217
+      200: 0.0013311080000022457
+      1000: 0.004297897999990141
+      3000: 0.012049085000001014
+      10000: 0.043324858000005406
+    bound_s: 0.1
+    first_pool_over: null
+    capacity_per_s:
+      50: 1346.0236442427802
+      200: 751.2538426621378
+      1000: 232.67187820704305
+      3000: 82.99385389014319
+      10000: 23.081437450986574
+    first_pool_saturated_at_0.1_per_worker: 3000
+  '100':
+    median_place_s:
+      50: 0.0007301150000031953
+      200: 0.0013212775000042143
+      1000: 0.004357418499992605
+      3000: 0.011979222999997319
+      10000: 0.045166054000048916
+    bound_s: 0.1
+    first_pool_over: null
+    capacity_per_s:
+      50: 1369.6472473454505
+      200: 756.8432823512172
+      1000: 229.49367842489704
+      3000: 83.4778683058345
+      10000: 22.140521728971873
+    first_pool_saturated_at_0.1_per_worker: 3000
+  '500':
+    median_place_s:
+      50: 0.0007384604999955968
+      200: 0.001328646999994021
+      1000: 0.004456302999997774
+      3000: 0.012198377999993681
+      10000: 0.04574884099997689
+    bound_s: 0.1
+    first_pool_over: null
+    capacity_per_s:
+      50: 1354.168570974294
+      200: 752.6453602834313
+      1000: 224.4012581730864
+      3000: 81.978112172005
+      10000: 21.858477245369016
+    first_pool_saturated_at_0.1_per_worker: 3000

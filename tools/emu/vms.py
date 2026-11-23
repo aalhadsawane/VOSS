@@ -1,4 +1,4 @@
-"""One real Firecracker microVM running one function (doc 10 §4, P9b): boot, snapshot, restore, execute.
+"""One real Firecracker microVM running one function (doc 10 §4, plan V13): boot, snapshot, restore, execute.
 
 Built on ``tools.calibrate.fc.FcVm`` (the harness that measured the calibration bundle), so the emulation and the
 calibration use the same code path. Every method blocks and is meant to run on a worker thread.

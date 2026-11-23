@@ -46,6 +46,8 @@ jobs:
         with: {python-version: "3.11"}
       - run: nproc; free -m; lscpu
       - run: uv sync --frozen
+      - run: uv run python -m tools.traces.fetch  # the base scenario needs the traced population/session files
+        env: {GH_TOKEN: '${{ github.token }}'}
       - name: time decisions (one thread, pools in sequence)
         run: |
           for w in $(python3 -c "import json,sys;print(' '.join(map(str,json.loads(sys.argv[1]))))" '${{ needs.plan.outputs.workers }}'); do

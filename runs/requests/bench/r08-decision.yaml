@@ -1,6 +1,8 @@
 # R08 (docs/REVISION_PLAN.md V12.2; D-127): the decision-timing bench rerun on the v2-freeze code, for the table of
 # decision time and scheduler capacity per pool. Same grid as decision-v10d so the table is comparable. The bench
 # workflow has only a push trigger (no workflow_dispatch), so this file must be one push after the freeze.
+# Re-trigger after the time job was given the traced-input fetch step (run 45177712718 failed before measuring) and
+# class_catalog learned to map the bench's synthetic function copies to their base profile (run 45180303821).
 workers: [50, 200, 1000, 3000, 10000]
 functions: [12, 100, 500]
 horizon: 300

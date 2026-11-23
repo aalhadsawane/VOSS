@@ -180,6 +180,13 @@ def class_catalog(catalog: Catalog, mc: MachineClass) -> tuple[FunctionSpec, ...
     out = []
     for f in catalog.functions:
         base, size = catalog.profiles.get(f.name, (f.name, None))
+        if base not in mc.functions and size is None:
+            # A synthetic copy of a catalogue function (the decision-timing bench appends -0, -1, ... to raise the
+            # function count) uses the base function's measured profile on every class. ``base`` may be the copied
+            # name (a trace function maps to it) or the function itself.
+            stem = base.rsplit("-", 1)[0]
+            if stem in mc.functions:
+                base = stem
         if base not in mc.functions:
             raise ValueError(f"{mc.hw.name}: function {base} not measured")
         out.append(f.model_copy(update=class_function(mc.functions[base], f.name, size) | {"base": base}))
