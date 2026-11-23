@@ -1,12 +1,12 @@
-% Outline (WRITING_SPEC.md §7.3). Terms table; 2.1 what starting a function costs; 2.2 attestation in brief;
+% Outline (WRITING_SPEC.md §7.3). Terms table; 2.1 what starting a function costs; 2.2 remote attestation;
 % 2.3 how volunteer machines fail; 2.4 capacity of a worker; 2.5 problem statement. No sentence defends a choice.
 \section{Background and Problem}
 \label{sec:background}
 
-Table~\ref{tab:terms} lists the terms this paper uses.
+Table~\ref{tab:terms} defines the terms used below.
 
 \begin{table}[t]
-\caption{Terms. Each is used with one meaning throughout.}
+\caption{Terms and their meanings.}
 \label{tab:terms}
 \small
 \begin{tabular}{@{}lP{104mm}@{}}
@@ -50,7 +50,7 @@ and skips both. A warm sandbox runs the invocation at once. All states above ``c
 in the worker's memory. Table~\ref{tab:costs} gives the measured time of each step on each calibrated machine class.
 The four states differ in which of these steps they need.
 
-\subsection{Remote attestation in brief}
+\subsection{Remote attestation}
 \label{sec:bg-attest}
 
 A TPM is a chip, or a function of the processor's firmware, that records a hash chain of the software a machine
