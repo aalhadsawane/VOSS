@@ -448,6 +448,14 @@ is no 28 h run at all, and the held-out R01/R03 cells have the same 500-worker, 
 measured window (the plan's 24 h measured window stays) and raising the job timeout (GitHub's maximum is six hours,
 and a five-run shard still needs two waves).
 
+**D-138 The load axis is normalised across trace splits.** The held-out Azure split has 2.78 M trace counts against
+0.58 M for development at the same multiplier, 4.8x. At `rate_mult` 21 a held-out 28 h run projects over 1,000 minutes,
+so it does not fit one Actions job and no shard plan can fix it. The held-out multipliers are therefore `rate_mult` x
+0.209: `{2.2, 4.4, 6.3}` for the development levels `{10.5, 21, 30}`, with 4.4 the central cell. This keeps the absolute
+arrival rate, and therefore the measured utilisation levels, comparable across splits; the paper reports utilisation,
+not raw multipliers. The scheduler, policies and measured costs are unchanged. *Rejected:* a shorter measured window,
+a different `K` axis, or accepting runs longer than one job.
+
 ## v1 decisions (D-01 to D-80)
 
 **D-01 Custom Python discrete-event simulator.** FaaS physics is small; solver wall time must enter simulated time;

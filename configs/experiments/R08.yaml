@@ -6,7 +6,7 @@
 #   workers      500 (D-97). D-127: the single-scheduler limit (about 9,000 workers at 0.1 invocations/s per worker,
 #                V10) is a throughput limit and is measured by the decision-timing bench (bench-decision.yml) rerun on
 #                the frozen code; this spec holds only the simulated 500-worker cell
-#   load         Azure Functions 2019, held-out split, scenario.load.rate_mult 21 (R01's central level); the bench
+#   load         Azure Functions 2019, held-out split, scenario.load.rate_mult 4.4 (R01's central level); the bench
 #                caps its load at 300 invocations/s (V10)
 #   utilisation  as R01 (measured per run, D-99)
 #   duration     horizon_s 100,800 (28 h): 4 h warm-up + 24 h measured (D-97)
@@ -37,5 +37,5 @@ overrides:
   - voss.keys.max_holders=8
   - voss.planner.name=hetero
 systems:
-  w500: [scenario.workers=500, scenario.load.rate_mult=21]
+  w500: [scenario.workers=500, scenario.load.rate_mult=4.4]
 seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]

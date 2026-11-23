@@ -92,7 +92,7 @@ def test_r01_is_the_plan_grid_with_the_published_systems() -> None:
     assert set(s["left_out"]) == {"trusted_hosts"}
     for label, ov in s["systems"].items():
         assert ov == prov[label]["overrides"], label
-    assert s["grid"] == {K_AXIS: [2, 4, 8, 16, None], UTIL_AXIS: [10.5, 21, 30]}
+    assert s["grid"] == {K_AXIS: [2, 4, 8, 16, None], UTIL_AXIS: [2.2, 4.4, 6.3]}
     assert len(points(s)) == 8 * 5 * 3 * 10
 
 
@@ -113,14 +113,14 @@ def test_r02_and_r09_are_the_central_cell() -> None:
     r09 = spec("R09")["systems"]
     assert r09 == {k: BASELINES["provisioning"][k]["overrides"] for k in ("voss", "trusted_hosts")}
     for name in ("R02", "R04", "R05", "R06", "R07", "R09"):
-        assert {f"{K_AXIS}=8", f"{UTIL_AXIS}=21"} <= set(spec(name)["overrides"]), name
+        assert {f"{K_AXIS}=8", f"{UTIL_AXIS}=4.4"} <= set(spec(name)["overrides"]), name
 
 
 def test_r03_operating_region() -> None:
     s = spec("R03")
     assert s["grid"] == {
         "scenario.workers": [100, 300, 500],
-        UTIL_AXIS: [10.5, 21, 30],
+        UTIL_AXIS: [2.2, 4.4, 6.3],
         "scenario.churn.graceful_frac": [0.0, 0.5],
     }
     assert set(s["systems"]) | set(s["left_out"]) == set(BASELINES["provisioning"])

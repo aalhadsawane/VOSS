@@ -27,7 +27,7 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `scenario.regime` | `'churn_seti'` | T | SETI@home host availability (FTA seti09); every R spec sets the held-out split (`tests/unit/test_r_specs.py`) |
 | `scenario.churn` | `{}` | A | inline overrides of the regime: every R spec sets `split: heldout`; the notice fraction `graceful_frac` is an axis {0, 0.5} (R03, `configs/regimes/churn_seti.yaml`) |
 | `scenario.adversary` | `{}` | A | owner faults: fraction and behaviour (R04, R05) |
-| `scenario.load` | `{'trace': 'azure2019', 'split': 'heldout'}` | T | Azure Functions 2019 arrivals (V9.1); `rate_mult` is the load axis {10.5, 21, 30} (D-99) |
+| `scenario.load` | `{'trace': 'azure2019', 'split': 'heldout'}` | T | Azure Functions 2019 arrivals (V9.1); `rate_mult` is the load axis; the held-out values {2.2, 4.4, 6.3} match the development levels {10.5, 21, 30} after normalising for the 4.8x trace count (D-99, D-138) |
 | `scenario.geo` | `{'pop_trace': 'wup2025'}` | T | World Urbanization Prospects 2025 metro populations (V9.3) |
 | `scenario.network` | `{'link': {'trace': 'ookla-fixed-2024q1'}}` | T | links: Ookla fixed-broadband per metro (V9.3); `route_factor` 1.654 fitted to WonderProxy pings; `c_eff` 100 km/ms (fibre) |
 | `scenario.envelope` | `{}` | A | D-132: donated shares `cpu_frac` 0.75, `mem_frac` 0.6, disks 0.2, stated; R07 varies `cpu_frac` {0.5, 1.0} and `mem_frac` {0.4, 0.8}; slots capped by donated memory (D-108) |
