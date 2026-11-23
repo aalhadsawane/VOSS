@@ -85,6 +85,7 @@ def cost_context(
         (float(metros.lat[reg]), float(metros.lon[reg])),
         routers,
         scheduler=(float(metros.lat[sch]), float(metros.lon[sch])),
+        tts_cv=c.tts_cv,
     )
 
 

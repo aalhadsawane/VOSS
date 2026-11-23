@@ -23,7 +23,7 @@ class SchedModels:
 
     def __init__(self, cfg: VossConfig, priors: dict[str, FnPrior]) -> None:
         pc = cfg.predictor
-        inner = make_predictor(pc.name, priors, pc.forgetting)
+        inner = make_predictor(pc.name, priors, pc.forgetting, pc.prior_sd)
         self.predictor: Any = Conformal(inner) if pc.conformal else inner
         self.survival: Any = create("survival", cfg.models.survival)
         m = cfg.models  # D-111: the drop estimate's constants are keys (S)

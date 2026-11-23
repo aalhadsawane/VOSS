@@ -123,10 +123,14 @@ class PredictorConfig(Frozen):
     name: str = "blr"
     forgetting: float = 0.995
     conformal: bool = True
+    prior_sd: tuple[float, float, float] = (0.7, 0.3, 0.5)  # D-122: run-time prior SDs, S, listed
 
 
 class CostConfig(Frozen):
     """Doc 03 §5.2. Placement is lexicographic (D-110): no weights, no v1 switches."""
+
+    tts_cv: float = Field(default=0.3, ge=0)  # D-122: spread of the time to start, S
+    overdue_frac: float = Field(default=0.25, ge=0)  # D-122: extra hold of a job past its predicted end, S
 
 
 class AdmissionConfig(Frozen):
@@ -230,6 +234,7 @@ class DetectionConfig(Frozen):
     detector: str = "voss"  # fixed | consecutive | voss (policy.detect, plan V7.2)
     quantile: float = 0.95  # the voss timer: this quantile of the attempt's predicted completion (plan V7.1)
     probe_timeout_s: float = 2.0  # an unanswered probe is evidence for the drop estimate; it does not end the attempt
+    hedge_min_samples: int = 20  # D-122: hedged requests use the deadline until this many latencies are observed, S
     consecutive_streak: int = 5  # consecutive: failures in a row that eject (L: Envoy consecutive_5xx)
     consecutive_eject_s: float = 30.0  # consecutive: ejection time (L: Envoy base_ejection_time)
     suspect_streak: int = 2  # watchdog failures in a row → suspected

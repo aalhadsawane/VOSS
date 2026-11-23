@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 from voss.core.config import RunConfig
-from voss.policy.cost.wait import OVERDUE_FRAC, JobEst, expected_wait
+from voss.policy.cost.wait import JobEst, expected_wait
 from voss.world.resources import Slots
 
 from tests.fixtures.fleet import FLEET
@@ -36,7 +36,7 @@ def test_long_queue_looks_long_unlike_the_scheduler_wide_mean() -> None:
 
 
 def test_overdue_job_holds_slot_for_a_fraction() -> None:
-    assert expected_wait(1, [JobEst(0.0, 2.0)], now=10.0, default_s=1.0) == pytest.approx(OVERDUE_FRAC * 2.0)
+    assert expected_wait(1, [JobEst(0.0, 2.0)], now=10.0, default_s=1.0) == pytest.approx(0.25 * 2.0)  # overdue_frac
 
 
 def test_unknown_duration_uses_default() -> None:

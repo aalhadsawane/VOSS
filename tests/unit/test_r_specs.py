@@ -32,6 +32,8 @@ R07_EXEMPT = {
     "voss.planner.params": "a container; its rows are varied one by one",
     "drain_s": "simulated time after the horizon, outside the measured window",
     "decision_clock.cpu_scale": "emulation only",
+    "voss.predictor.prior_sd": "D-122: the run-time priors wash out after a few observations",
+    "voss.detection.hedge_min_samples": "D-122: the baseline's warm-up, not a VOSS design constant",
 }
 
 

@@ -54,6 +54,9 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.predictor.name` | `'blr'` | S | run-time estimator (V5.4) |
 | `voss.predictor.forgetting` | `0.995` | S | run-time estimator forgetting factor |
 | `voss.predictor.conformal` | `True` | S | conformal quantiles on/off |
+| `voss.predictor.prior_sd` | `(0.7, 0.3, 0.5)` | S | D-122: run-time model prior standard deviations; listed, not varied (they wash out after a few observations) |
+| `voss.cost.tts_cv` | `0.3` | S | D-122: spread of the time to start, `(tts_cv x tts)^2`; R07 varies {0.15, 0.6} |
+| `voss.cost.overdue_frac` | `0.25` | S | D-122: extra share of its prediction an overdue job holds its slot; R07 varies {0.125, 0.5} |
 | `voss.admission.enabled` | `True` | S | admission on/off |
 | `voss.admission.eps` | `0.05` | S | reject when every candidate misses with probability above 1 - eps |
 | `voss.admission.defer_s` | `1.0` | S | retry delay for a deferred asynchronous invocation |
@@ -105,6 +108,7 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.audit.p` | `0.0` | A | audit probability per idempotent invocation (V7.3; swept in R05) |
 | `voss.detection.detector` | `voss` | A | `fixed`, `consecutive`, `hedged`, `voss` (plan V7.2); `voss_no_backup` is the R06 ablation (D-128) |
 | `voss.detection.quantile` | `0.95` | S | voss timer: predicted completion quantile, no floor (plan V7.1, F5) |
+| `voss.detection.hedge_min_samples` | `20` | S | D-122: hedged requests use the deadline until this many latencies are observed; listed, not varied (the baseline's warm-up) |
 | `voss.detection.probe_timeout_s` | `2.0` | S | an unanswered probe is drop-estimate evidence; it does not end the attempt |
 | `voss.detection.consecutive_streak` | `5` | L | Envoy outlier detection `consecutive_5xx`; TODO verify |
 | `voss.detection.consecutive_eject_s` | `30.0` | L | Envoy outlier detection `base_ejection_time`; TODO verify |
@@ -140,15 +144,7 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 
 ## Constants in code that are not configuration keys (guardrail 27)
 
-Found while preparing the freeze; the decision in the last column settles each, and the row leaves *pending* when
-the constant is deleted or becomes a key. They are listed here so that the ledger is complete; they are not parsed by `tests/unit/test_parameters.py`.
-
-| Constant | Value | Class | Where | Item |
-|---|---|---|---|---|
-| variance of the time to start, `(0.3 tts)^2` | 0.3 | pending V11 | `voss/policy/cost/components.py` | D-122: key, S |
-| hedged requests: latencies observed before the q95 timer applies | 20 | pending V11 | `voss/policy/detect.py` `HEDGE_MIN_SAMPLES` | D-122: key, S |
-| run-time model prior standard deviations | (0.7, 0.3, 0.5) | pending V11 | `voss/policy/predict/blr.py` | D-122: key, S |
-| overdue job: extra fraction of its prediction | 0.25 | pending V11 | `voss/policy/cost/wait.py` `OVERDUE_FRAC` | D-122: key, S |
+None at the freeze: the four v1 code constants became keys in D-122 (rows above).
 
 ## Data files (`configs/`, excluding calibration bundles and experiment specs)
 
