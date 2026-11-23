@@ -34,7 +34,7 @@ class DecisionClockConfig(Frozen):
     mode: Literal["measured", "modeled"] = "modeled"
     cpu_scale: float = 1.0
     coeffs_file: str = ""  # configs/calibration/provider/<cpu-label>/decision.yaml; empty = the coefficients below
-    # used only without coeffs_file (unit tests): seeds, not results. TODO verify (superseded by the V10 file)
+    # used only without coeffs_file (unit tests): seeds, not results; every reported run sets the V10 file
     coeffs: dict[str, tuple[float, float]] = Field(
         default_factory=lambda: {
             "plan": (0.02, 5e-5),

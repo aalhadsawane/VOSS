@@ -13,8 +13,8 @@ then, and when a worker is ejected. Every detector gets the same timers and the 
 function's observed 95th-percentile latency (dispatch to outcome), the second request may go to any other eligible
 worker, and the slower one is cancelled. Until ``hedge_min_samples`` latencies are observed, the deadline is the timer.
 
-The ``consecutive`` defaults are Envoy's outlier detection (``consecutive_5xx: 5``, ``base_ejection_time: 30s``).
-# TODO verify against the Envoy documentation of the version cited in the paper.
+The ``consecutive`` defaults are Envoy's outlier detection defaults (``consecutive_5xx: 5``,
+``base_ejection_time: 30s``; Envoy outlier-detection proto, checked at the freeze).
 """
 
 from __future__ import annotations

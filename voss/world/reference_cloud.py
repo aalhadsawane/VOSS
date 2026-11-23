@@ -20,7 +20,7 @@ from voss.world.scenario import Scenario, with_world
 from voss.world.sessions import SessionTrace
 from voss.world.workers import WorkerTable
 
-DC_LAST_MILE_S = 0.0005  # in-region data-centre hop  # TODO verify
+DC_LAST_MILE_S = 0.0005  # in-region data-centre hop; unverified seed (paper agent note)
 DC_BPS = 10e9
 RACKS = 8  # failure domains per region
 

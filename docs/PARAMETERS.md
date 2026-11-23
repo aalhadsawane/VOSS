@@ -88,7 +88,7 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.scheduler.retry_backoff_s` | `0.2` | S | D-116: retry delay of the retry-based detectors; R07 varies {0.1, 0.4} |
 | `voss.scheduler.no_candidate_retry_s` | `0.5` | S | retry delay when no candidate exists |
 | `voss.scheduler.view_refresh_s` | `0.25` | S | view cache refresh |
-| `voss.worker.warm_ttl_s` | `600.0` | L | fixed keep-alive baseline timer; citation to be checked in V8; also an axis |
+| `voss.worker.warm_ttl_s` | `600.0` | L | fixed keep-alive baseline timer, 10 min (Shahrad et al., ATC 2020); also an axis |
 | `voss.worker.warm_eviction` | `lru` | A | warm-sandbox eviction: `lru` or `greedy_dual` (FaaSCache baseline, V8) |
 | `voss.worker.m_base_mb` | `512.0` | A | D-117: image memory reserve, a stated build parameter, read by the worker and every planner; R07 varies {256, 1,024} |
 | `voss.worker.sync_priority` | `True` | A | D-114: synchronous-first on for every system; off only as the R06 ablation |
@@ -97,9 +97,9 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.keepalive_hist.head_pct` | `5.0` | L | Shahrad et al. ATC 2020 |
 | `voss.keepalive_hist.tail_pct` | `99.0` | L | Shahrad et al. ATC 2020 |
 | `voss.keepalive_hist.margin` | `0.1` | L | Shahrad et al. ATC 2020 |
-| `voss.keepalive_hist.min_samples` | `10` | pending V11 | D-123: L if Shahrad et al. ATC 2020 §4.2 gives it, otherwise a listed deviation and S |
+| `voss.keepalive_hist.min_samples` | `10` | S | D-123: the paper gives no minimum; a stated deviation (`configs/baselines.yaml`) |
 | `voss.keepalive_hist.cv_min` | `2.0` | L | Shahrad et al. ATC 2020 |
-| `voss.keepalive_hist.oob_max` | `0.2` | pending V11 | D-123: as `min_samples` |
+| `voss.keepalive_hist.oob_max` | `0.2` | S | D-123: the paper gives no fallback threshold; a stated deviation (`configs/baselines.yaml`) |
 | `voss.keepalive_hist.fallback_ttl_s` | `600.0` | D | = `voss.worker.warm_ttl_s`: out-of-range idle times fall back to the fixed timer in place of the paper's ARIMA forecast (deviation listed in `configs/baselines.yaml`) |
 | `voss.cache.value` | `'gdsf'` | S | disk cache value policy |
 | `voss.cache.hdd_tier` | `True` | S | hard-disk tier on/off |
@@ -108,8 +108,8 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.detection.quantile` | `0.95` | S | voss timer: predicted completion quantile, no floor (plan V7.1, F5) |
 | `voss.detection.hedge_min_samples` | `20` | S | D-122: hedged requests use the deadline until this many latencies are observed; listed, not varied (the baseline's warm-up) |
 | `voss.detection.probe_timeout_s` | `2.0` | S | an unanswered probe is drop-estimate evidence; it does not end the attempt |
-| `voss.detection.consecutive_streak` | `5` | L | Envoy outlier detection `consecutive_5xx`; TODO verify |
-| `voss.detection.consecutive_eject_s` | `30.0` | L | Envoy outlier detection `base_ejection_time`; TODO verify |
+| `voss.detection.consecutive_streak` | `5` | L | Envoy outlier detection `consecutive_5xx` (default 5; Envoy proto, checked at the freeze) |
+| `voss.detection.consecutive_eject_s` | `30.0` | L | Envoy outlier detection `base_ejection_time` (default 30 s; Envoy proto, checked at the freeze) |
 | `voss.detection.suspect_streak` | `2` | S | consecutive failures before a worker is marked as failed |
 | `voss.detection.suspect_s` | `600.0` | S | how long a worker stays marked |
 | `voss.keys.max_holders` | `None` | A | holder budget K per function key (D-85); axis {2, 4, 8, 16, unbounded} in R01 |
@@ -143,6 +143,11 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 ## Constants in code that are not configuration keys (guardrail 27)
 
 None at the freeze: the four v1 code constants became keys in D-122 (rows above).
+
+**Unverified seeds for the paper agent (one note, not a citation).** The TLS CPU costs
+(`voss.world.network.tls_msg_cpu_s`, `tls_handshake_cpu_s`) and the in-region data-centre last mile
+(`voss.world.reference_cloud.DC_LAST_MILE_S`) have no measured value in the bundles. They are stated as assumed in the
+methodology or replaced by the `tls` calibration suite; the paper must not present them as measured.
 
 ## Data files (`configs/`, excluding calibration bundles and experiment specs)
 
