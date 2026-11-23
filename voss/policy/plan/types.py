@@ -25,12 +25,9 @@ class PlanParams:
     gamma: float = 0.5  # a pinned snapshot is worth γ of a warm VM
     kappa_dom: float = 0.5  # max share of a tenant's earmarked capacity in one failure domain
     w_max: int = 4
-    m_base_mb: float = 512.0
     use_robust: bool = True
-    use_exposure: bool = True
     use_domain_cap: bool = True
     use_freshness: bool = True
-    exposure_weight: float = 1.0
     survival_blind: bool = False  # E25: survival, residence = cluster mean (plan.ablate)
 
 
@@ -44,14 +41,11 @@ class PlanInput:
     ssd_mb: np.ndarray  # [J] SSD budget for pinned snapshots
     survival: np.ndarray  # [J] S_j(H)
     p_omit: np.ndarray  # [J]
-    assurance: np.ndarray  # [J]
     domain: np.ndarray  # [J]
     fresh_ok: np.ndarray  # [J] attestation valid through the horizon (or a re-quote fits)
     tenants: tuple[TenantId, ...]
     q: np.ndarray  # [T] required concurrent capacity quantile
     rate: np.ndarray  # [T] arrival rate (orders the greedy planner)
-    sigma: np.ndarray  # [T] sensitivity weight
-    a_min: np.ndarray  # [T] assurance floor
     f: np.ndarray  # [T] robustness level (workers that may defect)
     cold_penalty: np.ndarray  # [T] cost per unit of uncovered demand
     fns: tuple[FnId, ...]
@@ -62,6 +56,7 @@ class PlanInput:
     fn_units: np.ndarray  # [F] warm VMs worth keeping cluster-wide (demand bound)
     y_prev: np.ndarray  # [T, J] previous trust-warm sets
     params: PlanParams = field(default_factory=PlanParams)
+    m_base_mb: float = 512.0  # image memory reserve, voss.worker.m_base_mb (D-117)
     max_holders: np.ndarray | None = None  # [T] holder budget K per key, 0 = none (D-85); None = no budgets
     fn_inflight: np.ndarray | None = None  # [F] in-flight requests of each function now (kpa baseline)
     hetero: HeteroInput | None = None  # per-worker run times, deadline probabilities, scenarios (§11; hetero planner)
@@ -82,12 +77,11 @@ class PlanInput:
         return out
 
     def allowed(self) -> np.ndarray:
-        """``[T, J]`` assurance floor and freshness (``y`` forced to 0 elsewhere)."""
-        ok = self.assurance[None, :] >= self.a_min[:, None]
-        if self.params.use_freshness:
-            ok &= self.fresh_ok[None, :]
-        out: np.ndarray = ok
-        return out
+        """``[T, J]`` freshness (``y`` forced to 0 elsewhere); the v1 trust floor is deleted (D-125)."""
+        ok = np.broadcast_to(self.fresh_ok[None, :], (len(self.tenants), len(self.workers))).copy()
+        if not self.params.use_freshness:
+            ok[:] = True
+        return ok
 
 
 @dataclass(frozen=True)

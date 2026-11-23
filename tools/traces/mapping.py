@@ -18,7 +18,7 @@ from voss.world.workload import Catalog, FunctionSpec, LoadRegime, TenantSpec
 
 
 def mapping(calibration: str, split: str, trace: str = "azure2019") -> tuple[str, pd.DataFrame]:
-    sc = ScenarioConfig()
+    sc = ScenarioConfig.model_validate({"machines": {}})
     meas = function_overrides(calibration)
     fns = tuple(
         FunctionSpec.model_validate(f | meas.get(f["name"], {})) for f in load_data_yaml(sc.functions)["functions"]

@@ -1,5 +1,10 @@
-# P0 toy run used by `make repro-smoke`.
+# P0 toy run used by `make repro-smoke`. Test configuration only: the fleet's survey is a tiny fixture under tests/.
 extends: base.yaml
 system: toy
 horizon_s: 200
-scenario: {workers: 20}
+scenario:
+  workers: 20
+  machines:
+    bundles: [node02-i7-12700-64g-nvme_nvme, node02-i7-12700-64g-nvme_hdd, node04-i7-4790s-8g-hdd_hdd]
+    survey: test
+    trace_root: tests/fixtures/fleet

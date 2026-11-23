@@ -29,7 +29,7 @@ def test_holder_count_matches_greedy_and_workers_are_the_most_reliable(seed: int
     assert plan.planner == "provisioned_keys"
     assert (plan.y.sum(axis=1) == ref.y.sum(axis=1)).all()
     assert not plan.s.any() and not plan.w.any()  # no warm-state planning
-    assert not (plan.y & ~inp.allowed()).any()  # assurance floor and freshness respected
+    assert not (plan.y & ~inp.allowed()).any()  # freshness respected (v1 assurance floor deleted, D-125)
     e = inp.contrib()
     for t in range(n_t):
         held, ok = plan.y[t], inp.allowed()[t]
@@ -47,7 +47,7 @@ def test_survival_blind_replaces_survival_by_the_mean() -> None:
     inp = instance(3, 2, 8, 1)
     out = survival_blind(inp)
     assert np.allclose(out.survival, inp.survival.mean())
-    assert (out.p_omit == inp.p_omit).all() and (out.assurance == inp.assurance).all()
+    assert (out.p_omit == inp.p_omit).all()
     assert inp.survival.std() > 0  # the input itself is not mutated
     assert survival_blind(instance(3, 2, 0, 1)).survival.size == 0
 

@@ -5,7 +5,7 @@ scheduler's view and estimators only (information boundary, D-05).
 - ``pi[f, j]``: probability that the run time plus warm dispatch fits the function's deadline on ``j``.
 - ``prep[f, j]``: seconds before a new holder serves (key release and start-up), for the swap rule.
 - ``alive[m, j]``: sampled failure scenarios: ``j`` stays for the horizon (session survival) and does not drop work
-  (drop estimate), and its failure domain is not hit by a shock.
+  (drop estimate); failures are independent (D-118).
 """
 
 from __future__ import annotations
@@ -36,7 +36,6 @@ def hetero_inputs(
     ctx: CostContext,
     models: SchedModels,
     m: int,
-    shock_p: float,
     rng: RngFactory,
     ablate: tuple[str, ...] = (),
 ) -> HeteroInput:
@@ -63,10 +62,9 @@ def hetero_inputs(
         pi = (pi >= 0.5).astype(float)
     reliability = inp.survival * (1.0 - inp.p_omit)
     if "reliability_blind" in ablate:
-        reliability, shock_p = np.ones(n_j), 0.0
+        reliability = np.ones(n_j)
     gen = rng.stream("plan.scenarios", round(inp.now * 1000))  # from the run seed (doc 01 §3)
-    dom = np.asarray(inp.domain, dtype=np.int64)
-    alive = scenarios(reliability, dom, np.full(int(dom.max()) + 1 if n_j else 0, shock_p), m, gen)
+    alive = scenarios(reliability, m, gen)
     t_ref = np.array([ctx.fns[f].work_ref_s for f in inp.fns])
     allowed = inp.allowed()[inp.fn_tenant] if n_f else np.zeros((0, n_j), bool)
     prev = inp.y_prev[inp.fn_tenant] if n_f else np.zeros((0, n_j), bool)

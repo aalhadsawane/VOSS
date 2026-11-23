@@ -20,6 +20,7 @@ provisioning:
     deviations:
       - "one histogram per function (the paper: per application; here every application has one function)"
       - "out-of-range idle times fall back to the fixed timer instead of an ARIMA forecast"
+      - "the minimum sample count (10) and the out-of-range fallback share (20%) are stated deviations; the paper gives no values (D-123)"
   prereleased_keys:
     source: "isolates how many holders from which holders"
     overrides: [voss.planner.name=provisioned_keys]

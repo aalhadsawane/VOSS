@@ -32,6 +32,8 @@ R07_EXEMPT = {
     "voss.planner.params": "a container; its rows are varied one by one",
     "drain_s": "simulated time after the horizon, outside the measured window",
     "decision_clock.cpu_scale": "emulation only",
+    "voss.predictor.prior_sd": "D-122: the run-time priors wash out after a few observations",
+    "voss.detection.hedge_min_samples": "D-122: the baseline's warm-up, not a VOSS design constant",
 }
 
 
@@ -61,7 +63,7 @@ def test_header_states_every_field_of_guardrail_21(name: str) -> None:
 @pytest.mark.parametrize("name", R)
 def test_held_out_fleet_seeds_and_warm_up(name: str, tmp_path: Path) -> None:
     s = spec(name)
-    assert s["experiment"] == name and s["base"] == "../machines.yaml"
+    assert s["experiment"] == name and s["base"] == "../base.yaml"
     assert not any(o.startswith("calibration=") for o in s["overrides"]), "the fleet's reference is the calibration"
     assert s["seeds"] == list(range(1, 11)) and "seeds_by_system" not in s
     _, cfgs = plan(name, tmp_path)

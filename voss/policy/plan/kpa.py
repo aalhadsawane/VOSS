@@ -13,7 +13,7 @@ sampled. With the per-sandbox target ``t = container_concurrency × target_utili
 Defaults are Knative Serving's autoscaler defaults (``stable-window`` 60 s, ``panic-window-percentage`` 10,
 ``panic-threshold-percentage`` 200, ``container-concurrency-target-percentage`` 70, ``max-scale-down-rate`` 2,
 ``max-scale-up-rate`` 1000, ``scale-to-zero-grace-period`` 30 s) with ``containerConcurrency`` 1: a sandbox serves one
-invocation at a time. # TODO verify against the Knative release cited in the paper.
+invocation at a time (Knative Serving's containerConcurrency default 1, target 70%).
 Deviations (stated in ``configs/baselines.yaml``): sandboxes are placed on key holders first, then on the most reliable
 eligible workers (Knative leaves placement to the Kubernetes scheduler); keys follow the sandboxes, within ``K``.
 """

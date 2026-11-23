@@ -22,7 +22,7 @@ def instance(seed: int, n_f: int, n_j: int, m: int = 16, budget: int = 0, units:
         t_ref=np.ones(n_f),
         et=et,
         pi=g.uniform(0.2, 1.0, (n_f, n_j)),
-        alive=scenarios(g.uniform(0.5, 1.0, n_j), np.arange(n_j) % 3, np.full(3, 0.1), m, g),
+        alive=scenarios(g.uniform(0.5, 1.0, n_j), m, g),
         units=np.full(n_j, units),
         budget=np.full(n_f, budget),
         allowed=np.ones((n_f, n_j), bool),

@@ -23,7 +23,7 @@ class SchedModels:
 
     def __init__(self, cfg: VossConfig, priors: dict[str, FnPrior]) -> None:
         pc = cfg.predictor
-        inner = make_predictor(pc.name, priors, pc.forgetting)
+        inner = make_predictor(pc.name, priors, pc.forgetting, pc.prior_sd)
         self.predictor: Any = Conformal(inner) if pc.conformal else inner
         self.survival: Any = create("survival", cfg.models.survival)
         m = cfg.models  # D-111: the drop estimate's constants are keys (S)
@@ -31,7 +31,6 @@ class SchedModels:
             "omission", m.omission, prior=m.omission_prior, pessimistic=m.omission_pessimistic, k=m.cusum_k, h=m.cusum_h
         )
         self.forecaster: Any = create("forecaster", "ewma2")
-        self.hetero_aware = cfg.scheduler.hetero_aware
         self.svc = 1.0
         self.survival_version = 0
         self._static_key: tuple[object, int] | None = None
@@ -61,7 +60,7 @@ class SchedModels:
 
         def fn(i: int, sub: np.ndarray) -> Preds:
             inv = invs[i]
-            speed = view.speed[sub] if self.hetero_aware else np.ones(len(sub))
+            speed = view.speed[sub]
             d = self.predictor.predict(inv.fn, inv.in_bytes, workers[sub], speed, load[sub])
             mean = d.mean()
             alive = self.survival.p_alive_arr(
@@ -84,7 +83,7 @@ class SchedModels:
             or self._static_key[1] != self.survival_version
         ):
             st = view.static if view.static else (None,) * len(view)
-            k, lam = self.survival.tier_params([s.tier if s else "idle" for s in st])
+            k, lam = self.survival.params_arr(len(view))
             start = np.array([s.session_start if s else 0.0 for s in st])
             tz = np.array([s.tz if s else 0.0 for s in st])
             drain = (
@@ -96,6 +95,6 @@ class SchedModels:
             self._static_key = (view.cache, self.survival_version)
         return self._static_cache
 
-    def refit(self, live: dict[str, list[float]]) -> None:
+    def refit(self, live: list[float]) -> None:
         self.survival.refit(live)
         self.survival_version += 1

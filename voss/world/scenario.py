@@ -16,7 +16,6 @@ from voss.core.hashing import hash_columns
 from voss.core.rng import RngFactory
 from voss.world.adversary import BEHAVIORS, AdversaryTrace, generate_adversaries, load_adversary_regime
 from voss.world.geo import Metros, load_metros, with_traced_pop
-from voss.world.hardware import load_hw_classes
 from voss.world.machines import Fleet, fleet_columns, load_fleet
 from voss.world.sessions import SessionTrace, generate_sessions
 from voss.world.workers import GeoParams, WorkerTable, cap_slots_by_memory, generate_workers
@@ -96,12 +95,9 @@ def generate(cfg: RunConfig) -> Scenario:
         metros = with_traced_pop(metros, Path(gp.trace_root) / gp.pop_trace / "metro_pop.parquet")
     metros = metros.restrict(gp.regions)
     catalog = load_catalog(sc, cfg.calibration)
-    fleet = load_fleet(sc.machines, cfg.calibration, catalog) if sc.machines else None
-    if fleet is not None:
-        workers = generate_workers(sc, metros, fleet.hw, rng, fleet.mix.weights)
-        workers = cap_slots_by_memory(workers, max(f.mem_mb for f in catalog.functions))  # D-108
-    else:
-        workers = generate_workers(sc, metros, load_hw_classes(sorted(sc.hw_mix), cfg.calibration), rng)
+    fleet = load_fleet(sc.machines, cfg.calibration, catalog)  # the only machine path (D-107; checklist 1.1-1.3)
+    workers = generate_workers(sc, metros, fleet.hw, rng, fleet.mix.weights)
+    workers = cap_slots_by_memory(workers, max(f.mem_mb for f in catalog.functions))  # D-108
     check_memory_invariant(workers, catalog)
     adv = generate_adversaries(sc, workers, horizon, rng)
     params = load_adversary_regime(sc).params
@@ -115,9 +111,10 @@ def generate(cfg: RunConfig) -> Scenario:
 
 
 def with_world(scn: Scenario, workers: WorkerTable, sessions: SessionTrace, adversary: AdversaryTrace) -> Scenario:
-    """The same workload on another worker population (reference clouds, doc 02 §9), rehashed."""
+    """The same workload on another worker population (reference clouds, doc 02 §9), rehashed. The calibrated fleet is
+    kept: a reference host is one of its classes (D-124)."""
     h = _hash(_tables(workers, sessions, adversary, scn.arrivals), scn.catalog, scn.horizon)
-    return replace(scn, hash=h, workers=workers, sessions=sessions, adversary=adversary, fleet=None)
+    return replace(scn, hash=h, workers=workers, sessions=sessions, adversary=adversary)
 
 
 def store(scn: Scenario, root: Path) -> Path:

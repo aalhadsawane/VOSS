@@ -6,6 +6,7 @@ import contextlib
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -347,6 +348,7 @@ def test_host_install_and_uninstall_into_a_staging_tree(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.skipif(sys.platform != "linux", reason="node-side calibration script (Linux)")
 def test_auto_stage_machine_resumes_across_reboots(tmp_path: Path) -> None:
     """The one-command flow: stages persist in a state dir, the appliance stage hands over to the reboot loop and the
     next boot continues where it left off (stubs for main script and systemctl; nothing is installed or rebooted)."""
@@ -407,6 +409,7 @@ def test_appliance_collect_rejects_a_stepped_clock(tmp_path: Path) -> None:
     assert "clock step" in (tmp_path / "r.jsonl").read_text()
 
 
+@pytest.mark.skipif(sys.platform != "linux", reason="node-side calibration script (Linux)")
 def test_firecracker_socket_path_stays_short_in_deep_directories(tmp_path: Path) -> None:
     """AF_UNIX paths are limited to 107 bytes; a deep results directory broke rep 10 of fc_snapshot on the laptop."""
     from tools.calibrate.fc import FcAssets, FcVm
@@ -521,6 +524,7 @@ def test_tme_state_and_phase_guard(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     assert [r["probe"] for r in rows] == ["tme_state"]  # the state is recorded, nothing else is measured
 
 
+@pytest.mark.skipif(sys.platform != "linux", reason="node-side calibration script (Linux)")
 def test_tme_subset_runs_alone_and_without_snapshots(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     opts = {"kernel": "/a/k", "sebs_rootfs": "/a/r", "firecracker": "/a/fc", "functions": "thumbnailer"}
     ctx = Ctx(Shell(dry_run=True), Records(tmp_path / "r.jsonl", "tme"), tmp_path, opts, phase="off")
@@ -615,6 +619,7 @@ def test_guest_dispatch_listener_answers_start_before_the_handler() -> None:
     c.close()
 
 
+@pytest.mark.skipif(sys.platform != "linux", reason="node-side calibration script (Linux)")
 def test_host_dispatch_speaks_firecrackers_vsock_handshake(tmp_path: Path) -> None:
     """``CONNECT <port>`` / ``OK <port>`` on Firecracker's Unix socket, then RUN → START, EXEC, PING → ACK."""
     import socket

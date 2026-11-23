@@ -21,7 +21,6 @@ def view(n: int = 4, busy: list[int] | None = None) -> ClusterView:
         queued=np.zeros(n, int),
         mem_free_mb=np.full(n, 1000.0),
         speed=np.ones(n),
-        assurance=np.full(n, 0.8),
         domain=np.arange(n),
         session_expiry=np.full(n, 1000.0),
         age=np.zeros(n),

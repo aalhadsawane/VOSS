@@ -1,7 +1,7 @@
 """Greedy trust & warm-state planner (doc 03 §4.3): baseline and MILP fallback.
 
 For each hot tenant in decreasing ``λ_t × ColdPenalty_t``: add the worker with the best
-``S_j(1−p_j)·a_j / (memory cost + σ_t(1−a_j))`` (assurance floor, freshness, domain cap)
+``S_j(1−p_j) / memory cost`` (freshness and domain cap; the v1 trust floor is deleted, D-125)
 until coverage with the ``f_t`` largest contributions removed reaches ``q_t``; then add warm VMs and snapshots by
 value density until the budgets bind.
 """
@@ -49,8 +49,7 @@ def _trust_sets(inp: PlanInput, y: np.ndarray, c: np.ndarray) -> None:
     for t in np.argsort(-(inp.rate * inp.cold_penalty), kind="stable"):
         fns = inp.fn_tenant == t
         mem_cost = inp.params.rho_mem * float(inp.fn_mem[fns].mean()) if fns.any() else 0.0
-        exposure = inp.params.exposure_weight * inp.sigma[t] * (1 - inp.assurance) if inp.params.use_exposure else 0.0
-        base = e * inp.assurance / (mem_cost + exposure + 1e-6)
+        base = e / (mem_cost + 1e-6)
         for _ in range(4):  # fill, cap domains, refill what the cap removed
             _fill(inp, t, y, c, free, base)
             before = c[t].copy()
@@ -80,7 +79,7 @@ def _enforce_domain_cap(inp: PlanInput, c_t: np.ndarray) -> None:
 
 def _warm_state(inp: PlanInput, y: np.ndarray, s: np.ndarray, w: np.ndarray) -> None:
     p = inp.params
-    mem = np.maximum(0.0, inp.mem_mb - p.m_base_mb)
+    mem = np.maximum(0.0, inp.mem_mb - inp.m_base_mb)
     ssd = inp.ssd_mb.astype(float).copy()
     units = inp.fn_units.astype(float).copy()
     for f in np.argsort(-(inp.fn_benefit / np.maximum(inp.fn_mem, 1.0)), kind="stable"):

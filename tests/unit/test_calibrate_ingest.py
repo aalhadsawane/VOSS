@@ -12,11 +12,12 @@ import pytest
 import yaml
 from tools.calibrate import ingest, remote
 from voss.core.rng import RngFactory
-from voss.world.hardware import load_hw_class
 from voss.world.substrate import load_bundle
 
+from tests.fixtures.fleet import FLEET
+
 REPO = Path(__file__).resolve().parents[2]
-PLACEHOLDER = REPO / "configs/calibration/placeholder/c0"
+PLACEHOLDER = REPO / "tests/fixtures/calibration/placeholder/c0"
 
 
 def _run(root: Path, suite: str, run_id: str, rows: list[dict[str, Any]], **meta: Any) -> None:
@@ -85,12 +86,12 @@ def test_simulator_reads_the_measured_bundle(raw: Path, tmp_path: Path) -> None:
         (out / name).write_text(yaml.safe_dump(data))
     bundle = load_bundle(str(out))
     assert bundle["tpm2_quote"].tag == "measured"
-    assert load_hw_class("C0", str(out)).ssd_read_MBps == 5000.0
-    assert load_hw_class("C0").ssd_read_MBps != 5000.0  # placeholder default unchanged
+    hw = yaml.safe_load((out / "hardware.yaml").read_text())["classes"]["C0"]
+    assert hw["ssd_read_MBps"] == 5000.0
     from voss.core.config import ScenarioConfig
     from voss.world.workload import load_catalog
 
-    cat = {f.name: f for f in load_catalog(ScenarioConfig(), str(out)).functions}
+    cat = {f.name: f for f in load_catalog(ScenarioConfig(machines=FLEET), str(out)).functions}
     assert cat["thumbnailer"].work_ref_s == pytest.approx(0.1 * 200**0.5)
     assert cat["thumbnailer"].init_s == pytest.approx(0.4)
 
@@ -117,7 +118,7 @@ def test_committed_measured_bundle_is_complete_and_its_hash_is_documented() -> N
 
     name = "laptop-b9212a4528"
     measured = load_bundle(f"calibration/measured/{name}")
-    assert set(measured) >= set(load_bundle("calibration/placeholder/c0"))  # drtm_launch left the placeholder later
+    assert set(measured) >= set(load_bundle(str(PLACEHOLDER)))  # drtm_launch left the placeholder later
     assert {d.tag for d in measured.values()} >= {"measured", "assumed"}
     digest = hash_dir(REPO / "configs" / "calibration" / "measured" / name)
     assert digest in (REPO / "docs" / "validation" / "README.md").read_text()

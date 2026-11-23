@@ -54,7 +54,7 @@ def row(p: Pending, region: str, status: str, o: Outcome | None, now: float) -> 
         "route": first - inv.t_arrive,
     }
     if o is None:
-        out.update(worker=-1, attempts=len(p.workers), met=False, start_level="", tier="", trust_cold=False)
+        out.update(worker=-1, attempts=len(p.workers), met=False, start_level="", trust_cold=False)
         return out
     t = o.timings
     out.update(
@@ -71,7 +71,6 @@ def row(p: Pending, region: str, status: str, o: Outcome | None, now: float) -> 
         exec=t.exec,
         net_out=now - t.t_sent,
         start_level=o.start_level,
-        tier=o.tier,
         trust_cold=o.trust_cold,
     )
     return out
