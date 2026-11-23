@@ -39,12 +39,13 @@ running a sample of invocations a second time on another owner's machine and com
 (Section~\ref{sec:trust}).
 
 Before a worker can run a tenant's function, three things must happen, and each takes time. The machine must boot the
-image and attest, which takes \todoitem{T03}{calibration bundles and trace statistics}{N--N s from power-on until the verifier accepts the worker, across our
-machines (Section~\ref{sec:method})}. The worker must obtain the function's key: code and sandbox snapshots are stored
-encrypted, so that the provider holds only ciphertext, and the tenant's key service releases the key to attested
-workers only. The worker must start a sandbox, which takes \todoitem{T04}{calibration bundles and trace statistics}{N ms from a snapshot and N ms from a kernel boot
-on the same machines}. All three are lost when the session ends. Each worker that holds a function's key is also one
-more machine from which a physical attack could extract it, so the tenant sets a \emph{holder budget}: the largest
+image and attest, which takes \VMachPowerOnLo--\VMachPowerOnHi{}~s from power-on until the verifier accepts the worker,
+across the calibrated machines (Section~\ref{sec:method}). The worker must obtain the function's key: code and sandbox
+snapshots are stored encrypted, so that the provider holds only ciphertext, and the tenant's key service releases the
+key to attested workers only. The worker must start a sandbox, which takes \VMachRestoreLo--\VMachRestoreHi{}~ms to
+load a snapshot and \VMachBootLo--\VMachBootHi{}~ms to boot a kernel on the same machines. A restore also reads the
+pages the function touches. All three are lost when the session ends. Each worker that holds a function's key is also
+one more machine from which a physical attack could extract it, so the tenant sets a \emph{holder budget}: the largest
 number of workers that may hold the key at one time. The workers that can serve a function are therefore a small set
 that the scheduler must choose in advance, from machines that differ in speed and that leave.
 
@@ -72,9 +73,9 @@ workers that keep failing. The contributions are:
   attempt's predicted completion, backup attempts restricted to key holders of another owner, city and ISP, an
   estimate of how often each worker drops work, and a sampled audit of results.
 \item \textbf{An evaluation with measured costs and public traces} (Sections~\ref{sec:method}
-  and~\ref{sec:results}): start-up, attestation and execution times measured with the real image on
-  \todoitem{T05}{calibration bundles and trace statistics}{N machines}; request arrivals, machine availability and home network links from public datasets; every
-  compared policy under the same holder budget; development and held-out data kept apart.
+  and~\ref{sec:results}): start-up, attestation and execution times measured with the real image on \VMachCount{}
+  machines of \VMachProcClasses{} processor classes; request arrivals, machine availability and home network links
+  from public datasets; every compared policy under the same holder budget; development and held-out data kept apart.
   \todoitem{T06}{held-out experiments}{Main numbers from the held-out experiments.}
 \end{enumerate}
 
