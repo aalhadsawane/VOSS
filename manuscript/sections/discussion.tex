@@ -36,6 +36,6 @@ choice against the best choice under the model objective. The Erlang loss formul
 treats an invocation that finds no free core as lost, while the system queues it; the deadline probability treats the
 wait, start-up and transfer terms at their predicted values.
 
-\paragraph{What is simulated.} The network, the sessions and the scale are simulated. Costs on workers are measured
-on \VMachCount{} machines of \VMachProcClasses{} processor classes; machines unlike these are represented by the
-nearest measured one.
+\paragraph{What is simulated.} The network, the sessions and the scale are simulated. We measure worker costs on
+\VMachCount{} machines of \VMachProcClasses{} processor classes (Section~\ref{sec:method}). Machines unlike these
+are represented by the nearest measured one.

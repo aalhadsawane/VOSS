@@ -148,7 +148,7 @@ def disk_label(bundle: str) -> str:
 
 def tpm_label(bundle: str) -> str:
     vendor = str(meta(bundle)["host"].get("tpm_vendor") or "")
-    return "Intel PTT (firmware)" if vendor == "INTC" else ("none" if not vendor else f"{vendor} TPM 2.0")
+    return "Intel PTT (firmware TPM)" if vendor == "INTC" else ("none" if not vendor else f"{vendor} TPM 2.0")
 
 
 def slowdowns(bundle: str, n: int) -> list[float]:

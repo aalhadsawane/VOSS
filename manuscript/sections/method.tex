@@ -20,19 +20,19 @@ each reported run is identified by a hash of its logs.
 \label{sec:calib}
 
 Table~\ref{tab:machines} lists the calibrated machine classes: \VMachCount{} machines and \VMachProcClasses{}
-processor classes, with the first machine contributing one class per disk type. Each machine is measured by one
-script with fixed sample counts, on an idle machine with the performance governor, using the same Firecracker release
-and guest kernel on every machine. A machine with two disk classes yields two machine classes that share the
-processor. The functions are those of the SeBS benchmark suite~\cite{copik2021sebs}, each measured at
+processor classes, with the first machine contributing one class per disk type. One script measures each machine
+with fixed sample counts, on an idle machine with the performance governor, using the same Firecracker release
+and guest kernel on every machine. We measure each function of the SeBS benchmark suite~\cite{copik2021sebs} at
 \VMachSizesLo{} to \VMachSizesHi{} input sizes with \VMachRuns{} runs per size (\VMachFns{} functions and
-\VMachPairs{} function--input pairs). Table~\ref{tab:costs} gives the measured cost of each start-up step. No
-calibrated machine had memory encryption enabled, so every worker runs at the measured speed without it and no
-simulated owner is of class M; the cost of memory encryption is not measured. The smaller machine has no TPM; its TPM
-costs are the first machine's measured values, and its class is a compute reference.
+\VMachPairs{} function--input pairs), from the calibration bundles. Table~\ref{tab:costs} gives the measured cost of
+each start-up step. No calibrated machine had memory encryption enabled, so every worker runs at the measured speed
+without it and no simulated owner is of class M. We do not measure the cost of memory encryption. The smaller machine
+has no TPM, so its TPM costs are the first machine's measured values and its class is used for compute measurements
+only.
 
 \begin{table}[t]
 \caption{Calibrated machine classes. Memory is the usable memory reported by the operating system. The first two
-rows are the two disk classes of one machine; the third row is a machine without a TPM, so its TPM steps are the
+rows are the two disk classes of one machine. The third row is a machine without a TPM, so its TPM steps are the
 first machine's.}
 \label{tab:machines}
 \footnotesize
@@ -46,7 +46,7 @@ first machine's.}
 \begin{table}[t]
 \caption{Measured cost of each start-up step per calibrated machine class. TPM steps on a machine without a TPM are
 the first machine's measured values, and its power-on row includes them. Snapshot load is the time to load the
-snapshot; reads of the pages the function touches are modelled separately.}
+snapshot. Reads of the pages the function touches are modelled separately.}
 \label{tab:costs}
 \small
 \begin{tabular}{@{}P{52mm}rrr@{}}
@@ -58,7 +58,7 @@ snapshot; reads of the pages the function touches are modelled separately.}
 \begin{table}[t]
 \caption{Concurrency limit, memory and measured co-run slowdown of each calibrated machine. Slowdown is the median
 ratio of the execution time with $n$ concurrent sandboxes to the time with one, with the range over functions in
-parentheses; the last row gives the number of functions measured at 2 and at the limit.}
+parentheses. The last row gives the number of functions measured at 2 and at the limit.}
 \label{tab:capacity}
 \small
 \begin{tabular}{@{}P{38mm}rr@{}}
@@ -70,15 +70,13 @@ parentheses; the last row gives the number of functions measured at 2 and at the
 The share of each machine class among workers follows the hardware of machines that volunteer today. We take the
 \VBoincRosettaActive{} hosts that recently contacted Rosetta@home, from the project's public host
 list~\cite{boincstats}, count them by processor count and memory, and assign each group to the nearest calibrated
-machine. Table~\ref{tab:fleet} lists the assignment and each class's share of the hosts. \VFleetUnrepresentedPct\% of
-hosts lie more than \VFleetRadius{} step from every class, and \VFleetNonXPct\% are not x86. The
-\VBoincMilkywayActive{} hosts of MilkyWay@home give a similar distribution of processor counts and memory and serve as
-a check on the survey.
+machine. Table~\ref{tab:fleet} lists the assignment and each class's share of the hosts.
 
 \begin{table}[t]
 \caption{Assignment of the survey hosts to the calibrated machine classes. A host is assigned to the nearest class by
-log-distance in processor count and memory; a host farther than \VFleetRadius{} step from every class is not
-represented well.}
+the Euclidean distance in log2 processor count and log2 memory, where one step is a doubling of either.
+\VFleetUnrepresentedPct\% of hosts are farther than \VFleetRadius{} step from every class, and \VFleetNonXPct\% are
+not x86.}
 \label{tab:fleet}
 \small
 \begin{tabular}{@{}lrrr@{}}
@@ -110,7 +108,7 @@ two weeks with the published fit.
 \begin{table}[t]
 \caption{Availability intervals of the two trace weeks, against the published fit of the same trace
 [Javadi et al., Table~3]~\cite{javadi2009seti}. Shape and scale are Weibull. The published fit covers all hosts of
-the trace; ours cover the week-clipped intervals of the hosts we use, and the paper does not claim to reproduce it.}
+the trace. Ours cover the week-clipped intervals of the hosts we use, and the paper does not claim to reproduce it.}
 \label{tab:traces}
 \small
 \begin{tabular}{@{}lrrrrr@{}}
@@ -165,7 +163,7 @@ Trusted hosts & hosts that never leave and need no attestation & none; upper bou
 Fixed timeout & timeout at the deadline and one retry & none \\
 Consecutive failures & Envoy outlier detection, defaults~\cite{envoyoutlier} & a timeout counts as a failure \\
 Second request & Dean and Barroso~\cite{dean2013tail}: second request after the observed 95th-percentile latency,
-  to any worker & the deadline is the timer until 20 latencies of a function are observed \\
+  to any worker & the deadline is the timer until the scheduler has observed 20 latencies of a function \\
 \bottomrule
 \end{tabular}
 \end{table}
