@@ -40,7 +40,6 @@ from voss.runtime.schedlib.keepalive import KeepaliveMixin
 from voss.runtime.schedlib.models import SchedModels
 from voss.runtime.schedlib.planner_mixin import PlannerMixin
 from voss.runtime.schedlib.planning import Planning
-from voss.runtime.schedlib.prices import Prices
 from voss.runtime.schedlib.provider_host import ProviderHost
 from voss.runtime.schedlib.viewcache import ViewCache
 from voss.runtime.schedlib.watchdog import WatchdogMixin
@@ -64,7 +63,6 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, AuditMixin, Plan
         self.views = ViewCache(cfg.scheduler.view_refresh_s)
         self.suspects: dict[WorkerId, float] = {}
         self.streak: dict[WorkerId, int] = {}
-        self.decide_lat: deque[float] = deque(maxlen=256)
         self.rtt_seen: dict[WorkerId, float] = {}  # last dispatch-to-ACCEPTED round trip per worker (observed)
         self.inflight: dict[InvId, Inflight] = {}
         self.done: ExpiringSet[InvId] = ExpiringSet(cfg.router.done_keep_s, lambda: self.now)
@@ -79,9 +77,6 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, AuditMixin, Plan
         self.retry = BasicRetry(self.det.max_attempts, cfg.scheduler.retry_backoff_s)
         self.gen = self.ctx.rng.stream("sched.place", self.hl.worker, self.hl.session)
         self.token = 0
-        rc = cfg.router
-        self.prices = Prices(cold_trust=rc.cold_penalty_s, cold_fn=rc.cold_fn_s)  # measured card prices (D-33)
-        self.planning.prices = self.prices
 
     # --- membership and epochs ----------------------------------------------------------------------------
     def on_message(self, msg: Message) -> None:
@@ -115,16 +110,9 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, AuditMixin, Plan
         self.ctx.rec.log(Table.EVENTS, t=self.now, kind="scheduler_active", worker=-1, value=m.epoch)
         self._membership(Membership(m.cluster, m.epoch, m.members))
         cfg = self.ctx.cfg.voss
-        self.after(cfg.scheduler.keepalive_s, self._tick)
         self.after(cfg.scheduler.heartbeat_s, self._check_silent)
         self.after(cfg.models.refit_s, self._refit)
         self.after(cfg.planner.T_plan, self._plan_tick)
-
-    def _tick(self) -> None:
-        """Decay of the measured start-up prices that provisioning uses (D-33)."""
-        self.prices.decay(self.ctx.cfg.voss.scheduler.keepalive_s)
-        self.decide_lat.clear()
-        self.after(self.ctx.cfg.voss.scheduler.keepalive_s, self._tick)
 
     def fenced(self) -> bool:
         """The provider scheduler is never replaced, so it is never fenced (kept for the watchdog's interface)."""
@@ -230,7 +218,6 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, AuditMixin, Plan
             delay *= self.hl.extra["slow_factor"]  # a throttled scheduler host (doc 07 §2 decision-latency SLO)
         start = max(self.now, self.busy_until)
         self.busy_until = start + delay
-        self.decide_lat.append(self.busy_until - self.now)
         self.after(self.busy_until - self.now, self._apply, d, [r.inv.id for r in recs], windowed)
 
     def _apply(self, d: Decision, ids: list[InvId], windowed: bool) -> None:
@@ -304,7 +291,6 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, AuditMixin, Plan
         self.done.add(o.inv)
         self.streak.pop(c.worker, None)
         self._ka_end(rec.inv.fn, rec.inv.tenant, c.worker)
-        self.prices.outcome(o, c.t_dispatch - rec.t_in if rec.inv.slo_class == SloClass.SYNC else None)
         self._log_attempt(rec, c, "ok")
         for other in sorted(rec.copies.values(), key=lambda x: x.attempt):
             if other.attempt != o.attempt:

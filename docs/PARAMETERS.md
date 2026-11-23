@@ -43,8 +43,6 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.infra.scheduler` | `'Frankfurt'` | A | provider site of the one scheduler (D-83) |
 | `voss.infra.scheduler_speed` | `1.0` | D | 1 = the provider CPU whose decision times are charged (`decision_clock.coeffs_file`, V10; `runtime/schedlib/provider_host.py`) |
 | `voss.infra.routers` | `('Washington', 'Frankfurt', 'Singapore')` | A | provider front-end sites |
-| `voss.router.cold_penalty_s` | `3.0` | D | D-115: from the reference bundle's measured attestation, key release and boot (until that change lands, the v1 seed) |
-| `voss.router.cold_fn_s` | `0.5` | D | D-115: from the reference bundle's measured cold function start (until that change lands, the v1 seed) |
 | `voss.router.T_dispatch` | `1.0` | S | router re-send timer |
 | `voss.router.max_resends` | `3` | S | router re-sends before giving up on the scheduler |
 | `voss.router.give_up_s` | `{'sync': 30.0, 'async': 300.0}` | S | router gives up after this; above every deadline |
@@ -81,7 +79,6 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.planner.params` | `{}` | S | container of the `voss.planner.params.*` rows; each row has its own class |
 | `voss.scheduler.hetero_aware` | `True` | pending V11 | v1 ablation switch; delete at the freeze (always on) |
 | `voss.scheduler.heartbeat_s` | `2.0` | S | worker report period |
-| `voss.scheduler.keepalive_s` | `1.0` | S | start-up price decay tick |
 | `voss.scheduler.stale_after_s` | `7.0` | S | a worker silent this long is treated as gone |
 | `voss.scheduler.max_attempts` | `3` | S | attempts per invocation |
 | `voss.scheduler.retry_backoff_s` | `0.2` | S | D-116: retry delay of the retry-based detectors; R07 varies {0.1, 0.4} |
@@ -155,7 +152,6 @@ the constant is deleted or becomes a key. They are listed here so that the ledge
 | variance of the time to start, `(0.3 tts)^2` | 0.3 | pending V11 | `voss/policy/cost/components.py` | D-122: key, S |
 | hedged requests: latencies observed before the q95 timer applies | 20 | pending V11 | `voss/policy/detect.py` `HEDGE_MIN_SAMPLES` | D-122: key, S |
 | run-time model prior standard deviations | (0.7, 0.3, 0.5) | pending V11 | `voss/policy/predict/blr.py` | D-122: key, S |
-| start-up price smoothing | 0.05 | pending V11 | `voss/runtime/schedlib/prices.py` `ALPHA` | D-122: key, S |
 | overdue job: extra fraction of its prediction | 0.25 | pending V11 | `voss/policy/cost/wait.py` `OVERDUE_FRAC` | D-122: key, S |
 
 ## Data files (`configs/`, excluding calibration bundles and experiment specs)
