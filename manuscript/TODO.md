@@ -5,24 +5,11 @@ Each marker stands where a number, table, figure or sentence is missing. Nothing
 value: a missing value is a marker. Remove a marker only when its source exists and the value comes from a
 generated macro or table.
 
-## Waits for: calibration bundles and trace statistics
+## Waits for: a decision on domain failures
 
 | Id | File | What is missing |
 |---|---|---|
-| T02 | `main.tex` | Basis sentence: simulator driven by public traces, calibrated on N machines, checked against an N-worker emulation; N after calibration and validation. |
-| T03 | `intro.tex` | N--N s from power-on until the verifier accepts the worker, across our machines (Section~\ref{sec:method}) |
-| T04 | `intro.tex` | N ms from a snapshot and N ms from a kernel boot on the same machines |
-| T05 | `intro.tex` | N machines |
-| T07 | `background.tex` | Figure: per-step times, power-on to attested worker, sandbox boot and snapshot restore, one bar group per calibrated machine and disk type; table of the four states with measured times per machine. Needs the merged calibration bundles. |
-| T08 | `background.tex` | for a median of N minutes at a time and for N\% of a week (trace statistic macros) |
-| T09 | `background.tex` | Table: concurrency limit, memory and measured co-run slowdown per calibrated machine. |
-| T13 | `method.tex` | Machine table (processor, cores, memory, disk classes and models, TPM kind) and per-step cost table, generated from the calibration bundles; number of machines and classes. One machine (12th-generation Intel Core i7, 64 GB, NVMe and SATA hard disk, firmware TPM) is measured and under review; at least two further processor classes are required before results are reported. |
-| T14 | `method.tex` | The assignment and the share of hosts that no calibrated machine represents well. |
-| T15 | `method.tex` | Table: interval-length distribution of the two weeks against the published fit. |
-| T26 | `discussion.tex` | N machines of N processor classes |
-| T44 | `method.tex` | Number of functions measured, of input sizes and of runs per size, from the bundles. |
 | T45 | `design.tex` | $\rho$ is not yet estimated (the code uses zero): estimate it from how often several hosts of one domain leave together in the availability trace, or remove domain failures from the model and from this paragraph. |
-| T49 | `design.tex` | These two machines are the only processor classes measured so far; regenerate the numbers when further calibrated machines are merged, and state their number. |
 
 ## Waits for: code revision of the results
 
@@ -34,6 +21,7 @@ generated macro or table.
 
 | Id | File | What is missing |
 |---|---|---|
+| T02 | `main.tex` | Emulation clause: checked against an N-worker emulation; N after V13. |
 | T17 | `method.tex` | Emulation: several workers as process groups with pinned cores, memory limits and injected network delay on one machine, real sandboxes and real TPM quotes, the same scheduler code; agreement and disagreement with the simulator on deadlines met, key holders and latency. Runs after the scheduler is fixed. |
 
 ## Waits for: held-out experiments
@@ -58,7 +46,6 @@ generated macro or table.
 | T40 | `results.tex` | Share of this capacity that the \VRunWorkers{}-worker runs use at their highest load. |
 | T41 | `method.tex` | Measured share of busy cores in the pool at each load level. |
 | T42 | `method.tex` | Median and 95th percentile over functions of that ratio, per load level and $K$. |
-| T43 | `method.tex` | Seeds per experiment and the calibration bundles used, added to Table~\ref{tab:experiments}. |
 
 ## Waits for: parameter ledger
 
@@ -76,6 +63,5 @@ generated macro or table.
 | Verify every entry of `refs.bib` marked `TODO verify` against the publisher or DBLP | builder |
 | Feedback regression checklist (WRITING_SPEC.md §6) as `FEEDBACK_REGRESSION.md` | final front matter |
 | Generators for result macros, tables and figures from the experiment summaries | held-out experiments |
-| Calibration of two further processor classes; `image-recognition` on node01 and node02 | bare-metal nodes |
 | Scheduler fixed (`v2-freeze`); then the held-out experiments run once | development experiments |
 | Affiliation and country in `main.tex` | author |

@@ -19,20 +19,75 @@ each reported run is identified by a hash of its logs.
 \subsection{Machines and calibration}
 \label{sec:calib}
 
-\todoitem{T13}{calibration bundles and trace statistics}{Machine table (processor, cores, memory, disk classes and models, TPM kind) and per-step cost table,
-generated from the calibration bundles; number of machines and classes. One machine (12th-generation Intel Core i7,
-64 GB, NVMe and SATA hard disk, firmware TPM) is measured and under review; at least two further processor classes
-are required before results are reported.} Each machine is measured by one script with fixed sample counts, on an
-idle machine with the performance governor, using the same Firecracker release and guest kernel on every machine. A
-machine with two disk classes yields two machine classes that share the processor. The functions are those of the
-SeBS benchmark suite~\cite{copik2021sebs}, each measured at three to five input sizes with repeated runs per size. No calibrated machine had memory encryption enabled, so every worker runs at the measured speed without it and no
-simulated owner is of class M; the cost of memory encryption is not measured. \todoitem{T44}{calibration bundles and trace statistics}{Number of functions measured, of input sizes and of runs per size, from the bundles.}
+Table~\ref{tab:machines} lists the calibrated machine classes: \VMachCount{} machines and \VMachProcClasses{}
+processor classes, with the first machine contributing one class per disk type. Each machine is measured by one
+script with fixed sample counts, on an idle machine with the performance governor, using the same Firecracker release
+and guest kernel on every machine. A machine with two disk classes yields two machine classes that share the
+processor. The functions are those of the SeBS benchmark suite~\cite{copik2021sebs}, each measured at
+\VMachSizesLo{} to \VMachSizesHi{} input sizes with \VMachRuns{} runs per size (\VMachFns{} functions and
+\VMachPairs{} function--input pairs). Table~\ref{tab:costs} gives the measured cost of each start-up step. No
+calibrated machine had memory encryption enabled, so every worker runs at the measured speed without it and no
+simulated owner is of class M; the cost of memory encryption is not measured. The smaller machine has no TPM; its TPM
+costs are the first machine's measured values, and its class is a compute reference.
+
+\begin{table}[t]
+\caption{Calibrated machine classes. Memory is the usable memory reported by the operating system. The first two
+rows are the two disk classes of one machine; the third row is a machine without a TPM, so its TPM steps are the
+first machine's.}
+\label{tab:machines}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}P{27mm}rrP{44mm}P{24mm}@{}}
+\toprule
+\input{generated/tab_machines}
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\caption{Measured cost of each start-up step per calibrated machine class. TPM steps on a machine without a TPM are
+the first machine's measured values, and its power-on row includes them. Snapshot load is the time to load the
+snapshot; reads of the pages the function touches are modelled separately.}
+\label{tab:costs}
+\small
+\begin{tabular}{@{}P{52mm}rrr@{}}
+\toprule
+\input{generated/tab_costs}
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\caption{Concurrency limit, memory and measured co-run slowdown of each calibrated machine. Slowdown is the median
+ratio of the execution time with $n$ concurrent sandboxes to the time with one, with the range over functions in
+parentheses; the last row gives the number of functions measured at 2 and at the limit.}
+\label{tab:capacity}
+\small
+\begin{tabular}{@{}P{38mm}rr@{}}
+\toprule
+\input{generated/tab_capacity}
+\end{tabular}
+\end{table}
 
 The share of each machine class among workers follows the hardware of machines that volunteer today. We take the
-hosts that recently contacted two volunteer-computing projects, from the projects' public host
-lists~\cite{boincstats}, \VBoincRosettaActive{} hosts of one and \VBoincMilkywayActive{} of the other, count them by
-processor count and memory, and assign each group to the nearest calibrated machine.
-\todoitem{T14}{calibration bundles and trace statistics}{The assignment and the share of hosts that no calibrated machine represents well.}
+\VBoincRosettaActive{} hosts that recently contacted Rosetta@home, from the project's public host
+list~\cite{boincstats}, count them by processor count and memory, and assign each group to the nearest calibrated
+machine. Table~\ref{tab:fleet} lists the assignment and each class's share of the hosts. \VFleetUnrepresentedPct\% of
+hosts lie more than \VFleetRadius{} step from every class, and \VFleetNonXPct\% are not x86. The
+\VBoincMilkywayActive{} hosts of MilkyWay@home give a similar distribution of processor counts and memory and serve as
+a check on the survey.
+
+\begin{table}[t]
+\caption{Assignment of the survey hosts to the calibrated machine classes. A host is assigned to the nearest class by
+log-distance in processor count and memory; a host farther than \VFleetRadius{} step from every class is not
+represented well.}
+\label{tab:fleet}
+\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Machine class & Logical CPUs & Memory (GiB) & Share of hosts (\%) \\
+\midrule
+\input{generated/fleet}
+\end{tabular}
+\end{table}
 
 \subsection{Workload, availability and network data}
 \label{sec:traces}
@@ -49,8 +104,20 @@ Archive~\cite{javadi2013fta,javadi2009seti}, which records for each host the int
 available to the project. Each worker replays one host's week. We use two weeks of the trace six months apart,
 \VSetiHostsPerSplit{} hosts each. Three limits apply. The trace is from 2007--2009. It records that the processor was
 free, which is narrower than the machine being on. The archived copy of the trace that we could retrieve is truncated,
-and we use the hosts it contains in full. \todoitem{T15}{calibration bundles and trace statistics}{Table: interval-length distribution of the two weeks against the
-published fit.}
+and we use the hosts it contains in full. Table~\ref{tab:traces} compares the interval-length distribution of the
+two weeks with the published fit.
+
+\begin{table}[t]
+\caption{Availability intervals of the two trace weeks, against the published fit of the same trace
+[Javadi et al., Table~3]~\cite{javadi2009seti}. Shape and scale are Weibull. The published fit covers all hosts of
+the trace; ours cover the week-clipped intervals of the hosts we use, and the paper does not claim to reproduce it.}
+\label{tab:traces}
+\small
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+\input{generated/tab_trace}
+\end{tabular}
+\end{table}
 
 \paragraph{Network.} A worker's download rate, upload rate and latency to its ISP are drawn together from the
 measurements of fixed broadband in Ookla's open dataset for the first quarter of 2024~\cite{ookla2024}, taken within
@@ -112,19 +179,20 @@ Table~\ref{tab:experiments} lists the experiments.
 
 \begin{table}[t]
 \caption{Experiments. All use \VRunWorkers{} workers unless the pool size is varied, \VRunMeasuredHours{} measured
-hours after \VRunWarmupHours{} hours of warm-up, and the held-out data.}
+hours after \VRunWarmupHours{} hours of warm-up, the held-out data, the \VMachClasses{} machine classes of
+Table~\ref{tab:machines}, and seeds \VRunSeedLo--\VRunSeedHi.}
 \label{tab:experiments}
 \small
-\begin{tabular}{@{}P{38mm}P{93mm}@{}}
+\begin{tabular}{@{}P{30mm}P{82mm}P{14mm}@{}}
 \toprule
-Section & Varied \\
+Section & Varied & Seeds \\
 \midrule
-\ref{sec:res-main}, \ref{sec:res-mechanism} & provisioning system; holder budget $K \in \{2,4,8,16\}$ and none; three load levels \\
-\ref{sec:res-region} & pool size; load; share of sessions that end with notice \\
-\ref{sec:res-drop} & share of owners who drop results; failure-handling policy \\
-\ref{sec:res-forge} & share of class-P owners; fraction of results they forge; audit probability \\
-\ref{sec:res-ablation} & one element of provisioning removed at a time \\
-\ref{sec:res-sens} & deadline multiple; share of functions that may run twice; rotation period; swept constants; machine mix \\
+\ref{sec:res-main}, \ref{sec:res-mechanism} & provisioning system; holder budget $K \in \{2,4,8,16\}$ and none; three load levels & \VRunSeedLo--\VRunSeedHi \\
+\ref{sec:res-region} & pool size; load; share of sessions that end with notice & \VRunSeedLo--\VRunSeedHi \\
+\ref{sec:res-drop} & share of owners who drop results; failure-handling policy & \VRunSeedLo--\VRunSeedHi \\
+\ref{sec:res-forge} & share of class-P owners; fraction of results they forge; audit probability & \VRunSeedLo--\VRunSeedHi \\
+\ref{sec:res-ablation} & one element of provisioning removed at a time & \VRunSeedLo--\VRunSeedHi \\
+\ref{sec:res-sens} & deadline multiple; share of functions that may run twice; rotation period; swept constants; machine mix & \VRunSeedLo--\VRunSeedHi \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -134,7 +202,7 @@ any load that one run can simulate. \todoitem{T41}{held-out experiments}{Measure
 each load level.} Load matters at the level of one function: its invocations can run only on its key holders. We
 therefore report, for each load level, the load of each function relative to the capacity of its key holders.
 \todoitem{T42}{held-out experiments}{Median and 95th percentile over functions of that ratio, per load level and
-$K$.} \todoitem{T43}{held-out experiments}{Seeds per experiment and the calibration bundles used, added to Table~\ref{tab:experiments}.}
+$K$.}
 
 The primary metric is \emph{deadlines met}: the share of synchronous invocations whose correct result reaches the
 client within the deadline. An invocation that is lost and one that is late both count as missed. Latency percentiles
