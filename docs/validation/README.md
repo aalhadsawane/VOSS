@@ -24,6 +24,9 @@ The TPM quote is the attestation cost that matters and is not portable across fi
 is worth calibrating even if its CPU and disks are similar. Two hosts whose CPU model, board, BIOS and RAM are identical
 produce the same `fingerprint`; do not present them as two data points.
 
+The multi-worker emulation (plan V13) has its own procedure: [`emulation-runbook.md`](emulation-runbook.md). No
+emulation run has been performed yet.
+
 The i7 host is documented in [`i7-12700-64g.md`](i7-12700-64g.md) with its full specification in
 [`calibration/specs/i7-12700-64g/SPEC.md`](../../calibration/specs/i7-12700-64g/SPEC.md); its E01 replication is
 [`E01-i7-12700-64g.md`](E01-i7-12700-64g.md). The runbook for the next machine is

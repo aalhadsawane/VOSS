@@ -1,0 +1,68 @@
+# V13 emulation scenario (docs/REVISION_PLAN.md V13; docs/handoff/CALIBRATION_HANDOFF.md Part E).
+#
+# ONE file for both sides. `tools.emu.run --system S --rep i` runs it in emulation on the node; `--emit-sim-spec`
+# writes the `experiments.runner` spec that runs the same systems, overrides and seeds in the simulator, so the two
+# sides have the same scenario hash and `tools.emu.compare` can pair them run for run.
+#
+# Header (AGENTS.md rule 21):
+#   workers      6 emulated workers (handoff Part E: 6-10), one physical P-core each; node02 has 8 P-cores, so the
+#                provider roles (scheduler, routers, verifier, key services, the coordinator) get the other two.
+#   load         synthetic arrivals at 20 invocations/s over the five guest-runnable functions; the emulator serves
+#                this in real time because node02's measured handler times are 25 us to 0.17 s (bundle below). The
+#                simulator puts it near 15-20% slot utilisation: this is a timing validation, not the R01 operating
+#                point (docs/validation/emulation-runbook.md §3).
+#   utilisation  measured and reported, not fixed here
+#   duration     horizon_s 7200 (2 h) + 120 s drain
+#   warm-up      scenario.warmup_s 600: sessions start up to 10 min before t=0, arrivals at t=0, metrics from 600 s
+#   calibration  configs/calibration/measured/node02-i7-12700-64g-nvme_nvme (measured only, guardrail 28)
+#   trace split  none: synthetic load and sessions, so this is a simulator check, not a reported result
+#   seeds        1, 2, 3 (the three repetitions the handoff asks for)
+#   K            unset: each tenant's own budget, so the two systems differ only in provisioning
+#
+# The systems are the two the handoff names: VOSS's own provisioning (`hetero`) and the fixed keep-alive timer
+# (`keepalive_ttl`, Shahrad et al. ATC 2020, 10 minutes), both with the same capacity, timeouts and holder budget
+# (guardrails 16, 17).
+#
+# COMPAT: this file extends ../base.yaml, which the freeze cleanup rewrites (the calibrated fleet becomes the only
+# path, FREEZE_CHECKLIST 1.2). The one edit needed then: replace `scenario.hw_mix: {E2: 1.0}` with
+# `scenario.machines: {bundles: [node02-i7-12700-64g-nvme_nvme], survey: boinc-rosetta}` and delete
+# configs/hardware/E2.yaml. Nothing in tools/emu depends on which of the two the config uses.
+provenance: {default: assumed, note: "validation scenario for the simulator, not a reported result: load, session lengths and slice size are chosen so one node can run it, not measured from volunteers"}
+name: s1_central
+description: 2 h, 6 emulated workers, VOSS against the fixed keep-alive timer (plan V13, handoff Part E)
+config: ../base.yaml
+overrides:
+  - horizon_s=7200
+  - drain_s=120
+  - calibration=configs/calibration/measured/node02-i7-12700-64g-nvme_nvme
+  - scenario.workers=6
+  - scenario.warmup_s=600
+  - scenario.start_utc_h=12
+  - "scenario.hw_mix={E2: 1.0}"
+  - "scenario.substrate_mix={appliance_tpm: 1.0}"
+  - "scenario.tiers={nightly: 0.0, idle: 0.0, dedicated: 1.0}"
+  - scenario.tofu_frac=0.0
+  - scenario.physical_frac=0.0
+  - "scenario.geo={regions: [eu]}"
+  - scenario.regime=churn_med
+  - "scenario.churn={graceful_frac: 0.5, drain_lead: {dist: lognormal, median: 20, sigma: 0.5}, shocks: {rate_per_h: 0.0}, tiers: {nightly: {kind: nightly, start_hour: 22, start_sd_h: 1.0, p_night: 0.9, length: {dist: lognormal, median: 28800, sigma: 0.4}}, idle: {kind: poisson, rate_per_h: 0.1, peak_h: 14, amplitude: 0.5, length: {dist: weibull, shape: 0.7, scale: 10800}}, dedicated: {kind: always, length: {dist: weibull, shape: 0.8, scale: 1200}, gap: {dist: lognormal, median: 120, sigma: 0.5}}}}"
+  - "scenario.adversary={regime: adversary_none}"
+  - scenario.functions=emu/functions.yaml
+  - scenario.tenants=emu/tenants.yaml
+  - "scenario.load={regime: load_default, rate: 20, zipf_s: 1.0, mmpp: {enabled: true, burst_mult: 4.0, mean_normal_s: 120, mean_burst_s: 60}}"
+  - voss.planner.name=hetero
+  - voss.cache.hdd_tier=false
+systems:
+  voss: [voss.planner.name=hetero]
+  fixed_keepalive: [voss.planner.name=keepalive_ttl]
+seeds: [1, 2, 3]
+emu:
+  workers: 6
+  kind: P
+  cores_per_worker: 1
+  infra_cores: 2
+  mem_mb_per_worker: 4096
+  assets: ~/voss-calib/assets
+  rootfs: voss-guest.ext4
+  workdir: /var/tmp/voss-emu
+  tpm: true

@@ -174,6 +174,9 @@ for the file as a whole.
 | `configs/e01/s3_omit.yaml` | pending V11 | v1 emulation; V13 builds its own scenario; delete at the freeze |
 | `configs/e01/s3_omit_load.yaml` | pending V11 | v1 emulation; V13 builds its own scenario; delete at the freeze |
 | `configs/e01/s4_load.yaml` | pending V11 | v1 emulation; V13 builds its own scenario; delete at the freeze |
+| `configs/emu/functions.yaml` | A | V13 emulation catalogue: the guest-runnable Python subset; measured profiles come from the run's bundle (M) |
+| `configs/emu/tenants.yaml` | A | V13 emulation tenants: the owners of that subset, key-service cities as the main catalogue |
+| `configs/emu/s1_central.yaml` | A | V13 validation scenario (2 h, 6 workers, `voss` and `fixed_keepalive`): load, session lengths, slice and repetitions are chosen so one node can run it, not measured from volunteers |
 | `configs/request_bytes.yaml` | D | bytes a client sends per measured input size of each guest function (D-106) |
 | `configs/functions.yaml` | pending V11 | D-119: guest memory (A), deadline multiple and idempotent fraction keys; leaves pending with that change |
 | `configs/functions_e01.yaml` | pending V11 | v1 emulation; V13 builds its own scenario; delete at the freeze |
@@ -184,6 +187,7 @@ for the file as a whole.
 | `configs/hardware/DC.yaml` | pending V11 | deleted by D-124 (trusted hosts are the reference machine) |
 | `configs/hardware/E0.yaml` | pending V11 | v1 machine class; the fleet is the only path (D-107); delete at the freeze |
 | `configs/hardware/E1.yaml` | pending V11 | v1 machine class; the fleet is the only path (D-107); delete at the freeze |
+| `configs/hardware/E2.yaml` | A | V13 emulated slice of node02: one physical P-core, two threads, two slots, 4 GB (D-136); the freeze cleanup replaces it with the fleet class of the same bundle |
 | `configs/hardware/I7_64G.yaml` | pending V11 | v1 machine class; the fleet is the only path (D-107); delete at the freeze |
 | `configs/regimes/adversary_all.yaml` | A | D-121: owner behaviour parameters, axes of the threat, stated with R04/R05 |
 | `configs/regimes/adversary_collude.yaml` | pending V11 | D-121: no spec uses it; delete at the freeze |
