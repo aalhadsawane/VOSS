@@ -10,7 +10,7 @@
 #   utilisation  pool about 0.25 / 0.5 / 0.72% at 500 workers (D01 header, D-99), about 5x at 100 workers
 #   duration     horizon_s 100,800 (28 h): 4 h warm-up + 24 h measured (D-97)
 #   warm-up      scenario.warmup_s 14,400 (the longest learning window of a compared policy: the histogram's 4 h)
-#   calibration  provisional measured bundle i7_12700_64g_full-b4f89a4def (as D01)
+#   calibration  calibrated fleet (configs/base.yaml, D-107), as D01
 #   trace split  development: load azure2019 dev, sessions churn_seti dev, links ookla-fixed-2024q1, populations wup2025
 #   seeds        1 (first stage; 3 seeds after the plumbing is exercised)
 #   K            voss.keys.max_holders 8 (D01's central K)
@@ -27,7 +27,6 @@ overrides:
   - scenario.load.split=dev
   - scenario.network.link.trace=ookla-fixed-2024q1
   - scenario.geo.pop_trace=wup2025
-  - calibration=configs/calibration/measured/i7_12700_64g_full-b4f89a4def
   - voss.keys.max_holders=8
 grid:
   scenario.workers: [100, 300, 500]
