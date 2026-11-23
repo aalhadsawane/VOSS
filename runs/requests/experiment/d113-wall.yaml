@@ -1,0 +1,3 @@
+spec: D113_WALL
+shards: 1
+note: "D-113 gate (development split): one 28 h run at 500 workers, D03 top cell (rate_mult 30), VOSS, K=8, calibrated fleet, seed 1, on code without the planning-pool and candidate caps; merge after #131"

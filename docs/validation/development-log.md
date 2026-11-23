@@ -238,6 +238,29 @@ workers, the planning pool's cap (`max_plan_workers`), so every function's holde
 40 home links, and adding the plan's holders added load to the same links. The cleanup series removes the pool cap;
 the release rule is to be measured again on that code. Until then the first-use squatting stays, as measured above.
 
+**All nine provisioning systems** (guardrail 16: the key service and the budget are the same for every system).
+Calibrated fleet, no adversaries, 1 h after a 10-minute warm-up, mean of seeds 1 and 2, `revision-v2` at 7fd34ab
+against the iteration-3 key service (merged as #126, without the release rule):
+
+| System | Deadlines met before → after | Mean holders | Keys over budget per run | Refused key requests |
+|---|---|---|---|---|
+| voss | 0.937 → 0.799 | 6.78 → 5.19 | 28.0 → 0 | 910 → 3,825 |
+| prereleased_keys | 0.950 → 0.773 | 6.74 → 4.76 | 29.0 → 0 | 575 → 2,535 |
+| kpa | 0.899 → 0.848 | 5.55 → 5.08 | 15.0 → 0 | 7,158 → 25,701 |
+| trusted_hosts | 0.783 → 0.783 | 3.96 → 3.98 | 0 → 0 | 10 → 20 |
+| fixed_keepalive | 0.782 → 0.781 | 4.39 → 4.42 | 1.0 → 0 | 701 → 825 |
+| greedy_dual | 0.774 → 0.774 | 4.44 → 4.47 | 1.0 → 0 | 735 → 878 |
+| hybrid_histogram | 0.776 → 0.765 | 4.37 → 4.36 | 3.5 → 0 | 668 → 1,497 |
+| on_demand | 0.744 → 0.690 | 4.45 → 4.46 | 4.5 → 0 | 762 → 1,260 |
+| eviction_aware | 0.726 → 0.743 | 5.88 → 5.88 | 2.5 → 0 | 43 → 3,780 |
+
+The systems that kept K holders on purpose lost the most: VOSS (−0.138), pre-released keys (−0.177) and the
+autoscaler (−0.051) had exceeded the budget on 15-29 keys per run. Fixed keep-alive and greedy-dual, which rarely
+reach K holders, are unchanged; hybrid histogram lost 0.011, on demand 0.054 and eviction-aware gained 0.017 (each
+had exceeded the budget on 1-4.5 keys per run). Trusted hosts never re-quote and are unchanged. Pre-released keys led VOSS before
+the fix (0.950 against 0.937) and trails it after (0.773 against 0.799). Two seeds of 1 h on the fleet: indicative
+only.
+
 The results of D01a, D02 and the earlier iterations were all run with the exceeded budget, so none of them ranks the
 systems at an honest K.
 
