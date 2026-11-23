@@ -29,6 +29,70 @@ class JobEst:
     sync: bool = False
 
 
+def _replay_to_now(
+    slots: int,
+    jobs: Sequence[JobEst],
+    now: float,
+    default_s: float,
+    unseen: int,
+    overdue_frac: float,
+    sync_priority: bool,
+) -> tuple[list[float], list[tuple[int, float, int, float, bool]]]:
+    """Server free times and queued jobs at ``now`` after the priority replay (one pass)."""
+    n = max(1, slots)
+    held = min(unseen, n)
+    free = [_IDLE] * (n - held) + [now + default_s] * held
+    heapq.heapify(free)
+    queued = max(0, unseen - held)
+    items: list[tuple[float, int, float, bool]] = [(now, -(i + 1), default_s, False) for i in range(queued)]
+    items += [(j.t_dispatch, i, j.dur_s if j.dur_s > 0 else default_s, j.sync) for i, j in enumerate(jobs)]
+    if any(items[i][0] > items[i + 1][0] for i in range(len(items) - 1)):
+        items.sort(key=lambda x: (x[0], x[1]))
+    ready: list[tuple[int, float, int, float, bool]] = []  # (priority, t, seq, dur, sync)
+    k, clock = 0, _IDLE
+    while k < len(items) or ready:
+        s = max(free[0], clock)
+        if not ready:
+            s = max(s, items[k][0])
+        clock = s
+        while k < len(items) and items[k][0] <= s:
+            t, seq, dur, sync = items[k]
+            heapq.heappush(ready, (0 if (sync_priority and sync) else 1, t, seq, dur, sync))
+            k += 1
+        if not ready and s > now and free[0] <= now:  # a server is free now and nothing is queued
+            return free, []
+        if s >= now:  # every job that arrived by ``now`` and has not started is queued
+            waiting = [q for q in ready if q[1] <= now]
+            waiting += [
+                (0 if (sync_priority and sync) else 1, t, seq, dur, sync) for t, seq, dur, sync in items[k:] if t <= now
+            ]
+            return free, waiting
+        _, t, seq, dur, _sync = heapq.heappop(ready)
+        end = s + dur
+        if s <= now and end <= now:
+            end = now + overdue_frac * dur
+        heapq.heapreplace(free, end)
+    return free, []
+
+
+def _serve(
+    free: Sequence[float],
+    queue: Sequence[tuple[int, float, int, float, bool]],
+    now: float,
+    overdue_frac: float,
+) -> float:
+    """Wait after serving ``queue`` on the servers free at ``now``."""
+    f = list(free)
+    heapq.heapify(f)
+    for _pr, t, _seq, dur, _sync in queue:
+        at = max(f[0], t)
+        end = at + dur
+        if at <= now and end <= now:
+            end = now + overdue_frac * dur
+        heapq.heapreplace(f, end)
+    return max(0.0, f[0] - now)
+
+
 def _waits_pair(
     slots: int,
     jobs: Sequence[JobEst],
@@ -45,62 +109,16 @@ def _waits_pair(
     arrival is behind every queued job; the synchronous arrival is behind the queued synchronous ones only. ``jobs``
     are dispatched before ``now`` (``JobEst`` is an in-flight job), so a job with a later dispatch time is not queued.
     """
-    n = max(1, slots)
-    held = min(unseen, n)
-    free = [_IDLE] * (n - held) + [now + default_s] * held
-    heapq.heapify(free)
-    queued = max(0, unseen - held)
-    items: list[tuple[float, int, float, bool]] = [(now, -(i + 1), default_s, False) for i in range(queued)]
-    items += [(j.t_dispatch, i, j.dur_s if j.dur_s > 0 else default_s, j.sync) for i, j in enumerate(jobs)]
-    if any(items[i][0] > items[i + 1][0] for i in range(len(items) - 1)):
-        items.sort(key=lambda x: (x[0], x[1]))
-    ready: list[tuple[int, float, int, float, bool]] = []  # (priority, t, seq, dur, sync)
-    waiting: list[tuple[int, float, int, float, bool]] = []
-    k, clock = 0, _IDLE
-    while k < len(items) or ready:
-        s = max(free[0], clock)
-        if not ready:
-            s = max(s, items[k][0])
-        clock = s
-        while k < len(items) and items[k][0] <= s:
-            t, seq, dur, sync = items[k]
-            heapq.heappush(ready, (0 if (sync_priority and sync) else 1, t, seq, dur, sync))
-            k += 1
-        if not ready and s > now and free[0] <= now:  # a server is free now and nothing is queued
-            waiting = []
-            break
-        if s >= now:  # every job that arrived by ``now`` and has not started is queued
-            waiting = [q for q in ready if q[1] <= now]
-            waiting += [
-                (0 if (sync_priority and sync) else 1, t, seq, dur, sync) for t, seq, dur, sync in items[k:] if t <= now
-            ]
-            break
-        _, t, seq, dur, _sync = heapq.heappop(ready)
-        end = s + dur
-        if s <= now and end <= now:
-            end = now + overdue_frac * dur
-        heapq.heapreplace(free, end)
-
-    def serve(queue: list[tuple[int, float, int, float, bool]]) -> float:
-        f = list(free)
-        heapq.heapify(f)
-        for _pr, t, _seq, dur, _sync in queue:
-            at = max(f[0], t)
-            end = at + dur
-            if at <= now and end <= now:
-                end = now + overdue_frac * dur
-            heapq.heapreplace(f, end)
-        return max(0.0, f[0] - now)
-
+    free, waiting = _replay_to_now(slots, jobs, now, default_s, unseen, overdue_frac, sync_priority)
     base = max(0.0, free[0] - now)
     if not waiting:
         return base, base
     if not sync_priority:
-        fifo = serve(sorted(waiting, key=lambda x: (x[1], x[2])))
+        fifo = _serve(free, sorted(waiting, key=lambda x: (x[1], x[2])), now, overdue_frac)
         return fifo, fifo
-    asynchronous = serve(sorted(waiting, key=lambda x: (x[0], x[1], x[2])))
+    asynchronous = _serve(free, sorted(waiting, key=lambda x: (x[0], x[1], x[2])), now, overdue_frac)
     synced = [q for q in waiting if q[4]]
-    synchronous = serve(sorted(synced, key=lambda x: (x[1], x[2]))) if synced else base
+    synchronous = _serve(free, sorted(synced, key=lambda x: (x[1], x[2])), now, overdue_frac) if synced else base
     return asynchronous, synchronous
 
 
