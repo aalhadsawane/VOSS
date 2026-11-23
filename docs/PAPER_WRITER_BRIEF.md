@@ -40,6 +40,14 @@ still open. Then read the files in section 3 in the order given.
     Open a PR into `revision-v2`; merge it when CI is green. Keep writing PRs `.tex`-only where possible so the generated-input
     freshness test does not clash with parallel branches.
 
+## 2a. Writing skill (use it)
+
+Read [`aalhadsawane/research-humanizer`](https://github.com/aalhadsawane/research-humanizer) before editing prose. Its
+`SKILL.md` is the working checklist for this paper: a systems reviewer without serverless background, direct technical
+prose, the VOSS vocabulary, claim-evidence paragraphs, and the cold-reader questions. Its `scripts/check.py` flags the
+forbidden VOSS terms and common research-writing tells; run it on every changed section and fix the real warnings.
+The skill is a helper. `WRITING_SPEC.md` and `HUMAN_FEEDBACK.md` remain binding; if they disagree, they win.
+
 ## 3. Reading order
 
 | # | File | Why |
@@ -109,6 +117,7 @@ because D-108 caps slots by donated memory.
 ## 7. Check before every PR
 
 - [ ] No forbidden word from `WRITING_SPEC.md`; no coined label.
+- [ ] `research-humanizer/SKILL.md` applied; `scripts/check.py` run on the changed sections and real warnings fixed.
 - [ ] Every number is a macro; `paper_inputs` regenerated; `make manuscript-check` passes.
 - [ ] Every new claim has a figure, table or citation that supports it; every cited source was read.
 - [ ] Each paragraph opens with the concrete claim it proves; each term is defined at first use.
