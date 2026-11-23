@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import heapq
+
 import pytest
 from voss.core.config import RunConfig
+from voss.core.rng import stream
 from voss.policy.cost.wait import JobEst, expected_wait
 from voss.world.resources import Slots
 
@@ -102,3 +105,70 @@ def test_synchronous_first_is_the_default_and_in_the_hash() -> None:
     assert base.voss.worker.sync_priority
     off = RunConfig.model_validate({"scenario": {"machines": FLEET}, "voss": {"worker": {"sync_priority": False}}})
     assert off.config_hash() != base.config_hash()
+
+
+def _reference_wait(
+    slots: int,
+    jobs: list[JobEst],
+    now: float,
+    default_s: float,
+    unseen: int,
+    arrival_sync: bool,
+    sync_priority: bool,
+    overdue_frac: float,
+) -> float:
+    """The v1 event replay, kept only as the oracle for the fast implementation (all jobs are dispatched)."""
+    idle = -1e12
+    n = max(1, slots)
+    held = min(unseen, n)
+    free = [idle] * (n - held) + [now + default_s] * held
+    heapq.heapify(free)
+    pending = [(now, -(i + 1), JobEst(now, default_s)) for i in range(unseen - held)]
+    pending += [(j.t_dispatch, i, j) for i, j in enumerate(jobs)]
+    target = len(jobs)
+    pending.append((now, target, JobEst(now, default_s, arrival_sync)))
+    pending.sort(key=lambda p: (p[0], p[1]))
+    ready: list[tuple[int, float, int, JobEst]] = []
+    k, clock = 0, idle
+    while True:
+        s = max(free[0], clock)
+        if not ready:
+            s = max(s, pending[k][0])
+        clock = s
+        while k < len(pending) and pending[k][0] <= s:
+            t, seq, job = pending[k]
+            heapq.heappush(ready, (0 if (sync_priority and job.sync) else 1, t, seq, job))
+            k += 1
+        _, _, seq, job = heapq.heappop(ready)
+        heapq.heappop(free)
+        if seq == target:
+            return max(0.0, s - now)
+        dur = job.dur_s if job.dur_s > 0 else default_s
+        end = s + dur
+        if s <= now and end <= now:
+            end = now + overdue_frac * dur
+        heapq.heappush(free, end)
+
+
+def test_fast_wait_matches_the_event_replay() -> None:
+    """The one-replay pair is exact for dispatched jobs (``t_dispatch <= now``), both priority variants."""
+    g = stream(7, "test.wait")
+    for _ in range(3000):
+        slots, now = int(g.integers(1, 5)), float(g.uniform(0.0, 30.0))
+        jobs = [
+            JobEst(
+                float(g.uniform(0.0, now)),
+                float(g.choice([0.0, g.uniform(0.01, 10.0)])),
+                bool(g.random() < 0.5),
+            )
+            for _ in range(int(g.integers(0, 13)))
+        ]
+        jobs.sort(key=lambda j: j.t_dispatch)
+        default = float(g.uniform(0.1, 3.0))
+        unseen = int(g.integers(0, 5))
+        overdue = float(g.choice([0.0, 0.25, 0.5]))
+        for arrival_sync in (False, True):
+            for sync_priority in (False, True):
+                want = _reference_wait(slots, jobs, now, default, unseen, arrival_sync, sync_priority, overdue)
+                got = expected_wait(slots, jobs, now, default, unseen, arrival_sync, sync_priority, overdue)
+                assert got == pytest.approx(want, abs=1e-9)

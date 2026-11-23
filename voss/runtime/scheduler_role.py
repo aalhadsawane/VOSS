@@ -27,6 +27,7 @@ from voss.core.messages_ft import Pong
 from voss.core.types import Outcome, SloClass
 from voss.metrics.schema import Table
 from voss.policy.cost.inputs import CostContext
+from voss.policy.cost.wait import JobEst
 from voss.policy.detect import detector
 from voss.policy.predict.base import ExecObs, FnPrior, contention
 from voss.policy.retry import BasicRetry
@@ -35,7 +36,7 @@ from voss.runtime.expiring import ExpiringSet
 from voss.runtime.schedlib.audit import AuditMixin, AuditRec
 from voss.runtime.schedlib.backup import BackupMixin
 from voss.runtime.schedlib.decide import Decider, Decision, Timing
-from voss.runtime.schedlib.inflight import Copy, Inflight, job_estimates
+from voss.runtime.schedlib.inflight import Copy, Inflight, JobIndex
 from voss.runtime.schedlib.keepalive import KeepaliveMixin
 from voss.runtime.schedlib.models import SchedModels
 from voss.runtime.schedlib.planner_mixin import PlannerMixin
@@ -65,6 +66,7 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, AuditMixin, Plan
         self.streak: dict[WorkerId, int] = {}
         self.rtt_seen: dict[WorkerId, float] = {}  # last dispatch-to-ACCEPTED round trip per worker (observed)
         self.inflight: dict[InvId, Inflight] = {}
+        self.jobs = JobIndex()
         self.done: ExpiringSet[InvId] = ExpiringSet(cfg.router.done_keep_s, lambda: self.now)
         self.audits: dict[InvId, AuditRec] = {}
         self.lat_obs: dict[str, deque[float]] = {}
@@ -197,7 +199,7 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, AuditMixin, Plan
         view = self.views.view(self.eligible(), self.now)
         routers = tuple(str(r.router[1]) for r in recs)
         t0 = time.perf_counter()
-        jobs = job_estimates(self.inflight)
+        jobs = self.jobs
         d = self.decider.decide(
             tuple(self._variant(r) for r in recs),
             view,
@@ -230,6 +232,7 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, AuditMixin, Plan
                 continue
             rec.deciding = False
             if inv_id in d.rejected:
+                self.jobs.drop_all(inv_id, rec.copies)
                 del self.inflight[inv_id]
                 self.done.add(inv_id)
                 self.send(rec.router, Reject(inv_id, d.rejected[inv_id]))
@@ -253,6 +256,7 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, AuditMixin, Plan
         st = self.views.store.states.get(w)
         load = float(contention(st.busy, st.queued, st.slots)) if st else 0.0
         rec.copies[a] = Copy(a, w, self.now, backup, mu=mu, sigma=var, load=load, q_done=t.q if t else 0.0)
+        self.jobs.add(w, rec.inv.id, a, JobEst(self.now, mu, rec.inv.slo_class == SloClass.SYNC))
         self.views.dispatched(w, self.now)
         self._ka_dispatch(rec.inv.fn, w)
         inv = replace(rec.inv, attempt=a)
@@ -283,6 +287,7 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, AuditMixin, Plan
         if o.status != "ok":
             self._copy_failed(rec, c, o.status)
             return
+        self.jobs.drop_all(rec.inv.id, rec.copies)
         self.lat_obs.setdefault(str(rec.inv.fn), deque(maxlen=1000)).append(self.now - c.t_dispatch)
         del self.inflight[o.inv]
         self.done.add(o.inv)
@@ -338,6 +343,7 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, AuditMixin, Plan
     def _copy_failed(self, rec: Inflight, c: Copy, status: str) -> None:
         if c.attempt in rec.copies:
             self._log_attempt(rec, c, status)
+        self.jobs.drop(c.worker, rec.inv.id, c.attempt)
         rec.copies.pop(c.attempt, None)
         if rec.copies or rec.inv.id not in self.inflight:
             return  # another copy is still running
