@@ -13,7 +13,7 @@ before the tag. After the tag, `voss/` and `configs/` change only by bug fixes l
 | 1.2 | `scenario.hw_mix` is deleted and `scenario.machines` is required, not opt-in; the fleet overlay is the base, so `configs/machines.yaml` merges into `configs/base.yaml`. | `grep -rn 'hw_mix' voss configs experiments tests` (empty) |
 | 1.3 | The config hash no longer special-cases an empty fleet. | `grep -n 'machines' voss/core/config.py` (no `if not tree["scenario"]["machines"]`) |
 | 1.4 | The base calibration is a measured bundle of the fleet, not the placeholder. | `grep -n '^calibration' configs/base.yaml` (a `measured/` path); `ls configs/calibration/placeholder` (absent) |
-| 1.5 | Every fleet bundle passes the contract. | `for b in node02-i7-12700-64g-nvme_nvme node02-i7-12700-64g-nvme_hdd node04-i7-4790s-8g-hdd_hdd; do uv run python -m tools.calibrate.check_bundle configs/calibration/measured/$b; done` (0 errors each) |
+| 1.5 | Every fleet bundle passes the contract. | `uv run python -m tools.calibrate.check_bundle configs/calibration/measured/node02-i7-12700-64g-nvme_nvme`; the same for `node02-i7-12700-64g-nvme_hdd`; `uv run python -m tools.calibrate.check_bundle configs/calibration/measured/node04-i7-4790s-8g-hdd_hdd --shared-from configs/calibration/measured/node02-i7-12700-64g-nvme_nvme` (0 errors each; the node04 TPM entries are shared by D-107) |
 | 1.6 | The methodology states two machine models and the unbooted image (D-130). | `grep -n 'node04\|two machine' manuscript/sections/*.tex` |
 
 ## 2. Dormant options and v1 mechanisms are deleted (guardrail 32)

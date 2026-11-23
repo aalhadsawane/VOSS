@@ -80,4 +80,5 @@ Kata (`kata` in doc 10) and the Node.js function variants are not covered yet.
 and `--set tcti=swtpm:port=2321`. `disk` and `tls` run anywhere with `fio`/`openssl`.
 
 After ingest, `python -m tools.calibrate.check_bundle <bundle> --spec calibration/specs/<host>` checks the bundle against
-`docs/handoff/CALIBRATION_DATA_CONTRACT.md`.
+`docs/handoff/CALIBRATION_DATA_CONTRACT.md`. A class without a TPM passes `--shared-from <reference bundle>` so the three
+TPM entries are accepted from the reference and printed as `SHARED` (D-107).
