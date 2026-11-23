@@ -20,7 +20,7 @@ from voss.policy.cost.arrays import ArrayCache
 from voss.policy.cost.components import CostMatrix, Waits, build_cost_matrix, completion_of
 from voss.policy.cost.inputs import CostContext
 from voss.policy.cost.scalarize import placement_keys
-from voss.policy.cost.wait import JobEst, worker_waits
+from voss.policy.cost.wait import JobEst, worker_waits_pair
 from voss.policy.place import registry as _placers  # noqa: F401  (registers placers)
 from voss.policy.place.base import PlaceRequest
 from voss.runtime.schedlib.models import SchedModels
@@ -74,7 +74,15 @@ class Decider:
             return out
         preds, svc = self.models.preds_fn(invs, view, now, self.start_utc_h), self.models.svc
         cm = build_cost_matrix(
-            invs, view, self.ctx, preds, now, routers, self.cache, svc_s=svc, waits=self._waits(view, jobs, now, svc)
+            invs,
+            view,
+            self.ctx,
+            preds,
+            now,
+            routers,
+            self.cache,
+            svc_s=svc,
+            wait_fn=lambda needed: self._waits(view, jobs, now, svc, needed),
         )
         scores, tiebreak = placement_keys(cm)
         keep = self._admission(invs, cm, out)
@@ -142,15 +150,20 @@ class Decider:
         return sw, max(0.0, (sr + rw - sw) / 2) + in_bytes * 8 / float(a.down[j])
 
     def _waits(
-        self, view: ClusterView, jobs: Mapping[WorkerId, Sequence[JobEst]] | None, now: float, svc: float
+        self,
+        view: ClusterView,
+        jobs: Mapping[WorkerId, Sequence[JobEst]] | None,
+        now: float,
+        svc: float,
+        needed: np.ndarray | None = None,
     ) -> Waits | None:
         """Doc 03 §5.2 / D-77, D-114: per-worker wait from predicted remaining work, the only wait model."""
         if jobs is None:
             return None
         prio = self.cfg.worker.sync_priority
         overdue = self.cfg.cost.overdue_frac
-        asyn = worker_waits(view, jobs, now, svc, False, prio, overdue)
-        return Waits(asyn, worker_waits(view, jobs, now, svc, True, True, overdue) if prio else asyn)
+        asyn, sync = worker_waits_pair(view, jobs, now, svc, overdue, prio, needed)
+        return Waits(asyn, sync if prio else asyn)
 
     def _admission(self, invs: tuple[Invocation, ...], cm: CostMatrix, out: Decision) -> list[int]:
         keep = []

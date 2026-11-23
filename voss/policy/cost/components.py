@@ -156,6 +156,7 @@ def build_cost_matrix(
     margin_s: float = 5.0,
     svc_s: float = 1.0,
     waits: Waits | None = None,
+    wait_fn: Callable[[np.ndarray], Waits | None] | None = None,
 ) -> CostMatrix:
     """Doc 03 §5.2 for every invocation (rows) over every eligible worker (D-112), best bound first; rows are padded
     with infeasible columns to the widest row."""
@@ -164,6 +165,11 @@ def build_cost_matrix(
     base = np.maximum(0, occ - view.slots + 1) * svc_s / np.maximum(view.slots, 1)
     sts = [static_parts(inv, view, ctx, cache, now, routers[i], margin_s) for i, inv in enumerate(invs)]
     width = min(len(view), max([1, *(int(st.ok.sum()) for st in sts)]))
+    if wait_fn is not None:  # compute waits only for workers some row can actually use
+        needed = np.zeros(len(view), bool)
+        for st in sts:
+            needed |= st.ok
+        waits = wait_fn(needed)
     rows, tops = [], []
     for i, inv in enumerate(invs):
         wait = waits.pick(inv) if waits is not None else base  # D-77: per-worker estimate, by SLO class
