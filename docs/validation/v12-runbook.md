@@ -1,14 +1,15 @@
-# V12 held-out runbook (prepared; nothing here has run)
+# V12 held-out runbook (prepared; no held-out run has started)
 
-Prepared on branch `v2/V12-requests` from `revision-v2` at `b7b5921`; the held-out request files stay in draft PR
-#136 and this branch carries only the `d01a-cleanup` request and this runbook. **No `r0*` request file may land on
-`revision-v2` before the `v2-freeze` tag** (`docs/FREEZE_CHECKLIST.md` 5.4). `d01a-cleanup.yaml` is the one request
-that lands before the tag (checklist 4.4), and it lands without the held-out files (see §5). Nothing here has run.
+Prepared on branch `v2/V12-requests` from `revision-v2` at `b7b5921`. The `d01a-cleanup` request and the first
+version of this runbook landed in PR #138; this update travels with draft PR #136, which holds the held-out R01-R09
+request files and the R08 bench request. **No `r0*` request file may land on `revision-v2` before the `v2-freeze` tag**
+(`docs/FREEZE_CHECKLIST.md` 5.4). The D01a cleanup run 45138203406 started by `workflow_dispatch` and failed before
+any simulation because the D01a spec's calibration override no longer resolves against the fleet (§5 step 2); no
+held-out run has started.
 
-This version assumes the pipeline of PR #137 (D-135): each shard collects its own `summary.parquet` and `hashes.csv`,
-the publish job merges them with `experiments.merge_results`, and the release carries the merged summaries/hashes plus
-one raw-log run from every 100th shard. If #137 is not merged before dispatch, the release-asset limit of the old
-pipeline returns and the shard counts need the split/asset check again.
+The D-135 pipeline is in `revision-v2` (`experiments/merge_results.py`): each shard collects its own summary and
+hashes, the publish job merges them, and the release carries the merged files plus one raw-log run from every 100th
+shard (shards 0, 100, 200).
 
 ## 1. Runs
 
@@ -35,6 +36,12 @@ starts from a fresh checkout, so the shared cells run again under R02/R06/R07/R0
 sample, not every run's raw directory, so the shared cells can no longer be seeded from the release: **4,300
 executions is the operational count** (4,318 with verification). The 4,180 distinct configs remain the reporting
 count.
+
+**Spec drift after the cleanup PRs.** The counts above are the `b7b5921` specs. Cleanup PRs A-F added the R06 variants
+of D-114/D-128 and the R07 variants of D-111/D-119/D-120/D-122, so on the current `revision-v2` the specs produce
+**4,510 points / 4,390 distinct** (R06 90, R07 890). The request files still carry 20 and 237 shards: R06 then has
+4-5 runs per shard and R07 3-4, which stay under the 340-min timeout, but the §2 means, the §3 wall clock and the
+verification `frac` values must be re-derived before dispatch. Do not launch with the 4,300-run arithmetic.
 
 ## 2. Shard plan
 
@@ -123,13 +130,29 @@ The old 2 GiB/1,000-asset limit and the ~3 TB full-log download are gone; the pu
 summaries and ~11 GB of raw samples, not terabytes. The raw sample is a reproduction exhibit, not the archive: every
 run is reproducible from its committed config hash, scenario hash and seed (D-135).
 
-### 2.5 Trigger
+### 2.5 Trigger and launch
 
-The plan job takes only the **first** changed request file of a push
-(`git diff --name-only ... | sort | head -1`). The held-out request files stay on draft PR #136; `d01a-cleanup`
-lands in this PR. After the tag the held-out files must be landed **one commit and one push at a time** (or
-dispatched with `workflow_dispatch`); a single push of several would start only the first file and silently skip the
-rest.
+The push trigger takes only the **first** changed request file of a push
+(`git diff --name-only ... | sort | head -1`), so a push of several request files silently skips the rest. The
+`workflow_dispatch` path does work on `revision-v2` through the API even though the workflow file is not on `main`
+(run 45138203406 was started that way). After the freeze, with the R01-R09 request files on `revision-v2`, launch
+**all nine in one batch**:
+
+```
+for s in 01 02 03 04 05 06 07 08 09; do
+  gh workflow run experiment.yml --ref revision-v2 \
+    -f request=runs/requests/experiment/r$s.yaml
+done
+```
+
+This puts all nine specs in the 40-job queue at once. The push trigger stays as the fallback: if the merge push
+itself starts the first file (`r01`), cancel that run before the batch (or let it run and dispatch only `r02`-`r09`);
+do not run `r01` twice. A single spec can be relaunched the same way, without a push.
+
+The R08 decision-timing bench (`runs/requests/bench/r08-decision.yaml`) is different: `bench-decision.yml` has only a
+push trigger and no `workflow_dispatch`, so it must be **one push after the freeze** (its own commit, or the #136
+merge if the bench file lands with it). Its `fit` job writes `configs/calibration/provider/<cpu-label>/decision.yaml`
+on a `bench/run-<id>` branch; merge that branch.
 
 ## 3. Wall clock
 
@@ -184,59 +207,43 @@ reproduction checks of already-reported cells, not new data, so they do not viol
 
 ## 5. Order of operations
 
-1. Merge cleanup PRs **A-F** (`docs/FREEZE_CHECKLIST.md` §2) and the pipeline PR #137 (D-135).
-2. Land `runs/requests/experiment/d01a-cleanup.yaml` (this PR; no `r0*` file in the same push): **9 runs in 2 shards
-   of 5 and 4**, development split, so each shard starts up to 4 processes on the 16 GB runner. This is deliberate:
-   the run is the **`--jobs 4` memory gate** as well as the D01a rerun (checklist 4.4). Check that D01a's
-   `calibration=configs/calibration/measured/i7_12700_64g_full-b4f89a4def` override still resolves after PRs A-F;
-   if that bundle is deleted, the D01a spec changes, not this request. Log the result, the peak RSS, and the D-113
-   gate (wall time of the 500-worker 28 h run with the planning caps removed) in
-   `docs/validation/development-log.md` (checklist 4.4). The same run measures the new per-run collect time and the
-   wall time (~2 waves, ~3 h). If the memory gate fails, take the split fallback: R02/R04-R09 at `--jobs 3`, R01 and
-   R03 on the 32 GB runner.
+1. Done: cleanup PRs **A-F** (`docs/FREEZE_CHECKLIST.md` §2) and the D-135 pipeline are merged.
+2. **D01a cleanup.** The request landed in PR #138 and run 45138203406 started by `workflow_dispatch`, but it failed
+   in 17 s before any simulation: `scenario.machines: reference bundle i7_12700_64g_full-b4f89a4def (calibration) is
+   not among ('node02-i7-12700-64g-nvme_nvme', 'node02-i7-12700-64g-nvme_hdd', 'node04-i7-4790s-8g-hdd_hdd')`. Fix
+   the **D01a spec** (not the request): set its `calibration` to the fleet reference (or add the i7 bundle to
+   `scenario.machines.bundles`), then re-dispatch the same 2-shard request. The fleet is the right choice for the
+   memory gate because the held-out runs use it; the development comparison to the earlier D01a runs is then not
+   like-for-like, which the development log states. Once it runs: 9 runs in 2 shards of 5 and 4, up to 4 processes
+   on the 16 GB runner; log the peak RSS, the D-113 gate and the wall time (~2 waves, ~3 h). If the memory gate
+   fails, take the split fallback: R02/R04-R09 at `--jobs 3`, R01 and R03 on the 32 GB runner.
 3. If the D-113 gate fails, take D-113 option B (caps return as swept constants) and add the R06/R07 variants before
    the tag; re-check the shard counts against the measured wall time.
 4. Tag `v2-freeze`; confirm checklist 5.4 (`ls runs/requests/experiment/ | grep -i '^r0'` is empty).
-5. Land `r01.yaml` ... `r09.yaml` one at a time, largest first (R01, R03, R04, R07, R02, R05, R06, R08, R09), each
-   as its own push so the first-changed-file trigger starts exactly that spec. Dispatch the R08 decision-timing
-   bench (`bench-decision.yml`) in the same window (D-127). R01 and R03 need the 32 GB runner with `--jobs 6`; the
-   rate-21 specs run on either runner at `--jobs 3` or 6.
+5. After the tag, merge the R01-R09 request files (draft PR #136) and launch all nine in one batch with
+   `gh workflow run experiment.yml --ref revision-v2 -f request=runs/requests/experiment/rXX.yaml` (§2.5). If the
+   merge push started `r01` via the fallback trigger, cancel it first. The R08 decision-timing bench
+   (`runs/requests/bench/r08-decision.yaml`) has no `workflow_dispatch`: land it as one push after the freeze (the
+   #136 merge can be that push) and let `bench-decision.yml` run; merge the `bench/run-<id>` branch it produces. R01
+   and R03 need the 32 GB runner with `--jobs 6`; the rate-21 specs run at `--jobs 3` or 6.
 6. Merge each spec's results PR (the merged `summary.parquet` and `hashes.csv` of every run, from
    `experiments.merge_results`), then dispatch its verify request from `runs/requests/verify/` (created then,
    because `hashes:` must point at the committed `results/<spec>-<id>/hashes.csv`).
 7. After all nine specs are verified: scorecard and the V12.4 claim choice.
 
-## 6. What in the R specs is still inconsistent with D-110..D-135
+## 6. R specs after the cleanup PRs
 
-PR A (D-110) has landed at the base of this PR; the other cleanup PRs have not (`sync_priority` is not in
-`configs/base.yaml`, `exact_program` is still in `configs/baselines.yaml`, and the D-113/D-114/D-117/D-124 code is
-pending). These are the edits the specs still need:
+Cleanup PRs A-F are merged and closed the gaps this runbook listed at `b7b5921`: `exact_program` is out of
+`configs/baselines.yaml` and the R01-R03 `left_out` lists; R06 has synchronous-first-off, backup-off and
+drop-estimate-off; R07 has the D-111/D-119/D-120/D-122 variants and one `m_base` key; R09's trusted hosts run on the
+node02 bundle; the D-113 caps and the D-134 start-up prices are deleted. What remains:
 
-1. **D-131, `exact_program`.** `R01.yaml`, `R02.yaml` and `R03.yaml` list `exact_program` in `left_out`, and their
-   headers describe it. D-131 deletes it from `configs/baselines.yaml`, after which
-   `test_r01_is_the_plan_grid_with_the_published_systems` fails (`set(systems) | set(left_out) != set(prov)`). Drop
-   it from the three `left_out` lists and the headers in PR F.
-2. **D-114/D-128, R06 variants.** R06 lacks *synchronous-first off* (D-114), *backup attempts off* and *drop estimate
-   off* (D-128), and still carries the "Added when their keys land" comment that checklist 5.2 requires to be empty.
-   PR C/E must add the three labels and delete that comment (and the matching R07 comment).
-3. **D-111/D-119/D-120/D-122, R07 variants.** R07 lacks the prior strength and `k` (D-111), deadline multiple and
-   idempotent fraction (D-119), certificate validity and re-attestation (D-120), and `0.3 tts` and `OVERDUE_FRAC`
-   (D-122). Checklist 5.2 lists exactly these. If D-119's two keys become *axes*, R07 is where they go; R01's grid
-   must not grow.
-4. **D-117, R07 `m_base`.** The `m_base_lo`/`m_base_hi` overrides set both `voss.worker.m_base_mb` and
-   `voss.planner.params.m_base_mb`; D-117 merges them into one key. After PR E the second half is a dead dict entry
-   (`planner.params` is `dict[str, Any]`), so the variant silently tests only one key. Drop it.
-5. **D-124, R09's upper bound.** `trusted_hosts` still runs on `configs/references/trusted_hosts.yaml` with `hw: DC`,
-   which D-124 deletes. PR E must rewrite the reference to the node02 NVMe class with one third of the pool's slots
-   per router metro; R09's `system=reference_cloud` override must still resolve afterwards.
-6. **D-113, the gate.** If the cleanup rerun shows the uncapped planning no longer fits a job and option B returns
-   the caps, they are swept constants and R07 needs variants for `max_plan_workers`, `hot_top_k` and `hot_fn_k`
-   (today R07 has none, correctly, because D-113 deletes them).
-7. **D-134 does not exist.** The brief cites D-110..D-134; `docs/DECISIONS.md` ends at D-133 on this branch (PR #137
-   adds D-135), and D-134 is absent. Nothing in R01-R09 refers to a D-134, but the freeze checklist's "D-110 to
-   D-131" line is also stale relative to D-132, D-133 and D-135.
-8. **Shared-run claim.** R02/R06/R07/R08/R09 say "shared run" / "nothing runs twice", which is true of the config
+1. **Spec growth.** See the drift note in §1: the current specs give **4,510 points / 4,390 distinct** (R06 90, R07
+   890), while the §2 means, the §3 wall clock and the §4 `frac` values are still the 4,300-run version. The request
+   files' 20 and 237 shards leave R06 at 4-5 runs per shard and R07 at 3-4, which stay under the 340-min timeout, but
+   the arithmetic must be re-derived before dispatch. Do not launch with the 4,300-run numbers.
+2. **Shared-run claim.** R02/R06/R07/R08/R09 say "shared run" / "nothing runs twice", which is true of the config
    hashes but not of the pipeline: `sweep` writes under `runs/<spec>/` and does not read another spec's directory.
    D-135 publishes only a raw sample, so the shared cells cannot be seeded from the release either; the sweep
-   executes 4,300 runs (4,180 distinct). Change the headers to say the cells are re-run, or add a seeding step
+   executes 4,510 runs (4,390 distinct). Change the headers to say the cells are re-run, or add a seeding step
    outside the release (a local copy before dispatch).
