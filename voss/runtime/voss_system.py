@@ -256,6 +256,8 @@ class VossSystem:
         self.kernel.at(0.0, self._sample)
         run_chunked(self.kernel, self.scn.horizon + self.cfg.drain_s, PROGRESS_S, self._progress)
         end = self.kernel.now
+        res = self.net.stats.get("Result")
+        drops = res.drops + res.in_flight if res is not None else 0  # lost, or still uploading at the end
         for r in self.routers:
             r.finalize_all()
         self.kernel.run(self.kernel.now + 5.0)  # the last receipt batches land
@@ -265,8 +267,6 @@ class VossSystem:
         for kind, st in sorted(self.net.stats.items()):
             self.rec.log(Table.MESSAGES, kind=kind, count=st.count, bytes=st.bytes, drops=st.drops)
         give_up = {i: self.cfg.voss.router.give_up_s[c] for i, c in enumerate(SLO_CLASSES)}
-        res = self.net.stats.get("Result")
-        drops = res.drops + res.in_flight if res is not None else 0  # lost, or still uploading at the end
         k_all = self.cfg.voss.keys.max_holders
         budgets = {t.id: (t.max_holders if k_all is None else k_all) for t in self.scn.catalog.tenants}
         for v in check_invariants(self.rec, self.scn, len(arr), give_up, end, drops, budgets):
