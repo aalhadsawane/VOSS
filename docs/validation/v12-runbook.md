@@ -79,8 +79,9 @@ shard size.
 Measured peak RSS is **4.5-4.8 GB per 28 h run** (`resource.getrusage` in the manifest), and the standard
 GitHub-hosted runner has **16 GB**:
 
-- **`--jobs 4` is not safe on 16 GB**: 4 × 4.8 = 19.2 GB, over the runner. `nproc` on the 4-vCPU runner is 4, so
-  the workflow's `--jobs "$(nproc)"` as written would run 4 processes and can be OOM-killed.
+- **`--jobs 4` is not assumed safe on 16 GB**: 4 × 4.8 = 19.2 GB, over the runner. `nproc` on the 4-vCPU runner is 4,
+  so the workflow's `--jobs "$(nproc)"` as written would run 4 processes and can be OOM-killed. The D01a cleanup is
+  the empirical gate (last bullet).
 - **`--jobs 3` fits memory** (3 × 4.8 = 14.4 GB, 90% of 16 GB) but not the timeout for R01 and R03:
 
 | Spec | Shards | Runs/shard | `--jobs 3` mean | `--jobs 3` p99 | `--jobs 6` mean | `--jobs 6` p99 |
@@ -102,11 +103,15 @@ R03 against the 256-job cap: 232 shards of 7 fit the cap, but 6 runs per shard w
 the number of concurrent jobs does not change them.
 
 - `--jobs 4` on a ~20 GB runner removes R01's risk (p99 308) but not R03's: p99 380, a 92% chance of one timeout.
-- **`--jobs 6` on a 32 GB runner is the required configuration** (6 × 4.8 = 28.8 GB, under 32): every spec's p99 is
-  at most 299 min, with at least 41 min of headroom. `nproc` on an 8-core runner is 8 (38.4 GB), so the sweep step
-  must pass **`--jobs 6` explicitly**; this is a one-line workflow change, not something a request file can set.
-  If only a 16 GB runner is available, run R02 and R04-R09 at `--jobs 3` and defer R01 and R03 to the 32 GB runner
-  (or split them across dispatches, which needs another workflow change).
+- **`--jobs 6` on a 32 GB runner is the safe configuration for the whole sweep** (6 × 4.8 = 28.8 GB, under 32): every
+  spec's p99 is at most 299 min, with at least 41 min of headroom. `nproc` on an 8-core runner is 8 (38.4 GB), so the
+  sweep step must pass **`--jobs 6` explicitly**; this is a one-line workflow change, not something a request file can
+  set.
+- **Memory gate.** `d01a-cleanup.yaml` runs the 9 D01a points in **2 shards of 5 and 4**, so each shard starts up to
+  4 processes on the 16 GB runner; its peak RSS and completion decide `--jobs 4` versus the split fallback. If it
+  passes with headroom, use `--jobs 4` on 16 GB for R01 and the rate-21 specs (R03's timeout still needs 6 jobs on
+  the 32 GB runner); if it fails, use `--jobs 3` for R02/R04-R09 and move R01 and R03 to the 32 GB runner (the
+  split-R01/R03 fallback).
 
 ### 2.4 Release contents (D-135)
 
@@ -180,14 +185,17 @@ reproduction checks of already-reported cells, not new data, so they do not viol
 ## 5. Order of operations
 
 1. Merge cleanup PRs **A-F** (`docs/FREEZE_CHECKLIST.md` §2) and the pipeline PR #137 (D-135).
-2. Land `runs/requests/experiment/d01a-cleanup.yaml` (this PR; no `r0*` file in the same push): 9 shards,
-   1 run each, development split. Check that D01a's `calibration=configs/calibration/measured/
-   i7_12700_64g_full-b4f89a4def` override still resolves after PRs A-F; if that bundle is deleted, the D01a spec
-   changes, not this request. Log the result and the D-113 gate (wall time of the 500-worker 28 h run with the
-   planning caps removed) in `docs/validation/development-log.md` (checklist 4.4). The same run measures the new
-   per-run collect time and the wall time with the frozen code.
-3. If the gate fails, take D-113 option B (caps return as swept constants) and add the R06/R07 variants before the
-   tag; re-check the shard counts against the measured wall time.
+2. Land `runs/requests/experiment/d01a-cleanup.yaml` (this PR; no `r0*` file in the same push): **9 runs in 2 shards
+   of 5 and 4**, development split, so each shard starts up to 4 processes on the 16 GB runner. This is deliberate:
+   the run is the **`--jobs 4` memory gate** as well as the D01a rerun (checklist 4.4). Check that D01a's
+   `calibration=configs/calibration/measured/i7_12700_64g_full-b4f89a4def` override still resolves after PRs A-F;
+   if that bundle is deleted, the D01a spec changes, not this request. Log the result, the peak RSS, and the D-113
+   gate (wall time of the 500-worker 28 h run with the planning caps removed) in
+   `docs/validation/development-log.md` (checklist 4.4). The same run measures the new per-run collect time and the
+   wall time (~2 waves, ~3 h). If the memory gate fails, take the split fallback: R02/R04-R09 at `--jobs 3`, R01 and
+   R03 on the 32 GB runner.
+3. If the D-113 gate fails, take D-113 option B (caps return as swept constants) and add the R06/R07 variants before
+   the tag; re-check the shard counts against the measured wall time.
 4. Tag `v2-freeze`; confirm checklist 5.4 (`ls runs/requests/experiment/ | grep -i '^r0'` is empty).
 5. Land `r01.yaml` ... `r09.yaml` one at a time, largest first (R01, R03, R04, R07, R02, R05, R06, R08, R09), each
    as its own push so the first-changed-file trigger starts exactly that spec. Dispatch the R08 decision-timing
