@@ -21,7 +21,7 @@ from voss.policy.detect import Detector, fits
 from voss.runtime.actor import ActorContext
 from voss.runtime.expiring import ExpiringSet
 from voss.runtime.schedlib.decide import Timing
-from voss.runtime.schedlib.inflight import Copy, Inflight
+from voss.runtime.schedlib.inflight import Copy, Inflight, JobIndex
 from voss.runtime.schedlib.viewcache import ViewCache
 
 
@@ -29,6 +29,7 @@ class BackupMixin:
     ctx: ActorContext
     views: ViewCache
     inflight: dict[InvId, Inflight]
+    jobs: JobIndex
     done: ExpiringSet[InvId]
     det: Detector
 
@@ -88,6 +89,7 @@ class BackupMixin:
         if self.now < probed:  # let the watchdog and its probe resolve, so the drop estimate sees silent attempts
             self.after(probed - self.now + 1e-6, self._expire, inv)
             return
+        self.jobs.drop_all(inv, rec.copies)
         del self.inflight[inv]
         self.done.add(inv)
         for c in sorted(rec.copies.values(), key=lambda x: x.attempt):
