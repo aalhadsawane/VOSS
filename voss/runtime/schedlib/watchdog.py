@@ -86,7 +86,8 @@ class WatchdogMixin:
             self.send(("agent", int(c.worker)), Cancel(inv, attempt))
             self._copy_failed(rec, c, "timeout")
             return
-        self._request_backup(rec, c)
+        if self.det.on_expiry == "backup":
+            self._request_backup(rec, c)
         if not self.det.probe:
             return
         self.send(("agent", int(c.worker)), Probe(inv, attempt, self.addr))

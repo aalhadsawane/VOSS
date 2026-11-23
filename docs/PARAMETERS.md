@@ -59,9 +59,12 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.admission.eps` | `0.05` | S | reject when every candidate misses with probability above 1 - eps |
 | `voss.admission.defer_s` | `1.0` | S | retry delay for a deferred asynchronous invocation |
 | `voss.models.survival` | `'weibull'` | S | session survival estimator (V5.4) |
-| `voss.models.omission` | `'beta_cusum'` | S | drop estimator (V5.4) |
+| `voss.models.omission` | `'beta_cusum'` | S | drop estimate (V5.4): `beta_cusum`; `prior_only` is the R06 ablation (D-128) |
 | `voss.models.refit_s` | `60.0` | S | survival refit period |
 | `voss.models.cusum_h` | `5.0` | S | change-detection threshold |
+| `voss.models.omission_prior` | `(0.5, 20.0)` | S | Beta prior (a0, b0) of the drop estimate (D-111); R07 varies its strength x0.5/x2 at equal mean |
+| `voss.models.omission_pessimistic` | `(2.0, 4.0)` | S | prior after a change point (D-111); R07 varies x0.5/x2 at equal mean |
+| `voss.models.cusum_k` | `0.1` | S | CUSUM drift (D-111); R07 varies {0.05, 0.2} |
 | `voss.planner.name` | `'milp'` | A | provisioning policy or baseline (V5, V8) |
 | `voss.planner.T_plan` | `30.0` | S | plan V5.3: at least the longest preparation action, default 30 s chosen on the development split; R07 varies it |
 | `voss.planner.T_solve` | `2.0` | pending V11 | deleted by D-131 (exact program) |
@@ -101,7 +104,7 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.cache.value` | `'gdsf'` | S | disk cache value policy |
 | `voss.cache.hdd_tier` | `True` | S | hard-disk tier on/off |
 | `voss.audit.p` | `0.0` | A | audit probability per idempotent invocation (V7.3; swept in R05) |
-| `voss.detection.detector` | `voss` | A | `fixed`, `consecutive`, `voss` (plan V7.2) |
+| `voss.detection.detector` | `voss` | A | `fixed`, `consecutive`, `hedged`, `voss` (plan V7.2); `voss_no_backup` is the R06 ablation (D-128) |
 | `voss.detection.quantile` | `0.95` | S | voss timer: predicted completion quantile, no floor (plan V7.1, F5) |
 | `voss.detection.probe_timeout_s` | `2.0` | S | an unanswered probe is drop-estimate evidence; it does not end the attempt |
 | `voss.detection.consecutive_streak` | `5` | L | Envoy outlier detection `consecutive_5xx`; TODO verify |
@@ -146,9 +149,6 @@ the constant is deleted or becomes a key. They are listed here so that the ledge
 
 | Constant | Value | Class | Where | Item |
 |---|---|---|---|---|
-| omission prior `(a0, b0)` | (0.5, 20.0) | pending V11 | `voss/policy/omission.py` `BetaCusum` | D-111: key, S (T48) |
-| omission pessimistic prior after a change point | (2.0, 4.0) | pending V11 | `voss/policy/omission.py` `BetaCusum` | D-111: key, S (T48) |
-| CUSUM drift `k` | 0.1 | pending V11 | `voss/policy/omission.py` `BetaCusum` | D-111: key, S (T48) |
 | variance of the time to start, `(0.3 tts)^2` | 0.3 | pending V11 | `voss/policy/cost/components.py` | D-122: key, S |
 | hedged requests: latencies observed before the q95 timer applies | 20 | pending V11 | `voss/policy/detect.py` `HEDGE_MIN_SAMPLES` | D-122: key, S |
 | run-time model prior standard deviations | (0.7, 0.3, 0.5) | pending V11 | `voss/policy/predict/blr.py` | D-122: key, S |

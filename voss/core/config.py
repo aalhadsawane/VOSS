@@ -164,6 +164,9 @@ class ModelsConfig(Frozen):
     omission: str = "beta_cusum"
     refit_s: float = 60.0
     cusum_h: float = 5.0
+    omission_prior: tuple[float, float] = (0.5, 20.0)  # Beta prior (a0, b0) of the drop estimate (D-111)
+    omission_pessimistic: tuple[float, float] = (2.0, 4.0)  # prior after a change point (D-111)
+    cusum_k: float = 0.1  # CUSUM drift (D-111)
 
 
 class SchedulerConfig(Frozen):

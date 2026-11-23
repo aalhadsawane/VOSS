@@ -23,11 +23,12 @@
 #   survival_blind     survival replaced by the pool mean (voss.planner.params.survival_blind)
 #   no_warm            no warm sandboxes kept (voss.planner.params.w_max 0; holders, keys and snapshots stay)
 #   sync_first_off     queued asynchronous invocations are not overtaken (voss.worker.sync_priority false, D-114)
-# Added when their keys land (D-128): backup attempts off, drop estimate off.
+#   backup_off         a late attempt is probed, never backed up (voss.detection.detector voss_no_backup, D-128)
+#   drop_estimate_off  every worker keeps the prior drop rate, no change point (voss.models.omission prior_only)
 #   Dropped from the plan (D-118, D-128): cover rule (f = 0), one speed factor, robust (worst case), independent
 #   failures.
 # The voss row has R01's central-cell config hash (shared run).
-# Runs: 7 x 10 seeds = 70 (10 shared with R01). Output: Fig. 6.
+# Runs: 9 x 10 seeds = 90 (10 shared with R01). Output: Fig. 6.
 experiment: R06
 base: ../machines.yaml
 overrides:
@@ -50,4 +51,6 @@ systems:
   survival_blind: [voss.planner.name=hetero, voss.planner.params.survival_blind=true]
   no_warm: [voss.planner.name=hetero, voss.planner.params.w_max=0]
   sync_first_off: [voss.planner.name=hetero, voss.worker.sync_priority=false]
+  backup_off: [voss.planner.name=hetero, voss.detection.detector=voss_no_backup]
+  drop_estimate_off: [voss.planner.name=hetero, voss.models.omission=prior_only]
 seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
