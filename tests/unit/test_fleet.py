@@ -120,7 +120,7 @@ def test_fleet_is_opt_in_for_the_config_hash() -> None:
     """An empty ``scenario.machines`` is left out of the config hash, so existing run directories stay valid."""
     cfg = RunConfig()
     tree = cfg.model_dump(mode="json", exclude={"out_dir", "label"})
-    del tree["scenario"]["machines"], tree["voss"]["cost"]["wait_model"], tree["voss"]["worker"]["sync_priority"]
+    del tree["scenario"]["machines"]
     assert cfg.config_hash() == hash_obj(tree)
     on = RunConfig.model_validate({"scenario": {"machines": {"bundles": [REF], "survey": "s"}}})
     assert on.config_hash() != cfg.config_hash()

@@ -94,8 +94,9 @@ def test_slots_withdraw_waiting_with_priority() -> None:
     assert order == ["x", "y"] and s.queued == 0
 
 
-def test_defaults_do_not_change_config_hash() -> None:
-    base = RunConfig().config_hash()
-    assert RunConfig.model_validate({"voss": {"cost": {"wait_model": "per_worker"}}}).config_hash() != base
-    assert RunConfig.model_validate({"voss": {"worker": {"sync_priority": True}}}).config_hash() != base
-    assert RunConfig.model_validate({"voss": {"cost": {"wait_model": "ewma"}}}).config_hash() == base
+def test_synchronous_first_is_the_default_and_in_the_hash() -> None:
+    """D-114: on for every system; turning it off (the R06 ablation) is a different run."""
+    base = RunConfig()
+    assert base.voss.worker.sync_priority
+    off = RunConfig.model_validate({"voss": {"worker": {"sync_priority": False}}})
+    assert off.config_hash() != base.config_hash()

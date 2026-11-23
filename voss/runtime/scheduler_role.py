@@ -212,7 +212,7 @@ class SchedulerRole(KeepaliveMixin, WatchdogMixin, BackupMixin, AuditMixin, Plan
         view = self.views.view(self.eligible(), self.now)
         routers = tuple(str(r.router[1]) for r in recs)
         t0 = time.perf_counter()
-        jobs = job_estimates(self.inflight) if self.ctx.cfg.voss.cost.wait_model == "per_worker" else None
+        jobs = job_estimates(self.inflight)
         d = self.decider.decide(
             tuple(self._variant(r) for r in recs),
             view,
