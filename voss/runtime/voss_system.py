@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import resource
 import sys
 import time
 from pathlib import Path
@@ -243,7 +244,7 @@ class VossSystem:
     def _progress(self, now: float) -> None:
         """One line per simulated hour on stderr (run sizing, plan V9.5): a runner that is killed still shows how far
         it got and how much memory it held. Not a result: nothing here reaches the recorder."""
-        rss = int(Path("/proc/self/statm").read_text().split()[1]) * os.sysconf("SC_PAGE_SIZE") / 2**20
+        rss = _peak_rss_mb()
         wall = time.perf_counter() - self._t0
         msg = f"progress sim_h={now / 3600:.1f} events={self.kernel.events_run} wall_s={wall:.0f} rss_mb={rss:.0f}"
         print(msg, file=sys.stderr, flush=True)
@@ -278,6 +279,20 @@ def _sample(ref: Any, g: np.random.Generator) -> float:
     if isinstance(ref, int | float):
         return float(ref)
     return float(ref.sample(g))
+
+
+def _peak_rss_mb() -> int:
+    """Resident memory of the runner, portable across the Linux runners and a developer's macOS checkout.
+
+    ``/proc`` is Linux-only; elsewhere ``ru_maxrss`` is in bytes on macOS and kilobytes on Linux."""
+    try:
+        statm = Path("/proc/self/statm")
+        if statm.exists():
+            return int(int(statm.read_text().split()[1]) * os.sysconf("SC_PAGE_SIZE") / 2**20)
+    except OSError:
+        pass
+    rss = float(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+    return int(rss / 2**20) if sys.platform == "darwin" else int(rss / 1024)
 
 
 PROGRESS_S = 3600.0  # simulated seconds between progress lines
