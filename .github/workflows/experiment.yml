@@ -61,9 +61,25 @@ jobs:
       - run: >-
           uv run python -m experiments.sweep ${{ needs.plan.outputs.spec }}
           --shard ${{ matrix.shard }}/${{ needs.plan.outputs.shards }} --jobs "$(nproc)" --out runs
-      - run: tar --zstd -cf shard-${{ matrix.shard }}.tar.zst -C runs ${{ needs.plan.outputs.spec }}
+      # Summaries and hashes are small; collect them where the raw logs are so the publish job never downloads
+      # thousands of run directories (a held-out sweep is ~2.7 TB of raw tables).
+      - run: >-
+          uv run python -m experiments.collect ${{ needs.plan.outputs.spec }} --runs runs
+          --dst results/partial-${{ matrix.shard }}
       - uses: actions/upload-artifact@v4
-        with: {name: 'shard-${{ matrix.shard }}', path: 'shard-${{ matrix.shard }}.tar.zst', retention-days: 7}
+        with:
+          {name: 'summary-${{ matrix.shard }}', path: 'results/partial-${{ matrix.shard }}', retention-days: 7}
+      # Keep a deterministic raw-log sample (one run from every 100th shard) for the release. The full raw logs are
+      # not retained: every run is reproducible from its committed config hash and seed, and the paper reads the
+      # committed summary and hash of every run (D-135).
+      - if: ${{ matrix.shard % 100 == 0 }}
+        run: |
+          d=$(find "runs/${{ needs.plan.outputs.spec }}" -mindepth 1 -maxdepth 1 -type d | sort | head -1)
+          test -n "$d"
+          tar --zstd -cf raw-${{ matrix.shard }}.tar.zst -C "runs/${{ needs.plan.outputs.spec }}" "$(basename "$d")"
+      - uses: actions/upload-artifact@v4
+        if: ${{ matrix.shard % 100 == 0 }}
+        with: {name: 'raw-${{ matrix.shard }}', path: 'raw-${{ matrix.shard }}.tar.zst', retention-days: 7}
   publish:
     needs: [plan, sweep]
     runs-on: ubuntu-latest
@@ -79,18 +95,21 @@ jobs:
       - run: uv run python -m tools.traces.fetch  # published traces into data/traces, hashes checked (plan V9)
         env: {GH_TOKEN: '${{ github.token }}'}
       - uses: actions/download-artifact@v4
-        with: {pattern: 'shard-*', merge-multiple: true, path: shards}
-      - name: raw logs as release assets
+        with: {pattern: 'summary-*', path: partials}
+      - uses: actions/download-artifact@v4
+        with: {pattern: 'raw-*', merge-multiple: true, path: raw}
+      - name: merge the per-shard summaries and hashes
         run: |
-          gh release create "$TAG" shards/*.tar.zst --target "$GITHUB_SHA" --prerelease \
-            --title "$TAG" --notes "Raw logs of ${{ needs.plan.outputs.request }} at $GITHUB_SHA (docs/REVISION_PLAN.md V6)."
-      - name: summaries and hashes
-        run: |
-          mkdir -p runs && for f in shards/*.tar.zst; do tar --zstd -xf "$f" -C runs; done
-          uv run python -m experiments.collect ${{ needs.plan.outputs.spec }} --runs runs --dst "$DST"
+          uv run python -m experiments.merge_results --parts partials/summary-* --dst "$DST"
           cp "${{ needs.plan.outputs.request }}" "$DST/request.yaml"
           printf 'release: %s\ncommit: %s\nrun: %s/%s/actions/runs/%s\n' "$TAG" "$GITHUB_SHA" \
             "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "$DST/provenance.yaml"
+      - name: release with the raw-log sample and the summaries
+        run: |
+          shopt -s nullglob
+          files=(raw/*.tar.zst "$DST"/summary.parquet "$DST"/hashes.csv)
+          gh release create "$TAG" "${files[@]}" --target "$GITHUB_SHA" --prerelease \
+            --title "$TAG" --notes "Summaries and hashes of every run, and a raw-log sample, of ${{ needs.plan.outputs.request }} at $GITHUB_SHA (docs/REVISION_PLAN.md V6)."
       - name: results PR into revision-v2
         run: |
           git config user.name "github-actions[bot]"

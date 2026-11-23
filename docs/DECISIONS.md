@@ -415,6 +415,15 @@ the prices, both priors, their smoothing constant (0.05), the decay tick `keepal
 decision-latency buffer it cleared are deleted (guardrail 32). Placement and provisioning take start-up costs from
 the cost model's startup model, which is measured. No behaviour changes except fewer timer events.
 
+**D-135 The held-out sweep publishes summaries and hashes of every run, and a raw-log sample, not every raw table.**
+The 4,180 distinct held-out runs at 28 h produce about 2.7 TB of raw tables. A GitHub release allows 1,000 assets of
+less than 2 GiB and the publish runner has about 14 GB of disk, so publishing every run's raw directory is not
+possible. Each shard collects its own summaries and hashes where the logs are; the publish job merges them and commits
+one `summary.parquet` and `hashes.csv` for every run, and publishes one raw-log run from every 100th shard. The rest is
+reproducible from the committed config hash, scenario hash and seed. The paper's figures read summaries only, and
+guardrail 20 still reports every grid cell. *Rejected:* multiple multi-terabyte releases (upload time, no reader) and
+keeping raw logs only as artifacts (they expire after seven days).
+
 ## v1 decisions (D-01 to D-80)
 
 **D-01 Custom Python discrete-event simulator.** FaaS physics is small; solver wall time must enter simulated time;
