@@ -39,13 +39,21 @@ class UnixHTTPConnection(http.client.HTTPConnection):
 
 @dataclass
 class FcAssets:
-    """Binaries and guest images on the node (paths given on the command line, see README)."""
+    """Binaries and guest images on the node (paths given on the command line, see README).
+
+    ``prefix`` and ``cgroup_procs`` are used by the multi-worker emulation testbed only (plan V13,
+    ``tools/emu/isolation.py``): ``prefix`` is the command that places the VMM before it execs (``ip netns exec``,
+    ``taskset -c``) and ``cgroup_procs`` is the cgroup v2 file the VMM is moved into after spawn (its memory limit).
+    Both are empty for calibration, so the calibration path is unchanged.
+    """
 
     firecracker: str
     kernel: str
     rootfs: str
     jailer: str | None = None
     chroot_base: str = "/srv/jailer"
+    prefix: tuple[str, ...] = ()
+    cgroup_procs: str = ""
 
 
 @dataclass
@@ -58,8 +66,8 @@ class FcVm:
     sock: str = ""
 
     # --- process --------------------------------------------------------------------------------------------
-    def spawn(self) -> None:
-        self.workdir.mkdir(parents=True, exist_ok=True)
+    def _argv(self) -> list[str]:
+        """The VMM command line, with the emulation's placement prefix (empty for calibration)."""
         if self.assets.jailer:
             argv, self.sock = self._jailed()
         else:
@@ -69,15 +77,26 @@ class FcVm:
             self.sock = str(sock_dir / f"{self.vm_id[-60:]}.sock")
             Path(self.sock).unlink(missing_ok=True)
             argv = [self.assets.firecracker, "--api-sock", self.sock, "--level", "Warning"]
+        return [*self.assets.prefix, *argv]
+
+    def spawn(self) -> None:
+        self.workdir.mkdir(parents=True, exist_ok=True)
+        argv = self._argv()
         self.proc = subprocess.Popen(
             argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
         )
+        self._adopt(self.proc.pid)
         threading.Thread(target=self._read, daemon=True).start()
         deadline = time.monotonic() + 5.0
         while not Path(self.sock).exists():
             if time.monotonic() > deadline or self.proc.poll() is not None:
                 raise RuntimeError(f"firecracker did not create {self.sock}")
             time.sleep(0.002)
+
+    def _adopt(self, pid: int) -> None:
+        """Put a just-spawned VMM under its worker's memory limit (emulation only; no-op for calibration)."""
+        if self.assets.cgroup_procs:
+            Path(self.assets.cgroup_procs).write_text(str(pid))
 
     def _jailed(self) -> tuple[list[str], str]:
         """Jailer layout: files hard-linked into ``<base>/firecracker/<id>/root``; API paths are chroot-relative."""

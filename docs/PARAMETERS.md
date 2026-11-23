@@ -148,6 +148,9 @@ for the file as a whole.
 | File | Class | Basis or fate |
 |---|---|---|
 | `configs/base.yaml` | A | defaults of every run |
+| `configs/emu/functions.yaml` | A | V13 emulation catalogue: the guest-runnable Python subset; run times come from the fleet class (M) |
+| `configs/emu/tenants.yaml` | A | V13 emulation tenants: the owners of that subset, key-service cities as the main catalogue (D-125) |
+| `configs/emu/s1_central.yaml` | A | V13 validation scenario (2 h, 6 workers, `voss` and `fixed_keepalive`): load, slice and repetitions are chosen so one node can run it, not measured from volunteers |
 | `configs/request_bytes.yaml` | D | bytes a client sends per measured input size of each guest function (D-106) |
 | `configs/functions.yaml` | L | function catalogue (D-119): guest memory stated (A); run times and start-up are overridden per machine class from the bundles (M) |
 | `configs/regimes/adversary_all.yaml` | A | D-121: owner behaviour parameters, axes of the threat, stated with R04/R05 |

@@ -1,0 +1,8 @@
+# Tenants of the V13 emulation scenario (plan V13): those owning the emu function subset.
+# D-125: the key service's city and the default holder budget; the v1 sensitivity class and assurance floor are gone.
+provenance: {default: assumed}
+tenants:
+  - {id: t-web,   kbs_city: Frankfurt}
+  - {id: t-media, kbs_city: Washington}
+  - {id: t-data,  kbs_city: Singapore}
+  - {id: t-graph, kbs_city: London}
