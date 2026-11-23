@@ -1,9 +1,14 @@
 # V12 held-out runbook (prepared; nothing here has run)
 
-Prepared on branch `v2/V12-requests` from `revision-v2` at `b7b5921`, as a DRAFT pull request. **No file in
+Prepared on branch `v2/V12-requests` from `revision-v2` at `b7b5921`, as DRAFT pull request #136. **No file in
 `runs/requests/experiment/` may land on `revision-v2` before the `v2-freeze` tag** (`docs/FREEZE_CHECKLIST.md` 5.4).
 The one exception is `d01a-cleanup.yaml`: it is a development rerun (checklist 4.4), it lands **before** the tag, and
 it must land alone (see §5).
+
+This version assumes the pipeline of PR #137 (D-135): each shard collects its own `summary.parquet` and `hashes.csv`,
+the publish job merges them with `experiments.merge_results`, and the release carries the merged summaries/hashes plus
+one raw-log run from every 100th shard. If #137 is not merged before dispatch, the release-asset limit of the old
+pipeline returns and the shard counts need the split/asset check again.
 
 ## 1. Runs
 
@@ -24,86 +29,114 @@ Counted from the specs with `experiments.sweep.plan()` and compared by config ha
 80 central-cell runs plus 40 repeats of the same 10 `voss` central-cell runs in R06-R09 (so the 120 duplicates cover
 80 distinct R01 configs).
 
-**Distinct held-out runs: 4,180. Total including verification repeats: 4,198** (4,180 + 18 reruns, §5). The sweep as
+**Distinct held-out runs: 4,180. Total including verification repeats: 4,198** (4,180 + 18 reruns, §4). The sweep as
 written executes **4,300** points: `experiments/sweep._one` caches only under `runs/<spec>/<hash>`, and each job
-starts from a fresh checkout, so the shared cells run again under R02/R06/R07/R08/R09. Seeding `runs/<spec>` with
-R01's run directories before those five dispatches would save 120 executions (80 distinct configs); the plan counts
-4,300 executions and 4,318 with verification.
+starts from a fresh checkout, so the shared cells run again under R02/R06/R07/R08/R09. D-135 publishes only a raw
+sample, not every run's raw directory, so the shared cells can no longer be seeded from the release: **4,300
+executions is the operational count** (4,318 with verification). The 4,180 distinct configs remain the reporting
+count.
 
 ## 2. Shard plan
 
 ### 2.1 Assumptions
 
-- One shard = one `sweep` job of `experiment.yml`, `--jobs "$(nproc)"` = **4** on the 4-vCPU runner, timeout **340
-  min** (20,400 s).
+- One shard = one `sweep` job of `experiment.yml`, timeout **340 min** (20,400 s).
 - Measured per-run wall time: the 66 runs of `results/*/summary.parquet` (D01a and D02, 500 workers, `K` = 8,
   `rate_mult` 21, 28 h): mean **5,152 s (86 min)**, p50 5,250 s, p90 7,149 s, max 7,899 s (132 min).
 - Wall time scales with arrivals (D-97: 130 M events at `rate_mult` 30 in 114 min), so rate-30 cells are assumed
   1.43× the rate-21 wall.
-- 10% for the post-freeze code (D-113 plans without the caps; the D01a cleanup measures it) and 10% for four
-  processes on one 4-vCPU runner.
-- 8 min per job for checkout, `uv sync` and the trace fetch.
-
-A shard is a round-robin sample of the spec's stable point order, so each shard mixes systems and load cells; the
-table below is a bootstrap over the measured per-run distribution (within system, scaled by `rate_mult`, with the two
-10% margins and the 8-min setup), not a worst-cell bound.
+- 10% for the post-freeze code (D-113 plans without the caps; the D01a cleanup measures it) and 10% for co-running
+  processes on one runner.
+- 8 min per job for checkout, `uv sync` and the trace fetch; **2 min per run** for the new per-shard
+  `experiments.collect` step (estimate; the D01a cleanup and the first R01 shard measure it).
+- A shard's wall is the pool's list schedule (runs start as workers free), not `sum(runs)/jobs`: a 5-run shard on 4
+  workers takes two run-times, not 1.25. The table below is a bootstrap over the measured per-run distribution
+  (within system, scaled by `rate_mult`, with the margins), taking the maximum over the shards of each spec.
 
 ### 2.2 Shard counts
 
-| Spec | Runs | Shards | Runs per shard | Shard mean | Worst shard, p99 |
-|---|---|---|---|---|---|
-| R01 | 1,200 | 240 | 5 | 124 min | 178 min |
-| R02 | 80 | 27 | 2-3 | 78 min | 104 min |
-| R03 | 1,620 | 232 | 6-7 | 169 min | 225 min |
-| R04 | 480 | 160 | 3 | 84 min | 111 min |
-| R05 | 120 | 40 | 3 | 93 min | 125 min |
-| R06 | 60 | 20 | 3 | 87 min | 121 min |
-| R07 | 710 | 237 | 2-3 | 86 min | 124 min |
-| R08 | 10 | 5 | 2 | 60 min | 84 min |
-| R09 | 20 | 7 | 2-3 | 81 min | 109 min |
-| **Total** | **4,300** | **968** | | | |
+| Spec | Runs | Shards | Runs per shard |
+|---|---|---|---|
+| R01 | 1,200 | 240 | 5 |
+| R02 | 80 | 27 | 2-3 |
+| R03 | 1,620 | 232 | 6-7 |
+| R04 | 480 | 160 | 3 |
+| R05 | 120 | 40 | 3 |
+| R06 | 60 | 20 | 3 |
+| R07 | 710 | 237 | 2-3 |
+| R08 | 10 | 5 | 2 |
+| R09 | 20 | 7 | 2-3 |
+| **Total** | **4,300** | **968** | |
 
-Every shard is under 340 min with at least 115 min of headroom at p99. The shard counts are **not** free:
+The counts are the `--jobs 3` layout: 3 runs per shard on the rate-21 specs (one round on 3 workers), 5 on R01 and
+7 on R03. The **256-job matrix limit** sets the minimum runs per shard for the two large specs: R01 cannot have more
+than 256 shards, so it needs 5 runs per shard; R03 needs 7. The other specs are free to use 3, which is the best size
+for a 3-worker shard and also works on 4 and 6 workers. With D-135 the release-asset limit no longer constrains the
+shard size.
 
-- **Matrix limit.** GitHub Actions generates at most **256 jobs from one matrix**, so a spec cannot have more than
-  256 shards in one dispatch. That sets the minimum runs per shard: R01 5, R03 7, R07 3. R01's 240 shards are
-  exactly 5 runs each; the round-robin stride still mixes the load axis across a shard.
-- **Release-asset limit.** A release takes at most **1,000 assets, each under 2 GiB**. One 28 h run at rate 21 is
-  643-657 MB as `tar.zst` (measured on the `runs-D01a-44056745829` release), so a 5-run shard is ~3.2 GB and a 7-run
-  shard ~4.5 GB (rate 30: ~4.7 and ~6.5 GB). **The publish step fails as written.** Before dispatch, split each
-  shard's tarball into <2 GiB parts, e.g.
-  `tar --zstd -cf - -C runs $SPEC | split -b 1900M - shard-$i.tar.zst.part-`, upload `shard-$i.tar.zst.part-*`,
-  `gh release create "$TAG" shards/*.part-*`, and extract with
-  `cat shards/shard-$i.tar.zst.part-* | tar --zstd -xf - -C runs`. With 4 parts per R03 shard the release has 928
-  assets, under 1,000; more parts per shard would exceed it. The 3-run shards are ~1.95 GB, 91% of the 2 GiB limit,
-  so check the first published asset and split those too if it is over 2 GiB.
-- **Runner memory.** Measured peak RSS is 4.5-4.8 GB per 28 h run. Four co-running processes need 18.4-19.2 GB and
-  the standard runner has 16 GB: `--jobs nproc` (4) can be OOM-killed. Use a runner with at least 20 GB (then pass
-  `--jobs 4` explicitly, because `nproc` on an 8-core/32 GB runner would start 8 processes and need 36.8 GB).
-  `--jobs 3` on the 16 GB runner does not fit R03: 7 runs in 3 rounds at the rate-30 wall is over 340 min, and the
-  256-shard cap forbids 6-run shards (270 shards).
-- **Publish capacity.** 4,300 runs at 0.65-0.93 GB is **~3 TB** of raw logs. The publish job downloads every shard,
-  runs `collect` and re-uploads the same bytes to a release; R03 alone is ~1.5 TB and is likely to exceed the default
-  6 h job timeout. Decide before dispatch: object storage for the raw logs, or a larger publish timeout plus the transfer
-  time, or per-shard collection with selective archiving.
-- **Trigger.** The plan job takes only the **first** changed request file of a push
-  (`git diff --name-only ... | sort | head -1`). Land the request files one commit at a time (or dispatch with
-  `workflow_dispatch`). Merging this whole draft PR after the tag would start only `d01a-cleanup.yaml` and silently
-  skip R01-R09.
+### 2.3 Runner memory, `--jobs` and the timeout
+
+Measured peak RSS is **4.5-4.8 GB per 28 h run** (`resource.getrusage` in the manifest), and the standard
+GitHub-hosted runner has **16 GB**:
+
+- **`--jobs 4` is not safe on 16 GB**: 4 × 4.8 = 19.2 GB, over the runner. `nproc` on the 4-vCPU runner is 4, so
+  the workflow's `--jobs "$(nproc)"` as written would run 4 processes and can be OOM-killed.
+- **`--jobs 3` fits memory** (3 × 4.8 = 14.4 GB, 90% of 16 GB) but not the timeout for R01 and R03:
+
+| Spec | Shards | Runs/shard | `--jobs 3` mean | `--jobs 3` p99 | `--jobs 6` mean | `--jobs 6` p99 |
+|---|---|---|---|---|---|---|
+| R01 | 240 | 5 | 232 min | **367 min** | 172 min | 246 min |
+| R02 | 27 | 2-3 | 131 min | 173 min | 131 min | 173 min |
+| R03 | 232 | 6-7 | 284 min | **430 min** | 195 min | 299 min |
+| R04 | 160 | 3 | 140 min | 173 min | 140 min | 173 min |
+| R05 | 40 | 3 | 152 min | 173 min | 152 min | 173 min |
+| R06 | 20 | 3 | 144 min | 173 min | 144 min | 173 min |
+| R07 | 237 | 3 | 142 min | 173 min | 142 min | 173 min |
+| R08 | 5 | 2 | 132 min | 171 min | 132 min | 171 min |
+| R09 | 7 | 2-3 | 138 min | 173 min | 138 min | 173 min |
+
+At `--jobs 3`, R02 and R04-R09 are safe (p99 171-173 min), but **R01 has a 59% chance that one of its 240 shards
+exceeds 340 min** (p99 367) and **R03 is certain to** (p99 430, three rounds of 3+3+1 runs at the rate-30 wall).
+R03 against the 256-job cap: 232 shards of 7 fit the cap, but 6 runs per shard would need 270 shards, over it. So
+**R03 cannot run at `--jobs 3` on 16 GB within the 340-min timeout and the matrix limit**.
+
+- `--jobs 4` on a ~20 GB runner removes R01's risk (p99 308) but not R03's: p99 380, a 92% chance of one timeout.
+- **`--jobs 6` on a 32 GB runner is the required configuration** (6 × 4.8 = 28.8 GB, under 32): every spec's p99 is
+  at most 299 min, with at least 41 min of headroom. `nproc` on an 8-core runner is 8 (38.4 GB), so the sweep step
+  must pass **`--jobs 6` explicitly**; this is a one-line workflow change, not something a request file can set.
+  If only a 16 GB runner is available, run R02 and R04-R09 at `--jobs 3` and defer R01 and R03 to the 32 GB runner
+  (or split them across dispatches, which needs another workflow change).
+
+### 2.4 Release contents (D-135)
+
+Each shard runs `experiments.collect` on its own runs and uploads only `results/partial-<i>` (a summary and a hash
+row per run, a few MB); the publish job merges the parts with `experiments.merge_results` and commits one
+`summary.parquet` and `hashes.csv` for every run. The release carries those two files plus one raw-log run from
+every 100th shard: shards 0, 100 and 200, so at most 3 raw runs per spec and 16 in all (~11 GB), each under 2 GiB.
+The old 2 GiB/1,000-asset limit and the ~3 TB full-log download are gone; the publish job moves a few MB of
+summaries and ~11 GB of raw samples, not terabytes. The raw sample is a reproduction exhibit, not the archive: every
+run is reproducible from its committed config hash, scenario hash and seed (D-135).
+
+### 2.5 Trigger
+
+The plan job takes only the **first** changed request file of a push
+(`git diff --name-only ... | sort | head -1`). The request files stay on this draft PR; after the tag they must be
+landed **one commit and one push at a time** (or dispatched with `workflow_dispatch`). Merging this whole PR after
+the tag would start only `d01a-cleanup.yaml` and silently skip R01-R09.
 
 ## 3. Wall clock
 
-| Case | Job-hours | At 20 concurrent jobs |
-|---|---|---|
-| Measured mean, no margins | 1,552 | 78 h = 3.2 days |
-| With the two 10% margins and setup | 1,851 | 93 h = 3.9 days |
-| Plus a 10% tail for the last wave | 1,851 | 102 h = 4.3 days |
-| Conservative: every run at its system's p90 | 2,206 | 110 h = 4.6 days |
+| Configuration | Total job-hours | At 20 concurrent jobs | Timeout verdict |
+|---|---|---|---|
+| `--jobs 3`, 16 GB | 3,199 | 160 h = 6.7 days | R01 and R03 fail |
+| `--jobs 4`, ~20 GB | 2,897 | 145 h = 6.0 days | R03 fails (92%) |
+| **`--jobs 6`, 32 GB** | **2,613** | **131 h = 5.4 days** | all pass |
 
 20 concurrent jobs is the Free-plan limit (40 on Pro, 60 on Team), shared with every other workflow in the account.
-If the D01a cleanup shows the frozen code 20% slower than the measured mean, add 20% (4.6-5.5 days); the worst shard
-rises to ~270 min, still under 340. A 32 GB runner is needed for memory, not for speed: the wall clock stays ~3.9
-days unless the account's concurrency is raised.
+The recommended 6-job configuration: **5.4 days expected**, 145 h = 6.0 days conservative (every run at its
+system's p90), 5.9-6.6 days with a 10% tail for the last wave. If the D01a cleanup shows the frozen code 20% slower,
+6.5 days expected and 7.2 days conservative; R03's worst shard rises to ~326 min, still under 340. The 3-job
+configuration is not a full fallback: it is 6.7 days *and* cannot run R01/R03.
 
 ## 4. Verification plan
 
@@ -128,27 +161,30 @@ cells where one run can take ~190 min, so their sample is 1 run per job, dispatc
 `experiments/verify.sample` picks `max(1, ceil(frac × n))` runs, so each `frac` is chosen to give exactly the stated
 count (R01 0.0008 × 1,200 = 0.96 → 1; R04 0.0041 × 480 = 1.97 → 2). `verify.yml` passes `--salt "$GITHUB_RUN_ID"`;
 the request cannot fix the salt, so record the run id of each dispatch and reproduce a sample with
-`uv run python -m experiments.verify <spec> results/<spec>-<id>/hashes.csv --frac <frac> --salt <id>`.
-The 18 reruns may repeat a shared central cell across specs (at most 10 such repeats), so they cover 12-18 distinct
-configs. They are reproduction checks of already-reported cells, not new data, so they do not violate the run-once
-rule (plan V12.3).
+`uv run python -m experiments.verify <spec> results/<spec>-<id>/hashes.csv --frac <frac> --salt <id>`. The
+`hashes.csv` is the merged file committed by the results PR (§5 step 6), not a per-shard partial. The 18 reruns may
+repeat a shared central cell across specs (at most 10 such repeats), so they cover 12-18 distinct configs. They are
+reproduction checks of already-reported cells, not new data, so they do not violate the run-once rule (plan V12.3).
 
 ## 5. Order of operations
 
-1. Merge cleanup PRs **A-F** (`docs/FREEZE_CHECKLIST.md` §2).
+1. Merge cleanup PRs **A-F** (`docs/FREEZE_CHECKLIST.md` §2) and the pipeline PR #137 (D-135).
 2. Land `runs/requests/experiment/d01a-cleanup.yaml` **alone** on `revision-v2` (one commit, one push): 9 shards,
    1 run each, development split. Check that D01a's `calibration=configs/calibration/measured/
    i7_12700_64g_full-b4f89a4def` override still resolves after PRs A-F; if that bundle is deleted, the D01a spec
    changes, not this request. Log the result and the D-113 gate (wall time of the 500-worker 28 h run with the
-   planning caps removed) in `docs/validation/development-log.md` (checklist 4.4).
+   planning caps removed) in `docs/validation/development-log.md` (checklist 4.4). The same run measures the new
+   per-run collect time and the wall time with the frozen code.
 3. If the gate fails, take D-113 option B (caps return as swept constants) and add the R06/R07 variants before the
    tag; re-check the shard counts against the measured wall time.
 4. Tag `v2-freeze`; confirm checklist 5.4 (`ls runs/requests/experiment/ | grep -i '^r0'` is empty).
-5. Land `r01.yaml` ... `r09.yaml` one at a time, largest first (R01, R03, R04, R07, R02, R05, R06, R08, R09), so the
-   20 slots stay full and each push triggers exactly one spec. Dispatch the R08 decision-timing bench
-   (`bench-decision.yml`) in the same window (D-127).
-6. Merge each spec's results PR, then dispatch its verify request from `runs/requests/verify/` (created then, because
-   `hashes:` must point at the published `results/<spec>-<id>/hashes.csv`).
+5. Land `r01.yaml` ... `r09.yaml` one at a time, largest first (R01, R03, R04, R07, R02, R05, R06, R08, R09), each
+   as its own push so the first-changed-file trigger starts exactly that spec. Dispatch the R08 decision-timing
+   bench (`bench-decision.yml`) in the same window (D-127). R01 and R03 need the 32 GB runner with `--jobs 6`; the
+   rate-21 specs run on either runner at `--jobs 3` or 6.
+6. Merge each spec's results PR (the merged `summary.parquet` and `hashes.csv` of every run, from
+   `experiments.merge_results`), then dispatch its verify request from `runs/requests/verify/` (created then,
+   because `hashes:` must point at the committed `results/<spec>-<id>/hashes.csv`).
 7. After all nine specs are verified: scorecard and the V12.4 claim choice.
 
 ## 6. What in the R specs is still inconsistent with D-110..D-133
@@ -176,9 +212,11 @@ The cleanup PRs have not landed at `b7b5921` (v1 symbols are still in `voss/`, `
 6. **D-113, the gate.** If the cleanup rerun shows the uncapped planning no longer fits a job and option B returns
    the caps, they are swept constants and R07 needs variants for `max_plan_workers`, `hot_top_k` and `hot_fn_k`
    (today R07 has none, correctly, because D-113 deletes them).
-7. **D-134 does not exist.** The brief cites D-110..D-134; `docs/DECISIONS.md` ends at D-133. Nothing in R01-R09
-   refers to a D-134, but the freeze checklist's "D-110 to D-131" line is also stale relative to D-132/D-133.
+7. **D-134 does not exist.** The brief cites D-110..D-134; `docs/DECISIONS.md` ends at D-135 (D-134 is absent).
+   Nothing in R01-R09 refers to a D-134, but the freeze checklist's "D-110 to D-131" line is also stale relative to
+   D-132, D-133 and D-135.
 8. **Shared-run claim.** R02/R06/R07/R08/R09 say "shared run" / "nothing runs twice", which is true of the config
    hashes but not of the pipeline: `sweep` writes under `runs/<spec>/` and does not read another spec's directory.
-   Either seed the shared run directories from R01's release before those dispatches, or change the headers to say
-   the cells are re-run (4,300 executions, §1).
+   D-135 publishes only a raw sample, so the shared cells cannot be seeded from the release either; the sweep
+   executes 4,300 runs (4,180 distinct). Change the headers to say the cells are re-run, or add a seeding step
+   outside the release (a local copy before dispatch).
