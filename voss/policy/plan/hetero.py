@@ -3,7 +3,7 @@
 For function ``f`` and worker ``j``, one reserved concurrency unit is worth ``v_fj = (t_f / E[T_fj]) · π_fj`` reference
 servers: ``t_f`` is the function's reference run time, ``E[T_fj]`` its predicted run time on ``j`` and ``π_fj`` the
 probability that an invocation placed on ``j`` meets its deadline. In failure scenario ``ω`` (which workers stay for the
-horizon and do not drop work, with domain-wide shocks), function ``f`` with holders ``S`` and units ``u`` has capacity
+horizon and do not drop work), function ``f`` with holders ``S`` and units ``u`` has capacity
 ``X_f(ω) = Σ_{j ∈ S alive in ω} u_fj · v_fj`` and serves ``R_f(ω) = λ_f · (1 − B(X_f(ω), a_f))`` invocations per
 second within their deadline, ``a_f = λ_f · t_f``. Provisioning maximises ``Σ_f E_ω[R_f]`` over ``M`` sampled scenarios.
 
@@ -169,15 +169,8 @@ def provision(inp: HeteroInput, eps: float = 1e-9) -> Allocation:
     return Allocation(run.hold, run.units, run.st.value())
 
 
-def scenarios(
-    reliability: np.ndarray, domain: np.ndarray, shock: np.ndarray, m: int, gen: np.random.Generator
-) -> np.ndarray:
-    """``[m, J]`` failure scenarios: worker ``j`` survives with probability ``reliability[j]`` independently, and every
-    worker of a domain is lost together with that domain's shock probability ``shock[domain]`` (§11.5)."""
-    n_j = len(reliability)
-    own = gen.random((m, n_j)) < reliability[None, :]
-    doms = np.unique(domain) if n_j else np.zeros(0, np.int64)
-    hit = gen.random((m, len(doms))) < np.asarray([shock[d] if d < len(shock) else 0.0 for d in doms])[None, :]
-    lost = hit[:, np.searchsorted(doms, domain)] if n_j else np.zeros((m, 0), bool)
-    out: np.ndarray = own & ~lost
+def scenarios(reliability: np.ndarray, m: int, gen: np.random.Generator) -> np.ndarray:
+    """``[m, J]`` failure scenarios: worker ``j`` survives with probability ``reliability[j]`` independently (D-118:
+    the failure domain has no modelled shock; backups go to another owner, city and ISP)."""
+    out: np.ndarray = gen.random((m, len(reliability))) < reliability[None, :]
     return out

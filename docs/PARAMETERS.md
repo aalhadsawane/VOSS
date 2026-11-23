@@ -81,7 +81,6 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.planner.max_parallel_prepares` | `2` | S | preparation actions per worker per round |
 | `voss.planner.T_linger` | `30.0` | S | time a released worker keeps its warm sandboxes |
 | `voss.planner.scenarios` | `32` | S | failure scenarios per provisioning round (hetero); the guarantee holds for the sample average |
-| `voss.planner.domain_shock_p` | `0.0` | pending V11 | deleted by D-118 |
 | `voss.planner.ablate` | `()` | A | ablations of plan §11.7 (homogeneous, binary, reliability_blind) for R06 |
 | `voss.planner.params` | `{}` | S | container of the `voss.planner.params.*` rows; each row has its own class |
 | `voss.scheduler.heartbeat_s` | `2.0` | S | worker report period |

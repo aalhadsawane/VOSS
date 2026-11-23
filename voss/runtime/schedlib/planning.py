@@ -65,7 +65,7 @@ class Planning:
         inp = survival_blind(inp) if self.params.survival_blind else inp
         if self.cfg.planner.name == "hetero":  # per-worker run times, deadline probabilities, failure scenarios (§11)
             pc = self.cfg.planner
-            het = hetero_inputs(inp, view, self.ctx, self.models, pc.scenarios, pc.domain_shock_p, self.rng, pc.ablate)
+            het = hetero_inputs(inp, view, self.ctx, self.models, pc.scenarios, self.rng, pc.ablate)
             inp = replace(inp, hetero=het)
         return inp
 
