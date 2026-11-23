@@ -37,12 +37,11 @@ from voss.runtime.verifier import Verifier
 from voss.runtime.worker_agent import WorkerAgent
 from voss.runtime.workerlib.faults import Adversary
 from voss.runtime.workerlib.host import HostLocal, make_host
-from voss.world.execution import ExecParams, noise_matrix
+from voss.world.execution import ExecParams, load_exec, noise_matrix
 from voss.world.hardware import HwClass
 from voss.world.network import Network, NetworkParams
 from voss.world.scenario import Scenario, generate
 from voss.world.substrate import SubstrateProfile, load_bundle, load_substrate
-from voss.world.workers import TIERS
 from voss.world.workload import SLO_CLASSES, FunctionSpec
 
 ClassInputs = tuple[dict[FnId, FunctionSpec], dict[str, Dist], dict[str, SubstrateProfile]]
@@ -68,7 +67,12 @@ class VossSystem:
         self.ctx = ActorContext(self.kernel, self.net, self.rec, self.rng, clock, cfg, self.directory)
         self.cost = cost_context(cfg, scn.catalog, scn.metros, self.profiles, self.bundle)
         self.priors = fn_priors(scn.catalog)
+        self.exec_override = ExecParams.model_validate(cfg.scenario.execution).model_dump(exclude_unset=True)
+        self.exec_ref = load_exec(cfg.calibration).model_copy(
+            update=self.exec_override
+        )  # D-133: reference repeat variation; the key overrides only
         self.by_class: dict[str, ClassInputs] = {}  # calibrated fleet (plan V9.4): per machine class
+        self.exec_by_class: dict[str, ExecParams] = {}
         self.agents: dict[WorkerId, WorkerAgent] = {}
         self.routers: list[Router] = []
         self._infra()
@@ -123,14 +127,19 @@ class VossSystem:
         if fleet is None:
             raise ValueError("a VOSS run needs a calibrated fleet (D-107; checklist 1.2)")
         hw = fleet.hw
-        ep = ExecParams.model_validate(self.cfg.scenario.execution)
-        noise = noise_matrix(self.rng.stream("inv.exec.noise"), len(self.scn.arrivals), 6, ep)
+        base = np.array(
+            [
+                self.scn.catalog.functions[int(i)].base or self.scn.catalog.functions[int(i)].name
+                for i in self.scn.arrivals.frame.fn
+            ]
+        )
+        noise = noise_matrix(self.rng.stream("inv.exec.noise"), base, 6, self.exec_ref)
         for w in range(len(wt)):
             wid = WorkerId(w)
             hc = hw[wt.hw_names[int(wt.hw[w])]]
             catalog, bundle, _ = self._class(hc)
             touched = bundle["snapshot_touched_frac"].mean() if "snapshot_touched_frac" in bundle else 0.3
-            params = {"exec": ep, "touched_frac": touched, "noise": noise}
+            params = {"exec": self._exec(hc), "touched_frac": touched, "noise": noise}
             host = self._host(wid, hc)
             self.net.add_host(
                 wid,
@@ -145,6 +154,13 @@ class VossSystem:
             if adv is not None:  # ground truth for analysis (who is adversarial), never read by the system
                 self.rec.log(Table.EVENTS, t=0.0, kind="adversary", worker=w, value=0.0, reason=adv.name)
             self.agents[wid] = self._attach(WorkerAgent(host, self.ctx, catalog, params, adv))
+
+    def _exec(self, hc: HwClass) -> ExecParams:
+        """Execution variation of the class's bundle; the noise draws are the reference's (common random numbers)."""
+        if hc.name not in self.exec_by_class:
+            ep = load_exec(f"calibration/measured/{hc.name}").model_copy(update=self.exec_override)
+            self.exec_by_class[hc.name] = ep.model_copy(update={"noise_cv": self.exec_ref.noise_cv})
+        return self.exec_by_class[hc.name]
 
     def _class(self, hc: HwClass) -> ClassInputs:
         """Catalogue, bundle and substrate profiles a worker of class ``hc`` runs with: its own calibrated machine's
@@ -184,7 +200,6 @@ class VossSystem:
             float(wt.lat[w]),
             float(wt.lon[w]),
             float(wt.tz[w]),
-            TIERS[int(wt.tier[w])],
             prof.name,
             float(wt.down_bps[w]),
             float(wt.up_bps[w]),

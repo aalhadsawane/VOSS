@@ -1,6 +1,6 @@
 """Run one E01 scenario on the emulation testbed (doc 10 §4, P9b), in real time.
 
-``python -m tools.emu.run configs/e01/s1_stable.yaml --out runs-e01/s1_stable-emu-1 --seed 1 \\
+``python -m tools.emu.run configs/smoke.yaml --out runs-e01/s1_stable-emu-1 --seed 1 \\
     --assets ~/voss-e01/assets --workdir ~/voss-e01/work``
 
 The run directory has the simulator's tables (so the same analysis reads both) plus ``emu.json``: backend counters,

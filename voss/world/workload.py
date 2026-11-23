@@ -47,6 +47,7 @@ class FunctionSpec(_M):
     idempotent: bool = False  # set from scenario.idempotent_frac (D-119), not a catalogue field
     slo_class: Literal["sync", "async"]
     owner: str = ""  # the tenant that owns the function; ``tenant`` is the function's key domain (D-85)
+    base: str = ""  # the measured catalogue function this trace function maps to (D-107); empty = its own name
 
 
 class TenantSpec(_M):
@@ -69,9 +70,9 @@ class FlashCrowd(_M):
 class LoadRegime(_M):
     """``configs/regimes/load_*.yaml`` merged with ``scenario.load`` overrides."""
 
-    regime: str
-    rate: float = Field(gt=0)
-    zipf_s: float = Field(ge=0)
+    regime: str = ""
+    rate: float = Field(default=1.0, gt=0)
+    zipf_s: float = Field(default=0.0, ge=0)
     diurnal: dict[str, float] = Field(default_factory=lambda: {"peak_h": 15.0, "amplitude": 0.3})
     mmpp: dict[str, float | bool] = Field(default_factory=dict)
     async_deadline_s: float = 60.0
@@ -161,8 +162,9 @@ def key_domains(cat: Catalog) -> Catalog:
 
 
 def load_load_regime(sc: ScenarioConfig) -> LoadRegime:
-    name = str(sc.load.get("regime", "load_default"))
-    return LoadRegime.model_validate(merged(load_data_yaml(f"regimes/{name}.yaml"), sc.load))
+    name = str(sc.load.get("regime", ""))
+    base = load_data_yaml(f"regimes/{name}.yaml") if name else {}
+    return LoadRegime.model_validate(merged(base, sc.load))
 
 
 def popularity(n: int, s: float, gen: np.random.Generator) -> np.ndarray:

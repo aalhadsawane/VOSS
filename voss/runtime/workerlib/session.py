@@ -115,7 +115,6 @@ class SessionMixin:
                 self.addr,
                 h.static_base.lat if h.static_base else 0.0,
                 h.static_base.lon if h.static_base else 0.0,
-                h.static_base.tier if h.static_base else "",
             ),
         )
         self.after(self.ctx.cfg.voss.verifier.reattest_every_s, self._reattest, session)

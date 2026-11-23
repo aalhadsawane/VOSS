@@ -65,12 +65,11 @@ class ScenarioConfig(Frozen):
     start_utc_h: float = 0.0
     warmup_s: float = Field(default=172800.0, ge=0)
     substrate_mix: dict[str, float] = Field(default_factory=lambda: {"appliance_tpm": 1.0})
-    tiers: dict[str, float] = Field(default_factory=lambda: {"nightly": 0.6, "idle": 0.3, "dedicated": 0.1})
     # calibrated fleet (plan V9.4, D-107; checklist 1.2): required, the only machine path
     machines: dict[str, Any]
     physical_frac: float = Field(default=0.0, ge=0, le=1)  # owners without memory encryption willing to attack
     # physically: class P, the rest class S (plan V3.3; axis, >0 only in the security experiment)
-    regime: str = "churn_med"
+    regime: str = "churn_seti"
     churn: dict[str, Any] = Field(default_factory=dict)
     adversary: dict[str, Any] = Field(default_factory=dict)
     load: dict[str, Any] = Field(default_factory=dict)

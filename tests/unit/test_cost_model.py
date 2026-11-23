@@ -25,7 +25,7 @@ CTX = CostContext(
 
 
 def view() -> ClusterView:
-    st = WorkerStatic(50.0, 8.0, 1.0, "idle", "appliance_tpm", 1e8, 2e7, 2000, 150, 0.0)
+    st = WorkerStatic(50.0, 8.0, 1.0, "appliance_tpm", 1e8, 2e7, 2000, 150, 0.0)
     cache = ({"f": CacheEntry("L3", "ram", 1)}, {"f": CacheEntry("L2", "ssd")}, {}, {"f": CacheEntry("L1", "hdd")})
     return ClusterView(
         as_of=0.0,

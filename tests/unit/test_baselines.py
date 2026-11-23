@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import yaml
 from voss.core.config import DetectionConfig, KeepaliveHistConfig, load_config
-from voss.policy.detect import HEDGE_MIN_SAMPLES, detector
+from voss.policy.detect import detector
 from voss.policy.keepalive_hist import HistParams
 
 REPO = Path(__file__).resolve().parents[2]
@@ -24,7 +24,7 @@ def test_hedged_timer_is_the_observed_p95() -> None:
     d = detector("hedged", DetectionConfig(), 3)
     lat = list(np.linspace(0.1, 2.0, 100))
     assert d.expiry_s(5.0, 0.4, 60.0, 5.0, lat) == pytest.approx(float(np.quantile(lat, 0.95)))
-    assert d.expiry_s(5.0, 0.4, 60.0, 5.0, lat[: HEDGE_MIN_SAMPLES - 1]) == pytest.approx(55.0)  # too few: deadline
+    assert d.expiry_s(5.0, 0.4, 60.0, 5.0, lat[: d.hedge_min_samples - 1]) == pytest.approx(55.0)  # too few
     assert d.backup_scope == "any" and not d.probe and d.streak == 0
 
 

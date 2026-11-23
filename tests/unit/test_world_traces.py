@@ -12,12 +12,13 @@ from voss.world.geo import load_metros
 from voss.world.machines import load_fleet
 from voss.world.sessions import generate_sessions
 from voss.world.substrate import SUBSTRATES, LadderSpec, load_bundle, load_substrate
-from voss.world.workers import TIERS, generate_workers
+from voss.world.workers import generate_workers
 from voss.world.workload import generate_arrivals, load_catalog, popularity
 
 from tests.fixtures.fleet import CALIBRATION, FLEET, PLACEHOLDER
 
 METROS = load_metros()
+CHURN = {"trace": "test", "trace_root": "tests/fixtures/traces"}
 
 
 def _workers(sc: ScenarioConfig, seed: int = 1):  # type: ignore[no-untyped-def]
@@ -25,30 +26,22 @@ def _workers(sc: ScenarioConfig, seed: int = 1):  # type: ignore[no-untyped-def]
     return generate_workers(sc, METROS, fleet.hw, RngFactory(seed), fleet.mix.weights)
 
 
+def _sessions_sc(**kw: object) -> ScenarioConfig:
+    return ScenarioConfig.model_validate({"machines": FLEET, "churn": CHURN, **kw})
+
+
 def test_workers_attributes() -> None:
     sc = ScenarioConfig(workers=2000, machines=FLEET)
     w = _workers(sc)
     assert len(w) == 2000 and len(set(w.identity)) == 2000
-    assert set(np.unique(w.tier)) == {0, 1, 2}
     assert (w.up_bps <= w.down_bps).all() and (w.slots >= 1).all()
     # failure domains are (asn, city): workers of one domain share a city
     for d in np.unique(w.domain)[:50]:
         assert len(np.unique(w.city[w.domain == d])) == 1
 
 
-def test_session_tails_are_heavy() -> None:
-    sc = ScenarioConfig(workers=600, machines=FLEET, tiers={"idle": 1.0}, warmup_s=7 * 86400)
-    w = _workers(sc)
-    tr = generate_sessions(sc, w, METROS, 3600.0, RngFactory(1))
-    s = tr.sessions[tr.sessions.reason != "shock"]
-    length = (s.end - s.start).to_numpy()
-    assert len(length) > 1000
-    assert length.std() / length.mean() > 1.2  # CV > 1: heavier than exponential
-    assert np.quantile(length, 0.99) / np.median(length) > 15
-
-
 def test_sessions_well_formed() -> None:
-    sc = ScenarioConfig(workers=300, machines=FLEET, regime="churn_high")
+    sc = _sessions_sc(workers=300)
     tr = generate_sessions(sc, _workers(sc), METROS, 3600.0, RngFactory(2))
     s = tr.sessions.sort_values(["worker", "start"])
     assert (s.end > s.start).all()
@@ -59,32 +52,6 @@ def test_sessions_well_formed() -> None:
     ev = tr.events()
     assert (np.diff(ev.t.to_numpy()) >= 0).all()
     assert set(ev.kind) == {"SESSION_START", "SESSION_END", "DRAIN_NOTICE"}
-
-
-def test_timezone_waves() -> None:
-    sc = ScenarioConfig(workers=3000, machines=FLEET, tiers={"nightly": 1.0}, warmup_s=86400, regime="churn_low")
-    w = _workers(sc)
-    tr = generate_sessions(sc, w, METROS, 86400.0, RngFactory(3))
-    hours = np.arange(0, 24)
-    peaks = {}
-    for tz in (9.0, 1.0, -5.0):
-        mask = np.isclose(w.tz, tz)
-        ids = set(np.flatnonzero(mask))
-        active = [len(ids.intersection(tr.active_at(h * 3600.0))) / len(ids) for h in hours]
-        peaks[tz] = int(hours[int(np.argmax(active))])
-    # night peaks track local time: UTC peak ≈ (local ~2-3 am) − tz, so UTC+9 peaks ~8-9 h before UTC+1
-    gap = (peaks[1.0] - peaks[9.0]) % 24
-    assert 6 <= gap <= 10, peaks
-    gap = (peaks[-5.0] - peaks[1.0]) % 24
-    assert 4 <= gap <= 8, peaks
-
-
-def test_regional_shocks_end_sessions_together() -> None:
-    sc = ScenarioConfig(workers=800, machines=FLEET, regime="churn_burst")
-    tr = generate_sessions(sc, _workers(sc), METROS, 3600.0, RngFactory(4))
-    shocked = tr.sessions[tr.sessions.reason == "shock"]
-    assert len(shocked) > 0
-    assert shocked.end.value_counts().max() >= 2
 
 
 def test_adversary_schedules_match_spec() -> None:
@@ -120,7 +87,10 @@ def test_no_adversaries_by_default() -> None:
 
 
 def test_workload_popularity_and_rate() -> None:
-    sc = ScenarioConfig(machines=FLEET, load={"rate": 50, "mmpp": {"enabled": False}, "diurnal": {"amplitude": 0.0}})
+    sc = ScenarioConfig(
+        machines=FLEET,
+        load={"regime": "", "rate": 50, "zipf_s": 1.0, "mmpp": {"enabled": False}, "diurnal": {"amplitude": 0.0}},
+    )
     cat = load_catalog(sc)
     arr = generate_arrivals(sc, cat, METROS, 3600.0, RngFactory(1)).frame
     assert len(arr) / 3600 == pytest.approx(50, rel=0.03)
@@ -133,7 +103,16 @@ def test_workload_popularity_and_rate() -> None:
 
 
 def test_flash_crowd() -> None:
-    sc = ScenarioConfig(machines=FLEET, load={"regime": "load_flash", "mmpp": {"enabled": False}})
+    sc = ScenarioConfig(
+        machines=FLEET,
+        load={
+            "regime": "",
+            "rate": 100,
+            "zipf_s": 1.0,
+            "mmpp": {"enabled": False},
+            "flash_crowds": [{"t": 1200, "duration_s": 300, "mult": 5.0, "fn": "top", "city": "London"}],
+        },
+    )
     arr = generate_arrivals(sc, load_catalog(sc), METROS, 3600.0, RngFactory(1)).frame
     inside = ((arr.t >= 1200) & (arr.t < 1500)).sum() / 300
     before = ((arr.t >= 600) & (arr.t < 1200)).sum() / 600
@@ -156,8 +135,7 @@ def test_ladder_validation() -> None:
         LadderSpec(levels=("L0", "L1", "L3"), ready="L3", busy="L3", transitions={"L0->L3": ()})
 
 
-def test_tiers_constant() -> None:
-    assert TIERS == ("nightly", "idle", "dedicated")
+def test_default_workers() -> None:
     assert RunConfig.model_validate({"scenario": {"machines": FLEET}}).scenario.workers == 1000
 
 

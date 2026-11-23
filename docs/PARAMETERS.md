@@ -20,19 +20,18 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `reference` | `'trusted_hosts'` | D | trusted always-on hosts baseline (V8): appliance ladder without attestation |
 | `scenario.workers` | `1000` | A | pool size axis (R03) |
 | `scenario.start_utc_h` | `0.0` | T | aligned to the trace window (V9) |
-| `scenario.warmup_s` | `172800.0` | D | = `voss.keepalive_hist.range_s` (14,400 s), the longest learning window of a compared policy (guardrail 23, D-97); every R spec sets it (`tests/unit/test_r_specs.py`); the base default is replaced at the freeze (`docs/FREEZE_CHECKLIST.md`) |
+| `scenario.warmup_s` | `14400.0` | D | = `voss.keepalive_hist.range_s` (14,400 s), the longest learning window of a compared policy (guardrail 23, D-97); every R spec sets it (`tests/unit/test_r_specs.py`) |
 | `scenario.substrate_mix` | `{'appliance_tpm': 1.0}` | A | owner classes S/P/M (V3.3) |
-| `scenario.tiers` | `{'nightly': 0.6, 'idle': 0.3, 'dedicated': 0.1}` | pending V11 | v1 assumed tiers; unused with traced sessions; delete at the freeze (`docs/FREEZE_CHECKLIST.md`) |
 | `scenario.machines` | required | D | calibrated fleet (V9.4, D-107; checklist 1.2): one class per measured bundle (M), weights from the BOINC host survey (T), radius 1 = one power-of-two step of the survey; the only machine path |
 | `scenario.physical_frac` | `0.0` | A | share of owners without memory encryption willing to attack physically (class P, V3.3) |
-| `scenario.regime` | `'churn_med'` | T | every R spec sets `churn_seti` (seti09, Failure Trace Archive, held-out split; `tests/unit/test_r_specs.py`); the parametric default is deleted at the freeze |
+| `scenario.regime` | `'churn_seti'` | T | SETI@home host availability (FTA seti09); every R spec sets the held-out split (`tests/unit/test_r_specs.py`) |
 | `scenario.churn` | `{}` | A | inline overrides of the regime: every R spec sets `split: heldout`; the notice fraction `graceful_frac` is an axis {0, 0.5} (R03, `configs/regimes/churn_seti.yaml`) |
 | `scenario.adversary` | `{}` | A | owner faults: fraction and behaviour (R04, R05) |
-| `scenario.load` | `{}` | T | every R spec sets the Azure Functions 2019 trace, held-out split (V9.1); `rate_mult` is the load axis {10.5, 21, 30} (D-99) |
-| `scenario.geo` | `{}` | T | every R spec sets `pop_trace: wup2025` (World Urbanization Prospects 2025, V9.3) |
-| `scenario.network` | `{}` | T | links: `link.trace` = Ookla fixed-broadband per metro (V9.3); `route_factor` 1.654 fitted to WonderProxy pings; `c_eff` 100 km/ms (fibre) |
+| `scenario.load` | `{'trace': 'azure2019', 'split': 'heldout'}` | T | Azure Functions 2019 arrivals (V9.1); `rate_mult` is the load axis {10.5, 21, 30} (D-99) |
+| `scenario.geo` | `{'pop_trace': 'wup2025'}` | T | World Urbanization Prospects 2025 metro populations (V9.3) |
+| `scenario.network` | `{'link': {'trace': 'ookla-fixed-2024q1'}}` | T | links: Ookla fixed-broadband per metro (V9.3); `route_factor` 1.654 fitted to WonderProxy pings; `c_eff` 100 km/ms (fibre) |
 | `scenario.envelope` | `{}` | A | D-132: donated shares `cpu_frac` 0.75, `mem_frac` 0.6, disks 0.2, stated; R07 varies `cpu_frac` {0.5, 1.0} and `mem_frac` {0.4, 0.8}; slots capped by donated memory (D-108) |
-| `scenario.execution` | `{}` | pending V11 | D-133: interference from the bundle's co-run table (M), noise from measured repeat variation (D), unmeasured parts deleted; leaves pending with that change |
+| `scenario.execution` | `{}` | D | D-133: only overrides of the bundle's execution model (timeout_s); co-run interference is the bundle's measured table (M) and noise its measured repeat variation (D) |
 | `scenario.functions` | `'functions.yaml'` | A | the function catalogue (D-119): guest memory stated; the deadline multiple and idempotent fraction are the two keys below |
 | `scenario.tenants` | `'tenants.yaml'` | A | tenant template (D-125): key-service city and default budget |
 | `scenario.deadline_multiple` | `5.0` | A | D-119: synchronous deadline = k x (warm run time + overhead), axis {2, 5, 10} (R07) |
@@ -153,34 +152,12 @@ for the file as a whole.
 | File | Class | Basis or fate |
 |---|---|---|
 | `configs/base.yaml` | A | defaults of every run |
-| `configs/e01/base.yaml` | pending V11 | v1 emulation; V13 builds its own scenario; delete at the freeze |
-| `configs/e01/i7-12700-64g/base.yaml` | pending V11 | v1 emulation; V13 builds its own scenario; delete at the freeze |
-| `configs/e01/i7-12700-64g/s1_stable.yaml` | pending V11 | v1 emulation; V13 builds its own scenario; delete at the freeze |
-| `configs/e01/i7-12700-64g/s2_churn.yaml` | pending V11 | v1 emulation; V13 builds its own scenario; delete at the freeze |
-| `configs/e01/i7-12700-64g/s3_omit.yaml` | pending V11 | v1 emulation; V13 builds its own scenario; delete at the freeze |
-| `configs/e01/i7-12700-64g/s3_omit_load.yaml` | pending V11 | v1 emulation; V13 builds its own scenario; delete at the freeze |
-| `configs/e01/i7-12700-64g/s4_load.yaml` | pending V11 | v1 emulation; V13 builds its own scenario; delete at the freeze |
-| `configs/e01/s1_stable.yaml` | pending V11 | v1 emulation; V13 builds its own scenario; delete at the freeze |
-| `configs/e01/s2_churn.yaml` | pending V11 | v1 emulation; V13 builds its own scenario; delete at the freeze |
-| `configs/e01/s3_omit.yaml` | pending V11 | v1 emulation; V13 builds its own scenario; delete at the freeze |
-| `configs/e01/s3_omit_load.yaml` | pending V11 | v1 emulation; V13 builds its own scenario; delete at the freeze |
-| `configs/e01/s4_load.yaml` | pending V11 | v1 emulation; V13 builds its own scenario; delete at the freeze |
 | `configs/request_bytes.yaml` | D | bytes a client sends per measured input size of each guest function (D-106) |
 | `configs/functions.yaml` | L | function catalogue (D-119): guest memory stated (A); run times and start-up are overridden per machine class from the bundles (M) |
-| `configs/functions_e01.yaml` | pending V11 | v1 emulation; V13 builds its own scenario; delete at the freeze |
 | `configs/regimes/adversary_all.yaml` | A | D-121: owner behaviour parameters, axes of the threat, stated with R04/R05 |
-| `configs/regimes/adversary_collude.yaml` | pending V11 | D-121: no spec uses it; delete at the freeze |
 | `configs/regimes/adversary_mixed.yaml` | A | D-121: owner behaviour parameters, axes of the threat, stated with R04/R05 |
 | `configs/regimes/adversary_none.yaml` | A | D-121: owner behaviour parameters, axes of the threat, stated with R04/R05 |
-| `configs/regimes/churn_burst.yaml` | pending V11 | parametric regime no reported spec uses; delete at the freeze (tests that use it move to a test fixture) |
-| `configs/regimes/churn_correlated.yaml` | pending V11 | parametric regime no reported spec uses; delete at the freeze (tests that use it move to a test fixture) |
-| `configs/regimes/churn_e01.yaml` | pending V11 | v1 emulation; V13 builds its own scenario; delete at the freeze |
-| `configs/regimes/churn_high.yaml` | pending V11 | parametric regime no reported spec uses; delete at the freeze (tests that use it move to a test fixture) |
-| `configs/regimes/churn_low.yaml` | pending V11 | parametric regime no reported spec uses; delete at the freeze (tests that use it move to a test fixture) |
-| `configs/regimes/churn_med.yaml` | pending V11 | parametric regime no reported spec uses; delete at the freeze (tests that use it move to a test fixture) |
-| `configs/regimes/churn_seti.yaml` | T | SETI@home host availability (FTA seti09), one host's week per worker (V9.2); `graceful_frac` axis |
-| `configs/regimes/load_default.yaml` | pending V11 | parametric regime no reported spec uses; delete at the freeze (tests that use it move to a test fixture) |
-| `configs/regimes/load_flash.yaml` | pending V11 | parametric regime no reported spec uses; delete at the freeze (tests that use it move to a test fixture) |
+| `configs/regimes/churn_seti.yaml` | T | SETI@home host availability (FTA seti09), one host's week per worker (V9.2); `graceful_frac` axis; no synthetic tiers or shocks (checklist 2.9) |
 | `configs/machines_mix.yaml` | T | survey mapping of the fleet overlay (D-107), generated by `experiments.analysis.fleet_mix` from the gitignored survey; the paper reads this file |
 | `configs/smoke.yaml` | A | test configuration |
 | `configs/substrates/appliance_tpm.yaml` | M | doc 04 §3: session steps measured (bundle), message sizes derived from the quote/certificate formats; certificate timings are the verifier's keys (D-120) |
@@ -195,5 +172,4 @@ for the file as a whole.
 | `configs/substrates/trusted_hosts.yaml` | M | appliance_tpm ladder without attestation or key release (V8); certificate timings are the verifier's keys (D-120) |
 | `configs/references/trusted_hosts.yaml` | A | trusted always-on hosts: the reference machine (node02 NVMe), host count from the pool's slots divided among the router metros (D-124) |
 | `configs/tenants.yaml` | A | tenant template (D-125): key-service city and default holder budget |
-| `configs/tenants_e01.yaml` | pending V11 | v1 emulation; V13 builds its own scenario; delete at the freeze |
 | `configs/toy.yaml` | A | test configuration |

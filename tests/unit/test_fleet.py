@@ -49,7 +49,7 @@ def _measured(bundle: str) -> dict[str, dict]:  # type: ignore[type-arg]
 
 
 def test_each_class_runs_its_own_bundle_times(fleet) -> None:  # type: ignore[no-untyped-def]
-    p = ExecParams(noise_sigma=0.0)
+    p = ExecParams()
     for b in (REF, OLD):
         fns, meas = {f.name: f for f in fleet.catalogs[b]}, _measured(b)
         assert fleet.hw[b].speed == 1.0  # no per-class speed scalar: differences are per function

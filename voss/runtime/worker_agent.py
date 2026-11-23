@@ -167,7 +167,6 @@ class WorkerAgent(RecoveryMixin, PlannedMixin, FetchMixin, SessionMixin, Actor):
             att.timings,
             att.level,
             att.trust_cold,
-            att.tier,
             att.ref_units,
             self._digest(att),
         )

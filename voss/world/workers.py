@@ -1,4 +1,4 @@
-"""Worker population (doc 02 §1): location, hardware, substrate, tier, identity, failure domain, link, envelope."""
+"""Worker population (doc 02 §1): location, hardware, substrate, identity, failure domain, link, envelope."""
 
 from __future__ import annotations
 
@@ -16,8 +16,6 @@ from voss.core.paths import REPO_ROOT
 from voss.core.rng import RngFactory
 from voss.world.geo import Metros, jitter_location
 from voss.world.hardware import HwClass
-
-TIERS: tuple[str, ...] = ("nightly", "idle", "dedicated")
 
 
 class GeoParams(BaseModel):
@@ -72,7 +70,6 @@ class WorkerTable:
     tz: np.ndarray
     hw: np.ndarray
     substrate: np.ndarray
-    tier: np.ndarray
     asn: np.ndarray
     domain: np.ndarray
     down_bps: np.ndarray
@@ -100,7 +97,6 @@ class WorkerTable:
         df = pd.DataFrame(cols)
         df["hw_name"] = [self.hw_names[i] for i in self.hw]
         df["substrate_name"] = [self.substrate_names[i] for i in self.substrate]
-        df["tier_name"] = [TIERS[i] for i in self.tier]
         return df
 
 
@@ -211,7 +207,6 @@ def generate_workers(
         tz=metros.tz[city],
         hw=hw,
         substrate=_pick(rng.stream("workers.substrate"), sc.substrate_mix, substrate_names, n),
-        tier=_pick(rng.stream("workers.tier"), sc.tiers, TIERS, n),
         asn=asn,
         domain=domain,
         owner_class=_owner_class(rng.stream("workers.owner"), [hw_classes[hw_names[i]] for i in hw], sc.physical_frac),

@@ -18,7 +18,7 @@ from voss.world.adversary import AdversaryTrace
 from voss.world.machines import load_hw
 from voss.world.scenario import Scenario, with_world
 from voss.world.sessions import SessionTrace
-from voss.world.workers import TIERS, WorkerTable
+from voss.world.workers import WorkerTable
 
 DC_LAST_MILE_S = 0.0005  # in-region data-centre hop  # TODO verify
 DC_BPS = 10e9
@@ -75,7 +75,6 @@ def dc_workers(scn: Scenario, ref: RefProfile, regions: tuple[str, ...]) -> Work
         hw=np.zeros(n, dtype=np.int64),
         owner_class=np.zeros(n, dtype=np.int64),  # provider hosts: class S (no physical attack)
         substrate=np.zeros(n, dtype=np.int64),
-        tier=np.full(n, TIERS.index("dedicated")),
         asn=domain.copy(),
         domain=domain,
         down_bps=np.full(n, DC_BPS),

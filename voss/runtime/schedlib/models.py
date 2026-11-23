@@ -83,7 +83,7 @@ class SchedModels:
             or self._static_key[1] != self.survival_version
         ):
             st = view.static if view.static else (None,) * len(view)
-            k, lam = self.survival.tier_params([s.tier if s else "idle" for s in st])
+            k, lam = self.survival.params_arr(len(view))
             start = np.array([s.session_start if s else 0.0 for s in st])
             tz = np.array([s.tz if s else 0.0 for s in st])
             drain = (
@@ -95,6 +95,6 @@ class SchedModels:
             self._static_key = (view.cache, self.survival_version)
         return self._static_cache
 
-    def refit(self, live: dict[str, list[float]]) -> None:
+    def refit(self, live: list[float]) -> None:
         self.survival.refit(live)
         self.survival_version += 1

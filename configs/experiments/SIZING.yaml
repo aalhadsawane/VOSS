@@ -5,6 +5,7 @@ base: ../base.yaml
 overrides:
   - horizon_s=3600
   - scenario.warmup_s=0
+  - scenario.load.trace=""
   - voss.planner.name=hetero
 systems:
   w0300: [scenario.workers=300, scenario.load.rate=30]

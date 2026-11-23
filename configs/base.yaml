@@ -1,20 +1,23 @@
 # Full default config (doc 05 §6). World sections are validated by the world models that own them.
 # The calibrated fleet is the base (D-107, D-130; checklist 1.2): every run uses the measured machine classes below.
+# The v1 defaults are replaced by what every R spec sets (checklist 2.10): 4 h warm-up, the SETI@home sessions, the
+# Azure Functions arrivals, WUP 2025 populations and Ookla links. Test configs (smoke, toy) override the trace inputs.
 seed: 1
 horizon_s: 3600
 system: voss
 scenario:
   workers: 1000
   start_utc_h: 0
-  warmup_s: 172800
+  warmup_s: 14400
   substrate_mix: {appliance_tpm: 1.0}
-  tiers: {nightly: 0.6, idle: 0.3, dedicated: 0.1}
   machines:
     bundles: [node02-i7-12700-64g-nvme_nvme, node02-i7-12700-64g-nvme_hdd, node04-i7-4790s-8g-hdd_hdd]
     survey: boinc-rosetta
-  regime: churn_med
+  regime: churn_seti
   adversary: {regime: adversary_none}
-  load: {regime: load_default, rate: 100}
+  load: {trace: azure2019, split: heldout}
+  network: {link: {trace: ookla-fixed-2024q1}}
+  geo: {pop_trace: wup2025}
   functions: functions.yaml
   tenants: tenants.yaml
 decision_clock: {mode: modeled, coeffs_file: calibration/provider/intel-xeon-6975p-c/decision.yaml}  # measured, plan V10
