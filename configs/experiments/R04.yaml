@@ -1,0 +1,52 @@
+# R04 owners who drop work: failure handling (docs/REVISION_PLAN.md V12.2; hypothesis H3). HELD-OUT SPLIT, REPORTED RESULT: run once, on the code
+# tagged v2-freeze, after the hypotheses of docs/architecture/06-experiments.md §3 are committed (guardrails 22, 31).
+# Do not create its request file before the freeze (docs/FREEZE_CHECKLIST.md).
+#
+# Header (AGENTS.md rule 21):
+#   workers      500 (D-97)
+#   load         Azure Functions 2019, held-out split, scenario.load.rate_mult 21 (R01's central level)
+#   utilisation  as R01 (measured fn_util_p50 / fn_util_p95 and pool utilisation per run, D-99)
+#   duration     horizon_s 100,800 (28 h): 4 h warm-up + 24 h measured (D-97)
+#   warm-up      scenario.warmup_s 14,400 = voss.keepalive_hist.range_s, the longest learning window of a compared
+#                policy (guardrail 23)
+#   calibration  calibrated fleet configs/machines.yaml (D-107, D-108): bundles node02-i7-12700-64g-nvme_nvme
+#                (reference), node02-i7-12700-64g-nvme_hdd, node04-i7-4790s-8g-hdd_hdd, weighted by the Rosetta@home
+#                survey (configs/machines_mix.yaml); measured bundles only (guardrail 28)
+#   trace split  held-out: load azure2019 heldout, sessions churn_seti heldout (seti09, odd hosts, second week);
+#                links ookla-fixed-2024q1, populations wup2025 and the host survey have no split
+#   seeds        1-10 (plan V12.2: at least 10)
+#   K            voss.keys.max_holders 8 (R01's central K)
+# Grid: dropping owners scenario.adversary.alpha in {0, 0.1, 0.2} of the pool (plan: 0, 10, 20%) x strategy
+#   scenario.adversary.mix, one behaviour each (plan V7.3): black_hole (drop-all), omit_random (drop-fraction, omit_p
+#   0.5), on_off (1,800 s serving / 600 s dropping), throttle (delay, throttle_f 0.3); parameters of
+#   configs/regimes/adversary_mixed.yaml and AdversaryParams, class A, stated in the paper (D-121).
+#   alpha 0 is the no-fault control (one per strategy; the scenarios are equal, the config hashes are not).
+#   Dropping owners are of class S or P (both can omit); the claim names both (guardrail 24).
+# Systems: every failure-handling system of configs/baselines.yaml, each with VOSS provisioning (hetero).
+# Runs: 4 systems x 3 levels x 4 strategies x 10 seeds = 480. Output: Fig. 5 (deadlines met), time to eject, false
+#   ejections.
+experiment: R04
+base: ../machines.yaml
+overrides:
+  - horizon_s=100800
+  - scenario.warmup_s=14400
+  - scenario.workers=500
+  - scenario.regime=churn_seti
+  - scenario.churn.split=heldout
+  - scenario.load.trace=azure2019
+  - scenario.load.split=heldout
+  - scenario.network.link.trace=ookla-fixed-2024q1
+  - scenario.geo.pop_trace=wup2025
+  - voss.keys.max_holders=8
+  - scenario.load.rate_mult=21
+  - voss.planner.name=hetero
+  - scenario.adversary.regime=adversary_mixed
+grid:
+  scenario.adversary.alpha: [0.0, 0.1, 0.2]
+  scenario.adversary.mix: [{black_hole: 1.0}, {omit_random: 1.0}, {on_off: 1.0}, {throttle: 1.0}]
+systems:
+  voss: [voss.detection.detector=voss]
+  fixed_timeout: [voss.detection.detector=fixed]
+  consecutive_ejection: [voss.detection.detector=consecutive]
+  hedged: [voss.detection.detector=hedged]
+seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]

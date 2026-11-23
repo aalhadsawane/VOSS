@@ -1,0 +1,41 @@
+# R08 scale: one scheduler's limit (docs/REVISION_PLAN.md V12.2). HELD-OUT SPLIT, REPORTED RESULT: run once, on the code
+# tagged v2-freeze, after the hypotheses of docs/architecture/06-experiments.md §3 are committed (guardrails 22, 31).
+# Do not create its request file before the freeze (docs/FREEZE_CHECKLIST.md).
+#
+# Header (AGENTS.md rule 21):
+#   workers      500 (D-97). D-127: the single-scheduler limit (about 9,000 workers at 0.1 invocations/s per worker,
+#                V10) is a throughput limit and is measured by the decision-timing bench (bench-decision.yml) rerun on
+#                the frozen code; this spec holds only the simulated 500-worker cell
+#   load         Azure Functions 2019, held-out split, scenario.load.rate_mult 21 (R01's central level); the bench
+#                caps its load at 300 invocations/s (V10)
+#   utilisation  as R01 (measured per run, D-99)
+#   duration     horizon_s 100,800 (28 h): 4 h warm-up + 24 h measured (D-97)
+#   warm-up      scenario.warmup_s 14,400 = voss.keepalive_hist.range_s, the longest learning window of a compared
+#                policy (guardrail 23)
+#   calibration  calibrated fleet configs/machines.yaml (D-107, D-108): bundles node02-i7-12700-64g-nvme_nvme
+#                (reference), node02-i7-12700-64g-nvme_hdd, node04-i7-4790s-8g-hdd_hdd, weighted by the Rosetta@home
+#                survey (configs/machines_mix.yaml); measured bundles only (guardrail 28)
+#   trace split  held-out: load azure2019 heldout, sessions churn_seti heldout (seti09, odd hosts, second week);
+#                links ookla-fixed-2024q1, populations wup2025 and the host survey have no split
+#   seeds        1-10 (plan V12.2: at least 10)
+#   K            voss.keys.max_holders 8 (R01's central K)
+# The w500 row is R01's central-cell VOSS run (no new runs). Larger simulated pools do not fit one job (D-97) and
+#   were deleted (D-127).
+# Runs: 1 x 10 seeds = 10, shared with R01. Output: with the bench, a table of decision time and scheduler capacity
+#   per pool, and deadlines met at 500 workers.
+experiment: R08
+base: ../machines.yaml
+overrides:
+  - horizon_s=100800
+  - scenario.warmup_s=14400
+  - scenario.regime=churn_seti
+  - scenario.churn.split=heldout
+  - scenario.load.trace=azure2019
+  - scenario.load.split=heldout
+  - scenario.network.link.trace=ookla-fixed-2024q1
+  - scenario.geo.pop_trace=wup2025
+  - voss.keys.max_holders=8
+  - voss.planner.name=hetero
+systems:
+  w500: [scenario.workers=500, scenario.load.rate_mult=21]
+seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]

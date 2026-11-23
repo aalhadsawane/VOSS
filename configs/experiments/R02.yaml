@@ -1,0 +1,47 @@
+# R02 mechanism: why baselines miss (docs/REVISION_PLAN.md V12.2). HELD-OUT SPLIT, REPORTED RESULT: run once, on the code
+# tagged v2-freeze, after the hypotheses of docs/architecture/06-experiments.md §3 are committed (guardrails 22, 31).
+# Do not create its request file before the freeze (docs/FREEZE_CHECKLIST.md).
+#
+# Header (AGENTS.md rule 21):
+#   workers      500 (D-97)
+#   load         Azure Functions 2019, held-out split, scenario.load.rate_mult 21 (R01's central level)
+#   utilisation  as R01 (measured fn_util_p50 / fn_util_p95 and pool utilisation per run, D-99)
+#   duration     horizon_s 100,800 (28 h): 4 h warm-up + 24 h measured (D-97)
+#   warm-up      scenario.warmup_s 14,400 = voss.keepalive_hist.range_s, the longest learning window of a compared
+#                policy (guardrail 23)
+#   calibration  calibrated fleet configs/machines.yaml (D-107, D-108): bundles node02-i7-12700-64g-nvme_nvme
+#                (reference), node02-i7-12700-64g-nvme_hdd, node04-i7-4790s-8g-hdd_hdd, weighted by the Rosetta@home
+#                survey (configs/machines_mix.yaml); measured bundles only (guardrail 28)
+#   trace split  held-out: load azure2019 heldout, sessions churn_seti heldout (seti09, odd hosts, second week);
+#                links ookla-fixed-2024q1, populations wup2025 and the host survey have no split
+#   seeds        1-10 (plan V12.2: at least 10)
+#   K            voss.keys.max_holders 8 (R01's central K)
+# R01's central cell: the same systems with the same overrides, so every R02 run is an R01 run (same config hash,
+#   tests/unit/test_r_specs.py) and nothing runs twice. The time series (queue, holders, misses) come from the
+#   events and samples tables every run logs; outputs: Fig. 3 (one episode) and episode statistics.
+# Runs: 8 systems x 10 seeds = 80, all shared with R01.
+experiment: R02
+base: ../machines.yaml
+overrides:
+  - horizon_s=100800
+  - scenario.warmup_s=14400
+  - scenario.workers=500
+  - scenario.regime=churn_seti
+  - scenario.churn.split=heldout
+  - scenario.load.trace=azure2019
+  - scenario.load.split=heldout
+  - scenario.network.link.trace=ookla-fixed-2024q1
+  - scenario.geo.pop_trace=wup2025
+  - voss.keys.max_holders=8
+  - scenario.load.rate_mult=21
+systems:
+  voss: [voss.planner.name=hetero]
+  on_demand: [voss.planner.name=none, voss.worker.warm_ttl_s=0]
+  fixed_keepalive: [voss.planner.name=keepalive_ttl]
+  hybrid_histogram: [voss.planner.name=histogram_prewarm]
+  prereleased_keys: [voss.planner.name=provisioned_keys]
+  eviction_aware: [voss.planner.name=keepalive_ttl, voss.placer.sync=eviction_aware, voss.placer.async=eviction_aware]
+  kpa: [voss.planner.name=kpa, voss.planner.T_plan=2]
+  greedy_dual: [voss.planner.name=keepalive_ttl, voss.worker.warm_eviction=greedy_dual, voss.worker.warm_ttl_s=1e9]
+left_out: [trusted_hosts, exact_program]  # as R01
+seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]

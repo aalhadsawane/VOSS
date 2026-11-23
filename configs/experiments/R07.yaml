@@ -1,0 +1,122 @@
+# R07 sensitivity to assumptions and swept constants (docs/REVISION_PLAN.md V12.2). HELD-OUT SPLIT, REPORTED RESULT: run once, on the code
+# tagged v2-freeze, after the hypotheses of docs/architecture/06-experiments.md §3 are committed (guardrails 22, 31).
+# Do not create its request file before the freeze (docs/FREEZE_CHECKLIST.md).
+#
+# Header (AGENTS.md rule 21):
+#   workers      500 (D-97)
+#   load         Azure Functions 2019, held-out split, scenario.load.rate_mult 21 (R01's central level)
+#   utilisation  as R01 (measured fn_util_p50 / fn_util_p95 and pool utilisation per run, D-99)
+#   duration     horizon_s 100,800 (28 h): 4 h warm-up + 24 h measured (D-97)
+#   warm-up      scenario.warmup_s 14,400 = voss.keepalive_hist.range_s, the longest learning window of a compared
+#                policy (guardrail 23)
+#   calibration  calibrated fleet configs/machines.yaml (D-107, D-108): bundles node02-i7-12700-64g-nvme_nvme
+#                (reference), node02-i7-12700-64g-nvme_hdd, node04-i7-4790s-8g-hdd_hdd, weighted by the Rosetta@home
+#                survey (configs/machines_mix.yaml); measured bundles only (guardrail 28)
+#   trace split  held-out: load azure2019 heldout, sessions churn_seti heldout (seti09, odd hosts, second week);
+#                links ookla-fixed-2024q1, populations wup2025 and the host survey have no split
+#   seeds        1-10 (plan V12.2: at least 10)
+#   K            voss.keys.max_holders 8 (R01's central K)
+# One-at-a-time variants of VOSS at R01's central cell, one systems label each (the label names the variant; the voss
+#   row is R01's central-cell run). D-129 sets the step:
+#   - every swept (S) constant VOSS reads, x0.5 (_lo) and x2 (_hi); integers rounded (max_resends 3 -> 2/6,
+#     max_attempts 3 -> 2/6, suspect_streak 2 -> 1/4, max_parallel_prepares 2 -> 1/4, scenarios 32 -> 16/64,
+#     w_max 4 -> 2/8); the timer quantile 0.95 -> 0.90/0.99 and the forgetting factor 0.995 -> 0.99/0.999;
+#   - switches and the registered alternatives: conformal quantiles off, admission off, Kaplan-Meier survival, LRU
+#     disk cache, no HDD tier, no freshness check;
+#   - key rotation period R in {1 h, 24 h} (plan §3; none is the voss row);
+#   - calibration machine mix: MilkyWay@home survey in place of Rosetta@home; node02 only (its two bundles).
+# Swept constants without a variant, with the reason, are listed in tests/unit/test_r_specs.py (R07_EXEMPT).
+#   - the provisioning period T_plan (S, plan V5.3) {15, 60} s, the retry backoff (D-116) {0.1, 0.4} s and the image
+#     memory reserve (D-117) {256, 1,024} MB;
+#   - the donated shares (D-132): cpu_frac {0.5, 1.0}, mem_frac {0.4, 0.8}.
+# Added when their keys land: drop-estimate prior and drift (D-111), deadline multiple and idempotent fraction
+#   (D-119), certificate validity and re-attestation (D-120), the time-to-start variance and OVERDUE_FRAC (D-122).
+#   Not varied: a trace source fallback (no second session or arrival source exists, D-129).
+# Runs: 71 variants x 10 seeds = 710 (10 shared with R01).
+experiment: R07
+base: ../machines.yaml
+overrides:
+  - horizon_s=100800
+  - scenario.warmup_s=14400
+  - scenario.workers=500
+  - scenario.regime=churn_seti
+  - scenario.churn.split=heldout
+  - scenario.load.trace=azure2019
+  - scenario.load.split=heldout
+  - scenario.network.link.trace=ookla-fixed-2024q1
+  - scenario.geo.pop_trace=wup2025
+  - voss.keys.max_holders=8
+  - scenario.load.rate_mult=21
+systems:
+  voss: [voss.planner.name=hetero]
+  t_dispatch_lo: [voss.planner.name=hetero, voss.router.T_dispatch=0.5]
+  t_dispatch_hi: [voss.planner.name=hetero, voss.router.T_dispatch=2.0]
+  max_resends_lo: [voss.planner.name=hetero, voss.router.max_resends=2]
+  max_resends_hi: [voss.planner.name=hetero, voss.router.max_resends=6]
+  window_lo: [voss.planner.name=hetero, voss.placer.window_s=0.1]
+  window_hi: [voss.planner.name=hetero, voss.placer.window_s=0.4]
+  forgetting_lo: [voss.planner.name=hetero, voss.predictor.forgetting=0.99]
+  forgetting_hi: [voss.planner.name=hetero, voss.predictor.forgetting=0.999]
+  admit_eps_lo: [voss.planner.name=hetero, voss.admission.eps=0.025]
+  admit_eps_hi: [voss.planner.name=hetero, voss.admission.eps=0.1]
+  defer_lo: [voss.planner.name=hetero, voss.admission.defer_s=0.5]
+  defer_hi: [voss.planner.name=hetero, voss.admission.defer_s=2.0]
+  refit_lo: [voss.planner.name=hetero, voss.models.refit_s=30.0]
+  refit_hi: [voss.planner.name=hetero, voss.models.refit_s=120.0]
+  cusum_h_lo: [voss.planner.name=hetero, voss.models.cusum_h=2.5]
+  cusum_h_hi: [voss.planner.name=hetero, voss.models.cusum_h=10.0]
+  replan_tol_lo: [voss.planner.name=hetero, voss.planner.replan_tolerance=0.1]
+  replan_tol_hi: [voss.planner.name=hetero, voss.planner.replan_tolerance=0.4]
+  min_rate_lo: [voss.planner.name=hetero, voss.planner.min_rate=0.005]
+  min_rate_hi: [voss.planner.name=hetero, voss.planner.min_rate=0.02]
+  horizon_lo: [voss.planner.name=hetero, voss.planner.horizon_factor=1.0]
+  horizon_hi: [voss.planner.name=hetero, voss.planner.horizon_factor=4.0]
+  prepares_lo: [voss.planner.name=hetero, voss.planner.max_parallel_prepares=1]
+  prepares_hi: [voss.planner.name=hetero, voss.planner.max_parallel_prepares=4]
+  linger_lo: [voss.planner.name=hetero, voss.planner.T_linger=15.0]
+  linger_hi: [voss.planner.name=hetero, voss.planner.T_linger=60.0]
+  scenarios_lo: [voss.planner.name=hetero, voss.planner.scenarios=16]
+  scenarios_hi: [voss.planner.name=hetero, voss.planner.scenarios=64]
+  heartbeat_lo: [voss.planner.name=hetero, voss.scheduler.heartbeat_s=1.0]
+  heartbeat_hi: [voss.planner.name=hetero, voss.scheduler.heartbeat_s=4.0]
+  price_tick_lo: [voss.planner.name=hetero, voss.scheduler.keepalive_s=0.5]
+  price_tick_hi: [voss.planner.name=hetero, voss.scheduler.keepalive_s=2.0]
+  stale_lo: [voss.planner.name=hetero, voss.scheduler.stale_after_s=3.5]
+  stale_hi: [voss.planner.name=hetero, voss.scheduler.stale_after_s=14.0]
+  attempts_lo: [voss.planner.name=hetero, voss.scheduler.max_attempts=2]
+  attempts_hi: [voss.planner.name=hetero, voss.scheduler.max_attempts=6]
+  no_cand_lo: [voss.planner.name=hetero, voss.scheduler.no_candidate_retry_s=0.25]
+  no_cand_hi: [voss.planner.name=hetero, voss.scheduler.no_candidate_retry_s=1.0]
+  view_refresh_lo: [voss.planner.name=hetero, voss.scheduler.view_refresh_s=0.125]
+  view_refresh_hi: [voss.planner.name=hetero, voss.scheduler.view_refresh_s=0.5]
+  timer_q_lo: [voss.planner.name=hetero, voss.detection.quantile=0.9]
+  timer_q_hi: [voss.planner.name=hetero, voss.detection.quantile=0.99]
+  probe_lo: [voss.planner.name=hetero, voss.detection.probe_timeout_s=1.0]
+  probe_hi: [voss.planner.name=hetero, voss.detection.probe_timeout_s=4.0]
+  streak_lo: [voss.planner.name=hetero, voss.detection.suspect_streak=1]
+  streak_hi: [voss.planner.name=hetero, voss.detection.suspect_streak=4]
+  suspect_lo: [voss.planner.name=hetero, voss.detection.suspect_s=300.0]
+  suspect_hi: [voss.planner.name=hetero, voss.detection.suspect_s=1200.0]
+  w_max_lo: [voss.planner.name=hetero, voss.planner.params.w_max=2]
+  w_max_hi: [voss.planner.name=hetero, voss.planner.params.w_max=8]
+  no_conformal: [voss.planner.name=hetero, voss.predictor.conformal=false]
+  no_admission: [voss.planner.name=hetero, voss.admission.enabled=false]
+  survival_km: [voss.planner.name=hetero, voss.models.survival=km]
+  cache_lru: [voss.planner.name=hetero, voss.cache.value=lru]
+  no_hdd: [voss.planner.name=hetero, voss.cache.hdd_tier=false]
+  no_freshness: [voss.planner.name=hetero, voss.planner.params.use_freshness=false]
+  rotate_1h: [voss.planner.name=hetero, voss.keys.rotate_s=3600]
+  rotate_24h: [voss.planner.name=hetero, voss.keys.rotate_s=86400]
+  fleet_milkyway: [voss.planner.name=hetero, scenario.machines.survey=boinc-milkyway]
+  fleet_node02: [voss.planner.name=hetero, "scenario.machines.bundles=[node02-i7-12700-64g-nvme_nvme, node02-i7-12700-64g-nvme_hdd]"]
+  t_plan_lo: [voss.planner.name=hetero, voss.planner.T_plan=15.0]
+  t_plan_hi: [voss.planner.name=hetero, voss.planner.T_plan=60.0]
+  backoff_lo: [voss.planner.name=hetero, voss.scheduler.retry_backoff_s=0.1]
+  backoff_hi: [voss.planner.name=hetero, voss.scheduler.retry_backoff_s=0.4]
+  m_base_lo: [voss.planner.name=hetero, voss.worker.m_base_mb=256.0, voss.planner.params.m_base_mb=256.0]
+  m_base_hi: [voss.planner.name=hetero, voss.worker.m_base_mb=1024.0, voss.planner.params.m_base_mb=1024.0]
+  cpu_frac_lo: [voss.planner.name=hetero, scenario.envelope.cpu_frac=0.5]
+  cpu_frac_hi: [voss.planner.name=hetero, scenario.envelope.cpu_frac=1.0]
+  mem_frac_lo: [voss.planner.name=hetero, scenario.envelope.mem_frac=0.4]
+  mem_frac_hi: [voss.planner.name=hetero, scenario.envelope.mem_frac=0.8]
+seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
