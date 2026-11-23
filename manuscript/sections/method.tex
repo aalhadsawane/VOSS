@@ -20,15 +20,19 @@ each reported run is identified by a hash of its logs.
 \label{sec:calib}
 
 Table~\ref{tab:machines} lists the calibrated machine classes: \VMachCount{} machines and \VMachProcClasses{}
-processor classes, with the first machine contributing one class per disk type. One script measures each machine
-with fixed sample counts, on an idle machine with the performance governor, using the same Firecracker release
-and guest kernel on every machine. We measure each function of the SeBS benchmark suite~\cite{copik2021sebs} at
-\VMachSizesLo{} to \VMachSizesHi{} input sizes with \VMachRuns{} runs per size (\VMachFns{} functions and
-\VMachPairs{} function--input pairs), from the calibration bundles. Table~\ref{tab:costs} gives the measured cost of
-each start-up step. No calibrated machine had memory encryption enabled, so every worker runs at the measured speed
-without it and no simulated owner is of class M. We do not measure the cost of memory encryption. The smaller machine
-has no TPM, so its TPM costs are the first machine's measured values and its class is used for compute measurements
-only.
+processor classes, with the first machine contributing one class per disk type. The two machines are node02
+(12th-generation Intel Core i7-12700, 64 GB of memory, NVMe and SATA hard disks) and node04 (Intel Core i7-4790S,
+8 GB of memory, SATA hard disk). One script measures each machine with fixed sample counts, on an idle machine with
+the performance governor, using the same Firecracker release and guest kernel on every machine. No node booted the
+real image. We measure execution, start-up and attestation times with the stack the image runs, not by booting the
+image.
+
+We measure each function of the SeBS benchmark suite~\cite{copik2021sebs} at \VMachSizesLo{} to \VMachSizesHi{} input
+sizes with \VMachRuns{} runs per size (\VMachFns{} functions and \VMachPairs{} function--input pairs), from the
+calibration bundles. Table~\ref{tab:costs} gives the measured cost of each start-up step. No calibrated machine had
+memory encryption enabled, so every worker runs at the measured speed without it and no simulated owner is of class M.
+We do not measure the cost of memory encryption. The smaller machine has no TPM, so its TPM costs are the first
+machine's measured values and its class is used for compute measurements only.
 
 \begin{table}[t]
 \caption{Calibrated machine classes. Memory is the usable memory reported by the operating system. The first two

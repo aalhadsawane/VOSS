@@ -52,7 +52,6 @@ generated macro or table.
 | Id | File | What is missing |
 |---|---|---|
 | T46 | `design.tex` | The provisioning period, the certificate renewal period and the keep-alive time of the fixed baseline are not in Table~\ref{tab:constants}: their class in the parameter ledger is not final. |
-| T48 | `design.tex` | The prior $(a_0, b_0)$, the pessimistic prior and the drift $k$ of~\eqref{eq:drop}, and the limit of three attempts, are not in Table~\ref{tab:constants}; add them with their class from the parameter ledger. |
 
 ## Not tied to a marker
 

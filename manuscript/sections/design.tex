@@ -296,9 +296,9 @@ Z_n = \max\!\left(0,\; Z_{n-1} + x_n - k\right).
 \label{eq:drop}
 \end{equation}
 When $Z_n > h$ the worker has started dropping work: $p_j$ restarts from a pessimistic prior, so that a worker that
-alternates between serving and dropping does not keep the estimate of its good period. \todoitem{T48}{parameter ledger}{The prior $(a_0, b_0)$, the
-pessimistic prior and the drift $k$ of~\eqref{eq:drop}, and the limit of three attempts, are not in
-Table~\ref{tab:constants}; add them with their class from the parameter ledger.} When the test fires, or after consecutive failures, the scheduler
+alternates between serving and dropping does not keep the estimate of its good period. The prior $(a_0, b_0)$, the
+pessimistic prior, the drift $k$ and the attempt limit are class-S keys, and Section~\ref{sec:res-sens} reports the
+sensitivity of each. Table~\ref{tab:constants} lists their values. When the test fires, or after consecutive failures, the scheduler
 stops assigning invocations to the worker for a period and tells it to drop its keys, which frees its places in the
 holder budgets. Heartbeats are used only to learn that a worker is gone; they are never evidence that it works.
 

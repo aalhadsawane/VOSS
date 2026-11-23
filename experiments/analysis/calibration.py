@@ -1,7 +1,7 @@
 """Measured machine data for the paper, from the merged calibration bundles only (plan V9.4; markers T03-T05, T07,
 T09, T13, T26, T44, T49 in the manuscript).
 
-The three fleet classes are the bundles of ``configs/machines.yaml``. A bundle carries the machine's specification
+The three fleet classes are the bundles of ``configs/base.yaml``. A bundle carries the machine's specification
 (``meta.yaml``), the fitted distribution of every measured step (``fits.yaml`` and ``distributions.yaml``) and the
 per-function execution times and co-run slowdowns (``functions.yaml``). The power-on to attested-worker time is
 computed from the raw appliance records of the machine's session boots; a class whose machine has no TPM takes the
@@ -34,11 +34,11 @@ CLASSES: tuple[tuple[str, str, str], ...] = (
     ("node04-i7-4790s-8g-hdd_hdd", "i7-4790S, SATA HDD", "node04"),
 )
 MACHINES = tuple(dict.fromkeys(machine for _, _, machine in CLASSES))
-FLEET = REPO_ROOT / "configs" / "machines.yaml"
+FLEET = REPO_ROOT / "configs" / "base.yaml"
 
 
 def fleet_bundles() -> list[str]:
-    """The bundles ``configs/machines.yaml`` gives the fleet, in order."""
+    """The bundles ``configs/base.yaml`` gives the fleet, in order."""
     config = _yaml(FLEET)
     return [str(bundle) for bundle in config["scenario"]["machines"]["bundles"]]
 
@@ -177,7 +177,7 @@ def _seconds(seconds: float) -> str:
 
 def values(out: dict[str, float | int | str]) -> None:
     """Macros for the machine and cost sentences (T03-T05, T09, T13, T26, T44, T49)."""
-    assert set(fleet_bundles()) == {bundle for bundle, _, _ in CLASSES}, "table does not match configs/machines.yaml"
+    assert set(fleet_bundles()) == {bundle for bundle, _, _ in CLASSES}, "table does not match configs/base.yaml"
     power = [power_on_s(b) for b, _, _ in CLASSES]
     boot = [measured(b, "fc_boot") * 1e3 for b, _, _ in CLASSES]
     restore = [measured(b, "fc_restore") * 1e3 for b, _, _ in CLASSES]
