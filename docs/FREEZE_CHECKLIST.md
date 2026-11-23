@@ -57,6 +57,9 @@ before the tag. After the tag, `voss/` and `configs/` change only by bug fixes l
 
 ## 5. Held-out specs and hypotheses (V12.1-V12.2)
 
+The shared central cells of R02, R06, R07, R08 and R09 are seeded from R01's release before their request files are
+pushed; the procedure is in `docs/validation/HELDOUT_RUNBOOK.md` (the runner does not deduplicate across specs).
+
 | # | Item | Check |
 |---|---|---|
 | 5.1 | R01-R09 match plan V12.2 and the decisions (D-126 R03 pools, D-127 R08, D-128 R06, D-129 R07). | `uv run pytest -q tests/unit/test_r_specs.py` |

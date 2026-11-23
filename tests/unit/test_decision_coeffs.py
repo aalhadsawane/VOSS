@@ -29,8 +29,11 @@ def test_a_file_that_misses_a_charged_kind_is_rejected(tmp_path: Path) -> None:
         DecisionClockConfig.model_validate({"coeffs_file": str(f)})
 
 
-def test_without_a_file_the_seed_coefficients_stay() -> None:
-    assert DecisionClockConfig().coeffs["plan"] == (0.02, 5e-5)
+def test_without_a_file_no_seed_coefficients_are_used() -> None:
+    """Checklist 2.11: unit tests pass their own coefficients; the config has no seed default."""
+    assert DecisionClockConfig().coeffs == {}
+    own = DecisionClockConfig(coeffs={"plan": (0.02, 5e-5)})
+    assert own.coeffs["plan"] == (0.02, 5e-5)
 
 
 def test_the_base_config_charges_the_measured_provider_coefficients() -> None:

@@ -117,7 +117,7 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `drain_s` | `30.0` | S | simulated time after the horizon for in-flight work |
 | `decision_clock.mode` | `'modeled'` | A | modeled for simulation, measured for emulation |
 | `decision_clock.cpu_scale` | `1.0` | S | emulation only |
-| `decision_clock.coeffs` | `{'plan': (0.02, 5e-05), 'place': (0.0002, 2e-05), 'route'...` | pending V11 | seed coefficients, used only without `coeffs_file` (unit tests); delete the seed default at the freeze |
+| `decision_clock.coeffs` | `{}` | D | empty unless a unit test passes its own; every run sets `coeffs_file` (V10; checklist 2.11) |
 | `decision_clock.coeffs_file` | `''` | M | measured provider coefficients (`configs/calibration/provider/<cpu>/decision.yaml`, V10) |
 | `calibration` | `'configs/calibration/measured/node02-i7-12700-64g-nvme_nvme'` | M | the fleet's reference machine (D-107, D-130); every experiment sets one of the fleet's measured bundles (guardrail 28) |
 | `out_dir` | `'runs'` | A | output location |

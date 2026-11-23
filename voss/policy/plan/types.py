@@ -77,7 +77,7 @@ class PlanInput:
         return out
 
     def allowed(self) -> np.ndarray:
-        """``[T, J]`` freshness (``y`` forced to 0 elsewhere); the v1 assurance floor is deleted (D-125)."""
+        """``[T, J]`` freshness (``y`` forced to 0 elsewhere); the v1 trust floor is deleted (D-125)."""
         ok = np.broadcast_to(self.fresh_ok[None, :], (len(self.tenants), len(self.workers))).copy()
         if not self.params.use_freshness:
             ok[:] = True

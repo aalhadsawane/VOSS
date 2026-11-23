@@ -1,7 +1,7 @@
 """Greedy trust & warm-state planner (doc 03 §4.3): baseline and MILP fallback.
 
 For each hot tenant in decreasing ``λ_t × ColdPenalty_t``: add the worker with the best
-``S_j(1−p_j) / memory cost`` (freshness and domain cap; the v1 assurance floor is deleted, D-125)
+``S_j(1−p_j) / memory cost`` (freshness and domain cap; the v1 trust floor is deleted, D-125)
 until coverage with the ``f_t`` largest contributions removed reaches ``q_t``; then add warm VMs and snapshots by
 value density until the budgets bind.
 """

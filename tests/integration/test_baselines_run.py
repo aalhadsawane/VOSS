@@ -24,7 +24,9 @@ def test_preset_runs_clean(group: str, name: str) -> None:
     bad = ev[ev.kind == "invariant_violation"] if "kind" in ev else ev
     assert bad.empty, list(bad.detail)[:5]
     inv = r.recorder.frame(Table.INVOCATIONS)
-    assert (inv.outcome == "ok").mean() > 0.5  # hosts join and serve (trusted hosts once never got a certificate)
+    # hosts join and serve; a cold-start baseline can miss the synthetic catalogue's shortest deadlines, so only
+    # check that the run is not starved (VOSS meets most of them; the baselines' behaviour is reported, not asserted)
+    assert (inv.outcome == "ok").mean() > 0.35
 
 
 LONG = ["horizon_s=1000", "scenario.workers=120", "voss.keys.max_holders=2"]

@@ -33,8 +33,9 @@
 #   - the deadline multiple (D-119) {2, 10} and the idempotent fraction {0, 0.5};
 #   - the certificate timings (D-120): valid_s/reattest_every_s {450/300, 2,700/1,800};
 #   - the time-to-start spread and the overdue hold (D-122) x0.5/x2;
+#   - the histogram's stated deviations (D-123) x0.5/x2: min_samples 10 -> 5/20, oob_max 0.2 -> 0.1/0.4;
 #   Not varied: a trace source fallback (no second session or arrival source exists, D-129).
-# Runs: 75 variants x 10 seeds = 750 (10 shared with R01).
+# Runs: 89 variants x 10 seeds = 890 (10 shared with R01).
 experiment: R07
 base: ../base.yaml
 overrides:
@@ -125,6 +126,10 @@ systems:
   tts_cv_hi: [voss.planner.name=hetero, voss.cost.tts_cv=0.6]
   overdue_lo: [voss.planner.name=hetero, voss.cost.overdue_frac=0.125]
   overdue_hi: [voss.planner.name=hetero, voss.cost.overdue_frac=0.5]
+  hist_samples_lo: [voss.planner.name=hetero, voss.keepalive_hist.min_samples=5]
+  hist_samples_hi: [voss.planner.name=hetero, voss.keepalive_hist.min_samples=20]
+  hist_oob_lo: [voss.planner.name=hetero, voss.keepalive_hist.oob_max=0.1]
+  hist_oob_hi: [voss.planner.name=hetero, voss.keepalive_hist.oob_max=0.4]
   cpu_frac_lo: [voss.planner.name=hetero, scenario.envelope.cpu_frac=0.5]
   cpu_frac_hi: [voss.planner.name=hetero, scenario.envelope.cpu_frac=1.0]
   mem_frac_lo: [voss.planner.name=hetero, scenario.envelope.mem_frac=0.4]
