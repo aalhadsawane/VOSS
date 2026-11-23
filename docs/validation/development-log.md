@@ -318,9 +318,10 @@ simulator shares.
 
 ## D-110 to D-137: cleanup and the D-113 gate
 
-The D-113 gate (500 workers, 28 h, `rate_mult` 30, no planning caps) started at 06:38 UTC and hit the
-340-minute job limit before its one run finished. A single run at that size therefore does not fit one
-Actions job on the no-caps code, and the held-out R01/R03 cells have the same shape. D-137 returns
+The D-113 gate (500 workers, 28 h, `rate_mult` 30, no planning caps; run 45125459516) started at
+06:38 UTC and was canceled by the job limit after 5 h 40 min 16 s, before its one run finished. A single
+run at that size therefore does not fit one Actions job on the no-caps code, and the held-out R01/R03
+cells have the same shape. D-137 returns
 `max_plan_workers` 40, `hot_top_k` 20 and `hot_fn_k` 50 as class-S pre-filters (workers by capacity and
 previous holders; tenants and functions by forecast rate), and R07 varies each x0.5/x2. The cleanup
 D01a rerun is re-dispatched on the fallback code; its run ID and result are added here when it finishes.
