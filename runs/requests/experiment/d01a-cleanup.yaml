@@ -1,3 +1,0 @@
-spec: D01a
-shards: 9
-note: "Post-cleanup development rerun of D01a (docs/FREEZE_CHECKLIST.md 4.4; development split, not a reported result): starts only after cleanup PRs A-F (docs/FREEZE_CHECKLIST.md §2) are merged and before the v2-freeze tag; 9 runs, one per shard, seed 1, K=8, rate_mult 21; its wall time is the D-113 gate (one 500-worker 28 h run with the planning caps removed)."
