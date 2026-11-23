@@ -27,10 +27,7 @@
 #                links ookla-fixed-2024q1, populations wup2025
 #   seeds        1-5
 #   K            voss.keys.max_holders in {2, 4, 8, 16, unbounded (null)}
-# Systems: every provisioning system of configs/baselines.yaml with its overrides, except
-#   exact_program (MILP): measured at 500 workers, rate_mult 10, K=8, 1 h with no warm-up: 620 s wall per simulated
-#   hour against 153 s for VOSS (4.1x; the solver adds ~470 s per simulated hour), so one 28 h run needs about 4.5 h
-#   more than VOSS on a runner and exceeds the 340-minute job limit. It remains an offline optimality check.
+# Systems: every provisioning system of configs/baselines.yaml with its overrides.
 # Runs: 9 systems x 5 K x 3 loads x 5 seeds = 675. Stage 1 (central cell, 1 seed) is D01a.
 # Cost (measured, 4-vCPU machine, 4 runs at a time, 500 workers, rate_mult 21, K=8, 1 h with a 10-minute warm-up):
 #   209-286 s wall and 2.8-3.8 M events per simulated hour (VOSS 286 s, 3.84 M); 28 h is about 108 M events for VOSS,
@@ -61,5 +58,5 @@ systems:
   kpa: [voss.planner.name=kpa, voss.planner.T_plan=2]
   greedy_dual: [voss.planner.name=keepalive_ttl, voss.worker.warm_eviction=greedy_dual, voss.worker.warm_ttl_s=1e9]
   trusted_hosts: [system=reference_cloud, voss.planner.name=hetero]
-left_out: [exact_program]  # see the header
+left_out: []  # see the header
 seeds: [1, 2, 3, 4, 5]

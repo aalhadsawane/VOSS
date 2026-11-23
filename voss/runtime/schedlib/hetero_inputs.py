@@ -68,7 +68,7 @@ def hetero_inputs(
     t_ref = np.array([ctx.fns[f].work_ref_s for f in inp.fns])
     allowed = inp.allowed()[inp.fn_tenant] if n_f else np.zeros((0, n_j), bool)
     prev = inp.y_prev[inp.fn_tenant] if n_f else np.zeros((0, n_j), bool)
-    lam = inp.rate[inp.fn_tenant] if n_f else np.zeros(0)
+    lam = inp.fn_rate if n_f else np.zeros(0)
     budget = inp.max_holders if inp.max_holders is not None else np.zeros(len(inp.tenants), np.int64)
     units, prep = inp.cap.astype(np.int64), preparation(inp, view, ctx, cols)
     return HeteroInput(lam, t_ref, et, pi, alive, units, budget[inp.fn_tenant], allowed, prev, prep, inp.horizon_s)

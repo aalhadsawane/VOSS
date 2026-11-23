@@ -89,7 +89,7 @@ def test_r01_is_the_plan_grid_with_the_published_systems() -> None:
     s = spec("R01")
     prov = BASELINES["provisioning"]
     assert set(s["systems"]) | set(s["left_out"]) == set(prov)
-    assert set(s["left_out"]) == {"trusted_hosts", "exact_program"}
+    assert set(s["left_out"]) == {"trusted_hosts"}
     for label, ov in s["systems"].items():
         assert ov == prov[label]["overrides"], label
     assert s["grid"] == {K_AXIS: [2, 4, 8, 16, None], UTIL_AXIS: [10.5, 21, 30]}

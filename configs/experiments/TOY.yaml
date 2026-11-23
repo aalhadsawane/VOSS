@@ -9,5 +9,5 @@ overrides:
   - scenario.load.rate=5
 systems:
   hetero: [voss.planner.name=hetero]
-  greedy: [voss.planner.name=greedy]
+  none: [voss.planner.name=none]
 seeds: [1, 2, 3]
