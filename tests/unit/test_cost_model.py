@@ -21,7 +21,6 @@ CTX = CostContext(
     tenants={"t": TenantInfo(50.0, 8.0, 0.0)},
     registry=(50.0, 8.0),
     routers={"r": (50.0, 8.0)},
-    K=3,
 )
 
 
@@ -59,7 +58,7 @@ def inv(deadline: float = 2.0) -> Invocation:
 
 def test_components_follow_the_ladder_and_trust() -> None:
     cm = build_cost_matrix((inv(),), view(), CTX, preds(), 0.0, ("r",))
-    assert cm.candidates.shape == (1, 3)  # top-K pruning
+    assert cm.candidates.shape == (1, N)  # every eligible worker is a candidate (D-112)
     by = {int(j): k for k, j in enumerate(cm.candidates[0])}
     c = cm.components
     assert by and 0 in by
@@ -72,7 +71,7 @@ def test_components_follow_the_ladder_and_trust() -> None:
 
 
 def test_full_worker_waits() -> None:
-    cm = build_cost_matrix((inv(),), view(), replace(CTX, K=4), preds(), 0.0, ("r",))
+    cm = build_cost_matrix((inv(),), view(), CTX, preds(), 0.0, ("r",))
     k = list(cm.candidates[0]).index(3)
     assert cm.components["wait"][0, k] > 0
 

@@ -49,7 +49,7 @@ class SchedModels:
         self.svc = 0.98 * self.svc + 0.02 * obs.exec_s
 
     def preds_fn(self, invs: tuple[Invocation, ...], view: ClusterView, now: float, start_utc_h: float) -> PredsFn:
-        """Predictions for row ``i`` on view indices ``sub`` (evaluated lazily on pruned candidates only)."""
+        """Predictions for row ``i`` on view indices ``sub`` (evaluated lazily on the candidates only)."""
         workers = np.asarray(view.workers, dtype=np.int64)
         self.sync_classes(view)
         load = contention(view.busy, view.queued + view.inflight, view.slots)

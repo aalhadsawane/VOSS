@@ -4,9 +4,8 @@ For invocations × candidate workers it produces the named components ``wait, tr
 the completion distribution and ``pMiss``. Trust and artifact fetch overlap the slot wait:
 ``time_to_start = max(wait, trust, fetch) + rest`` (doc 08 §5).
 
-Candidates are pruned in two stages (doc 03 §5.1 "top-K by a cheap lower bound"): a bound from cached per-view
-arrays (prior execution time, no failure model) keeps ``prune × K`` workers; predictions and the full model run on
-those only, and the best ``K`` by expected completion plus a failure penalty are returned.
+Every eligible worker is a candidate (D-112); candidates are ordered by expected completion plus a failure
+penalty, the best first.
 """
 
 from __future__ import annotations
@@ -138,13 +137,11 @@ def _row(
     }
 
 
-def prune(inv: Invocation, view: ClusterView, ctx: CostContext, st: Static, wait: np.ndarray, m: int) -> np.ndarray:
-    """Stage 1: the ``m`` best eligible workers by a prediction-free bound (sorted view indices)."""
-    prior = ctx.fns[inv.fn].work_ref_s / np.maximum(view.speed, 1e-9)
-    bound = np.where(st.ok, np.maximum(np.maximum(wait, st.trust), st.fetch) + st.rest + st.net + prior, np.inf)
-    if len(bound) <= m:
-        return np.arange(len(bound))
-    return np.sort(np.argpartition(bound, m - 1)[:m])
+def candidates(st: Static, width: int) -> np.ndarray:
+    """Every eligible worker (D-112), padded with ineligible ones to ``width`` columns (sorted view indices)."""
+    ok = np.flatnonzero(st.ok)
+    pad = np.flatnonzero(~st.ok)[: max(0, width - len(ok))]
+    return np.sort(np.concatenate([ok, pad]))
 
 
 def build_cost_matrix(
@@ -156,23 +153,24 @@ def build_cost_matrix(
     routers: tuple[str, ...],
     cache: ArrayCache | None = None,
     margin_s: float = 5.0,
-    prune_factor: int = 3,
     svc_s: float = 1.0,
     waits: Waits | None = None,
 ) -> CostMatrix:
-    """Doc 03 §5.2 for every invocation (rows) over its top-K eligible candidates."""
+    """Doc 03 §5.2 for every invocation (rows) over every eligible worker (D-112), best bound first; rows are padded
+    with infeasible columns to the widest row."""
     cache = cache or ArrayCache()
-    k = min(ctx.K, max(1, len(view)))
     occ = view.busy + view.queued + view.inflight
-    wait = np.maximum(0, occ - view.slots + 1) * svc_s / np.maximum(view.slots, 1)
+    base = np.maximum(0, occ - view.slots + 1) * svc_s / np.maximum(view.slots, 1)
+    sts = [static_parts(inv, view, ctx, cache, now, routers[i], margin_s) for i, inv in enumerate(invs)]
+    width = min(len(view), max([1, *(int(st.ok.sum()) for st in sts)]))
     rows, tops = [], []
     for i, inv in enumerate(invs):
-        wait = waits.pick(inv) if waits is not None else wait  # D-77: per-worker estimate, by SLO class
-        st = static_parts(inv, view, ctx, cache, now, routers[i], margin_s)
-        sub = prune(inv, view, ctx, st, wait, prune_factor * k)
+        wait = waits.pick(inv) if waits is not None else base  # D-77: per-worker estimate, by SLO class
+        st = sts[i]
+        sub = candidates(st, width)
         p = _slice(preds, i, sub) if isinstance(preds, Preds) else preds(i, sub)
         r = _row(inv, view, ctx, cache, st, sub, p, now, wait)
-        top = np.argsort(r["bound"], kind="stable")[:k]
+        top = np.argsort(r["bound"], kind="stable")
         rows.append({name: v[top] for name, v in r.items()})
         tops.append(sub[top])
 

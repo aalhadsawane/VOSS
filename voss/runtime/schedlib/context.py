@@ -85,7 +85,6 @@ def cost_context(
         (float(metros.lat[reg]), float(metros.lon[reg])),
         routers,
         scheduler=(float(metros.lat[sch]), float(metros.lon[sch])),
-        K=cfg.voss.placer.K,
         lifecycle_aware=c.lifecycle_aware,
     )
 

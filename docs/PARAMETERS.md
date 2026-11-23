@@ -52,7 +52,6 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.router.receipt_batch_s` | `1.0` | S | receipt batching to the DB |
 | `voss.placer.sync` | `'greedy'` | A | placement algorithm (V5.2) |
 | `voss.placer.async` | `'greedy'` | A | placement algorithm (V5.2) |
-| `voss.placer.K` | `12` | pending V11 | deleted by D-112 (every eligible worker is a candidate) |
 | `voss.placer.window_s` | `0.2` | S | batching window for asynchronous invocations |
 | `voss.predictor.name` | `'blr'` | S | run-time estimator (V5.4) |
 | `voss.predictor.forgetting` | `0.995` | S | run-time estimator forgetting factor |
@@ -70,10 +69,7 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.planner.T_plan` | `30.0` | S | plan V5.3: at least the longest preparation action, default 30 s chosen on the development split; R07 varies it |
 | `voss.planner.T_solve` | `2.0` | pending V11 | deleted by D-131 (exact program) |
 | `voss.planner.node_limit` | `50` | pending V11 | deleted by D-131 |
-| `voss.planner.max_plan_workers` | `40` | pending V11 | deleted by D-113 (gate: a 500-worker 28 h run still fits one job) |
 | `voss.planner.replan_tolerance` | `0.2` | S | re-plan only when inputs change by more than this |
-| `voss.planner.hot_top_k` | `20` | pending V11 | deleted by D-113 |
-| `voss.planner.hot_fn_k` | `50` | pending V11 | deleted by D-113 |
 | `voss.planner.min_rate` | `0.01` | S | functions below this request rate are not provisioned |
 | `voss.planner.f_from_alpha` | `0.1` | pending V11 | deleted by D-131 |
 | `voss.planner.horizon_factor` | `2.0` | S | forecast horizon in provisioning periods |

@@ -76,5 +76,4 @@ class CostContext:
     routers: dict[str, tuple[float, float]] = field(default_factory=dict)
     scheduler: tuple[float, float] | None = None  # the scheduler's location: the watchdog timer runs from there
     geo: GeoRtt = field(default_factory=GeoRtt)
-    K: int = 12
     lifecycle_aware: bool = True

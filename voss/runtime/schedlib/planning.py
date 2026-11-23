@@ -34,8 +34,9 @@ class PlanRound:
     n_vars: int = 0
 
 
-def _hot(rates: dict[str, float], k: int, min_rate: float) -> list[str]:
-    return [key for key, r in sorted(rates.items(), key=lambda x: (-x[1], x[0])) if r >= min_rate][:k]
+def _hot(rates: dict[str, float], min_rate: float) -> list[str]:
+    """Every key with a forecast rate of at least ``min_rate``, busiest first (D-113: no count cap)."""
+    return [key for key, r in sorted(rates.items(), key=lambda x: (-x[1], x[0])) if r >= min_rate]
 
 
 class Planning:
@@ -57,18 +58,9 @@ class Planning:
         self._last_sig: tuple[object, ...] = ()
 
     def _workers(self, view: ClusterView, now: float, horizon: float) -> np.ndarray:
-        """Planning pool (D-30): live workers, at most ``max_plan_workers`` (previous holders first, then by
-        capacity × assurance), until P5 clustering bounds cluster size."""
+        """Planning pool: every live attested worker that is not draining (D-113: no cap, no ranking)."""
         ok = (~view.draining) & (view.age < self.cfg.scheduler.stale_after_s) & (view.session_expiry > now)
-        idx = np.flatnonzero(ok)
-        k = self.cfg.planner.max_plan_workers
-        if len(idx) <= k:
-            return idx
-        held = {int(w) for w in (self.prev.workers if self.prev is not None else ())}
-        score = view.slots[idx] * view.assurance[idx] + np.array(
-            [1e6 if int(view.workers[i]) in held else 0.0 for i in idx]
-        )
-        out: np.ndarray = np.sort(idx[np.argsort(-score, kind="stable")[:k]])
+        out: np.ndarray = np.flatnonzero(ok)
         return out
 
     def build(self, view: ClusterView, now: float) -> PlanInput:
@@ -86,14 +78,10 @@ class Planning:
         idx = self._workers(view, now, horizon)
         st = [view.static[i] if view.static else None for i in idx]
         demand = self.models.forecaster.forecast(now)
-        tenants = _hot({k: v for k, v in demand.rate.items() if not k.startswith("fn:")}, pc.hot_top_k, pc.min_rate)
+        tenants = _hot({k: v for k, v in demand.rate.items() if not k.startswith("fn:")}, pc.min_rate)
         tenants = [t for t in tenants if t in self.ctx.tenants]
         fn_rates = {k[3:]: v for k, v in demand.rate.items() if k.startswith("fn:")}
-        fns = [
-            f
-            for f in _hot(fn_rates, pc.hot_fn_k, pc.min_rate)
-            if f in self.ctx.fns and self.ctx.fns[f].tenant in tenants
-        ]
+        fns = [f for f in _hot(fn_rates, pc.min_rate) if f in self.ctx.fns and self.ctx.fns[f].tenant in tenants]
         workers = np.asarray(view.workers, dtype=np.int64)[idx]
         k, lam, start, tz, drain = self.models._static(view)
         hour = np.mod(self.start_utc_h + now / 3600 + tz[idx], 24)
