@@ -28,8 +28,7 @@ can refuse service. The design removes the provider's ability to read functions 
 its ability to deny them.
 
 \paragraph{One scheduler.} All decisions are made by one scheduler, whose measured capacity
-(Section~\ref{sec:res-scale}) bounds the pool at a given load. We state the bound and do not evaluate several
-schedulers.
+(Section~\ref{sec:res-scale}) bounds the pool at a given load. The bound is for one scheduler.
 
 \paragraph{Guarantees hold for the model.} Propositions~\ref{prop:submodular} and~\ref{prop:shared} bound the greedy
 choice against the best choice under the model objective. The Erlang loss formula assumes Poisson arrivals and
