@@ -98,7 +98,8 @@ GitHub-hosted runner has **16 GB**:
 At `--jobs 3`, R02 and R04-R09 are safe (p99 171-173 min), but **R01 has a 59% chance that one of its 240 shards
 exceeds 340 min** (p99 367) and **R03 is certain to** (p99 430, three rounds of 3+3+1 runs at the rate-30 wall).
 R03 against the 256-job cap: 232 shards of 7 fit the cap, but 6 runs per shard would need 270 shards, over it. So
-**R03 cannot run at `--jobs 3` on 16 GB within the 340-min timeout and the matrix limit**.
+**R03 cannot run at `--jobs 3` on 16 GB within the 340-min timeout and the matrix limit**. These are per-job limits;
+the number of concurrent jobs does not change them.
 
 - `--jobs 4` on a ~20 GB runner removes R01's risk (p99 308) but not R03's: p99 380, a 92% chance of one timeout.
 - **`--jobs 6` on a 32 GB runner is the required configuration** (6 × 4.8 = 28.8 GB, under 32): every spec's p99 is
@@ -127,17 +128,26 @@ rest.
 
 ## 3. Wall clock
 
-| Configuration | Total job-hours | At 20 concurrent jobs | Timeout verdict |
-|---|---|---|---|
-| `--jobs 3`, 16 GB | 3,199 | 160 h = 6.7 days | R01 and R03 fail |
-| `--jobs 4`, ~20 GB | 2,897 | 145 h = 6.0 days | R03 fails (92%) |
-| **`--jobs 6`, 32 GB** | **2,613** | **131 h = 5.4 days** | all pass |
+| Configuration | Total job-hours | At 40 concurrent jobs (planning) | At 20 concurrent jobs (fallback) | Timeout verdict |
+|---|---|---|---|---|
+| `--jobs 3`, 16 GB | 3,199 | 80 h = 3.3 days | 160 h = 6.7 days | R01 and R03 fail |
+| `--jobs 4`, ~20 GB | 2,897 | 72 h = 3.0 days | 145 h = 6.0 days | R03 fails (92%) |
+| **`--jobs 6`, 32 GB** | **2,613** | **65 h = 2.7 days** | **131 h = 5.4 days** | all pass |
 
-20 concurrent jobs is the Free-plan limit (40 on Pro, 60 on Team), shared with every other workflow in the account.
-The recommended 6-job configuration: **5.4 days expected**, 145 h = 6.0 days conservative (every run at its
-system's p90), 5.9-6.6 days with a 10% tail for the last wave. If the D01a cleanup shows the frozen code 20% slower,
-6.5 days expected and 7.2 days conservative; R03's worst shard rises to ~326 min, still under 340. The 3-job
-configuration is not a full fallback: it is 6.7 days *and* cannot run R01/R03.
+The owner's GitHub plan is **Pro** and the repository is public: **40 concurrent jobs** (20 on Free, 60 on Team),
+shared with every other workflow in the account. **40 is the planning assumption**; the 20-job column is the
+conservative fallback. 40 concurrent jobs × 4 runs/shard = up to 160 runs in flight (the exact peak is 40 × 3 = 120
+with `--jobs 3`, and 40 × 6 = 240 on the 5- and 7-run shards with `--jobs 6`).
+
+The recommended 6-job configuration at 40 jobs: **2.7 days expected**, 72 h = 3.0 days conservative (every run at its
+system's p90), 3.0-3.3 days with a 10% tail for the last wave. If the D01a cleanup shows the frozen code 20% slower,
+3.3 days expected and 3.6 days conservative; R03's worst shard rises to ~326 min, still under 340. The 3-job
+configuration is not a full fallback: it is 3.3 days at 40 jobs *and* cannot run R01/R03.
+
+The per-spec mean and p99 in §2.3 are shard (job) times, not makespans, and do not change with concurrency. If a spec
+runs alone, its makespan is `ceil(shards/40) × its mean shard`: R01 17.2 h, R03 19.5 h, R04 9.3 h, R07 14.2 h; R02,
+R05, R06, R08 and R09 are one wave (2.2-2.5 h). Run one at a time, largest first, the sum is ~72 h; interleaving all
+specs in one 40-slot queue gives the 65 h figure.
 
 ## 4. Verification plan
 
