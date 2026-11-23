@@ -12,6 +12,12 @@ systems or run count.
 4. Run `R03`, `R04`, `R05` after R01 (their grids do not share R01 cells, but they use the same frozen code).
 5. Run `verify.yml` on each finished spec (V12.3).
 
+## D-113 gate
+
+If the D-113 wall-clock gate fails (the 500-worker 28 h run does not fit one job), the planning-pool and candidate
+caps return as swept constants (option B of D-113) and R07 must gain their variants before the tag. Do not add those
+variants pre-emptively.
+
 ## Shared cells
 
 `R02`, `R06`, `R07`, `R08` and `R09` contain R01's central cell (`K` = 8, `rate_mult` = 21, `voss`) and say so in

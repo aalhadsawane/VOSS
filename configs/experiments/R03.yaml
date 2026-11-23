@@ -22,7 +22,7 @@
 #   K            voss.keys.max_holders 8 (R01's central K)
 #   notice       grid scenario.churn.graceful_frac in {0, 0.5}: share of session ends announced with a drain notice
 #                (axis, configs/regimes/churn_seti.yaml; the trace does not record it)
-# Systems: R01's and the upper bound trusted_hosts (exact_program left out, as R01).
+# Systems: R01's and the upper bound trusted_hosts.
 # Runs: 9 systems x 3 pools x 3 loads x 2 notice fractions x 10 seeds = 1,620. Output: Fig. 4 (region map per system).
 experiment: R03
 base: ../base.yaml
@@ -51,5 +51,5 @@ systems:
   kpa: [voss.planner.name=kpa, voss.planner.T_plan=2]
   greedy_dual: [voss.planner.name=keepalive_ttl, voss.worker.warm_eviction=greedy_dual, voss.worker.warm_ttl_s=1e9]
   trusted_hosts: [system=reference_cloud, voss.planner.name=hetero]
-left_out: [exact_program]  # as R01
+left_out: []  # as R01
 seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]

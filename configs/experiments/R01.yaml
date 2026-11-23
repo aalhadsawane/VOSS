@@ -20,7 +20,6 @@
 #   K            grid axis voss.keys.max_holders in {2, 4, 8, 16, unbounded (null)}
 # Systems: every provisioning system of configs/baselines.yaml with its overrides, except
 #   trusted_hosts: the upper bound, run at the central cell in R09 (a line in Fig. 1);
-#   exact_program: an offline optimality check, not a system (cost in the D01 header; D-131 deletes it).
 # Runs: 8 systems x 5 K x 3 loads x 10 seeds = 1,200. Outputs: Fig. 1 (deadlines met vs K), Fig. 2 (latency and
 #   slowdown CDFs), table of holders, key releases per hour and warm memory.
 experiment: R01
@@ -47,5 +46,5 @@ systems:
   eviction_aware: [voss.planner.name=keepalive_ttl, voss.placer.sync=eviction_aware, voss.placer.async=eviction_aware]
   kpa: [voss.planner.name=kpa, voss.planner.T_plan=2]
   greedy_dual: [voss.planner.name=keepalive_ttl, voss.worker.warm_eviction=greedy_dual, voss.worker.warm_ttl_s=1e9]
-left_out: [trusted_hosts, exact_program]  # see the header
+left_out: [trusted_hosts]  # see the header
 seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]

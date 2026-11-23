@@ -44,10 +44,6 @@ provisioning:
     source: "FaaSCache: Fuerst and Sharma, ASPLOS 2021 (greedy-dual keep-alive)"
     overrides: [voss.planner.name=keepalive_ttl, voss.worker.warm_eviction=greedy_dual, voss.worker.warm_ttl_s=1e9]
     deviations: ["cold-start cost is the function's measured initialisation time"]
-  exact_program:
-    source: "optimality bound: the exact program solved by MILP"
-    overrides: [voss.planner.name=milp]
-    deviations: []
   trusted_hosts:
     source: "upper bound: hosts that never leave and need no attestation"
     overrides: [system=reference_cloud, voss.planner.name=hetero]  # VOSS's own provisioning on trusted hosts

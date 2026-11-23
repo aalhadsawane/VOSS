@@ -132,17 +132,14 @@ class AdmissionConfig(Frozen):
 
 
 class PlannerConfig(Frozen):
-    """Slow loop (doc 03 §4, doc 05 §6). Objective weights are in ``params`` (``policy.plan.types.PlanParams``)."""
+    """Slow loop (doc 03 §4, doc 05 §6). ``hetero`` is the only VOSS provisioning planner (D-131); the remaining
+    names are baselines."""
 
-    name: str = "milp"
+    name: str = "hetero"
     T_plan: float = 30.0
-    T_solve: float = 2.0
-    node_limit: int = 50
     replan_tolerance: float = 0.2
     min_rate: float = 0.01
-    f_from_alpha: float = 0.1
     horizon_factor: float = 2.0
-    cold_penalty: float = 10.0
     max_parallel_prepares: int = 2
     T_linger: float = 30.0
     scenarios: int = Field(default=32, ge=1)  # failure scenarios sampled per provisioning round (hetero, §11.6)

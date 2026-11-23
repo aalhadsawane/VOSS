@@ -68,20 +68,16 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.models.omission_prior` | `(0.5, 20.0)` | S | Beta prior (a0, b0) of the drop estimate (D-111); R07 varies its strength x0.5/x2 at equal mean |
 | `voss.models.omission_pessimistic` | `(2.0, 4.0)` | S | prior after a change point (D-111); R07 varies x0.5/x2 at equal mean |
 | `voss.models.cusum_k` | `0.1` | S | CUSUM drift (D-111); R07 varies {0.05, 0.2} |
-| `voss.planner.name` | `'milp'` | A | provisioning policy or baseline (V5, V8) |
+| `voss.planner.name` | `'hetero'` | A | VOSS's provisioning planner (D-131); the other names are baselines (V8) |
 | `voss.planner.T_plan` | `30.0` | S | plan V5.3: at least the longest preparation action, default 30 s chosen on the development split; R07 varies it |
-| `voss.planner.T_solve` | `2.0` | pending V11 | deleted by D-131 (exact program) |
-| `voss.planner.node_limit` | `50` | pending V11 | deleted by D-131 |
 | `voss.planner.replan_tolerance` | `0.2` | S | re-plan only when inputs change by more than this |
 | `voss.planner.min_rate` | `0.01` | S | functions below this request rate are not provisioned |
-| `voss.planner.f_from_alpha` | `0.1` | pending V11 | deleted by D-131 |
 | `voss.planner.horizon_factor` | `2.0` | S | forecast horizon in provisioning periods |
-| `voss.planner.cold_penalty` | `10.0` | pending V11 | deleted by D-131 |
 | `voss.planner.max_parallel_prepares` | `2` | S | preparation actions per worker per round |
 | `voss.planner.T_linger` | `30.0` | S | time a released worker keeps its warm sandboxes |
 | `voss.planner.scenarios` | `32` | S | failure scenarios per provisioning round (hetero); the guarantee holds for the sample average |
 | `voss.planner.ablate` | `()` | A | ablations of plan §11.7 (homogeneous, binary, reliability_blind) for R06 |
-| `voss.planner.params` | `{}` | S | container of the `voss.planner.params.*` rows; each row has its own class |
+| `voss.planner.params` | `{}` | S | container of the `voss.planner.params.*` rows (w_max, use_freshness, survival_blind) |
 | `voss.scheduler.heartbeat_s` | `2.0` | S | worker report period |
 | `voss.scheduler.stale_after_s` | `7.0` | S | a worker silent this long is treated as gone |
 | `voss.scheduler.max_attempts` | `3` | S | attempts per invocation |
@@ -122,15 +118,7 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `calibration` | `'configs/calibration/measured/node02-i7-12700-64g-nvme_nvme'` | M | the fleet's reference machine (D-107, D-130); every experiment sets one of the fleet's measured bundles (guardrail 28) |
 | `out_dir` | `'runs'` | A | output location |
 | `label` | `''` | A | run label |
-| `voss.planner.params.rho_mem` | `0.0001` | pending V11 | deleted by D-131 |
-| `voss.planner.params.rho_ssd` | `2e-05` | pending V11 | deleted by D-131 |
-| `voss.planner.params.kappa_switch` | `0.05` | pending V11 | deleted by D-131 |
-| `voss.planner.params.beta_warm` | `0.05` | pending V11 | deleted by D-131 |
-| `voss.planner.params.gamma` | `0.5` | pending V11 | deleted by D-131 |
-| `voss.planner.params.kappa_dom` | `0.5` | pending V11 | deleted by D-131 |
 | `voss.planner.params.w_max` | `4` | S | warm sandboxes per function per worker |
-| `voss.planner.params.use_robust` | `True` | pending V11 | deleted by D-131 (milp and greedy only) |
-| `voss.planner.params.use_domain_cap` | `True` | pending V11 | deleted by D-131 (milp and greedy only) |
 | `voss.planner.params.use_freshness` | `True` | S | skip workers whose certificate expires within the horizon |
 | `voss.planner.params.survival_blind` | `False` | A | ablation (R06) |
 
