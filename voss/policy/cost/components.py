@@ -95,7 +95,8 @@ def static_parts(
 def completion_of(
     tts: np.ndarray, net: np.ndarray, exec_mean: np.ndarray, exec_var: np.ndarray, tts_cv: float = 0.3
 ) -> Completion:
-    """Doc 03 §5.2: time to start plus network, with a ``tts_cv`` spread on the time to start (D-122), then execution."""
+    """Doc 03 §5.2: time to start plus network, with a ``tts_cv`` spread on the time to start (D-122), then
+    execution."""
     return moment_match(tts + net, (tts_cv * tts) ** 2, exec_mean, exec_var)
 
 

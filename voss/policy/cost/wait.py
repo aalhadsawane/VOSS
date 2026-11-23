@@ -42,8 +42,9 @@ def expected_wait(
     """Seconds until a slot is free for a request arriving at ``now`` (exact replay, O(n log n)).
 
     ``jobs`` are replayed in dispatch order (ties keep list order) on ``slots`` servers; a job past its predicted end
-    keeps holding its slot for ``overdue_frac`` of its prediction (D-122). ``unseen`` extra jobs (the worker reports more load
-    than the scheduler dispatched) are assumed to need ``default_s`` more: the first ``slots`` of them hold a slot now,
+    keeps holding its slot for ``overdue_frac`` of its prediction (D-122). ``unseen`` extra jobs (the worker reports
+    more load than the scheduler dispatched) are assumed to need ``default_s`` more: the first ``slots`` of them hold a
+    slot now,
     the rest queue at ``now``. With ``sync_priority`` a free slot serves waiting synchronous jobs first, so a
     synchronous arrival only waits behind running jobs and earlier synchronous ones.
     """
