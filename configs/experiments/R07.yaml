@@ -29,6 +29,7 @@
 #   - the provisioning period T_plan (S, plan V5.3) {15, 60} s, the retry backoff (D-116) {0.1, 0.4} s and the image
 #     memory reserve (D-117) {256, 1,024} MB;
 #   - the donated shares (D-132): cpu_frac {0.5, 1.0}, mem_frac {0.4, 0.8};
+#   - the provisioning pre-filter caps (D-113 fallback): planned workers {20, 80}, tenants {10, 40}, functions {25, 100}.
 #   - the drop estimate (D-111): prior and pessimistic prior x0.5/x2 at equal mean, drift k {0.05, 0.2}.
 #   - the deadline multiple (D-119) {2, 10} and the idempotent fraction {0, 0.5};
 #   - the certificate timings (D-120): valid_s/reattest_every_s {450/300, 2,700/1,800};
@@ -112,6 +113,12 @@ systems:
   fleet_node02: [voss.planner.name=hetero, "scenario.machines.bundles=[node02-i7-12700-64g-nvme_nvme, node02-i7-12700-64g-nvme_hdd]"]
   t_plan_lo: [voss.planner.name=hetero, voss.planner.T_plan=15.0]
   t_plan_hi: [voss.planner.name=hetero, voss.planner.T_plan=60.0]
+  plan_workers_lo: [voss.planner.name=hetero, voss.planner.max_plan_workers=20]
+  plan_workers_hi: [voss.planner.name=hetero, voss.planner.max_plan_workers=80]
+  hot_top_lo: [voss.planner.name=hetero, voss.planner.hot_top_k=10]
+  hot_top_hi: [voss.planner.name=hetero, voss.planner.hot_top_k=40]
+  hot_fn_lo: [voss.planner.name=hetero, voss.planner.hot_fn_k=25]
+  hot_fn_hi: [voss.planner.name=hetero, voss.planner.hot_fn_k=100]
   backoff_lo: [voss.planner.name=hetero, voss.scheduler.retry_backoff_s=0.1]
   backoff_hi: [voss.planner.name=hetero, voss.scheduler.retry_backoff_s=0.4]
   m_base_lo: [voss.planner.name=hetero, voss.worker.m_base_mb=256.0]
