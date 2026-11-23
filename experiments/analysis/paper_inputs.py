@@ -15,7 +15,8 @@ from voss.core.config import load_config
 from voss.core.paths import REPO_ROOT, config_path
 from voss.world.network import NetworkParams
 
-from experiments.analysis import fleet_mix
+from experiments.analysis import calibration, fleet_mix
+from experiments.analysis import traces as trace_stats
 from experiments.analysis.machines import machines
 from experiments.analysis.macros import write
 
@@ -74,13 +75,19 @@ def traces(values: dict[str, float | int | str]) -> None:
 
 
 def run_size(values: dict[str, float | int | str]) -> None:
-    """Size of every reported run (D-97), from the development main specification."""
+    """Size of every reported run (D-97), from the development main specification; seeds from the R specs."""
     spec = _yaml(REPO_ROOT / "configs" / "experiments" / "D01.yaml")
     ov = dict(o.split("=", 1) for o in spec["overrides"])
     total, warm = float(ov["horizon_s"]) / 3600, float(ov["scenario.warmup_s"]) / 3600
     values["RunWorkers"] = int(ov["scenario.workers"])
     values["RunHours"], values["RunWarmupHours"] = int(total), int(warm)
     values["RunMeasuredHours"] = int(total - warm)
+    seeds = {
+        int(seed)
+        for path in sorted((REPO_ROOT / "configs" / "experiments").glob("R0*.yaml"))
+        for seed in _yaml(path)["seeds"]
+    }
+    values["RunSeedLo"], values["RunSeedHi"] = min(seeds), max(seeds)
 
 
 # constants shown in the paper: ledger key -> (name in the paper, unit)
@@ -158,7 +165,6 @@ OTHER = [
     "| Verify every entry of `refs.bib` marked `TODO verify` against the publisher or DBLP | builder |",
     "| Feedback regression checklist (WRITING_SPEC.md §6) as `FEEDBACK_REGRESSION.md` | final front matter |",
     "| Generators for result macros, tables and figures from the experiment summaries | held-out experiments |",
-    "| Calibration of two further processor classes; `image-recognition` on node01 and node02 | bare-metal nodes |",
     "| Scheduler fixed (`v2-freeze`); then the held-out experiments run once | development experiments |",
     "| Affiliation and country in `main.tex` | author |",
     "",
@@ -168,16 +174,28 @@ OTHER = [
 def build() -> dict[str, float | int | str]:
     values: dict[str, float | int | str] = {}
     decision(values)
-    traces(values)
+    traces(values)  # trace derivation parameters
+    trace_stats.values(values)  # availability statistics (T08, T15)
     run_size(values)
     machines(values)
+    calibration.values(values)  # machine and start-up costs (T03-T05, T07, T09, T13, T26, T44, T49)
     fleet_mix.values(values)  # survey mapping of the calibrated fleet (T14, D-107)
     return values
+
+
+TABLES = {
+    "fleet.tex": fleet_mix.table,
+    "tab_machines.tex": calibration.machines_table,
+    "tab_costs.tex": calibration.costs_table,
+    "tab_capacity.tex": calibration.capacity_table,
+    "tab_trace.tex": trace_stats.table,
+}
 
 
 if __name__ == "__main__":
     write(build(), OUT)
     (OUT.parent / "constants.tex").write_text(constants_table())
-    (OUT.parent / "fleet.tex").write_text(fleet_mix.table())
+    for name, render in TABLES.items():
+        (OUT.parent / name).write_text(render())
     (REPO_ROOT / "manuscript" / "TODO.md").write_text(todo_list())
-    print(f"wrote {OUT}, constants.tex, fleet.tex and TODO.md")
+    print(f"wrote {OUT}, constants.tex, {', '.join(TABLES)} and TODO.md")
