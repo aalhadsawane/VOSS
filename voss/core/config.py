@@ -137,6 +137,9 @@ class PlannerConfig(Frozen):
 
     name: str = "hetero"
     T_plan: float = 30.0
+    max_plan_workers: int = 40  # D-113 fallback: the D-113 gate did not fit one job without a pre-filter
+    hot_top_k: int = 20  # tenant pre-filter, busiest first
+    hot_fn_k: int = 50  # function pre-filter, busiest first
     replan_tolerance: float = 0.2
     min_rate: float = 0.01
     horizon_factor: float = 2.0
