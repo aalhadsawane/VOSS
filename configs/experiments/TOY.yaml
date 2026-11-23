@@ -5,8 +5,9 @@ overrides:
   - horizon_s=900
   - scenario.workers=30
   - scenario.warmup_s=300
+  - scenario.load.trace=""
   - scenario.load.rate=5
 systems:
   hetero: [voss.planner.name=hetero]
-  greedy: [voss.planner.name=greedy]
+  none: [voss.planner.name=none]
 seeds: [1, 2, 3]

@@ -1,6 +1,6 @@
 """Registry of pluggable behaviors chosen by name in config (doc 05 §4).
 
-``@register("planner", "milp")`` records a factory; ``create("planner", "milp", **kw)`` builds it. The registry is
+``@register("planner", "hetero")`` records a factory; ``create("planner", "hetero", **kw)`` builds it. The registry is
 the one sanctioned module-level table (it is append-only and populated at import time).
 """
 

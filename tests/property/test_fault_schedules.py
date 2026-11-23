@@ -12,7 +12,7 @@ from voss.metrics.schema import Table
 from voss.runtime.system import run_system
 
 REPO = Path(__file__).resolve().parents[2]
-BASE = ["horizon_s=200", "scenario.workers=150", "scenario.load.rate=8", "voss.planner.name=greedy", "drain_s=40"]
+BASE = ["horizon_s=200", "scenario.workers=150", "scenario.load.rate=8", "voss.planner.name=hetero", "drain_s=40"]
 
 
 @settings(max_examples=6, deadline=None)

@@ -7,13 +7,14 @@ then, and when a worker is ejected. Every detector gets the same timers and the 
 | ``consecutive`` | the invocation's deadline | retry once elsewhere | after 5 failures in a row, for 30 s |
 | ``voss`` | predicted q95 completion | backup attempt on a holder in another failure domain | drop estimate + streak |
 | ``hedged`` | observed q95 latency of the function | second request to the best other eligible worker | never |
+| ``voss_no_backup`` | predicted q95 completion | probe only, no backup (R06 ablation, D-128) | drop estimate + streak |
 
 ``hedged`` is the hedged request of Dean and Barroso ("The Tail at Scale", CACM 2013) as published: the timer is the
 function's observed 95th-percentile latency (dispatch to outcome), the second request may go to any other eligible
-worker, and the slower one is cancelled. Until ``HEDGE_MIN_SAMPLES`` latencies are observed, the deadline is the timer.
+worker, and the slower one is cancelled. Until ``hedge_min_samples`` latencies are observed, the deadline is the timer.
 
-The ``consecutive`` defaults are Envoy's outlier detection (``consecutive_5xx: 5``, ``base_ejection_time: 30s``).
-# TODO verify against the Envoy documentation of the version cited in the paper.
+The ``consecutive`` defaults are Envoy's outlier detection defaults (``consecutive_5xx: 5``,
+``base_ejection_time: 30s``; Envoy outlier-detection proto, checked at the freeze).
 """
 
 from __future__ import annotations
@@ -25,20 +26,20 @@ import numpy as np
 
 from voss.core.config import DetectionConfig
 
-HEDGE_MIN_SAMPLES = 20
-
 
 @dataclass(frozen=True)
 class Detector:
     name: str
     timer: str  # "q95": predicted completion quantile | "deadline": the invocation's deadline
-    on_expiry: str  # "backup": start a backup, keep the first attempt | "retry": abandon it and retry
+    on_expiry: str  # "backup": start a backup, keep the first attempt | "retry": abandon it and retry | "probe": only
+    # probe the worker (no second attempt)
     streak: int  # failures in a row that eject a worker; 0 = never
     eject_s: float  # how long an ejection lasts
     change_point: bool  # an omission change point also ejects (drop estimate, doc 07)
     max_attempts: int  # attempts per invocation, the first included
     backup_scope: str = "holders_other_domain"  # where a backup may go: or "any" (hedged)
     probe: bool = True  # probe the silent worker on expiry (evidence for the drop estimate)
+    hedge_min_samples: int = 20  # D-122: hedged requests use the deadline until this many latencies are observed
 
     def expiry_s(
         self, t_dispatch: float, q_completion: float, t_deadline: float, now: float, observed: Sequence[float] = ()
@@ -46,7 +47,7 @@ class Detector:
         """Seconds from ``now`` until the attempt is presumed failed. No floor (plan V7.1, review F5)."""
         if self.timer == "q95":
             at = t_dispatch + q_completion
-        elif self.timer == "observed_q95" and len(observed) >= HEDGE_MIN_SAMPLES:
+        elif self.timer == "observed_q95" and len(observed) >= self.hedge_min_samples:
             at = t_dispatch + float(np.quantile(np.asarray(observed), 0.95))
         else:
             at = t_deadline
@@ -67,9 +68,13 @@ def detector(name: str, dc: DetectionConfig, max_attempts: int) -> Detector:
     if name == "consecutive":
         return Detector("consecutive", "deadline", "retry", dc.consecutive_streak, dc.consecutive_eject_s, False, 2)
     if name == "hedged":
-        return Detector("hedged", "observed_q95", "backup", 0, 0.0, False, max_attempts, "any", False)
+        return Detector(
+            "hedged", "observed_q95", "backup", 0, 0.0, False, max_attempts, "any", False, dc.hedge_min_samples
+        )
     if name == "voss":
         return Detector("voss", "q95", "backup", dc.suspect_streak, dc.suspect_s, True, max_attempts)
+    if name == "voss_no_backup":  # R06 ablation (D-128): the first attempt is probed, never backed up
+        return Detector("voss_no_backup", "q95", "probe", dc.suspect_streak, dc.suspect_s, True, max_attempts)
     raise KeyError(f"unknown detector {name!r}")
 
 

@@ -14,7 +14,7 @@
 #   trace split  development: load azure2019 dev, sessions churn_seti dev, links ookla-fixed-2024q1, populations wup2025
 #   seeds        1 (first stage; 3 seeds after the plumbing is exercised)
 #   K            voss.keys.max_holders 8 (D01's central K)
-# Systems: D01's (every provisioning system of configs/baselines.yaml except exact_program, see the D01 header).
+# Systems: D01's (every provisioning system of configs/baselines.yaml).
 # Runs: 9 systems x 3 pools x 3 loads x 1 seed = 81, one per shard. Events grow with arrivals, not workers, so
 # every run is at most the D-97 size (rate_mult 30 at 500 workers); the 500-worker cells have D01's config hashes.
 experiment: D03
@@ -42,5 +42,5 @@ systems:
   kpa: [voss.planner.name=kpa, voss.planner.T_plan=2]
   greedy_dual: [voss.planner.name=keepalive_ttl, voss.worker.warm_eviction=greedy_dual, voss.worker.warm_ttl_s=1e9]
   trusted_hosts: [system=reference_cloud, voss.planner.name=hetero]
-left_out: [exact_program]  # see the D01 header
+left_out: []  # see the D01 header
 seeds: [1]

@@ -22,7 +22,7 @@ def test_plans_logged_and_actions_sent(result: RunResult) -> None:
     plans = result.recorder.frame(Table.PLANS)
     assert len(plans) >= 5
     assert (plans.trust_pairs > 0).all() and (plans.actions >= 0).all()
-    assert set(plans.status) <= {"optimal", "reused"} | {s for s in plans.status if ":" in s}
+    assert set(plans.status) <= {"ok", "reused"} | {s for s in plans.status if ":" in s}
     msgs = result.recorder.frame(Table.MESSAGES).set_index("kind")
     assert msgs.loc["Prepare", "count"] > 0 and msgs.loc["Warm", "count"] > 0
 

@@ -41,8 +41,8 @@ class NetworkParams(BaseModel):
     infra_bw_mbps: float = 10_000.0
     bulk_threshold_bytes: int = 65_536
     local_delay_s: float = 1e-5
-    tls_msg_cpu_s: float = 2e-5  # TODO verify: calibration suite `tls`
-    tls_handshake_cpu_s: float = 1e-3  # TODO verify: calibration suite `tls`
+    tls_msg_cpu_s: float = 2e-5  # unverified seed: no bundle entry (paper agent note, docs/PARAMETERS.md)
+    tls_handshake_cpu_s: float = 1e-3  # unverified seed: no bundle entry (paper agent note)
     link: dict[str, float | str] = {}  # consumed by workers.LinkParams (str: the measured-links trace, plan V9.3)
 
 
