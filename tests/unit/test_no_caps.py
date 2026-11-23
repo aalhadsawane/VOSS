@@ -1,4 +1,4 @@
-"""D-112 and D-113: placement and provisioning see every eligible worker and every active function, with no caps."""
+"""D-112 and D-113 fallback: placement sees every eligible worker; provisioning pre-filters the plan."""
 
 from __future__ import annotations
 
@@ -32,14 +32,17 @@ def _view() -> ClusterView:
     )
 
 
-def test_every_live_worker_is_planned() -> None:
+def test_the_planning_pool_is_capped_and_keeps_previous_holders() -> None:
     planning = Planning.__new__(Planning)
     planning.cfg = VossConfig()
+    planning.prev = None
     idx = planning._workers(_view(), 0.0, 60.0)
-    assert list(idx) == [i for i in range(N) if i % 10]  # all but the draining ones, whatever their reliability
+    eligible = [i for i in range(N) if i % 10]
+    assert len(idx) == planning.cfg.planner.max_plan_workers
+    assert set(idx) <= set(eligible)
 
 
-def test_every_function_above_the_minimum_rate_is_planned() -> None:
+def test_the_function_pre_filter_is_capped_at_the_busiest() -> None:
     rates = {f"f{i:03d}": 1.0 + i for i in range(80)} | {"cold": 0.001}
-    hot = _hot(rates, 0.01)
-    assert len(hot) == 80 and "cold" not in hot and hot[0] == "f079"
+    hot = _hot(rates, 50, 0.01)
+    assert len(hot) == 50 and "cold" not in hot and hot[0] == "f079"
