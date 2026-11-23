@@ -4,7 +4,7 @@
 #
 # Header (AGENTS.md rule 21):
 #   workers      500 (D-97)
-#   load         Azure Functions 2019, held-out split, scenario.load.rate_mult 21 (R01's central level)
+#   load         Azure Functions 2019, held-out split, scenario.load.rate_mult 4.4 (R01's central level)
 #   utilisation  as R01 (measured fn_util_p50 / fn_util_p95 and pool utilisation per run, D-99)
 #   duration     horizon_s 100,800 (28 h): 4 h warm-up + 24 h measured (D-97)
 #   warm-up      scenario.warmup_s 14,400 = voss.keepalive_hist.range_s, the longest learning window of a compared
@@ -50,7 +50,7 @@ overrides:
   - scenario.network.link.trace=ookla-fixed-2024q1
   - scenario.geo.pop_trace=wup2025
   - voss.keys.max_holders=8
-  - scenario.load.rate_mult=21
+  - scenario.load.rate_mult=4.4
 systems:
   voss: [voss.planner.name=hetero]
   t_dispatch_lo: [voss.planner.name=hetero, voss.router.T_dispatch=0.5]
