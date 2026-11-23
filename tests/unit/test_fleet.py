@@ -14,7 +14,7 @@ from voss.core.paths import CONFIGS, load_data_yaml
 from voss.core.rng import RngFactory
 from voss.world.execution import ExecParams, true_runtime
 from voss.world.geo import load_metros
-from voss.world.machines import TPM_KEYS, load_fleet, load_hw, survey_mix
+from voss.world.machines import TPM_KEYS, class_catalog, load_fleet, load_hw, survey_mix
 from voss.world.workers import cap_slots_by_memory, generate_workers
 from voss.world.workload import Catalog, FunctionSpec, TenantSpec
 
@@ -159,3 +159,19 @@ def test_no_fleet_class_exceeds_its_donated_memory_at_the_default_envelope() -> 
     assert np.all(capped.slots * big <= capped.mem_mb)
     assert np.all(capped.slots >= 1)
     assert len(set(wt.hw[capped.slots < wt.slots].tolist())) == 1  # only the small-memory class is capped
+
+
+def test_a_synthetic_function_copy_uses_the_base_profile(fleet) -> None:  # type: ignore[no-untyped-def]
+    """The decision-timing bench appends -0, -1, ... to raise the function count; each copy uses the base profile."""
+    cat = _catalog()
+    base = next(f for f in cat.functions if f.name == "thumbnailer")
+    syn = base.model_copy(update={"name": "thumbnailer-0"})
+    cat = Catalog((*cat.functions, syn), cat.tenants, profiles=cat.profiles)
+    out = {f.name: f for f in class_catalog(cat, fleet.classes[REF])}
+    assert out["thumbnailer-0"].base == "thumbnailer"
+    assert out["thumbnailer-0"].work_ref_s == out["thumbnailer"].work_ref_s
+    mapped = base.model_copy(update={"name": "tr0099"})
+    cat = Catalog((*cat.functions, mapped), cat.tenants, profiles={**cat.profiles, "tr0099": ("thumbnailer-0", None)})
+    out = {f.name: f for f in class_catalog(cat, fleet.classes[REF])}
+    assert out["tr0099"].base == "thumbnailer"
+    assert out["tr0099"].work_ref_s == out["thumbnailer"].work_ref_s
