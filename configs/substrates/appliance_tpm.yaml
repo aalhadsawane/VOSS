@@ -1,7 +1,6 @@
 # Primary substrate (doc 04 §3-4): consumer PC + TPM 2.0 boots the measured VOSS appliance per donation session.
 provenance: {default: measured, note: "all measured/* refs come from the calibration bundle (placeholder until P9)"}
 name: appliance_tpm
-assurance_base: 0.80          # policy parameter for exposure (doc 04 §3), not a measured truth
 concurrent_owner_use: false
 session:
   establish:                  # BOOTING → ATTESTED
@@ -13,8 +12,6 @@ session:
   reattest:
     - {op: tpm_quote}
     - {op: rpc, to: verifier, size: 4KB, reply: 1KB}
-  reattest_every_s: 600
-  valid_s: 900
 trust:                        # tenant key release (doc 04 §6)
   - {op: rpc, to: tenant_kbs, size: 2KB, reply: 1KB}
   - {op: cpu, work: measured/kbs_check_s}

@@ -372,7 +372,6 @@ class WorkerAgent(RecoveryMixin, PlannedMixin, FetchMixin, SessionMixin, Actor):
             trust=frozenset(TenantId(k) for k in self.keys),
             session_expiry=h.cert_expiry,
             drain_deadline=self.drain_deadline,
-            assurance=h.assurance,
             speed=h.speed,
             domain=h.domain,
             as_of=self.now,

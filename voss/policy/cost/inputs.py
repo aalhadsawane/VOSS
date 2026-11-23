@@ -43,8 +43,6 @@ class FnInfo:
 class TenantInfo:
     kbs_lat: float
     kbs_lon: float
-    assurance_floor: float
-    f: int | None = None
     max_holders: int | None = None  # holder budget K of this key (D-85)
 
 
@@ -76,4 +74,3 @@ class CostContext:
     routers: dict[str, tuple[float, float]] = field(default_factory=dict)
     scheduler: tuple[float, float] | None = None  # the scheduler's location: the watchdog timer runs from there
     geo: GeoRtt = field(default_factory=GeoRtt)
-    lifecycle_aware: bool = True

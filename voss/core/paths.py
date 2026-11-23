@@ -12,11 +12,15 @@ CONFIGS = REPO_ROOT / "configs"
 
 
 def config_path(p: str | Path) -> Path:
-    """Resolve a config-relative path: absolute paths stay, ``configs/...`` and bare names resolve from the repo."""
+    """Resolve a config-relative path: absolute paths stay, ``configs/...`` and bare names resolve from the repo.
+
+    A path that exists from the repository root (a test fixture under ``tests/``) resolves there too."""
     path = Path(p)
     if path.is_absolute():
         return path
     if path.parts and path.parts[0] == "configs":
+        return REPO_ROOT / path
+    if (REPO_ROOT / path).exists():
         return REPO_ROOT / path
     return CONFIGS / path
 

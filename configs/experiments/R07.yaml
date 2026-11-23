@@ -9,7 +9,7 @@
 #   duration     horizon_s 100,800 (28 h): 4 h warm-up + 24 h measured (D-97)
 #   warm-up      scenario.warmup_s 14,400 = voss.keepalive_hist.range_s, the longest learning window of a compared
 #                policy (guardrail 23)
-#   calibration  calibrated fleet configs/machines.yaml (D-107, D-108): bundles node02-i7-12700-64g-nvme_nvme
+#   calibration  calibrated fleet configs/base.yaml (D-107, D-108): bundles node02-i7-12700-64g-nvme_nvme
 #                (reference), node02-i7-12700-64g-nvme_hdd, node04-i7-4790s-8g-hdd_hdd, weighted by the Rosetta@home
 #                survey (configs/machines_mix.yaml); measured bundles only (guardrail 28)
 #   trace split  held-out: load azure2019 heldout, sessions churn_seti heldout (seti09, odd hosts, second week);
@@ -30,12 +30,12 @@
 #     memory reserve (D-117) {256, 1,024} MB;
 #   - the donated shares (D-132): cpu_frac {0.5, 1.0}, mem_frac {0.4, 0.8};
 #   - the drop estimate (D-111): prior and pessimistic prior x0.5/x2 at equal mean, drift k {0.05, 0.2}.
-# Added when their keys land: deadline multiple and idempotent fraction
-#   (D-119), certificate validity and re-attestation (D-120), the time-to-start variance and OVERDUE_FRAC (D-122).
+#   - the deadline multiple (D-119) {2, 10} and the idempotent fraction {0, 0.5};
+#   - the certificate timings (D-120): valid_s/reattest_every_s {450/300, 2,700/1,800};
 #   Not varied: a trace source fallback (no second session or arrival source exists, D-129).
 # Runs: 75 variants x 10 seeds = 750 (10 shared with R01).
 experiment: R07
-base: ../machines.yaml
+base: ../base.yaml
 overrides:
   - horizon_s=100800
   - scenario.warmup_s=14400
@@ -112,8 +112,14 @@ systems:
   t_plan_hi: [voss.planner.name=hetero, voss.planner.T_plan=60.0]
   backoff_lo: [voss.planner.name=hetero, voss.scheduler.retry_backoff_s=0.1]
   backoff_hi: [voss.planner.name=hetero, voss.scheduler.retry_backoff_s=0.4]
-  m_base_lo: [voss.planner.name=hetero, voss.worker.m_base_mb=256.0, voss.planner.params.m_base_mb=256.0]
-  m_base_hi: [voss.planner.name=hetero, voss.worker.m_base_mb=1024.0, voss.planner.params.m_base_mb=1024.0]
+  m_base_lo: [voss.planner.name=hetero, voss.worker.m_base_mb=256.0]
+  m_base_hi: [voss.planner.name=hetero, voss.worker.m_base_mb=1024.0]
+  deadline_2: [voss.planner.name=hetero, scenario.deadline_multiple=2.0]
+  deadline_10: [voss.planner.name=hetero, scenario.deadline_multiple=10.0]
+  idem_0: [voss.planner.name=hetero, scenario.idempotent_frac=0.0]
+  idem_05: [voss.planner.name=hetero, scenario.idempotent_frac=0.5]
+  cert_lo: [voss.planner.name=hetero, voss.verifier.valid_s=450.0, voss.verifier.reattest_every_s=300.0]
+  cert_hi: [voss.planner.name=hetero, voss.verifier.valid_s=2700.0, voss.verifier.reattest_every_s=1800.0]
   cpu_frac_lo: [voss.planner.name=hetero, scenario.envelope.cpu_frac=0.5]
   cpu_frac_hi: [voss.planner.name=hetero, scenario.envelope.cpu_frac=1.0]
   mem_frac_lo: [voss.planner.name=hetero, scenario.envelope.mem_frac=0.4]

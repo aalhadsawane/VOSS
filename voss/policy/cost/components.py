@@ -80,15 +80,13 @@ def static_parts(
 ) -> Static:
     a = cache.get(view, ctx)
     f, t = ctx.fns[inv.fn], ctx.tenants[inv.tenant]
-    ok = eligible(view, inv, now, margin_s) & (view.assurance >= t.assurance_floor)
+    ok = eligible(view, inv, now, margin_s)
     holder = cache.holder(view, inv.tenant)
     # a backup, or the budget is reached: only holders are candidates (D-85, plan V7.1)
     if inv.holders_only or not may_add_holder(int(holder.sum()), t.max_holders):
         ok &= holder
     trust = np.where(holder | (a.trust_fixed == 0), 0.0, cache.rtt(ctx, t.kbs_lat, t.kbs_lon) + a.trust_fixed)
     fetch, rest = cache.startup(view, ctx, inv.fn)
-    if not ctx.lifecycle_aware:  # ablation: one startup estimate for every candidate (warmth is invisible)
-        fetch, rest = np.full_like(fetch, fetch.mean()), np.full_like(rest, rest.mean())
     rlat, rlon = ctx.routers.get(router, (float(a.lat.mean()), float(a.lon.mean())))
     net = cache.rtt(ctx, rlat, rlon) + inv.in_bytes * 8 / a.down + f.out_bytes * 8 / a.up
     return Static(ok, holder, trust, fetch, rest, net)

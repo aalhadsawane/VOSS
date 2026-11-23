@@ -149,7 +149,6 @@ class Attest(Message):
     identity: str
     session: int
     substrate: str
-    known_good: bool
     reply_to: Addr
 
 
@@ -158,7 +157,6 @@ class SessionCert(Message):
     worker: WorkerId
     session: int
     cert_id: str
-    assurance: float
     expiry: float
     ok: bool = True
 
@@ -191,7 +189,6 @@ class Join(Message):
     worker: WorkerId
     cert_id: str
     expiry: float
-    assurance: float
     speed: float
     slots: int
     domain: int

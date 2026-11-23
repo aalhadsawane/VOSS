@@ -18,7 +18,7 @@ N = 4
 CTX = CostContext(
     startup={"appliance_tpm": StartupModel(0.15, 0.02, 0.002, 0.002, 0.0007, 0.3)},
     fns={"f": FnInfo("f", "t", 128, 10, 100, 50, 0.5, 1000, True)},
-    tenants={"t": TenantInfo(50.0, 8.0, 0.0)},
+    tenants={"t": TenantInfo(50.0, 8.0)},
     registry=(50.0, 8.0),
     routers={"r": (50.0, 8.0)},
 )
@@ -35,7 +35,6 @@ def view() -> ClusterView:
         queued=np.zeros(N, int),
         mem_free_mb=np.full(N, 1e3),
         speed=np.ones(N),
-        assurance=np.full(N, 0.8),
         domain=np.arange(N),
         session_expiry=np.full(N, 1e4),
         age=np.zeros(N),

@@ -28,12 +28,9 @@ def shortfall(inp: PlanInput, c: np.ndarray) -> np.ndarray:
 def terms(inp: PlanInput, y: np.ndarray, s: np.ndarray, w: np.ndarray, c: np.ndarray) -> dict[str, float]:
     p = inp.params
     u = shortfall(inp, c)
-    exposure = float(((inp.sigma[:, None] * (1 - inp.assurance[None, :])) * y).sum()) if p.use_exposure else 0.0
-    exposure *= p.exposure_weight
     return {
         "coverage": dot(inp.cold_penalty, u),
         "donor": float(p.rho_mem * (inp.fn_mem[:, None] * w).sum() + p.rho_ssd * (inp.fn_size[:, None] * s).sum()),
-        "exposure": exposure,
         "churn": float(p.kappa_switch * np.maximum(0, y.astype(int) - inp.y_prev.astype(int)).sum()),
         "warm": float(-p.beta_warm * (inp.fn_benefit[:, None] * (w + p.gamma * s)).sum()),
         "shortfall": float(u.sum()),
@@ -41,7 +38,7 @@ def terms(inp: PlanInput, y: np.ndarray, s: np.ndarray, w: np.ndarray, c: np.nda
 
 
 def objective(t: dict[str, float]) -> float:
-    return t["coverage"] + t["donor"] + t["exposure"] + t["churn"] + t["warm"]
+    return t["coverage"] + t["donor"] + t["churn"] + t["warm"]
 
 
 def finish(
@@ -79,14 +76,14 @@ def feasible(inp: PlanInput, plan: Plan, tol: float = 1e-6) -> list[str]:
         out.append("slots")
     if (plan.w > p.w_max * plan.y[tf]).any() or (plan.s & ~plan.y[tf]).any():
         out.append("coupling")
-    if ((inp.fn_mem[:, None] * plan.w).sum(axis=0) > inp.mem_mb - p.m_base_mb + tol).any():
+    if ((inp.fn_mem[:, None] * plan.w).sum(axis=0) > inp.mem_mb - inp.m_base_mb + tol).any():
         out.append("memory")
     if ((inp.fn_size[:, None] * plan.s).sum(axis=0) > inp.ssd_mb + tol).any():
         out.append("ssd")
     if (plan.s.sum(axis=1) > inp.fn_snaps + tol).any() or (plan.w.sum(axis=1) > inp.fn_units + tol).any():
         out.append("demand bounds")
     if (plan.y & ~inp.allowed()).any():
-        out.append("assurance/freshness")
+        out.append("freshness")
     if p.use_domain_cap:
         for d in np.unique(inp.domain):
             m = inp.domain == d

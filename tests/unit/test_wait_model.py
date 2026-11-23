@@ -7,6 +7,8 @@ from voss.core.config import RunConfig
 from voss.policy.cost.wait import OVERDUE_FRAC, JobEst, expected_wait
 from voss.world.resources import Slots
 
+from tests.fixtures.fleet import FLEET
+
 
 def test_idle_worker_has_no_wait() -> None:
     assert expected_wait(2, [], now=10.0, default_s=1.0) == 0.0
@@ -96,7 +98,7 @@ def test_slots_withdraw_waiting_with_priority() -> None:
 
 def test_synchronous_first_is_the_default_and_in_the_hash() -> None:
     """D-114: on for every system; turning it off (the R06 ablation) is a different run."""
-    base = RunConfig()
+    base = RunConfig.model_validate({"scenario": {"machines": FLEET}})
     assert base.voss.worker.sync_priority
-    off = RunConfig.model_validate({"voss": {"worker": {"sync_priority": False}}})
+    off = RunConfig.model_validate({"scenario": {"machines": FLEET}, "voss": {"worker": {"sync_priority": False}}})
     assert off.config_hash() != base.config_hash()

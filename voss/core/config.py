@@ -66,10 +66,8 @@ class ScenarioConfig(Frozen):
     warmup_s: float = Field(default=172800.0, ge=0)
     substrate_mix: dict[str, float] = Field(default_factory=lambda: {"appliance_tpm": 1.0})
     tiers: dict[str, float] = Field(default_factory=lambda: {"nightly": 0.6, "idle": 0.3, "dedicated": 0.1})
-    hw_mix: dict[str, float] = Field(default_factory=lambda: {"C0": 0.1, "C1": 0.35, "C2": 0.35, "C3": 0.2})
-    # calibrated fleet (plan V9.4, D-107): {bundles: [...], survey: <trace>}; set, it replaces hw_mix and the C classes
-    machines: dict[str, Any] = Field(default_factory=dict)
-    tofu_frac: float = Field(default=0.3, ge=0, le=1)
+    # calibrated fleet (plan V9.4, D-107; checklist 1.2): required, the only machine path
+    machines: dict[str, Any]
     physical_frac: float = Field(default=0.0, ge=0, le=1)  # owners without memory encryption willing to attack
     # physically: class P, the rest class S (plan V3.3; axis, >0 only in the security experiment)
     regime: str = "churn_med"
@@ -82,6 +80,8 @@ class ScenarioConfig(Frozen):
     execution: dict[str, Any] = Field(default_factory=dict)
     functions: str = "functions.yaml"
     tenants: str = "tenants.yaml"
+    deadline_multiple: float = Field(default=5.0, gt=0)  # D-119: deadline = k x (run time + overhead)
+    idempotent_frac: float = Field(default=1.0, ge=0, le=1)  # D-119: share of functions that may be retried
 
 
 class InfraConfig(Frozen):
@@ -126,9 +126,7 @@ class PredictorConfig(Frozen):
 
 
 class CostConfig(Frozen):
-    """Doc 03 §5.2. Placement is lexicographic (D-110): no weights."""
-
-    lifecycle_aware: bool = True  # False: ablation, placement sees one startup estimate for every candidate
+    """Doc 03 §5.2. Placement is lexicographic (D-110): no weights, no v1 switches."""
 
 
 class AdmissionConfig(Frozen):
@@ -157,6 +155,13 @@ class PlannerConfig(Frozen):
     params: dict[str, Any] = Field(default_factory=dict)
 
 
+class VerifierConfig(Frozen):
+    """Session certificate policy (D-120): validity and re-attestation period, class A, varied in R07."""
+
+    valid_s: float = Field(default=900.0, gt=0)
+    reattest_every_s: float = Field(default=600.0, gt=0)
+
+
 class ModelsConfig(Frozen):
     """Survival and omission models (doc 03 §6.3-6.4)."""
 
@@ -172,7 +177,6 @@ class ModelsConfig(Frozen):
 class SchedulerConfig(Frozen):
     """Scheduler role timers (doc 08 §3.2, §5)."""
 
-    hetero_aware: bool = True  # False: ablation, predictions ignore worker speed
     heartbeat_s: float = 2.0
     stale_after_s: float = 7.0
     max_attempts: int = 3
@@ -187,7 +191,6 @@ class WorkerConfig(Frozen):
     warm_ttl_s: float = 600.0
     warm_eviction: str = "lru"  # lru | greedy_dual (FaaSCache keep-alive, plan V8)
     m_base_mb: float = 512.0
-    assurance_tofu_factor: float = 0.9  # f_policy for TOFU firmware (doc 04 §8). tag: assumed
     sync_priority: bool = True  # D-114: a free slot serves waiting synchronous requests before queued async ones
 
 
@@ -249,6 +252,7 @@ class VossConfig(Frozen):
     cost: CostConfig = Field(default_factory=CostConfig)
     admission: AdmissionConfig = Field(default_factory=AdmissionConfig)
     models: ModelsConfig = Field(default_factory=ModelsConfig)
+    verifier: VerifierConfig = Field(default_factory=VerifierConfig)
     planner: PlannerConfig = Field(default_factory=PlannerConfig)
     scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
     worker: WorkerConfig = Field(default_factory=WorkerConfig)
@@ -266,7 +270,7 @@ class RunConfig(Frozen):
     horizon_s: float = 3600.0
     system: str = "voss"
     reference: str = "trusted_hosts"  # profile of ``system: reference_cloud`` (configs/references/, plan V8)
-    scenario: ScenarioConfig = Field(default_factory=ScenarioConfig)
+    scenario: ScenarioConfig
     voss: VossConfig = Field(default_factory=VossConfig)
     drain_s: float = 30.0
     decision_clock: DecisionClockConfig = Field(default_factory=DecisionClockConfig)
@@ -276,8 +280,6 @@ class RunConfig(Frozen):
 
     def config_hash(self) -> str:
         tree = self.model_dump(mode="json", exclude={"out_dir", "label"})
-        if not tree["scenario"]["machines"]:  # D-107: likewise the opt-in calibrated fleet
-            del tree["scenario"]["machines"]
         return hash_obj(tree)
 
 

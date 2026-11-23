@@ -21,7 +21,7 @@
 #   warm-up      scenario.warmup_s 14,400 (longest learning window of a compared policy: the histogram's 4 h range)
 #   calibration  provisional measured bundle i7_12700_64g_full-b4f89a4def (i7-12700, NVMe + HDD, measured session
 #                boot) for every class: a run takes one bundle, which overrides class C0; C1-C3 keep their
-#                literature ratios to C0 (scenario.hw_mix default). Two or three measured machine classes in one run
+#                measured machine classes in one run
 #                need a mechanism that does not exist yet (plan V9.4).
 #   trace split  development: load azure2019 dev, sessions churn_seti dev (seti09, even hosts, first week),
 #                links ookla-fixed-2024q1, populations wup2025

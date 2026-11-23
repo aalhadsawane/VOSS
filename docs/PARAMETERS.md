@@ -23,9 +23,7 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `scenario.warmup_s` | `172800.0` | D | = `voss.keepalive_hist.range_s` (14,400 s), the longest learning window of a compared policy (guardrail 23, D-97); every R spec sets it (`tests/unit/test_r_specs.py`); the base default is replaced at the freeze (`docs/FREEZE_CHECKLIST.md`) |
 | `scenario.substrate_mix` | `{'appliance_tpm': 1.0}` | A | owner classes S/P/M (V3.3) |
 | `scenario.tiers` | `{'nightly': 0.6, 'idle': 0.3, 'dedicated': 0.1}` | pending V11 | v1 assumed tiers; unused with traced sessions; delete at the freeze (`docs/FREEZE_CHECKLIST.md`) |
-| `scenario.hw_mix` | `{'C0': 0.1, 'C1': 0.35, 'C2': 0.35, 'C3': 0.2}` | pending V11 | v1 assumed classes; superseded by `scenario.machines` (D-107); delete at the freeze |
-| `scenario.machines` | `{}` | D | calibrated fleet (V9.4, D-107): one class per measured bundle (M), weights from the BOINC host survey (T), radius 1 = one power-of-two step of the survey; empty = `hw_mix` |
-| `scenario.tofu_frac` | `0.3` | pending V11 | v1 trust-on-first-use share; delete at the freeze |
+| `scenario.machines` | required | D | calibrated fleet (V9.4, D-107; checklist 1.2): one class per measured bundle (M), weights from the BOINC host survey (T), radius 1 = one power-of-two step of the survey; the only machine path |
 | `scenario.physical_frac` | `0.0` | A | share of owners without memory encryption willing to attack physically (class P, V3.3) |
 | `scenario.regime` | `'churn_med'` | T | every R spec sets `churn_seti` (seti09, Failure Trace Archive, held-out split; `tests/unit/test_r_specs.py`); the parametric default is deleted at the freeze |
 | `scenario.churn` | `{}` | A | inline overrides of the regime: every R spec sets `split: heldout`; the notice fraction `graceful_frac` is an axis {0, 0.5} (R03, `configs/regimes/churn_seti.yaml`) |
@@ -35,8 +33,10 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `scenario.network` | `{}` | T | links: `link.trace` = Ookla fixed-broadband per metro (V9.3); `route_factor` 1.654 fitted to WonderProxy pings; `c_eff` 100 km/ms (fibre) |
 | `scenario.envelope` | `{}` | A | D-132: donated shares `cpu_frac` 0.75, `mem_frac` 0.6, disks 0.2, stated; R07 varies `cpu_frac` {0.5, 1.0} and `mem_frac` {0.4, 0.8}; slots capped by donated memory (D-108) |
 | `scenario.execution` | `{}` | pending V11 | D-133: interference from the bundle's co-run table (M), noise from measured repeat variation (D), unmeasured parts deleted; leaves pending with that change |
-| `scenario.functions` | `'functions.yaml'` | A | the function catalogue (D-119): guest memory stated, deadline multiple and idempotent fraction axes |
+| `scenario.functions` | `'functions.yaml'` | A | the function catalogue (D-119): guest memory stated; the deadline multiple and idempotent fraction are the two keys below |
 | `scenario.tenants` | `'tenants.yaml'` | A | tenant template (D-125): key-service city and default budget |
+| `scenario.deadline_multiple` | `5.0` | A | D-119: synchronous deadline = k x (warm run time + overhead), axis {2, 5, 10} (R07) |
+| `scenario.idempotent_frac` | `1.0` | A | D-119: share of functions (name order) that may be retried, axis {0, 0.5, 1} (R07) |
 | `voss.infra.orchestrator` | `'Frankfurt'` | A | provider site (stated in the paper) |
 | `voss.infra.verifier` | `'Frankfurt'` | A | provider site |
 | `voss.infra.registry` | `'Frankfurt'` | A | provider site |
@@ -54,11 +54,12 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.predictor.name` | `'blr'` | S | run-time estimator (V5.4) |
 | `voss.predictor.forgetting` | `0.995` | S | run-time estimator forgetting factor |
 | `voss.predictor.conformal` | `True` | S | conformal quantiles on/off |
-| `voss.cost.lifecycle_aware` | `True` | pending V11 | v1 ablation switch; delete at the freeze (always on) |
 | `voss.admission.enabled` | `True` | S | admission on/off |
 | `voss.admission.eps` | `0.05` | S | reject when every candidate misses with probability above 1 - eps |
 | `voss.admission.defer_s` | `1.0` | S | retry delay for a deferred asynchronous invocation |
 | `voss.models.survival` | `'weibull'` | S | session survival estimator (V5.4) |
+| `voss.verifier.valid_s` | `900.0` | A | D-120: session certificate validity; R07 varies {450, 2,700} with `reattest_every_s` |
+| `voss.verifier.reattest_every_s` | `600.0` | A | D-120: re-attestation period; R07 varies {300, 1,800} with `valid_s` |
 | `voss.models.omission` | `'beta_cusum'` | S | drop estimate (V5.4): `beta_cusum`; `prior_only` is the R06 ablation (D-128) |
 | `voss.models.refit_s` | `60.0` | S | survival refit period |
 | `voss.models.cusum_h` | `5.0` | S | change-detection threshold |
@@ -80,7 +81,6 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.planner.domain_shock_p` | `0.0` | pending V11 | deleted by D-118 |
 | `voss.planner.ablate` | `()` | A | ablations of plan §11.7 (homogeneous, binary, reliability_blind) for R06 |
 | `voss.planner.params` | `{}` | S | container of the `voss.planner.params.*` rows; each row has its own class |
-| `voss.scheduler.hetero_aware` | `True` | pending V11 | v1 ablation switch; delete at the freeze (always on) |
 | `voss.scheduler.heartbeat_s` | `2.0` | S | worker report period |
 | `voss.scheduler.stale_after_s` | `7.0` | S | a worker silent this long is treated as gone |
 | `voss.scheduler.max_attempts` | `3` | S | attempts per invocation |
@@ -89,8 +89,7 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.scheduler.view_refresh_s` | `0.25` | S | view cache refresh |
 | `voss.worker.warm_ttl_s` | `600.0` | L | fixed keep-alive baseline timer; citation to be checked in V8; also an axis |
 | `voss.worker.warm_eviction` | `lru` | A | warm-sandbox eviction: `lru` or `greedy_dual` (FaaSCache baseline, V8) |
-| `voss.worker.m_base_mb` | `512.0` | A | D-117: image memory reserve, a stated build parameter; R07 varies {256, 1,024}; merged with the planner's copy |
-| `voss.worker.assurance_tofu_factor` | `0.9` | pending V11 | v1 trust score; delete at the freeze |
+| `voss.worker.m_base_mb` | `512.0` | A | D-117: image memory reserve, a stated build parameter, read by the worker and every planner; R07 varies {256, 1,024} |
 | `voss.worker.sync_priority` | `True` | A | D-114: synchronous-first on for every system; off only as the R06 ablation |
 | `voss.keepalive_hist.bin_s` | `60.0` | L | Shahrad et al. ATC 2020: 1-minute bins |
 | `voss.keepalive_hist.range_s` | `14400.0` | L | Shahrad et al. ATC 2020: 4-hour range |
@@ -118,7 +117,7 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `decision_clock.cpu_scale` | `1.0` | S | emulation only |
 | `decision_clock.coeffs` | `{'plan': (0.02, 5e-05), 'place': (0.0002, 2e-05), 'route'...` | pending V11 | seed coefficients, used only without `coeffs_file` (unit tests); delete the seed default at the freeze |
 | `decision_clock.coeffs_file` | `''` | M | measured provider coefficients (`configs/calibration/provider/<cpu>/decision.yaml`, V10) |
-| `calibration` | `None` | M | measured bundle per experiment (G14) |
+| `calibration` | `'configs/calibration/measured/node02-i7-12700-64g-nvme_nvme'` | M | the fleet's reference machine (D-107, D-130); every experiment sets one of the fleet's measured bundles (guardrail 28) |
 | `out_dir` | `'runs'` | A | output location |
 | `label` | `''` | A | run label |
 | `voss.planner.params.rho_mem` | `0.0001` | pending V11 | deleted by D-131 |
@@ -128,12 +127,9 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.planner.params.gamma` | `0.5` | pending V11 | deleted by D-131 |
 | `voss.planner.params.kappa_dom` | `0.5` | pending V11 | deleted by D-131 |
 | `voss.planner.params.w_max` | `4` | S | warm sandboxes per function per worker |
-| `voss.planner.params.m_base_mb` | `512.0` | A | D-117: as `voss.worker.m_base_mb` (one key after the merge) |
 | `voss.planner.params.use_robust` | `True` | pending V11 | deleted by D-131 (milp and greedy only) |
-| `voss.planner.params.use_exposure` | `True` | pending V11 | deleted by D-131 |
 | `voss.planner.params.use_domain_cap` | `True` | pending V11 | deleted by D-131 (milp and greedy only) |
 | `voss.planner.params.use_freshness` | `True` | S | skip workers whose certificate expires within the horizon |
-| `voss.planner.params.exposure_weight` | `1.0` | pending V11 | deleted by D-131 |
 | `voss.planner.params.survival_blind` | `False` | A | ablation (R06) |
 
 ## Derived per-worker quantities
@@ -175,16 +171,8 @@ for the file as a whole.
 | `configs/e01/s3_omit_load.yaml` | pending V11 | v1 emulation; V13 builds its own scenario; delete at the freeze |
 | `configs/e01/s4_load.yaml` | pending V11 | v1 emulation; V13 builds its own scenario; delete at the freeze |
 | `configs/request_bytes.yaml` | D | bytes a client sends per measured input size of each guest function (D-106) |
-| `configs/functions.yaml` | pending V11 | D-119: guest memory (A), deadline multiple and idempotent fraction keys; leaves pending with that change |
+| `configs/functions.yaml` | L | function catalogue (D-119): guest memory stated (A); run times and start-up are overridden per machine class from the bundles (M) |
 | `configs/functions_e01.yaml` | pending V11 | v1 emulation; V13 builds its own scenario; delete at the freeze |
-| `configs/hardware/C0.yaml` | pending V11 | v1 machine class; the fleet is the only path (D-107); delete at the freeze |
-| `configs/hardware/C1.yaml` | pending V11 | v1 machine class; the fleet is the only path (D-107); delete at the freeze |
-| `configs/hardware/C2.yaml` | pending V11 | v1 machine class; the fleet is the only path (D-107); delete at the freeze |
-| `configs/hardware/C3.yaml` | pending V11 | v1 machine class; the fleet is the only path (D-107); delete at the freeze |
-| `configs/hardware/DC.yaml` | pending V11 | deleted by D-124 (trusted hosts are the reference machine) |
-| `configs/hardware/E0.yaml` | pending V11 | v1 machine class; the fleet is the only path (D-107); delete at the freeze |
-| `configs/hardware/E1.yaml` | pending V11 | v1 machine class; the fleet is the only path (D-107); delete at the freeze |
-| `configs/hardware/I7_64G.yaml` | pending V11 | v1 machine class; the fleet is the only path (D-107); delete at the freeze |
 | `configs/regimes/adversary_all.yaml` | A | D-121: owner behaviour parameters, axes of the threat, stated with R04/R05 |
 | `configs/regimes/adversary_collude.yaml` | pending V11 | D-121: no spec uses it; delete at the freeze |
 | `configs/regimes/adversary_mixed.yaml` | A | D-121: owner behaviour parameters, axes of the threat, stated with R04/R05 |
@@ -198,11 +186,9 @@ for the file as a whole.
 | `configs/regimes/churn_seti.yaml` | T | SETI@home host availability (FTA seti09), one host's week per worker (V9.2); `graceful_frac` axis |
 | `configs/regimes/load_default.yaml` | pending V11 | parametric regime no reported spec uses; delete at the freeze (tests that use it move to a test fixture) |
 | `configs/regimes/load_flash.yaml` | pending V11 | parametric regime no reported spec uses; delete at the freeze (tests that use it move to a test fixture) |
-| `configs/machines.yaml` | D | calibrated fleet overlay (V9.4, D-107): node02 (reference) and node04, Rosetta@home survey |
 | `configs/machines_mix.yaml` | T | survey mapping of the fleet overlay (D-107), generated by `experiments.analysis.fleet_mix` from the gitignored survey; the paper reads this file |
 | `configs/smoke.yaml` | A | test configuration |
-| `configs/substrates/appliance_tpm.yaml` | pending V11 | D-120: steps measured (bundle), `valid_s`/`reattest_every_s` A, message sizes D, `assurance_base` deleted; leaves pending with that change |
-| `configs/substrates/none.yaml` | pending V11 | no reported system uses it; delete at the freeze |
+| `configs/substrates/appliance_tpm.yaml` | M | doc 04 §3: session steps measured (bundle), message sizes derived from the quote/certificate formats; certificate timings are the verifier's keys (D-120) |
 | `configs/baselines.yaml` | D | systems compared: source, overrides, deviations (V8) |
 | `configs/traces/wup2025/provenance.yaml` | T | trace wup2025, release data-wup2025-1085a0d3 (plan V9) |
 | `configs/traces/boinc-rosetta/provenance.yaml` | T | trace boinc-rosetta, release data-boinc-rosetta-1085a0d3 (plan V9) |
@@ -211,8 +197,8 @@ for the file as a whole.
 | `configs/traces/azure2019/provenance.yaml` | T | Azure Functions 2019 sample, release data-azure2019-*: functions and per-minute arrivals per split (V9.1) |
 | `configs/traces/ookla-fixed-2024q1/provenance.yaml` | T | Ookla fixed-broadband links per metro, release data-ookla-fixed-2024q1-* (V9.3) |
 | `configs/traces/wonderproxy-2020-07/provenance.yaml` | T | WonderProxy all-pairs pings: fitted route factor 1.654 (V9.3) |
-| `configs/substrates/trusted_hosts.yaml` | M | appliance_tpm ladder without attestation or key release (V8) |
-| `configs/references/trusted_hosts.yaml` | A | trusted always-on hosts: 40 per router metro (V8) |
-| `configs/tenants.yaml` | pending V11 | D-125: reduce to `kbs_city` and the default budget; leaves pending with that change |
+| `configs/substrates/trusted_hosts.yaml` | M | appliance_tpm ladder without attestation or key release (V8); certificate timings are the verifier's keys (D-120) |
+| `configs/references/trusted_hosts.yaml` | A | trusted always-on hosts: the reference machine (node02 NVMe), host count from the pool's slots divided among the router metros (D-124) |
+| `configs/tenants.yaml` | A | tenant template (D-125): key-service city and default holder budget |
 | `configs/tenants_e01.yaml` | pending V11 | v1 emulation; V13 builds its own scenario; delete at the freeze |
 | `configs/toy.yaml` | A | test configuration |

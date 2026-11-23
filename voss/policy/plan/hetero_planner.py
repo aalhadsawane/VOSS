@@ -18,7 +18,7 @@ from voss.policy.plan.types import Plan, PlanInput
 def _warm(inp: PlanInput, units: np.ndarray, lam: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     n_f, n_j = units.shape
     w, s = np.zeros((n_f, n_j), np.int64), np.zeros((n_f, n_j), bool)
-    mem = np.maximum(0.0, inp.mem_mb - inp.params.m_base_mb)
+    mem = np.maximum(0.0, inp.mem_mb - inp.m_base_mb)
     ssd = inp.ssd_mb.astype(float).copy()
     for f in np.argsort(-lam, kind="stable"):
         for j in np.flatnonzero(units[f]):

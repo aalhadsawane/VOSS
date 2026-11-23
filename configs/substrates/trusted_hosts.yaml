@@ -2,14 +2,11 @@
 # that never leave and need no attestation or key release. Every start-up cost is the measured appliance cost.
 provenance: {default: measured, note: "appliance_tpm without session establishment, re-attestation and key release"}
 name: trusted_hosts
-assurance_base: 1.0
 concurrent_owner_use: false
 session:
   establish:                  # fleet registration only: the session certificate a host needs to join (no quote)
     - {op: rpc, to: verifier, size: 1KB, reply: 1KB}
   reattest: []
-  reattest_every_s: 1.0e9
-  valid_s: 1.0e12
 trust: []
 ladder:                       # Firecracker ladder (doc 02 §5)
   levels: [L0, L1, L2, L3, L4]

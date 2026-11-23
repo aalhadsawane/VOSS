@@ -9,21 +9,24 @@ from voss.core.config import RunConfig, ScenarioConfig
 from voss.core.rng import RngFactory
 from voss.world.adversary import BEHAVIORS, generate_adversaries
 from voss.world.geo import load_metros
-from voss.world.hardware import load_hw_classes
+from voss.world.machines import load_fleet
 from voss.world.sessions import generate_sessions
 from voss.world.substrate import SUBSTRATES, LadderSpec, load_bundle, load_substrate
 from voss.world.workers import TIERS, generate_workers
 from voss.world.workload import generate_arrivals, load_catalog, popularity
 
+from tests.fixtures.fleet import CALIBRATION, FLEET, PLACEHOLDER
+
 METROS = load_metros()
 
 
 def _workers(sc: ScenarioConfig, seed: int = 1):  # type: ignore[no-untyped-def]
-    return generate_workers(sc, METROS, load_hw_classes(sorted(sc.hw_mix)), RngFactory(seed))
+    fleet = load_fleet(FLEET, CALIBRATION, load_catalog(sc, CALIBRATION))
+    return generate_workers(sc, METROS, fleet.hw, RngFactory(seed), fleet.mix.weights)
 
 
 def test_workers_attributes() -> None:
-    sc = ScenarioConfig(workers=2000)
+    sc = ScenarioConfig(workers=2000, machines=FLEET)
     w = _workers(sc)
     assert len(w) == 2000 and len(set(w.identity)) == 2000
     assert set(np.unique(w.tier)) == {0, 1, 2}
@@ -34,7 +37,7 @@ def test_workers_attributes() -> None:
 
 
 def test_session_tails_are_heavy() -> None:
-    sc = ScenarioConfig(workers=600, tiers={"idle": 1.0}, warmup_s=7 * 86400)
+    sc = ScenarioConfig(workers=600, machines=FLEET, tiers={"idle": 1.0}, warmup_s=7 * 86400)
     w = _workers(sc)
     tr = generate_sessions(sc, w, METROS, 3600.0, RngFactory(1))
     s = tr.sessions[tr.sessions.reason != "shock"]
@@ -45,7 +48,7 @@ def test_session_tails_are_heavy() -> None:
 
 
 def test_sessions_well_formed() -> None:
-    sc = ScenarioConfig(workers=300, regime="churn_high")
+    sc = ScenarioConfig(workers=300, machines=FLEET, regime="churn_high")
     tr = generate_sessions(sc, _workers(sc), METROS, 3600.0, RngFactory(2))
     s = tr.sessions.sort_values(["worker", "start"])
     assert (s.end > s.start).all()
@@ -59,7 +62,7 @@ def test_sessions_well_formed() -> None:
 
 
 def test_timezone_waves() -> None:
-    sc = ScenarioConfig(workers=3000, tiers={"nightly": 1.0}, warmup_s=86400, regime="churn_low")
+    sc = ScenarioConfig(workers=3000, machines=FLEET, tiers={"nightly": 1.0}, warmup_s=86400, regime="churn_low")
     w = _workers(sc)
     tr = generate_sessions(sc, w, METROS, 86400.0, RngFactory(3))
     hours = np.arange(0, 24)
@@ -77,7 +80,7 @@ def test_timezone_waves() -> None:
 
 
 def test_regional_shocks_end_sessions_together() -> None:
-    sc = ScenarioConfig(workers=800, regime="churn_burst")
+    sc = ScenarioConfig(workers=800, machines=FLEET, regime="churn_burst")
     tr = generate_sessions(sc, _workers(sc), METROS, 3600.0, RngFactory(4))
     shocked = tr.sessions[tr.sessions.reason == "shock"]
     assert len(shocked) > 0
@@ -85,7 +88,7 @@ def test_regional_shocks_end_sessions_together() -> None:
 
 
 def test_adversary_schedules_match_spec() -> None:
-    sc = ScenarioConfig(workers=1000, adversary={"regime": "adversary_all", "alpha": 0.2})
+    sc = ScenarioConfig(workers=1000, machines=FLEET, adversary={"regime": "adversary_all", "alpha": 0.2})
     w = _workers(sc)
     tr = generate_adversaries(sc, w, 7200.0, RngFactory(5))
     adv = tr.adversaries()
@@ -111,13 +114,13 @@ def test_adversary_schedules_match_spec() -> None:
 
 
 def test_no_adversaries_by_default() -> None:
-    sc = ScenarioConfig(workers=200)
+    sc = ScenarioConfig(workers=200, machines=FLEET)
     tr = generate_adversaries(sc, _workers(sc), 3600.0, RngFactory(1))
     assert len(tr.adversaries()) == 0
 
 
 def test_workload_popularity_and_rate() -> None:
-    sc = ScenarioConfig(load={"rate": 50, "mmpp": {"enabled": False}, "diurnal": {"amplitude": 0.0}})
+    sc = ScenarioConfig(machines=FLEET, load={"rate": 50, "mmpp": {"enabled": False}, "diurnal": {"amplitude": 0.0}})
     cat = load_catalog(sc)
     arr = generate_arrivals(sc, cat, METROS, 3600.0, RngFactory(1)).frame
     assert len(arr) / 3600 == pytest.approx(50, rel=0.03)
@@ -130,7 +133,7 @@ def test_workload_popularity_and_rate() -> None:
 
 
 def test_flash_crowd() -> None:
-    sc = ScenarioConfig(load={"regime": "load_flash", "mmpp": {"enabled": False}})
+    sc = ScenarioConfig(machines=FLEET, load={"regime": "load_flash", "mmpp": {"enabled": False}})
     arr = generate_arrivals(sc, load_catalog(sc), METROS, 3600.0, RngFactory(1)).frame
     inside = ((arr.t >= 1200) & (arr.t < 1500)).sum() / 300
     before = ((arr.t >= 600) & (arr.t < 1200)).sum() / 600
@@ -138,7 +141,7 @@ def test_flash_crowd() -> None:
 
 
 def test_all_substrates_validate() -> None:
-    bundle = load_bundle("calibration/placeholder/c0")
+    bundle = load_bundle(PLACEHOLDER)
     for name in SUBSTRATES:
         prof = load_substrate(name, bundle)
         assert prof.ladder.path(prof.ladder.levels[0])
@@ -155,18 +158,23 @@ def test_ladder_validation() -> None:
 
 def test_tiers_constant() -> None:
     assert TIERS == ("nightly", "idle", "dedicated")
-    assert RunConfig().scenario.workers == 1000
+    assert RunConfig.model_validate({"scenario": {"machines": FLEET}}).scenario.workers == 1000
 
 
 def test_forgers_are_class_p_owners() -> None:
     """Plan V7.3: only owners with physical access (class P) can forge results."""
     sc = ScenarioConfig(
-        workers=1000, physical_frac=0.3, adversary={"regime": "adversary_all", "alpha": 0.1, "mix": {"forge": 1.0}}
+        workers=1000,
+        machines=FLEET,
+        physical_frac=0.3,
+        adversary={"regime": "adversary_all", "alpha": 0.1, "mix": {"forge": 1.0}},
     )
     w = _workers(sc)
     tr = generate_adversaries(sc, w, 7200.0, RngFactory(5))
     forgers = [i for i in tr.adversaries() if tr.name(i) == "forge"]
     assert len(forgers) == 100 and all(w.owner_class[i] == 1 for i in forgers)
-    none = ScenarioConfig(workers=1000, adversary={"regime": "adversary_all", "alpha": 0.1, "mix": {"forge": 1.0}})
+    none = ScenarioConfig(
+        workers=1000, machines=FLEET, adversary={"regime": "adversary_all", "alpha": 0.1, "mix": {"forge": 1.0}}
+    )
     tr0 = generate_adversaries(none, _workers(none), 7200.0, RngFactory(5))
     assert not any(tr0.name(i) == "forge" for i in tr0.adversaries())

@@ -42,7 +42,7 @@ def test_holder_budget_holds_across_certificate_requotes(group: str, name: str, 
 
     if fleet and not (REPO / "data/traces/azure2019/functions_dev.parquet").exists():
         pytest.skip("Azure trace not fetched (python -m tools.traces.fetch)")
-    base, extra = ("configs/machines.yaml", TRACE) if fleet else ("configs/smoke.yaml", ["scenario.load.rate=8"])
+    base, extra = ("configs/base.yaml", TRACE) if fleet else ("configs/smoke.yaml", ["scenario.load.rate=8"])
     r = run_system(load_config(REPO / base, [*LONG, *extra, *PRESETS[group][name]["overrides"]]))
     keys = sorted(set(r.recorder.frame(Table.EVENTS).tenant.dropna()))
     assert keys and holders_within_budget(r.recorder, dict.fromkeys(keys, 2)) == []

@@ -70,7 +70,7 @@ entry before citing it. Known gaps: `agache2020firecracker` lacks author Andreea
 | Baselines (keep-alive, histogram, `eviction_aware`, heartbeat, etc.) | `voss/policy/keepalive_hist.py`, `configs/baselines.yaml`, `voss/runtime/reference_system.py` |
 | The simulator world: hardware, network, lifecycle, workers, traces | `voss/world/` (`calibration.py`, `machines.py`, `trace_load.py`, `lifecycle.py`, `workers.py`, `workload.py`) |
 | Layering rule | `voss.policy` never imports `voss.world` (enforced by import-linter) |
-| Scenario and experiment config | `configs/` (`base.yaml`, `machines.yaml`, `machines_mix.yaml`, `request_bytes.yaml`, `experiments/`) |
+| Scenario and experiment config | `configs/` (`base.yaml`, `machines_mix.yaml`, `request_bytes.yaml`, `experiments/`) |
 | Experiment runner, sweeps, analysis | `experiments/` (`runner.py`, `sweep.py`, `analysis/paper_inputs.py`, `analysis/fleet_mix.py`, `analysis/machines.py`) |
 | Calibration harness | `tools/calibrate/` (`node_run.sh`, `suites/`, `check_bundle.py`, `spec.py`), data in `calibration/` and `configs/calibration/measured/` |
 | Trace tools | `tools/traces/` |

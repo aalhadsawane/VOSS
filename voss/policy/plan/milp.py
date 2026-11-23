@@ -91,8 +91,6 @@ def _objective(inp: PlanInput, L: Layout) -> np.ndarray:
     for t in range(L.T):
         obj[L.u(t)] = inp.cold_penalty[t]
         for j in range(L.J):
-            expo = p.exposure_weight * inp.sigma[t] * (1 - inp.assurance[j]) if p.use_exposure else 0.0
-            obj[L.y(t, j)] = expo
             obj[L.z(t, j)] = p.kappa_switch
     for f in range(L.F):
         for j in range(L.J):
@@ -135,7 +133,7 @@ def _structure(inp: PlanInput, L: Layout, rows: _Rows) -> None:
         rows.add(
             [(L.w(f, j), float(inp.fn_mem[f])) for f in range(L.F)],
             -np.inf,
-            max(0.0, float(inp.mem_mb[j]) - p.m_base_mb),
+            max(0.0, float(inp.mem_mb[j]) - inp.m_base_mb),
         )
         rows.add([(L.s(f, j), float(inp.fn_size[f])) for f in range(L.F)], -np.inf, float(inp.ssd_mb[j]))
     for f in range(L.F):
@@ -159,7 +157,7 @@ def candidates(inp: PlanInput, factor: float = 3.0, minimum: int = 8) -> np.ndar
     for t in range(len(inp.tenants)):
         need = (float(inp.q[t]) / max(float(e.mean()), 1e-3) + float(inp.f[t]) * float(inp.cap.max())) / mean_cap
         m = int(min(len(e), max(minimum, np.ceil(factor * need))))
-        score = e * inp.assurance * inp.cap / (inp.sigma[t] * (1 - inp.assurance) + 1e-3)
+        score = e * inp.cap
         order = [j for j in np.argsort(-score, kind="stable") if allowed[t, j]]
         out[t, order[:m]] = True
         out[t] |= inp.y_prev[t] & allowed[t]

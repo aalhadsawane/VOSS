@@ -38,7 +38,7 @@ from voss.runtime.worker_agent import WorkerAgent
 from voss.runtime.workerlib.faults import Adversary
 from voss.runtime.workerlib.host import HostLocal, make_host
 from voss.world.execution import ExecParams, noise_matrix
-from voss.world.hardware import HwClass, load_hw_classes
+from voss.world.hardware import HwClass
 from voss.world.network import Network, NetworkParams
 from voss.world.scenario import Scenario, generate
 from voss.world.substrate import SubstrateProfile, load_bundle, load_substrate
@@ -58,7 +58,9 @@ class VossSystem:
         self.kernel, self.rng, self.rec = self.kernel_cls(), RngFactory(cfg.seed), Recorder()
         net_params = NetworkParams.model_validate(cfg.scenario.network)
         self.net = Network(self.kernel, net_params, self.rng.stream("net.jitter"))
-        self.bundle = load_bundle(cfg.calibration or "calibration/placeholder/c0")
+        if cfg.calibration is None:
+            raise ValueError("a run needs calibration= a measured bundle (D-107; checklist 1.4)")
+        self.bundle = load_bundle(cfg.calibration)
         names = sorted(set(scn.workers.substrate_names))
         self.profiles: dict[str, SubstrateProfile] = {n: load_substrate(n, self.bundle) for n in names}
         self.directory = Directory()
@@ -100,8 +102,7 @@ class VossSystem:
             self.directory.kbs[TenantId(t.id)] = ("kbs", f"kbs:{t.owner or t.id}")
         for i, name in enumerate(self.scn.metros.name):
             self._place(f"client:{i}", name)
-        valid = {n: (p.assurance_base, p.session.valid_s) for n, p in self.profiles.items()}
-        self._attach(Verifier("verifier", self.ctx, valid))
+        self._attach(Verifier("verifier", self.ctx))
         self._attach(OpDb("orchestrator", self.ctx))
         sched_host = ProviderHost(speed=inf.scheduler_speed)
         self.sched = self._attach(SchedulerRole(sched_host, NODE, self.ctx, self.cost, self.priors))
@@ -119,7 +120,9 @@ class VossSystem:
 
     def _workers(self) -> None:
         wt, fleet = self.scn.workers, self.scn.fleet
-        hw = fleet.hw if fleet is not None else load_hw_classes(list(wt.hw_names), self.cfg.calibration)
+        if fleet is None:
+            raise ValueError("a VOSS run needs a calibrated fleet (D-107; checklist 1.2)")
+        hw = fleet.hw
         ep = ExecParams.model_validate(self.cfg.scenario.execution)
         noise = noise_matrix(self.rng.stream("inv.exec.noise"), len(self.scn.arrivals), 6, ep)
         for w in range(len(wt)):
@@ -144,13 +147,11 @@ class VossSystem:
             self.agents[wid] = self._attach(WorkerAgent(host, self.ctx, catalog, params, adv))
 
     def _class(self, hc: HwClass) -> ClassInputs:
-        """Catalogue, bundle and substrate profiles a worker of class ``hc`` runs with: its own calibrated machine's in
-        a fleet (plan V9.4, D-107), else the run's calibration bundle for every class."""
+        """Catalogue, bundle and substrate profiles a worker of class ``hc`` runs with: its own calibrated machine's
+        (plan V9.4, D-107)."""
         fleet = self.scn.fleet
         if fleet is None or hc.name not in fleet.classes:
-            if "" not in self.by_class:
-                self.by_class[""] = ({FnId(f.name): f for f in self.scn.catalog.functions}, self.bundle, self.profiles)
-            return self.by_class[""]
+            raise ValueError(f"{hc.name}: not a class of the run's calibrated fleet (D-107)")
         if hc.name not in self.by_class:
             d = fleet.classes[hc.name].dists
             fns = {FnId(f.name): f for f in fleet.catalogs[hc.name]}
@@ -162,7 +163,7 @@ class VossSystem:
         _, bundle, profiles = self._class(hc)
         prof = profiles[wt.substrate_names[int(wt.substrate[w])]]
         caps = {k: float(getattr(wt, k)[w]) for k in ("slots", "speed", "mem_mb", "ssd_mb", "hdd_mb")}
-        meta = (int(wt.domain[w]), bool(wt.known_good[w]), f"{hc.cpu_model}|k1|fc1")
+        meta = (int(wt.domain[w]), f"{hc.cpu_model}|k1|fc1")
         host = make_host(
             self.kernel,
             self.rng,
@@ -192,7 +193,7 @@ class VossSystem:
             0.0,
             mem_mb=caps["mem_mb"],
             ssd_mb=caps["ssd_mb"],
-            snapshot_class=meta[2],
+            snapshot_class=meta[1],
             machine_class=hc.name,
         )
         return host
@@ -238,7 +239,6 @@ class VossSystem:
             demotions=sum(h.cache.stats.demotions for h in hosts),
             promotions=sum(h.cache.stats.promotions for h in hosts),
             key_holders=sum(len(a.keys) for a in live),
-            exposure=sum(len(a.keys) * (1 - a.host.assurance) for a in live),
         )
 
     def _progress(self, now: float) -> None:

@@ -81,7 +81,6 @@ class WorkerState:
     trust: frozenset[TenantId]
     session_expiry: float
     drain_deadline: float | None
-    assurance: float
     speed: float
     domain: int
     as_of: float
@@ -101,7 +100,6 @@ class ClusterView:
     queued: np.ndarray
     mem_free_mb: np.ndarray
     speed: np.ndarray
-    assurance: np.ndarray
     domain: np.ndarray
     session_expiry: np.ndarray
     age: np.ndarray

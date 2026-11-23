@@ -10,6 +10,8 @@ from voss.core.rng import RngFactory
 from voss.runtime.workerlib.faults import Adversary
 from voss.world.network import Network, NetworkParams
 
+from tests.fixtures.fleet import FLEET
+
 
 def _adv(name: str, omit_p: float = 1.0, throttle: float = 1.0, start: float = 10.0) -> Adversary:
     return Adversary(name, omit_p, throttle, ((start, 100.0),), 1, RngFactory(1).stream("test.adv"))
@@ -56,5 +58,7 @@ def test_inline_mix_replaces_the_regime_mix() -> None:
     from voss.core.config import ScenarioConfig
     from voss.world.adversary import load_adversary_regime
 
-    sc = ScenarioConfig.model_validate({"adversary": {"regime": "adversary_all", "mix": {"black_hole": 1.0}}})
+    sc = ScenarioConfig.model_validate(
+        {"machines": FLEET, "adversary": {"regime": "adversary_all", "mix": {"black_hole": 1.0}}}
+    )
     assert load_adversary_regime(sc).mix == {"black_hole": 1.0}

@@ -23,12 +23,9 @@ FN = FunctionSpec(
     init_s=0.5,
     work_ref_s=0.1,
     in_kb=1,
-    in_sigma=0.1,
     size_exp=0.0,
     out_kb=1,
-    idempotent=True,
     slo_class="sync",
-    slo_k=5,
 )
 
 
@@ -66,7 +63,7 @@ def test_warm_vms_respect_memory() -> None:
 
 
 def test_cache_level_ladder() -> None:
-    prof = load_substrate("appliance_tpm", load_bundle("calibration/placeholder/c0"))
+    prof = load_substrate("appliance_tpm", load_bundle("tests/fixtures/calibration/placeholder/c0"))
     c = WorkerCache(ssd_mb=1000, hdd_mb=1000, mem_mb=1000)
     lad = prof.ladder
     assert cache_level(c, FN, lad, "cls") == ("L0", "")
