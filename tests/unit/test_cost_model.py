@@ -1,4 +1,4 @@
-"""Cost matrix, completion distribution and scalarizers on hand-built views (doc 03 §5.2)."""
+"""Cost matrix, completion distribution and placement order on hand-built views (doc 03 §5.2)."""
 
 from __future__ import annotations
 
@@ -12,13 +12,13 @@ from voss.policy.admission import admit
 from voss.policy.cost.completion import moment_match, p_miss
 from voss.policy.cost.components import Preds, build_cost_matrix
 from voss.policy.cost.inputs import CostContext, FnInfo, StartupModel, TenantInfo
-from voss.policy.cost.scalarize import SCALARIZERS
+from voss.policy.cost.scalarize import placement_keys
 
 N = 4
 CTX = CostContext(
     startup={"appliance_tpm": StartupModel(0.15, 0.02, 0.002, 0.002, 0.0007, 0.3)},
     fns={"f": FnInfo("f", "t", 128, 10, 100, 50, 0.5, 1000, True)},
-    tenants={"t": TenantInfo(1.0, 50.0, 8.0, 0.0)},
+    tenants={"t": TenantInfo(50.0, 8.0, 0.0)},
     registry=(50.0, 8.0),
     routers={"r": (50.0, 8.0)},
     K=3,
@@ -63,9 +63,9 @@ def test_components_follow_the_ladder_and_trust() -> None:
     by = {int(j): k for k, j in enumerate(cm.candidates[0])}
     c = cm.components
     assert by and 0 in by
-    assert c["trust"][0, by[0]] == 0 and c["exposure"][0, by[0]] == 0  # trust-warm worker
+    assert c["trust"][0, by[0]] == 0 and "exposure" not in c  # trust-warm worker; no exposure term (D-110)
     if 1 in by:
-        assert c["trust"][0, by[1]] > 0 and c["exposure"][0, by[1]] == pytest.approx(0.2)
+        assert c["trust"][0, by[1]] > 0
         assert c["startup"][0, by[0]] < c["startup"][0, by[1]]  # L3 < L2
     assert ((cm.p_miss >= 0) & (cm.p_miss <= 1)).all()
     assert int(cm.candidates[0, 0]) == 0  # the warm, trusted, idle worker is the best bound
@@ -77,11 +77,13 @@ def test_full_worker_waits() -> None:
     assert cm.components["wait"][0, k] > 0
 
 
-def test_scalarizers_finite_on_feasible() -> None:
+def test_placement_keys_are_miss_probability_then_completion() -> None:
+    """D-110: lexicographic order, finite exactly where feasible."""
     cm = build_cost_matrix((inv(),), view(), CTX, preds(), 0.0, ("r",))
-    for name, f in SCALARIZERS.items():
-        s = f(cm, (inv(),), CTX)
-        assert np.isfinite(s[cm.feasible]).all(), name
+    primary, tie = placement_keys(cm)
+    assert np.isfinite(primary[cm.feasible]).all() and np.isinf(primary[~cm.feasible]).all()
+    assert np.array_equal(primary[cm.feasible], cm.p_miss[cm.feasible])
+    assert np.allclose(tie[cm.feasible], cm.completion.mean()[cm.feasible])
 
 
 def test_completion_and_pmiss() -> None:

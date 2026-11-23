@@ -1,7 +1,7 @@
 """Cost matrix construction (doc 03 §5.1-5.2, doc 08 §5).
 
-For invocations × candidate workers it produces the named components ``wait, trust, startup, net, exec, pFail,
-exposure``, the completion distribution and ``pMiss``. Trust and artifact fetch overlap the slot wait:
+For invocations × candidate workers it produces the named components ``wait, trust, startup, net, exec, pFail``,
+the completion distribution and ``pMiss``. Trust and artifact fetch overlap the slot wait:
 ``time_to_start = max(wait, trust, fetch) + rest`` (doc 08 §5).
 
 Candidates are pruned in two stages (doc 03 §5.1 "top-K by a cheap lower bound"): a bound from cached per-view
@@ -23,7 +23,7 @@ from voss.policy.cost.inputs import CostContext
 from voss.policy.keys.budget import may_add_holder
 from voss.policy.place.candidates import eligible
 
-NAMES = ("wait", "trust", "startup", "net", "exec", "exec_var", "pFail", "exposure", "tts")
+NAMES = ("wait", "trust", "startup", "net", "exec", "exec_var", "pFail", "tts")
 
 
 @dataclass(frozen=True)
@@ -112,7 +112,6 @@ def _row(
     wait: np.ndarray,
 ) -> dict[str, np.ndarray]:
     a = cache.get(view, ctx)
-    t = ctx.tenants[inv.tenant]
     w = wait[sub]
     tts = np.maximum(np.maximum(w, st.trust[sub]), st.fetch[sub]) + st.rest[sub]
     cpu = a.cpu_factor[sub]
@@ -130,7 +129,6 @@ def _row(
         "exec_var": p.exec_var * cpu**2,
         "pFail": p_fail,
         "tts": tts,
-        "exposure": np.where(st.holder[sub], 0.0, t.sigma * (1 - view.assurance[sub])),
         "shift": comp.shift,
         "m": comp.m,
         "s": comp.s,
@@ -192,7 +190,3 @@ def _slice(p: Preds, i: int, sub: np.ndarray) -> Preds:
         return out
 
     return Preds(pick(p.exec_mean), pick(p.exec_var), pick(p.p_alive), pick(p.p_omit))
-
-
-def slo_weight(inv: Invocation, ctx: CostContext) -> float:
-    return ctx.sync_weight if inv.slo_class == SloClass.SYNC else 0.3 * ctx.sync_weight

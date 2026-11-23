@@ -1,4 +1,4 @@
-"""One request-placement decision (doc 03 §5): predictions → cost matrix → scalarize → admission → place.
+"""One request-placement decision (doc 03 §5): predictions → cost matrix → placement order (D-110) → admission → place.
 
 The scheduler role calls this and applies the result after the decision latency (doc 01 §7).
 """
@@ -19,7 +19,7 @@ from voss.policy.admission import admit
 from voss.policy.cost.arrays import ArrayCache
 from voss.policy.cost.components import CostMatrix, Waits, build_cost_matrix, completion_of
 from voss.policy.cost.inputs import CostContext
-from voss.policy.cost.scalarize import SCALARIZERS
+from voss.policy.cost.scalarize import placement_keys
 from voss.policy.cost.wait import JobEst, worker_waits
 from voss.policy.place import registry as _placers  # noqa: F401  (registers placers)
 from voss.policy.place.base import PlaceRequest
@@ -54,7 +54,6 @@ class Decider:
         self.cfg, self.ctx, self.models, self.start_utc_h = cfg, ctx, models, start_utc_h
         self.sync = make_placer(cfg.placer.sync, cfg)
         self.batch = make_placer(cfg.placer.async_, cfg)
-        self.scalarize = SCALARIZERS[cfg.cost.scalarizer]
         self.cache = ArrayCache()
 
     def decide(
@@ -77,7 +76,7 @@ class Decider:
         cm = build_cost_matrix(
             invs, view, self.ctx, preds, now, routers, self.cache, svc_s=svc, waits=self._waits(view, jobs, now, svc)
         )
-        scores = self.scalarize(cm, invs, self.ctx)
+        scores, tiebreak = placement_keys(cm)
         keep = self._admission(invs, cm, out)
         if not keep:
             return out
@@ -89,7 +88,8 @@ class Decider:
             gen,
             cm=_rows(cm, keep),
             scores=scores[keep],
-            slot_step=self.ctx.eps * svc / np.maximum(view.slots[cm.candidates[keep]], 1),
+            tiebreak=tiebreak[keep],
+            slot_step=svc / np.maximum(view.slots[cm.candidates[keep]], 1),
         )
         placer = self.batch if windowed else self.sync
         if getattr(placer, "uses_fn_load", False):
