@@ -1003,3 +1003,13 @@ overcommit (a static interference factor of at most +10% stands in for contentio
 stays 0.75 because a new default would invalidate every frozen hash, leave the owner no CPU, break the E01 emulation (E0: 3 cores → 2 slots) and
 look like tuning after the fact. Instead H17 (donated share 0.5, 1.0) and H18 (CPU overcommit with static time-sharing, ρ = 2, 4) are
 pre-registered in doc 06 §8.1 before any run, with the result reported whichever way it falls.
+
+**D-139 The reported configuration uses the occupancy wait estimate; the exact per-worker replay is an unreported diagnostic.**
+D-114 made `per_worker` the only wait model. On the frozen 500-worker, 28 h grid that model replays every candidate worker's FIFO at
+every request-placement decision; the D01a rerun reached only 6 simulated hours in 5 h 40 m (23 M events), so no shard can finish in
+the 340-minute job. `voss.cost.wait_model` is therefore `occupancy` by default: the scheduler-wide estimate
+`(busy + queued + inflight - slots + 1)^+ x svc / slots`, with the same `voss.worker.sync_priority` queueing. The exact replay remains
+available for debugging but no reported cell uses it; the manuscript describes the occupancy estimate and the synchronous-first
+queue, not the replay. *Why:* the wait estimate is not the paper's mechanism under test and the exact replay cannot produce the grid.
+*Rejected:* caching the replay (not implemented), a shorter horizon (changes D-97 and the experiment headers), and going back to a
+single D01a-only result with a different run size.

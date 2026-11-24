@@ -123,6 +123,7 @@ class CostConfig(Frozen):
 
     tts_cv: float = Field(default=0.3, ge=0)  # D-122: spread of the time to start, S
     overdue_frac: float = Field(default=0.25, ge=0)  # D-122: extra hold of a job past its predicted end, S
+    wait_model: Literal["occupancy", "per_worker"] = "occupancy"  # D-139: reported grid uses occupancy
 
 
 class AdmissionConfig(Frozen):

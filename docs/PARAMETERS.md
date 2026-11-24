@@ -56,6 +56,7 @@ no longer exists. When you add, rename or remove a key, change this file in the 
 | `voss.predictor.prior_sd` | `(0.7, 0.3, 0.5)` | S | D-122: run-time model prior standard deviations; listed, not varied (they wash out after a few observations) |
 | `voss.cost.tts_cv` | `0.3` | S | D-122: spread of the time to start, `(tts_cv x tts)^2`; R07 varies {0.15, 0.6} |
 | `voss.cost.overdue_frac` | `0.25` | S | D-122: extra share of its prediction an overdue job holds its slot; R07 varies {0.125, 0.5} |
+| `voss.cost.wait_model` | `occupancy` | A | D-139: the scheduler-wide occupancy estimate for the reported grid; exact per-worker replay is a diagnostic and is not reported |
 | `voss.admission.enabled` | `True` | S | admission on/off |
 | `voss.admission.eps` | `0.05` | S | reject when every candidate misses with probability above 1 - eps |
 | `voss.admission.defer_s` | `1.0` | S | retry delay for a deferred asynchronous invocation |
