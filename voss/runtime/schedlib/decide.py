@@ -157,8 +157,9 @@ class Decider:
         svc: float,
         needed: np.ndarray | None = None,
     ) -> Waits | None:
-        """Doc 03 §5.2 / D-77, D-114: per-worker wait from predicted remaining work, the only wait model."""
-        if jobs is None:
+        """Doc 03 §5.2 / D-77, D-114, D-139: the occupancy estimate by default; the exact per-worker replay is an
+        R07 variant because replaying every worker at every decision is too slow for the 500-worker grid."""
+        if jobs is None or self.cfg.cost.wait_model != "per_worker":
             return None
         prio = self.cfg.worker.sync_priority
         overdue = self.cfg.cost.overdue_frac
