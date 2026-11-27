@@ -38,7 +38,7 @@ each**.
 | Time (IST) | Workload | Notes |
 |---|---|---|
 | complete | R06 | 90/90 |
-| 13:06–28 Nov ~14:05 | R04 shard 1/4 | 120 runs, 12 jobs; output on HDD via `/work/hdd` |
+| 14:14–28 Nov ~15:15 | R04 shard 1/4 | 120 runs, 12 jobs; output on HDD via `/hdd` |
 
 ### colva4
 
@@ -63,8 +63,9 @@ each**.
 | R05 | **26 Nov, ~23:30 — complete** |
 | R04 colva3 shard | 27 Nov, ~19:20 |
 | R04 colva4 shard | 28 Nov, ~00:30 |
-| R04 colva1/colva2 shards | 28 Nov, ~14:05 |
-| R04 overall | 28 Nov, ~14:05 |
+| R04 colva1 shard | 28 Nov, ~14:05 |
+| R04 colva2 shard | 28 Nov, ~15:15 |
+| R04 overall | 28 Nov, ~15:15 |
 | V13 | unknown; currently 0/6 and failing at guest boot |
 | Deadline | 27 Nov, 15:00 |
 
