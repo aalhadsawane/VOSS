@@ -37,10 +37,10 @@ HDD roots differ by machine:
 
 | Machine | HDD root | VOSS data |
 |---|---|---|
-| colva1 | `/mnt/hdd2/voss-runs/colva1` | `R05/` (60 runs) |
-| colva2 | `/mnt/hdd2/voss-runs/colva2` | `D01a/` (9), `R06/` (90) |
-| colva3 | `/mnt/hdd2/voss-runs/colva3` | `R04/` (27 runs) |
-| colva4 | `/mnt/hdd1/voss-runs/colva4` | `R04/` (1), `R05/` (60), `R08/` (10), `R09/` (20), `D02_DROP/` (12), `results/node-R08`, `results/node-R09` |
+| colva1 | `/mnt/hdd2/voss-runs/colva1` | `R05/` (60 runs, 45 GB) |
+| colva2 | `/mnt/hdd2/voss-runs/colva2` | `D01a/` (9, 7 GB), `R06/` (90, 65 GB) |
+| colva3 | `/mnt/hdd2/voss-runs/colva3` | `R04/` (27 runs, 17 GB) |
+| colva4 | `/mnt/hdd1/voss-runs/colva4` | `R04/` (1, 643 MB), `R05/` (60, 45 GB), `R08/` (10, 7.3 GB), `R09/` (20, 20 GB), `D02_DROP/` (12, 7.8 GB), `results/node-R08`, `results/node-R09` |
 
 The repositories remain at:
 
@@ -138,7 +138,10 @@ jump host.
   colvas.
 - Stopped and removed the VOSS Docker containers (`noble` on colva1/2/4,
   `voss-r04` on colva3).
-- Moved completed and partial run data to the HDD tier.
+- Moved completed and partial run data to the HDD tier; no VOSS run data remains
+  on the SSDs.
+- Copied R08/R09 summaries to `results/node-R08` and `results/node-R09` and
+  pushed them on `results/node-2026-11-27`.
 - Stopped the colva4 opencode server and its tmux session.
 - Killed V13 work; no V13 process remains.
 - Did not reboot any machine.

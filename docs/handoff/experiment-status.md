@@ -7,9 +7,12 @@ Read `docs/handoff/HANDOVER.md` first for the full guide.
 ## Machine state
 
 - **No VOSS experiment process is running on any colva.**
-- VOSS Docker containers are stopped: `noble` on colva1/colva2/colva4 and
-  `voss-r04` on colva3.
+- VOSS Docker containers are stopped and removed: `noble` on colva1/colva2/colva4
+  and `voss-r04` on colva3.
 - The colva4 opencode server and tmux session are stopped.
+- All run data is moved to the HDD tier; no VOSS run data remains on the SSDs.
+- R08/R09 summaries are committed on `results/node-2026-11-27`; raw run data is
+  on the HDDs.
 - No machine was rebooted. **colva1 must not be rebooted; it is the lab jump
   host.**
 - **No colva reservation is needed from now on.** The machines can be handed to
