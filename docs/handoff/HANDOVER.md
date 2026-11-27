@@ -142,7 +142,7 @@ jump host.
   on the SSDs.
 - Copied R08/R09 summaries to `results/node-R08` and `results/node-R09` and
   pushed them on `results/node-2026-11-27`.
-- Stopped the colva4 opencode server and its tmux session.
+- Stopped remote opencode servers and the colva4 tmux session.
 - Killed V13 work; no V13 process remains.
 - Did not reboot any machine.
 
