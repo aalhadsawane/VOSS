@@ -1,6 +1,6 @@
 # Experiment status and node schedule
 
-Last updated: **2026-11-27 13:40 IST**
+Last updated: **2026-11-27 14:55 IST**
 Owner: VOSS experiments. Update this file whenever node or Actions status changes.
 
 ## Current status
@@ -13,7 +13,7 @@ Owner: VOSS experiments. Update this file whenever node or Actions status change
 | R06 | colva2 | **90/90** | no | complete |
 | R09 | colva4 | **20/20** | no | complete |
 | R05 | colva1/colva4 | **120/120** | no | complete; four shards indexed |
-| R04 | all four nodes | 0 | 12 + 12 + 12 + 11 jobs | all four shards running; colva1/2 write to HDD |
+| R04 | all four nodes | **28/480** | 12 + 12 + 8 + 8 jobs | colva3/colva4 restarted at 8 jobs after `BrokenProcessPool` |
 | V13 | colva3 | **0/6** | no | still failing at Firecracker guest boot |
 | R02 | Actions | — | queued | plan job waiting; may hit 5h40 |
 | R04 | Actions | partial | canceled | many shards hit 5h40; node path is primary |
@@ -31,27 +31,27 @@ each**.
 | Time (IST) | Workload | Notes |
 |---|---|---|
 | complete | R05 | 60/60 locally |
-| 13:06–28 Nov ~14:05 | R04 shard 0/4 | 120 runs, 12 jobs; output on `/mnt/hdd2` |
+| 13:06–28 Nov ~17:00 | R04 shard 0/4 | 120 runs, 12 jobs; HDD output |
 
 ### colva2
 
 | Time (IST) | Workload | Notes |
 |---|---|---|
 | complete | R06 | 90/90 |
-| 14:14–28 Nov ~15:15 | R04 shard 1/4 | 120 runs, 12 jobs; output on HDD via `/hdd` |
+| 14:14–28 Nov ~18:00 | R04 shard 1/4 | 120 runs, 12 jobs; HDD output |
 
 ### colva4
 
 | Time (IST) | Workload | Notes |
 |---|---|---|
-| 23:24–28 Nov ~00:30 | R04 shard 2/4 | 120 runs, 12 jobs |
-| — | — | R09 complete; 1.2 TB free |
+| 14:48–29 Nov ~09:00 | R04 shard 2/4 | 119 remaining, 8 jobs; restarted after failure |
+| running | R05 result collection | separate process, 60 runs |
 
 ### colva3
 
 | Time (IST) | Workload | Notes |
 |---|---|---|
-| 15:51–27 Nov ~19:20 | R04 shard 3/4 | 120 runs, 11 jobs |
+| 14:48–29 Nov ~00:30 | R04 shard 3/4 | 93 remaining, 8 jobs; restarted after failure |
 | after R04 | V13 fix + 6 reps | still failing; needs debugging |
 
 ## Completion estimates
@@ -61,18 +61,22 @@ each**.
 | R09 | **26 Nov, ~02:30 — complete** |
 | R06 | **26 Nov, ~23:30 — complete** |
 | R05 | **26 Nov, ~23:30 — complete** |
-| R04 colva3 shard | 27 Nov, ~19:20 |
-| R04 colva4 shard | 28 Nov, ~00:30 |
-| R04 colva1 shard | 28 Nov, ~14:05 |
-| R04 colva2 shard | 28 Nov, ~15:15 |
-| R04 overall | 28 Nov, ~15:15 |
-| V13 | unknown; currently 0/6 and failing at guest boot |
-| Deadline | 27 Nov, 15:00 |
+| R04 colva1 shard | 28 Nov, ~17:00 |
+| R04 colva2 shard | 28 Nov, ~18:00 |
+| R04 colva3 shard | 29 Nov, ~00:30 |
+| R04 colva4 shard | 29 Nov, ~09:00 |
+| R04 overall | **29 Nov, ~09:00** |
+| Result collection and push | 29 Nov, ~12:00 |
+| V13 (only if run) | 30 Nov, ~02:00 on colva3 |
+| Deadline | 27 Nov, 15:00 (missed) |
 
-R05, R06 and R09 are complete. All four R04 shards are now running: colva1 and
-colva2 write their results to the HDD tier, which lifted the storage limit;
-colva3 and colva4 write to their local disks. R04 is complete around 14:05 on
-28 Nov, so the 27 Nov 15:00 deadline is missed but no work is blocked.
+**Reserve the four colvas through 29 Nov, 14:00 IST** for R04 plus result
+collection. If V13 is attempted, keep **colva3 through 30 Nov, 06:00 IST**; the
+other three can be released on 29 Nov.
+
+R05, R06 and R09 are complete. R04 is behind schedule: colva3 reached 27/120 and
+colva4 1/120 before `BrokenProcessPool` stopped them; both are restarted at 8
+jobs. colva1/colva2 continue at 12 jobs with HDD output.
 
 ## GitHub Actions
 
@@ -171,3 +175,9 @@ a 62 GB node. Completed runs are identified by `manifest.json`; do not delete
   sweeps under the 40-job limit. colva2's R04 container was raised to 48 GB and
   12 CPUs; colva1/colva2 R04 output stays on HDD. Node result collection is
   running for D01a, D02_DROP, R05, R06, R08 and R09.
+- **2026-11-27 14:55 IST:** R04 is **28/480**. colva3 stopped at 27/120 and
+  colva4 at 1/120 with `BrokenProcessPool`; both restarted at **8 jobs**.
+  colva1/colva2 continue at 12 jobs. R08 and R09 summaries are collected;
+  D01a/R05/R06 collection is still running. Expected R04 completion is **29 Nov
+  ~09:00**, result push ~12:00. Reserve all colvas through **29 Nov 14:00**; keep
+  colva3 through **30 Nov 06:00** only if V13 is attempted.
